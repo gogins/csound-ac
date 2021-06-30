@@ -14723,10 +14723,15 @@
 	var Softmax = 'Softmax';
 	var SparseFillEmptyRows = 'SparseFillEmptyRows';
 	var SparseReshape = 'SparseReshape';
+	var SparseSegmentMean = 'SparseSegmentMean';
+	var SparseSegmentSum = 'SparseSegmentSum';
 	var SparseToDense = 'SparseToDense';
 	var SquaredDifference = 'SquaredDifference';
 	var Square = 'Square';
 	var StridedSlice = 'StridedSlice';
+	var StringNGrams = 'StringNGrams';
+	var StringSplit = 'StringSplit';
+	var StringToHashBucketFast = 'StringToHashBucketFast';
 	var Sub = 'Sub';
 	var Tan = 'Tan';
 	var Tanh = 'Tanh';
@@ -14908,6 +14913,1485 @@
 	  return backendName + "_" + kernelName;
 	}
 
+	var long_1 = Long;
+	/**
+	 * wasm optimizations, to do native i64 multiplication and divide
+	 */
+
+	var wasm = null;
+
+	try {
+	  wasm = new WebAssembly.Instance(new WebAssembly.Module(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 13, 2, 96, 0, 1, 127, 96, 4, 127, 127, 127, 127, 1, 127, 3, 7, 6, 0, 1, 1, 1, 1, 1, 6, 6, 1, 127, 1, 65, 0, 11, 7, 50, 6, 3, 109, 117, 108, 0, 1, 5, 100, 105, 118, 95, 115, 0, 2, 5, 100, 105, 118, 95, 117, 0, 3, 5, 114, 101, 109, 95, 115, 0, 4, 5, 114, 101, 109, 95, 117, 0, 5, 8, 103, 101, 116, 95, 104, 105, 103, 104, 0, 0, 10, 191, 1, 6, 4, 0, 35, 0, 11, 36, 1, 1, 126, 32, 0, 173, 32, 1, 173, 66, 32, 134, 132, 32, 2, 173, 32, 3, 173, 66, 32, 134, 132, 126, 34, 4, 66, 32, 135, 167, 36, 0, 32, 4, 167, 11, 36, 1, 1, 126, 32, 0, 173, 32, 1, 173, 66, 32, 134, 132, 32, 2, 173, 32, 3, 173, 66, 32, 134, 132, 127, 34, 4, 66, 32, 135, 167, 36, 0, 32, 4, 167, 11, 36, 1, 1, 126, 32, 0, 173, 32, 1, 173, 66, 32, 134, 132, 32, 2, 173, 32, 3, 173, 66, 32, 134, 132, 128, 34, 4, 66, 32, 135, 167, 36, 0, 32, 4, 167, 11, 36, 1, 1, 126, 32, 0, 173, 32, 1, 173, 66, 32, 134, 132, 32, 2, 173, 32, 3, 173, 66, 32, 134, 132, 129, 34, 4, 66, 32, 135, 167, 36, 0, 32, 4, 167, 11, 36, 1, 1, 126, 32, 0, 173, 32, 1, 173, 66, 32, 134, 132, 32, 2, 173, 32, 3, 173, 66, 32, 134, 132, 130, 34, 4, 66, 32, 135, 167, 36, 0, 32, 4, 167, 11])), {}).exports;
+	} catch (e) {// no wasm support :(
+	}
+	/**
+	 * Constructs a 64 bit two's-complement integer, given its low and high 32 bit values as *signed* integers.
+	 *  See the from* functions below for more convenient ways of constructing Longs.
+	 * @exports Long
+	 * @class A Long class for representing a 64 bit two's-complement integer value.
+	 * @param {number} low The low (signed) 32 bits of the long
+	 * @param {number} high The high (signed) 32 bits of the long
+	 * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+	 * @constructor
+	 */
+
+
+	function Long(low, high, unsigned) {
+	  /**
+	   * The low 32 bits as a signed value.
+	   * @type {number}
+	   */
+	  this.low = low | 0;
+	  /**
+	   * The high 32 bits as a signed value.
+	   * @type {number}
+	   */
+
+	  this.high = high | 0;
+	  /**
+	   * Whether unsigned or not.
+	   * @type {boolean}
+	   */
+
+	  this.unsigned = !!unsigned;
+	} // The internal representation of a long is the two given signed, 32-bit values.
+	// We use 32-bit pieces because these are the size of integers on which
+	// Javascript performs bit-operations.  For operations like addition and
+	// multiplication, we split each number into 16 bit pieces, which can easily be
+	// multiplied within Javascript's floating-point representation without overflow
+	// or change in sign.
+	//
+	// In the algorithms below, we frequently reduce the negative case to the
+	// positive case by negating the input(s) and then post-processing the result.
+	// Note that we must ALWAYS check specially whether those values are MIN_VALUE
+	// (-2^63) because -MIN_VALUE == MIN_VALUE (since 2^63 cannot be represented as
+	// a positive number, it overflows back into a negative).  Not handling this
+	// case would often result in infinite recursion.
+	//
+	// Common constant values ZERO, ONE, NEG_ONE, etc. are defined below the from*
+	// methods on which they depend.
+
+	/**
+	 * An indicator used to reliably determine if an object is a Long or not.
+	 * @type {boolean}
+	 * @const
+	 * @private
+	 */
+
+
+	Long.prototype.__isLong__;
+	Object.defineProperty(Long.prototype, "__isLong__", {
+	  value: true
+	});
+	/**
+	 * @function
+	 * @param {*} obj Object
+	 * @returns {boolean}
+	 * @inner
+	 */
+
+	function isLong(obj) {
+	  return (obj && obj["__isLong__"]) === true;
+	}
+	/**
+	 * Tests if the specified object is a Long.
+	 * @function
+	 * @param {*} obj Object
+	 * @returns {boolean}
+	 */
+
+
+	Long.isLong = isLong;
+	/**
+	 * A cache of the Long representations of small integer values.
+	 * @type {!Object}
+	 * @inner
+	 */
+
+	var INT_CACHE = {};
+	/**
+	 * A cache of the Long representations of small unsigned integer values.
+	 * @type {!Object}
+	 * @inner
+	 */
+
+	var UINT_CACHE = {};
+	/**
+	 * @param {number} value
+	 * @param {boolean=} unsigned
+	 * @returns {!Long}
+	 * @inner
+	 */
+
+	function fromInt(value, unsigned) {
+	  var obj, cachedObj, cache;
+
+	  if (unsigned) {
+	    value >>>= 0;
+
+	    if (cache = 0 <= value && value < 256) {
+	      cachedObj = UINT_CACHE[value];
+	      if (cachedObj) return cachedObj;
+	    }
+
+	    obj = fromBits(value, (value | 0) < 0 ? -1 : 0, true);
+	    if (cache) UINT_CACHE[value] = obj;
+	    return obj;
+	  } else {
+	    value |= 0;
+
+	    if (cache = -128 <= value && value < 128) {
+	      cachedObj = INT_CACHE[value];
+	      if (cachedObj) return cachedObj;
+	    }
+
+	    obj = fromBits(value, value < 0 ? -1 : 0, false);
+	    if (cache) INT_CACHE[value] = obj;
+	    return obj;
+	  }
+	}
+	/**
+	 * Returns a Long representing the given 32 bit integer value.
+	 * @function
+	 * @param {number} value The 32 bit integer in question
+	 * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+	 * @returns {!Long} The corresponding Long value
+	 */
+
+
+	Long.fromInt = fromInt;
+	/**
+	 * @param {number} value
+	 * @param {boolean=} unsigned
+	 * @returns {!Long}
+	 * @inner
+	 */
+
+	function fromNumber(value, unsigned) {
+	  if (isNaN(value)) return unsigned ? UZERO : ZERO;
+
+	  if (unsigned) {
+	    if (value < 0) return UZERO;
+	    if (value >= TWO_PWR_64_DBL) return MAX_UNSIGNED_VALUE;
+	  } else {
+	    if (value <= -TWO_PWR_63_DBL) return MIN_VALUE;
+	    if (value + 1 >= TWO_PWR_63_DBL) return MAX_VALUE;
+	  }
+
+	  if (value < 0) return fromNumber(-value, unsigned).neg();
+	  return fromBits(value % TWO_PWR_32_DBL | 0, value / TWO_PWR_32_DBL | 0, unsigned);
+	}
+	/**
+	 * Returns a Long representing the given value, provided that it is a finite number. Otherwise, zero is returned.
+	 * @function
+	 * @param {number} value The number in question
+	 * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+	 * @returns {!Long} The corresponding Long value
+	 */
+
+
+	Long.fromNumber = fromNumber;
+	/**
+	 * @param {number} lowBits
+	 * @param {number} highBits
+	 * @param {boolean=} unsigned
+	 * @returns {!Long}
+	 * @inner
+	 */
+
+	function fromBits(lowBits, highBits, unsigned) {
+	  return new Long(lowBits, highBits, unsigned);
+	}
+	/**
+	 * Returns a Long representing the 64 bit integer that comes by concatenating the given low and high bits. Each is
+	 *  assumed to use 32 bits.
+	 * @function
+	 * @param {number} lowBits The low 32 bits
+	 * @param {number} highBits The high 32 bits
+	 * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+	 * @returns {!Long} The corresponding Long value
+	 */
+
+
+	Long.fromBits = fromBits;
+	/**
+	 * @function
+	 * @param {number} base
+	 * @param {number} exponent
+	 * @returns {number}
+	 * @inner
+	 */
+
+	var pow_dbl = Math.pow; // Used 4 times (4*8 to 15+4)
+
+	/**
+	 * @param {string} str
+	 * @param {(boolean|number)=} unsigned
+	 * @param {number=} radix
+	 * @returns {!Long}
+	 * @inner
+	 */
+
+	function fromString(str, unsigned, radix) {
+	  if (str.length === 0) throw Error('empty string');
+	  if (str === "NaN" || str === "Infinity" || str === "+Infinity" || str === "-Infinity") return ZERO;
+
+	  if (typeof unsigned === 'number') {
+	    // For goog.math.long compatibility
+	    radix = unsigned, unsigned = false;
+	  } else {
+	    unsigned = !!unsigned;
+	  }
+
+	  radix = radix || 10;
+	  if (radix < 2 || 36 < radix) throw RangeError('radix');
+	  var p;
+	  if ((p = str.indexOf('-')) > 0) throw Error('interior hyphen');else if (p === 0) {
+	    return fromString(str.substring(1), unsigned, radix).neg();
+	  } // Do several (8) digits each time through the loop, so as to
+	  // minimize the calls to the very expensive emulated div.
+
+	  var radixToPower = fromNumber(pow_dbl(radix, 8));
+	  var result = ZERO;
+
+	  for (var i = 0; i < str.length; i += 8) {
+	    var size = Math.min(8, str.length - i),
+	        value = parseInt(str.substring(i, i + size), radix);
+
+	    if (size < 8) {
+	      var power = fromNumber(pow_dbl(radix, size));
+	      result = result.mul(power).add(fromNumber(value));
+	    } else {
+	      result = result.mul(radixToPower);
+	      result = result.add(fromNumber(value));
+	    }
+	  }
+
+	  result.unsigned = unsigned;
+	  return result;
+	}
+	/**
+	 * Returns a Long representation of the given string, written using the specified radix.
+	 * @function
+	 * @param {string} str The textual representation of the Long
+	 * @param {(boolean|number)=} unsigned Whether unsigned or not, defaults to signed
+	 * @param {number=} radix The radix in which the text is written (2-36), defaults to 10
+	 * @returns {!Long} The corresponding Long value
+	 */
+
+
+	Long.fromString = fromString;
+	/**
+	 * @function
+	 * @param {!Long|number|string|!{low: number, high: number, unsigned: boolean}} val
+	 * @param {boolean=} unsigned
+	 * @returns {!Long}
+	 * @inner
+	 */
+
+	function fromValue(val, unsigned) {
+	  if (typeof val === 'number') return fromNumber(val, unsigned);
+	  if (typeof val === 'string') return fromString(val, unsigned); // Throws for non-objects, converts non-instanceof Long:
+
+	  return fromBits(val.low, val.high, typeof unsigned === 'boolean' ? unsigned : val.unsigned);
+	}
+	/**
+	 * Converts the specified value to a Long using the appropriate from* function for its type.
+	 * @function
+	 * @param {!Long|number|string|!{low: number, high: number, unsigned: boolean}} val Value
+	 * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+	 * @returns {!Long}
+	 */
+
+
+	Long.fromValue = fromValue; // NOTE: the compiler should inline these constant values below and then remove these variables, so there should be
+	// no runtime penalty for these.
+
+	/**
+	 * @type {number}
+	 * @const
+	 * @inner
+	 */
+
+	var TWO_PWR_16_DBL = 1 << 16;
+	/**
+	 * @type {number}
+	 * @const
+	 * @inner
+	 */
+
+	var TWO_PWR_24_DBL = 1 << 24;
+	/**
+	 * @type {number}
+	 * @const
+	 * @inner
+	 */
+
+	var TWO_PWR_32_DBL = TWO_PWR_16_DBL * TWO_PWR_16_DBL;
+	/**
+	 * @type {number}
+	 * @const
+	 * @inner
+	 */
+
+	var TWO_PWR_64_DBL = TWO_PWR_32_DBL * TWO_PWR_32_DBL;
+	/**
+	 * @type {number}
+	 * @const
+	 * @inner
+	 */
+
+	var TWO_PWR_63_DBL = TWO_PWR_64_DBL / 2;
+	/**
+	 * @type {!Long}
+	 * @const
+	 * @inner
+	 */
+
+	var TWO_PWR_24 = fromInt(TWO_PWR_24_DBL);
+	/**
+	 * @type {!Long}
+	 * @inner
+	 */
+
+	var ZERO = fromInt(0);
+	/**
+	 * Signed zero.
+	 * @type {!Long}
+	 */
+
+	Long.ZERO = ZERO;
+	/**
+	 * @type {!Long}
+	 * @inner
+	 */
+
+	var UZERO = fromInt(0, true);
+	/**
+	 * Unsigned zero.
+	 * @type {!Long}
+	 */
+
+	Long.UZERO = UZERO;
+	/**
+	 * @type {!Long}
+	 * @inner
+	 */
+
+	var ONE = fromInt(1);
+	/**
+	 * Signed one.
+	 * @type {!Long}
+	 */
+
+	Long.ONE = ONE;
+	/**
+	 * @type {!Long}
+	 * @inner
+	 */
+
+	var UONE = fromInt(1, true);
+	/**
+	 * Unsigned one.
+	 * @type {!Long}
+	 */
+
+	Long.UONE = UONE;
+	/**
+	 * @type {!Long}
+	 * @inner
+	 */
+
+	var NEG_ONE = fromInt(-1);
+	/**
+	 * Signed negative one.
+	 * @type {!Long}
+	 */
+
+	Long.NEG_ONE = NEG_ONE;
+	/**
+	 * @type {!Long}
+	 * @inner
+	 */
+
+	var MAX_VALUE = fromBits(0xFFFFFFFF | 0, 0x7FFFFFFF | 0, false);
+	/**
+	 * Maximum signed value.
+	 * @type {!Long}
+	 */
+
+	Long.MAX_VALUE = MAX_VALUE;
+	/**
+	 * @type {!Long}
+	 * @inner
+	 */
+
+	var MAX_UNSIGNED_VALUE = fromBits(0xFFFFFFFF | 0, 0xFFFFFFFF | 0, true);
+	/**
+	 * Maximum unsigned value.
+	 * @type {!Long}
+	 */
+
+	Long.MAX_UNSIGNED_VALUE = MAX_UNSIGNED_VALUE;
+	/**
+	 * @type {!Long}
+	 * @inner
+	 */
+
+	var MIN_VALUE = fromBits(0, 0x80000000 | 0, false);
+	/**
+	 * Minimum signed value.
+	 * @type {!Long}
+	 */
+
+	Long.MIN_VALUE = MIN_VALUE;
+	/**
+	 * @alias Long.prototype
+	 * @inner
+	 */
+
+	var LongPrototype = Long.prototype;
+	/**
+	 * Converts the Long to a 32 bit integer, assuming it is a 32 bit integer.
+	 * @returns {number}
+	 */
+
+	LongPrototype.toInt = function toInt() {
+	  return this.unsigned ? this.low >>> 0 : this.low;
+	};
+	/**
+	 * Converts the Long to a the nearest floating-point representation of this value (double, 53 bit mantissa).
+	 * @returns {number}
+	 */
+
+
+	LongPrototype.toNumber = function toNumber() {
+	  if (this.unsigned) return (this.high >>> 0) * TWO_PWR_32_DBL + (this.low >>> 0);
+	  return this.high * TWO_PWR_32_DBL + (this.low >>> 0);
+	};
+	/**
+	 * Converts the Long to a string written in the specified radix.
+	 * @param {number=} radix Radix (2-36), defaults to 10
+	 * @returns {string}
+	 * @override
+	 * @throws {RangeError} If `radix` is out of range
+	 */
+
+
+	LongPrototype.toString = function toString(radix) {
+	  radix = radix || 10;
+	  if (radix < 2 || 36 < radix) throw RangeError('radix');
+	  if (this.isZero()) return '0';
+
+	  if (this.isNegative()) {
+	    // Unsigned Longs are never negative
+	    if (this.eq(MIN_VALUE)) {
+	      // We need to change the Long value before it can be negated, so we remove
+	      // the bottom-most digit in this base and then recurse to do the rest.
+	      var radixLong = fromNumber(radix),
+	          div = this.div(radixLong),
+	          rem1 = div.mul(radixLong).sub(this);
+	      return div.toString(radix) + rem1.toInt().toString(radix);
+	    } else return '-' + this.neg().toString(radix);
+	  } // Do several (6) digits each time through the loop, so as to
+	  // minimize the calls to the very expensive emulated div.
+
+
+	  var radixToPower = fromNumber(pow_dbl(radix, 6), this.unsigned),
+	      rem = this;
+	  var result = '';
+
+	  while (true) {
+	    var remDiv = rem.div(radixToPower),
+	        intval = rem.sub(remDiv.mul(radixToPower)).toInt() >>> 0,
+	        digits = intval.toString(radix);
+	    rem = remDiv;
+	    if (rem.isZero()) return digits + result;else {
+	      while (digits.length < 6) {
+	        digits = '0' + digits;
+	      }
+
+	      result = '' + digits + result;
+	    }
+	  }
+	};
+	/**
+	 * Gets the high 32 bits as a signed integer.
+	 * @returns {number} Signed high bits
+	 */
+
+
+	LongPrototype.getHighBits = function getHighBits() {
+	  return this.high;
+	};
+	/**
+	 * Gets the high 32 bits as an unsigned integer.
+	 * @returns {number} Unsigned high bits
+	 */
+
+
+	LongPrototype.getHighBitsUnsigned = function getHighBitsUnsigned() {
+	  return this.high >>> 0;
+	};
+	/**
+	 * Gets the low 32 bits as a signed integer.
+	 * @returns {number} Signed low bits
+	 */
+
+
+	LongPrototype.getLowBits = function getLowBits() {
+	  return this.low;
+	};
+	/**
+	 * Gets the low 32 bits as an unsigned integer.
+	 * @returns {number} Unsigned low bits
+	 */
+
+
+	LongPrototype.getLowBitsUnsigned = function getLowBitsUnsigned() {
+	  return this.low >>> 0;
+	};
+	/**
+	 * Gets the number of bits needed to represent the absolute value of this Long.
+	 * @returns {number}
+	 */
+
+
+	LongPrototype.getNumBitsAbs = function getNumBitsAbs() {
+	  if (this.isNegative()) // Unsigned Longs are never negative
+	    return this.eq(MIN_VALUE) ? 64 : this.neg().getNumBitsAbs();
+	  var val = this.high != 0 ? this.high : this.low;
+
+	  for (var bit = 31; bit > 0; bit--) {
+	    if ((val & 1 << bit) != 0) break;
+	  }
+
+	  return this.high != 0 ? bit + 33 : bit + 1;
+	};
+	/**
+	 * Tests if this Long's value equals zero.
+	 * @returns {boolean}
+	 */
+
+
+	LongPrototype.isZero = function isZero() {
+	  return this.high === 0 && this.low === 0;
+	};
+	/**
+	 * Tests if this Long's value equals zero. This is an alias of {@link Long#isZero}.
+	 * @returns {boolean}
+	 */
+
+
+	LongPrototype.eqz = LongPrototype.isZero;
+	/**
+	 * Tests if this Long's value is negative.
+	 * @returns {boolean}
+	 */
+
+	LongPrototype.isNegative = function isNegative() {
+	  return !this.unsigned && this.high < 0;
+	};
+	/**
+	 * Tests if this Long's value is positive.
+	 * @returns {boolean}
+	 */
+
+
+	LongPrototype.isPositive = function isPositive() {
+	  return this.unsigned || this.high >= 0;
+	};
+	/**
+	 * Tests if this Long's value is odd.
+	 * @returns {boolean}
+	 */
+
+
+	LongPrototype.isOdd = function isOdd() {
+	  return (this.low & 1) === 1;
+	};
+	/**
+	 * Tests if this Long's value is even.
+	 * @returns {boolean}
+	 */
+
+
+	LongPrototype.isEven = function isEven() {
+	  return (this.low & 1) === 0;
+	};
+	/**
+	 * Tests if this Long's value equals the specified's.
+	 * @param {!Long|number|string} other Other value
+	 * @returns {boolean}
+	 */
+
+
+	LongPrototype.equals = function equals(other) {
+	  if (!isLong(other)) other = fromValue(other);
+	  if (this.unsigned !== other.unsigned && this.high >>> 31 === 1 && other.high >>> 31 === 1) return false;
+	  return this.high === other.high && this.low === other.low;
+	};
+	/**
+	 * Tests if this Long's value equals the specified's. This is an alias of {@link Long#equals}.
+	 * @function
+	 * @param {!Long|number|string} other Other value
+	 * @returns {boolean}
+	 */
+
+
+	LongPrototype.eq = LongPrototype.equals;
+	/**
+	 * Tests if this Long's value differs from the specified's.
+	 * @param {!Long|number|string} other Other value
+	 * @returns {boolean}
+	 */
+
+	LongPrototype.notEquals = function notEquals(other) {
+	  return !this.eq(
+	  /* validates */
+	  other);
+	};
+	/**
+	 * Tests if this Long's value differs from the specified's. This is an alias of {@link Long#notEquals}.
+	 * @function
+	 * @param {!Long|number|string} other Other value
+	 * @returns {boolean}
+	 */
+
+
+	LongPrototype.neq = LongPrototype.notEquals;
+	/**
+	 * Tests if this Long's value differs from the specified's. This is an alias of {@link Long#notEquals}.
+	 * @function
+	 * @param {!Long|number|string} other Other value
+	 * @returns {boolean}
+	 */
+
+	LongPrototype.ne = LongPrototype.notEquals;
+	/**
+	 * Tests if this Long's value is less than the specified's.
+	 * @param {!Long|number|string} other Other value
+	 * @returns {boolean}
+	 */
+
+	LongPrototype.lessThan = function lessThan(other) {
+	  return this.comp(
+	  /* validates */
+	  other) < 0;
+	};
+	/**
+	 * Tests if this Long's value is less than the specified's. This is an alias of {@link Long#lessThan}.
+	 * @function
+	 * @param {!Long|number|string} other Other value
+	 * @returns {boolean}
+	 */
+
+
+	LongPrototype.lt = LongPrototype.lessThan;
+	/**
+	 * Tests if this Long's value is less than or equal the specified's.
+	 * @param {!Long|number|string} other Other value
+	 * @returns {boolean}
+	 */
+
+	LongPrototype.lessThanOrEqual = function lessThanOrEqual(other) {
+	  return this.comp(
+	  /* validates */
+	  other) <= 0;
+	};
+	/**
+	 * Tests if this Long's value is less than or equal the specified's. This is an alias of {@link Long#lessThanOrEqual}.
+	 * @function
+	 * @param {!Long|number|string} other Other value
+	 * @returns {boolean}
+	 */
+
+
+	LongPrototype.lte = LongPrototype.lessThanOrEqual;
+	/**
+	 * Tests if this Long's value is less than or equal the specified's. This is an alias of {@link Long#lessThanOrEqual}.
+	 * @function
+	 * @param {!Long|number|string} other Other value
+	 * @returns {boolean}
+	 */
+
+	LongPrototype.le = LongPrototype.lessThanOrEqual;
+	/**
+	 * Tests if this Long's value is greater than the specified's.
+	 * @param {!Long|number|string} other Other value
+	 * @returns {boolean}
+	 */
+
+	LongPrototype.greaterThan = function greaterThan(other) {
+	  return this.comp(
+	  /* validates */
+	  other) > 0;
+	};
+	/**
+	 * Tests if this Long's value is greater than the specified's. This is an alias of {@link Long#greaterThan}.
+	 * @function
+	 * @param {!Long|number|string} other Other value
+	 * @returns {boolean}
+	 */
+
+
+	LongPrototype.gt = LongPrototype.greaterThan;
+	/**
+	 * Tests if this Long's value is greater than or equal the specified's.
+	 * @param {!Long|number|string} other Other value
+	 * @returns {boolean}
+	 */
+
+	LongPrototype.greaterThanOrEqual = function greaterThanOrEqual(other) {
+	  return this.comp(
+	  /* validates */
+	  other) >= 0;
+	};
+	/**
+	 * Tests if this Long's value is greater than or equal the specified's. This is an alias of {@link Long#greaterThanOrEqual}.
+	 * @function
+	 * @param {!Long|number|string} other Other value
+	 * @returns {boolean}
+	 */
+
+
+	LongPrototype.gte = LongPrototype.greaterThanOrEqual;
+	/**
+	 * Tests if this Long's value is greater than or equal the specified's. This is an alias of {@link Long#greaterThanOrEqual}.
+	 * @function
+	 * @param {!Long|number|string} other Other value
+	 * @returns {boolean}
+	 */
+
+	LongPrototype.ge = LongPrototype.greaterThanOrEqual;
+	/**
+	 * Compares this Long's value with the specified's.
+	 * @param {!Long|number|string} other Other value
+	 * @returns {number} 0 if they are the same, 1 if the this is greater and -1
+	 *  if the given one is greater
+	 */
+
+	LongPrototype.compare = function compare(other) {
+	  if (!isLong(other)) other = fromValue(other);
+	  if (this.eq(other)) return 0;
+	  var thisNeg = this.isNegative(),
+	      otherNeg = other.isNegative();
+	  if (thisNeg && !otherNeg) return -1;
+	  if (!thisNeg && otherNeg) return 1; // At this point the sign bits are the same
+
+	  if (!this.unsigned) return this.sub(other).isNegative() ? -1 : 1; // Both are positive if at least one is unsigned
+
+	  return other.high >>> 0 > this.high >>> 0 || other.high === this.high && other.low >>> 0 > this.low >>> 0 ? -1 : 1;
+	};
+	/**
+	 * Compares this Long's value with the specified's. This is an alias of {@link Long#compare}.
+	 * @function
+	 * @param {!Long|number|string} other Other value
+	 * @returns {number} 0 if they are the same, 1 if the this is greater and -1
+	 *  if the given one is greater
+	 */
+
+
+	LongPrototype.comp = LongPrototype.compare;
+	/**
+	 * Negates this Long's value.
+	 * @returns {!Long} Negated Long
+	 */
+
+	LongPrototype.negate = function negate() {
+	  if (!this.unsigned && this.eq(MIN_VALUE)) return MIN_VALUE;
+	  return this.not().add(ONE);
+	};
+	/**
+	 * Negates this Long's value. This is an alias of {@link Long#negate}.
+	 * @function
+	 * @returns {!Long} Negated Long
+	 */
+
+
+	LongPrototype.neg = LongPrototype.negate;
+	/**
+	 * Returns the sum of this and the specified Long.
+	 * @param {!Long|number|string} addend Addend
+	 * @returns {!Long} Sum
+	 */
+
+	LongPrototype.add = function add(addend) {
+	  if (!isLong(addend)) addend = fromValue(addend); // Divide each number into 4 chunks of 16 bits, and then sum the chunks.
+
+	  var a48 = this.high >>> 16;
+	  var a32 = this.high & 0xFFFF;
+	  var a16 = this.low >>> 16;
+	  var a00 = this.low & 0xFFFF;
+	  var b48 = addend.high >>> 16;
+	  var b32 = addend.high & 0xFFFF;
+	  var b16 = addend.low >>> 16;
+	  var b00 = addend.low & 0xFFFF;
+	  var c48 = 0,
+	      c32 = 0,
+	      c16 = 0,
+	      c00 = 0;
+	  c00 += a00 + b00;
+	  c16 += c00 >>> 16;
+	  c00 &= 0xFFFF;
+	  c16 += a16 + b16;
+	  c32 += c16 >>> 16;
+	  c16 &= 0xFFFF;
+	  c32 += a32 + b32;
+	  c48 += c32 >>> 16;
+	  c32 &= 0xFFFF;
+	  c48 += a48 + b48;
+	  c48 &= 0xFFFF;
+	  return fromBits(c16 << 16 | c00, c48 << 16 | c32, this.unsigned);
+	};
+	/**
+	 * Returns the difference of this and the specified Long.
+	 * @param {!Long|number|string} subtrahend Subtrahend
+	 * @returns {!Long} Difference
+	 */
+
+
+	LongPrototype.subtract = function subtract(subtrahend) {
+	  if (!isLong(subtrahend)) subtrahend = fromValue(subtrahend);
+	  return this.add(subtrahend.neg());
+	};
+	/**
+	 * Returns the difference of this and the specified Long. This is an alias of {@link Long#subtract}.
+	 * @function
+	 * @param {!Long|number|string} subtrahend Subtrahend
+	 * @returns {!Long} Difference
+	 */
+
+
+	LongPrototype.sub = LongPrototype.subtract;
+	/**
+	 * Returns the product of this and the specified Long.
+	 * @param {!Long|number|string} multiplier Multiplier
+	 * @returns {!Long} Product
+	 */
+
+	LongPrototype.multiply = function multiply(multiplier) {
+	  if (this.isZero()) return ZERO;
+	  if (!isLong(multiplier)) multiplier = fromValue(multiplier); // use wasm support if present
+
+	  if (wasm) {
+	    var low = wasm.mul(this.low, this.high, multiplier.low, multiplier.high);
+	    return fromBits(low, wasm.get_high(), this.unsigned);
+	  }
+
+	  if (multiplier.isZero()) return ZERO;
+	  if (this.eq(MIN_VALUE)) return multiplier.isOdd() ? MIN_VALUE : ZERO;
+	  if (multiplier.eq(MIN_VALUE)) return this.isOdd() ? MIN_VALUE : ZERO;
+
+	  if (this.isNegative()) {
+	    if (multiplier.isNegative()) return this.neg().mul(multiplier.neg());else return this.neg().mul(multiplier).neg();
+	  } else if (multiplier.isNegative()) return this.mul(multiplier.neg()).neg(); // If both longs are small, use float multiplication
+
+
+	  if (this.lt(TWO_PWR_24) && multiplier.lt(TWO_PWR_24)) return fromNumber(this.toNumber() * multiplier.toNumber(), this.unsigned); // Divide each long into 4 chunks of 16 bits, and then add up 4x4 products.
+	  // We can skip products that would overflow.
+
+	  var a48 = this.high >>> 16;
+	  var a32 = this.high & 0xFFFF;
+	  var a16 = this.low >>> 16;
+	  var a00 = this.low & 0xFFFF;
+	  var b48 = multiplier.high >>> 16;
+	  var b32 = multiplier.high & 0xFFFF;
+	  var b16 = multiplier.low >>> 16;
+	  var b00 = multiplier.low & 0xFFFF;
+	  var c48 = 0,
+	      c32 = 0,
+	      c16 = 0,
+	      c00 = 0;
+	  c00 += a00 * b00;
+	  c16 += c00 >>> 16;
+	  c00 &= 0xFFFF;
+	  c16 += a16 * b00;
+	  c32 += c16 >>> 16;
+	  c16 &= 0xFFFF;
+	  c16 += a00 * b16;
+	  c32 += c16 >>> 16;
+	  c16 &= 0xFFFF;
+	  c32 += a32 * b00;
+	  c48 += c32 >>> 16;
+	  c32 &= 0xFFFF;
+	  c32 += a16 * b16;
+	  c48 += c32 >>> 16;
+	  c32 &= 0xFFFF;
+	  c32 += a00 * b32;
+	  c48 += c32 >>> 16;
+	  c32 &= 0xFFFF;
+	  c48 += a48 * b00 + a32 * b16 + a16 * b32 + a00 * b48;
+	  c48 &= 0xFFFF;
+	  return fromBits(c16 << 16 | c00, c48 << 16 | c32, this.unsigned);
+	};
+	/**
+	 * Returns the product of this and the specified Long. This is an alias of {@link Long#multiply}.
+	 * @function
+	 * @param {!Long|number|string} multiplier Multiplier
+	 * @returns {!Long} Product
+	 */
+
+
+	LongPrototype.mul = LongPrototype.multiply;
+	/**
+	 * Returns this Long divided by the specified. The result is signed if this Long is signed or
+	 *  unsigned if this Long is unsigned.
+	 * @param {!Long|number|string} divisor Divisor
+	 * @returns {!Long} Quotient
+	 */
+
+	LongPrototype.divide = function divide(divisor) {
+	  if (!isLong(divisor)) divisor = fromValue(divisor);
+	  if (divisor.isZero()) throw Error('division by zero'); // use wasm support if present
+
+	  if (wasm) {
+	    // guard against signed division overflow: the largest
+	    // negative number / -1 would be 1 larger than the largest
+	    // positive number, due to two's complement.
+	    if (!this.unsigned && this.high === -0x80000000 && divisor.low === -1 && divisor.high === -1) {
+	      // be consistent with non-wasm code path
+	      return this;
+	    }
+
+	    var low = (this.unsigned ? wasm.div_u : wasm.div_s)(this.low, this.high, divisor.low, divisor.high);
+	    return fromBits(low, wasm.get_high(), this.unsigned);
+	  }
+
+	  if (this.isZero()) return this.unsigned ? UZERO : ZERO;
+	  var approx, rem, res;
+
+	  if (!this.unsigned) {
+	    // This section is only relevant for signed longs and is derived from the
+	    // closure library as a whole.
+	    if (this.eq(MIN_VALUE)) {
+	      if (divisor.eq(ONE) || divisor.eq(NEG_ONE)) return MIN_VALUE; // recall that -MIN_VALUE == MIN_VALUE
+	      else if (divisor.eq(MIN_VALUE)) return ONE;else {
+	          // At this point, we have |other| >= 2, so |this/other| < |MIN_VALUE|.
+	          var halfThis = this.shr(1);
+	          approx = halfThis.div(divisor).shl(1);
+
+	          if (approx.eq(ZERO)) {
+	            return divisor.isNegative() ? ONE : NEG_ONE;
+	          } else {
+	            rem = this.sub(divisor.mul(approx));
+	            res = approx.add(rem.div(divisor));
+	            return res;
+	          }
+	        }
+	    } else if (divisor.eq(MIN_VALUE)) return this.unsigned ? UZERO : ZERO;
+
+	    if (this.isNegative()) {
+	      if (divisor.isNegative()) return this.neg().div(divisor.neg());
+	      return this.neg().div(divisor).neg();
+	    } else if (divisor.isNegative()) return this.div(divisor.neg()).neg();
+
+	    res = ZERO;
+	  } else {
+	    // The algorithm below has not been made for unsigned longs. It's therefore
+	    // required to take special care of the MSB prior to running it.
+	    if (!divisor.unsigned) divisor = divisor.toUnsigned();
+	    if (divisor.gt(this)) return UZERO;
+	    if (divisor.gt(this.shru(1))) // 15 >>> 1 = 7 ; with divisor = 8 ; true
+	      return UONE;
+	    res = UZERO;
+	  } // Repeat the following until the remainder is less than other:  find a
+	  // floating-point that approximates remainder / other *from below*, add this
+	  // into the result, and subtract it from the remainder.  It is critical that
+	  // the approximate value is less than or equal to the real value so that the
+	  // remainder never becomes negative.
+
+
+	  rem = this;
+
+	  while (rem.gte(divisor)) {
+	    // Approximate the result of division. This may be a little greater or
+	    // smaller than the actual value.
+	    approx = Math.max(1, Math.floor(rem.toNumber() / divisor.toNumber())); // We will tweak the approximate result by changing it in the 48-th digit or
+	    // the smallest non-fractional digit, whichever is larger.
+
+	    var log2 = Math.ceil(Math.log(approx) / Math.LN2),
+	        delta = log2 <= 48 ? 1 : pow_dbl(2, log2 - 48),
+	        // Decrease the approximation until it is smaller than the remainder.  Note
+	    // that if it is too large, the product overflows and is negative.
+	    approxRes = fromNumber(approx),
+	        approxRem = approxRes.mul(divisor);
+
+	    while (approxRem.isNegative() || approxRem.gt(rem)) {
+	      approx -= delta;
+	      approxRes = fromNumber(approx, this.unsigned);
+	      approxRem = approxRes.mul(divisor);
+	    } // We know the answer can't be zero... and actually, zero would cause
+	    // infinite recursion since we would make no progress.
+
+
+	    if (approxRes.isZero()) approxRes = ONE;
+	    res = res.add(approxRes);
+	    rem = rem.sub(approxRem);
+	  }
+
+	  return res;
+	};
+	/**
+	 * Returns this Long divided by the specified. This is an alias of {@link Long#divide}.
+	 * @function
+	 * @param {!Long|number|string} divisor Divisor
+	 * @returns {!Long} Quotient
+	 */
+
+
+	LongPrototype.div = LongPrototype.divide;
+	/**
+	 * Returns this Long modulo the specified.
+	 * @param {!Long|number|string} divisor Divisor
+	 * @returns {!Long} Remainder
+	 */
+
+	LongPrototype.modulo = function modulo(divisor) {
+	  if (!isLong(divisor)) divisor = fromValue(divisor); // use wasm support if present
+
+	  if (wasm) {
+	    var low = (this.unsigned ? wasm.rem_u : wasm.rem_s)(this.low, this.high, divisor.low, divisor.high);
+	    return fromBits(low, wasm.get_high(), this.unsigned);
+	  }
+
+	  return this.sub(this.div(divisor).mul(divisor));
+	};
+	/**
+	 * Returns this Long modulo the specified. This is an alias of {@link Long#modulo}.
+	 * @function
+	 * @param {!Long|number|string} divisor Divisor
+	 * @returns {!Long} Remainder
+	 */
+
+
+	LongPrototype.mod = LongPrototype.modulo;
+	/**
+	 * Returns this Long modulo the specified. This is an alias of {@link Long#modulo}.
+	 * @function
+	 * @param {!Long|number|string} divisor Divisor
+	 * @returns {!Long} Remainder
+	 */
+
+	LongPrototype.rem = LongPrototype.modulo;
+	/**
+	 * Returns the bitwise NOT of this Long.
+	 * @returns {!Long}
+	 */
+
+	LongPrototype.not = function not() {
+	  return fromBits(~this.low, ~this.high, this.unsigned);
+	};
+	/**
+	 * Returns the bitwise AND of this Long and the specified.
+	 * @param {!Long|number|string} other Other Long
+	 * @returns {!Long}
+	 */
+
+
+	LongPrototype.and = function and(other) {
+	  if (!isLong(other)) other = fromValue(other);
+	  return fromBits(this.low & other.low, this.high & other.high, this.unsigned);
+	};
+	/**
+	 * Returns the bitwise OR of this Long and the specified.
+	 * @param {!Long|number|string} other Other Long
+	 * @returns {!Long}
+	 */
+
+
+	LongPrototype.or = function or(other) {
+	  if (!isLong(other)) other = fromValue(other);
+	  return fromBits(this.low | other.low, this.high | other.high, this.unsigned);
+	};
+	/**
+	 * Returns the bitwise XOR of this Long and the given one.
+	 * @param {!Long|number|string} other Other Long
+	 * @returns {!Long}
+	 */
+
+
+	LongPrototype.xor = function xor(other) {
+	  if (!isLong(other)) other = fromValue(other);
+	  return fromBits(this.low ^ other.low, this.high ^ other.high, this.unsigned);
+	};
+	/**
+	 * Returns this Long with bits shifted to the left by the given amount.
+	 * @param {number|!Long} numBits Number of bits
+	 * @returns {!Long} Shifted Long
+	 */
+
+
+	LongPrototype.shiftLeft = function shiftLeft(numBits) {
+	  if (isLong(numBits)) numBits = numBits.toInt();
+	  if ((numBits &= 63) === 0) return this;else if (numBits < 32) return fromBits(this.low << numBits, this.high << numBits | this.low >>> 32 - numBits, this.unsigned);else return fromBits(0, this.low << numBits - 32, this.unsigned);
+	};
+	/**
+	 * Returns this Long with bits shifted to the left by the given amount. This is an alias of {@link Long#shiftLeft}.
+	 * @function
+	 * @param {number|!Long} numBits Number of bits
+	 * @returns {!Long} Shifted Long
+	 */
+
+
+	LongPrototype.shl = LongPrototype.shiftLeft;
+	/**
+	 * Returns this Long with bits arithmetically shifted to the right by the given amount.
+	 * @param {number|!Long} numBits Number of bits
+	 * @returns {!Long} Shifted Long
+	 */
+
+	LongPrototype.shiftRight = function shiftRight(numBits) {
+	  if (isLong(numBits)) numBits = numBits.toInt();
+	  if ((numBits &= 63) === 0) return this;else if (numBits < 32) return fromBits(this.low >>> numBits | this.high << 32 - numBits, this.high >> numBits, this.unsigned);else return fromBits(this.high >> numBits - 32, this.high >= 0 ? 0 : -1, this.unsigned);
+	};
+	/**
+	 * Returns this Long with bits arithmetically shifted to the right by the given amount. This is an alias of {@link Long#shiftRight}.
+	 * @function
+	 * @param {number|!Long} numBits Number of bits
+	 * @returns {!Long} Shifted Long
+	 */
+
+
+	LongPrototype.shr = LongPrototype.shiftRight;
+	/**
+	 * Returns this Long with bits logically shifted to the right by the given amount.
+	 * @param {number|!Long} numBits Number of bits
+	 * @returns {!Long} Shifted Long
+	 */
+
+	LongPrototype.shiftRightUnsigned = function shiftRightUnsigned(numBits) {
+	  if (isLong(numBits)) numBits = numBits.toInt();
+	  numBits &= 63;
+	  if (numBits === 0) return this;else {
+	    var high = this.high;
+
+	    if (numBits < 32) {
+	      var low = this.low;
+	      return fromBits(low >>> numBits | high << 32 - numBits, high >>> numBits, this.unsigned);
+	    } else if (numBits === 32) return fromBits(high, 0, this.unsigned);else return fromBits(high >>> numBits - 32, 0, this.unsigned);
+	  }
+	};
+	/**
+	 * Returns this Long with bits logically shifted to the right by the given amount. This is an alias of {@link Long#shiftRightUnsigned}.
+	 * @function
+	 * @param {number|!Long} numBits Number of bits
+	 * @returns {!Long} Shifted Long
+	 */
+
+
+	LongPrototype.shru = LongPrototype.shiftRightUnsigned;
+	/**
+	 * Returns this Long with bits logically shifted to the right by the given amount. This is an alias of {@link Long#shiftRightUnsigned}.
+	 * @function
+	 * @param {number|!Long} numBits Number of bits
+	 * @returns {!Long} Shifted Long
+	 */
+
+	LongPrototype.shr_u = LongPrototype.shiftRightUnsigned;
+	/**
+	 * Converts this Long to signed.
+	 * @returns {!Long} Signed long
+	 */
+
+	LongPrototype.toSigned = function toSigned() {
+	  if (!this.unsigned) return this;
+	  return fromBits(this.low, this.high, false);
+	};
+	/**
+	 * Converts this Long to unsigned.
+	 * @returns {!Long} Unsigned long
+	 */
+
+
+	LongPrototype.toUnsigned = function toUnsigned() {
+	  if (this.unsigned) return this;
+	  return fromBits(this.low, this.high, true);
+	};
+	/**
+	 * Converts this Long to its byte representation.
+	 * @param {boolean=} le Whether little or big endian, defaults to big endian
+	 * @returns {!Array.<number>} Byte representation
+	 */
+
+
+	LongPrototype.toBytes = function toBytes(le) {
+	  return le ? this.toBytesLE() : this.toBytesBE();
+	};
+	/**
+	 * Converts this Long to its little endian byte representation.
+	 * @returns {!Array.<number>} Little endian byte representation
+	 */
+
+
+	LongPrototype.toBytesLE = function toBytesLE() {
+	  var hi = this.high,
+	      lo = this.low;
+	  return [lo & 0xff, lo >>> 8 & 0xff, lo >>> 16 & 0xff, lo >>> 24, hi & 0xff, hi >>> 8 & 0xff, hi >>> 16 & 0xff, hi >>> 24];
+	};
+	/**
+	 * Converts this Long to its big endian byte representation.
+	 * @returns {!Array.<number>} Big endian byte representation
+	 */
+
+
+	LongPrototype.toBytesBE = function toBytesBE() {
+	  var hi = this.high,
+	      lo = this.low;
+	  return [hi >>> 24, hi >>> 16 & 0xff, hi >>> 8 & 0xff, hi & 0xff, lo >>> 24, lo >>> 16 & 0xff, lo >>> 8 & 0xff, lo & 0xff];
+	};
+	/**
+	 * Creates a Long from its byte representation.
+	 * @param {!Array.<number>} bytes Byte representation
+	 * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+	 * @param {boolean=} le Whether little or big endian, defaults to big endian
+	 * @returns {Long} The corresponding Long value
+	 */
+
+
+	Long.fromBytes = function fromBytes(bytes, unsigned, le) {
+	  return le ? Long.fromBytesLE(bytes, unsigned) : Long.fromBytesBE(bytes, unsigned);
+	};
+	/**
+	 * Creates a Long from its little endian byte representation.
+	 * @param {!Array.<number>} bytes Little endian byte representation
+	 * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+	 * @returns {Long} The corresponding Long value
+	 */
+
+
+	Long.fromBytesLE = function fromBytesLE(bytes, unsigned) {
+	  return new Long(bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24, bytes[4] | bytes[5] << 8 | bytes[6] << 16 | bytes[7] << 24, unsigned);
+	};
+	/**
+	 * Creates a Long from its big endian byte representation.
+	 * @param {!Array.<number>} bytes Big endian byte representation
+	 * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
+	 * @returns {Long} The corresponding Long value
+	 */
+
+
+	Long.fromBytesBE = function fromBytesBE(bytes, unsigned) {
+	  return new Long(bytes[4] << 24 | bytes[5] << 16 | bytes[6] << 8 | bytes[7], bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3], unsigned);
+	};
+
+	var LongExports = {
+		__proto__: null,
+		'default': long_1,
+		__moduleExports: long_1
+	};
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+
+	var Long$1 = // tslint:disable-next-line
+	long_1 || LongExports;
+	function hexToLong(hex) {
+	  return Long$1.fromString(hex, true, 16);
+	} // Some primes between 2^63 and 2^64 for various uses.
+	// Hex 0xc3a5c85c97cb3127
+
+	var k0 = hexToLong('c3a5c85c97cb3127'); // Hex 0xb492b66fbe98f273
+
+	var k1 = hexToLong('b492b66fbe98f273'); // Hex 0x9ae16a3b2f90404f
+
+	var k2 = hexToLong('9ae16a3b2f90404f');
+
+	function shiftMix(val) {
+	  return val.xor(val.shru(47));
+	}
+
+	function fetch$1(s, offset, numBytes) {
+	  var bytes = s.slice(offset, offset + numBytes);
+	  return Long$1.fromBytes(Array.from(bytes), true, true);
+	}
+
+	function fetch64(s, offset) {
+	  return fetch$1(s, offset, 8);
+	}
+
+	function fetch32(s, offset) {
+	  return fetch$1(s, offset, 4);
+	}
+
+	function rotate64(val, shift) {
+	  // Avoid shifting by 64: doing so yields an undefined result.
+	  return shift === 0 ? val : val.shru(shift).or(val.shl(64 - shift));
+	}
+
+	function hashLen16(u, v, mul) {
+	  if (mul === void 0) {
+	    mul = hexToLong('9ddfea08eb382d69');
+	  }
+
+	  // Murmur-inspired hashing.
+	  var a = u.xor(v).mul(mul);
+	  a = a.xor(a.shru(47));
+	  var b = v.xor(a).mul(mul);
+	  b = b.xor(b.shru(47));
+	  b = b.mul(mul);
+	  return b;
+	} // Return a 16-byte hash for 48 bytes.  Quick and dirty.
+	// Callers do best to use "random-looking" values for a and b.
+
+
+	function weakHashLen32WithSeeds(w, x, y, z, a, b) {
+	  a = a.add(w);
+	  b = rotate64(b.add(a).add(z), 21);
+	  var c = a;
+	  a = a.add(x);
+	  a = a.add(y);
+	  b = b.add(rotate64(a, 44));
+	  return [a.add(z), b.add(c)];
+	}
+
+	function weakHashLen32WithSeedsStr(s, offset, a, b) {
+	  return weakHashLen32WithSeeds(fetch64(s, offset), fetch64(s, offset + 8), fetch64(s, offset + 16), fetch64(s, offset + 24), a, b);
+	}
+
+	function hashLen0to16(s, len) {
+	  if (len === void 0) {
+	    len = s.length;
+	  }
+
+	  if (len >= 8) {
+	    var mul = k2.add(len * 2);
+	    var a = fetch64(s, 0).add(k2);
+	    var b = fetch64(s, len - 8);
+	    var c = rotate64(b, 37).mul(mul).add(a);
+	    var d = rotate64(a, 25).add(b).mul(mul);
+	    return hashLen16(c, d, mul);
+	  }
+
+	  if (len >= 4) {
+	    var _mul = k2.add(len * 2);
+
+	    var _a = fetch32(s, 0);
+
+	    return hashLen16(_a.shl(3).add(len), fetch32(s, len - 4), _mul);
+	  }
+
+	  if (len > 0) {
+	    var _a2 = s[0];
+	    var _b = s[len >> 1];
+	    var _c = s[len - 1];
+	    var y = _a2 + (_b << 8);
+	    var z = len + (_c << 2);
+	    return shiftMix(k2.mul(y).xor(k0.mul(z))).mul(k2);
+	  }
+
+	  return k2;
+	}
+
+	function hashLen17to32(s, len) {
+	  if (len === void 0) {
+	    len = s.length;
+	  }
+
+	  var mul = k2.add(len * 2);
+	  var a = fetch64(s, 0).mul(k1);
+	  var b = fetch64(s, 8);
+	  var c = fetch64(s, len - 8).mul(mul);
+	  var d = fetch64(s, len - 16).mul(k2);
+	  return hashLen16(rotate64(a.add(b), 43).add(rotate64(c, 30)).add(d), a.add(rotate64(b.add(k2), 18)).add(c), mul);
+	}
+
+	function hashLen33to64(s, len) {
+	  if (len === void 0) {
+	    len = s.length;
+	  }
+
+	  var mul = k2.add(len * 2);
+	  var a = fetch64(s, 0).mul(k2);
+	  var b = fetch64(s, 8);
+	  var c = fetch64(s, len - 8).mul(mul);
+	  var d = fetch64(s, len - 16).mul(k2);
+	  var y = rotate64(a.add(b), 43).add(rotate64(c, 30)).add(d);
+	  var z = hashLen16(y, a.add(rotate64(b.add(k2), 18)).add(c), mul);
+	  var e = fetch64(s, 16).mul(mul);
+	  var f = fetch64(s, 24);
+	  var g = y.add(fetch64(s, len - 32)).mul(mul);
+	  var h = z.add(fetch64(s, len - 24)).mul(mul);
+	  return hashLen16(rotate64(e.add(f), 43).add(rotate64(g, 30)).add(h), e.add(rotate64(f.add(a), 18)).add(g), mul);
+	}
+
+	function fingerPrint64(s, len) {
+	  if (len === void 0) {
+	    len = s.length;
+	  }
+
+	  var seed = Long$1.fromNumber(81, true);
+
+	  if (len <= 32) {
+	    if (len <= 16) {
+	      return hashLen0to16(s, len);
+	    } else {
+	      return hashLen17to32(s, len);
+	    }
+	  } else if (len <= 64) {
+	    return hashLen33to64(s, len);
+	  } // For strings over 64 bytes we loop.  Internal state consists of
+	  // 56 bytes: v, w, x, y, and z.
+
+
+	  var x = seed;
+	  var y = seed.mul(k1).add(113);
+	  var z = shiftMix(y.mul(k2).add(113)).mul(k2);
+	  var v = [Long$1.UZERO, Long$1.UZERO];
+	  var w = [Long$1.UZERO, Long$1.UZERO];
+	  x = x.mul(k2).add(fetch64(s, 0));
+	  var offset = 0; // Set end so that after the loop we have 1 to 64 bytes left to process.
+
+	  var end = (len - 1 >> 6) * 64;
+	  var last64 = end + (len - 1 & 63) - 63;
+
+	  do {
+	    x = rotate64(x.add(y).add(v[0]).add(fetch64(s, offset + 8)), 37).mul(k1);
+	    y = rotate64(y.add(v[1]).add(fetch64(s, offset + 48)), 42).mul(k1);
+	    x = x.xor(w[1]);
+	    y = y.add(v[0]).add(fetch64(s, offset + 40));
+	    z = rotate64(z.add(w[0]), 33).mul(k1);
+	    v = weakHashLen32WithSeedsStr(s, offset, v[1].mul(k1), x.add(w[0]));
+	    w = weakHashLen32WithSeedsStr(s, offset + 32, z.add(w[1]), y.add(fetch64(s, offset + 16)));
+	    var _ref = [x, z];
+	    z = _ref[0];
+	    x = _ref[1];
+	    offset += 64;
+	  } while (offset !== end);
+
+	  var mul = k1.add(z.and(0xff).shl(1)); // Point to the last 64 bytes of input.
+
+	  offset = last64;
+	  w[0] = w[0].add(len - 1 & 63);
+	  v[0] = v[0].add(w[0]);
+	  w[0] = w[0].add(v[0]);
+	  x = rotate64(x.add(y).add(v[0]).add(fetch64(s, offset + 8)), 37).mul(mul);
+	  y = rotate64(y.add(v[1]).add(fetch64(s, offset + 48)), 42).mul(mul);
+	  x = x.xor(w[1].mul(9));
+	  y = y.add(v[0].mul(9).add(fetch64(s, offset + 40)));
+	  z = rotate64(z.add(w[0]), 33).mul(mul);
+	  v = weakHashLen32WithSeedsStr(s, offset, v[1].mul(mul), x.add(w[0]));
+	  w = weakHashLen32WithSeedsStr(s, offset + 32, z.add(w[1]), y.add(fetch64(s, offset + 16)));
+	  var _ref2 = [x, z];
+	  z = _ref2[0];
+	  x = _ref2[1];
+	  return hashLen16(hashLen16(v[0], w[0], mul).add(shiftMix(y).mul(k0)).add(z), hashLen16(v[1], w[1], mul).add(x), mul);
+	}
+
 	/**
 	 * @license
 	 * Copyright 2017 Google LLC. All Rights Reserved.
@@ -15007,7 +16491,7 @@
 	 * @doc {heading: 'Util'}
 	 */
 
-	function fetch$1(path, requestInits) {
+	function fetch$2(path, requestInits) {
 	  return env().platform.fetch(path, requestInits);
 	}
 	/**
@@ -15050,7 +16534,7 @@
 		createScalarValue: createScalarValue,
 		toTypedArray: toTypedArray,
 		now: now,
-		fetch: fetch$1,
+		fetch: fetch$2,
 		encodeString: encodeString,
 		decodeString: decodeString,
 		shuffle: shuffle,
@@ -15098,7 +16582,9 @@
 		assertNonNegativeIntegerDimensions: assertNonNegativeIntegerDimensions,
 		locToIndex: locToIndex,
 		indexToLoc: indexToLoc,
-		isPromise: isPromise
+		isPromise: isPromise,
+		hexToLong: hexToLong,
+		fingerPrint64: fingerPrint64
 	};
 
 	var Profiler = /*#__PURE__*/function () {
@@ -23903,7 +25389,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$1 = '3.6.0';
+	var version$1 = '3.7.0';
 
 	/**
 	 * @license
@@ -28315,8 +29801,8 @@
 	 */
 
 	function equal_(a, b) {
-	  var $a = convertToTensor(a, 'a', 'equal');
-	  var $b = convertToTensor(b, 'b', 'equal');
+	  var $a = convertToTensor(a, 'a', 'equal', 'string_or_numeric');
+	  var $b = convertToTensor(b, 'b', 'equal', 'string_or_numeric');
 
 	  var _makeTypesMatch = makeTypesMatch($a, $b);
 
@@ -29236,8 +30722,8 @@
 	 */
 
 	function greater_(a, b) {
-	  var $a = convertToTensor(a, 'a', 'greater');
-	  var $b = convertToTensor(b, 'b', 'greater');
+	  var $a = convertToTensor(a, 'a', 'greater', 'string_or_numeric');
+	  var $b = convertToTensor(b, 'b', 'greater', 'string_or_numeric');
 
 	  var _makeTypesMatch = makeTypesMatch($a, $b);
 
@@ -29288,8 +30774,8 @@
 	 */
 
 	function greaterEqual_(a, b) {
-	  var $a = convertToTensor(a, 'a', 'greaterEqual');
-	  var $b = convertToTensor(b, 'b', 'greaterEqual');
+	  var $a = convertToTensor(a, 'a', 'greaterEqual', 'string_or_numeric');
+	  var $b = convertToTensor(b, 'b', 'greaterEqual', 'string_or_numeric');
 
 	  var _makeTypesMatch = makeTypesMatch($a, $b);
 
@@ -29558,8 +31044,8 @@
 	 */
 
 	function less_(a, b) {
-	  var $a = convertToTensor(a, 'a', 'less');
-	  var $b = convertToTensor(b, 'b', 'less');
+	  var $a = convertToTensor(a, 'a', 'less', 'string_or_numeric');
+	  var $b = convertToTensor(b, 'b', 'less', 'string_or_numeric');
 
 	  var _makeTypesMatch = makeTypesMatch($a, $b);
 
@@ -29610,8 +31096,8 @@
 	 */
 
 	function lessEqual_(a, b) {
-	  var $a = convertToTensor(a, 'a', 'lessEqual');
-	  var $b = convertToTensor(b, 'b', 'lessEqual');
+	  var $a = convertToTensor(a, 'a', 'lessEqual', 'string_or_numeric');
+	  var $b = convertToTensor(b, 'b', 'lessEqual', 'string_or_numeric');
 
 	  var _makeTypesMatch = makeTypesMatch($a, $b);
 
@@ -32184,8 +33670,8 @@
 	 */
 
 	function notEqual_(a, b) {
-	  var $a = convertToTensor(a, 'a', 'notEqual');
-	  var $b = convertToTensor(b, 'b', 'notEqual');
+	  var $a = convertToTensor(a, 'a', 'notEqual', 'string_or_numeric');
+	  var $b = convertToTensor(b, 'b', 'notEqual', 'string_or_numeric');
 
 	  var _makeTypesMatch = makeTypesMatch($a, $b);
 
@@ -36243,7 +37729,7 @@
 	    shrinkAxisMask = 0;
 	  }
 
-	  var $x = convertToTensor(x, 'x', 'stridedSlice');
+	  var $x = convertToTensor(x, 'x', 'stridedSlice', 'string_or_numeric');
 	  var inputs = {
 	    x: $x
 	  };
@@ -37615,7 +39101,7 @@
 
 	function gatherND_(x, indices) {
 	  var $indices = convertToTensor(indices, 'indices', 'gatherND', 'int32');
-	  var $x = convertToTensor(x, 'x', 'gatherND');
+	  var $x = convertToTensor(x, 'x', 'gatherND', 'string_or_numeric');
 	  var inputs = {
 	    params: $x,
 	    indices: $indices
@@ -41548,7 +43034,7 @@
 	 * result['outputIndices'].print(); // [[0, 0], [1, 0], [1, 3], [1, 4],
 	 *                                  //  [2, 0], [3, 2], [3, 3], [4, 0]]
 	 * result['outputValues'].print(); // [0, 10, 13, 14,-1, 32, 33, -1]
-	 * result['emptyRowIndicator'].print(); // [0, 0, 1, 0, 1]
+	 * result['emptyRowIndicator'].print(); // [false, false, true, false, true]
 	 * result['reverseIndexMap'].print(); // [0, 1, 2, 3, 5, 6]
 	 * ```
 	 * @param indices: 2-D. the indices of the sparse tensor.
@@ -41693,6 +43179,406 @@
 
 	/**
 	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Computes the mean along sparse segments of a tensor.
+	 *
+	 * ```js
+	 * const c = tf.tensor2d([[1,2,3,4], [-1,-2,-3,-4], [6,7,8,9]]);
+	 * // Select two rows, one segment.
+	 * const result1 = tf.sparse.sparseSegmentMean(c,
+	 *                                           tf.tensor1d([0, 1], 'int32'),
+	 *                                           tf.tensor1d([0, 0], 'int32'));
+	 * result1.print(); // [[0, 0, 0, 0]]
+	 *
+	 * // Select two rows, two segments.
+	 * const result2 = tf.sparse.sparseSegmentMean(c,
+	 *                                             tf.tensor1d([0, 1], 'int32'),
+	 *                                             tf.tensor1d([0, 1], 'int32'));
+	 * result2.print(); // [[1, 2, 3, 4], [-1, -2, -3, -4]]
+	 *
+	 * // Select all rows, two segments.
+	 * const result3 = tf.sparse.sparseSegmentMean(c,
+	 *                                             tf.tensor1d([0, 1, 2], 'int32'),
+	 *                                             tf.tensor1d([0, 1, 1], 'int32'));
+	 * result3.print(); // [[1.0, 2.0, 3.0, 4.0], [2.5, 2.5, 2.5, 2.5]]
+	 * ```
+	 * @param data: A Tensor of at least one dimension with data that will be
+	 *     assembled in the output.
+	 * @param indices: A 1-D Tensor with indices into data. Has same rank as
+	 *     segmentIds.
+	 * @param segmentIds: A 1-D Tensor with indices into the output Tensor. Values
+	 *     should be sorted and can be repeated.
+	 * @return Has same shape as data, except for dimension 0 which has equal to
+	 *         the number of segments.
+	 *
+	 * @doc {heading: 'Operations', subheading: 'Sparse'}
+	 */
+
+	function sparseSegmentMean_(data, indices, segmentIds) {
+	  var $data = convertToTensor(data, 'data', 'sparseSegmentMean');
+	  var $indices = convertToTensor(indices, 'indices', 'sparseSegmentMean');
+	  var $segmentIds = convertToTensor(segmentIds, 'segmentIds', 'sparseSegmentMean');
+
+	  if ($data.rank < 1) {
+	    throw new Error("Data should be at least 1 dimensional but received scalar");
+	  }
+
+	  if ($indices.rank !== 1) {
+	    throw new Error("Indices should be Tensor1D but received shape\n          " + $indices.shape);
+	  }
+
+	  if ($segmentIds.rank !== 1) {
+	    throw new Error("Segment ids should be Tensor1D but received shape\n          " + $segmentIds.shape);
+	  }
+
+	  var inputs = {
+	    data: $data,
+	    indices: $indices,
+	    segmentIds: $segmentIds
+	  };
+	  return ENGINE.runKernel(SparseSegmentMean, inputs);
+	}
+
+	var sparseSegmentMean = op({
+	  sparseSegmentMean_: sparseSegmentMean_
+	});
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Computes the sum along sparse segments of a tensor.
+	 *
+	 * ```js
+	 * const c = tf.tensor2d([[1,2,3,4], [-1,-2,-3,-4], [5,6,7,8]]);
+	 * // Select two rows, one segment.
+	 * const result1 = tf.sparse.sparseSegmentSum(c,
+	 *                                           tf.tensor1d([0, 1], 'int32'),
+	 *                                           tf.tensor1d([0, 0], 'int32'));
+	 * result1.print(); // [[0, 0, 0, 0]]
+	 *
+	 * // Select two rows, two segment.
+	 * const result2 = tf.sparse.sparseSegmentSum(c,
+	 *                                           tf.tensor1d([0, 1], 'int32'),
+	 *                                           tf.tensor1d([0, 1], 'int32'));
+	 * result2.print(); // [[1, 2, 3, 4], [-1, -2, -3, -4]]
+	 *
+	 * // Select all rows, two segments.
+	 * const result3 = tf.sparse.sparseSegmentSum(c,
+	 *                                           tf.tensor1d([0, 1, 2], 'int32'),
+	 *                                           tf.tensor1d([0, 0, 1], 'int32'));
+	 * result3.print(); // [[0, 0, 0, 0], [5, 6, 7, 8]]
+	 * ```
+	 * @param data: A Tensor of at least one dimension with data that will be
+	 *     assembled in the output.
+	 * @param indices: A 1-D Tensor with indices into data. Has same rank as
+	 *     segmentIds.
+	 * @param segmentIds: A 1-D Tensor with indices into the output Tensor. Values
+	 *     should be sorted and can be repeated.
+	 * @return Has same shape as data, except for dimension 0 which has equal to
+	 *         the number of segments.
+	 *
+	 * @doc {heading: 'Operations', subheading: 'Sparse'}
+	 */
+
+	function sparseSegmentSum_(data, indices, segmentIds) {
+	  var $data = convertToTensor(data, 'data', 'sparseSegmentSum');
+	  var $indices = convertToTensor(indices, 'indices', 'sparseSegmentSum');
+	  var $segmentIds = convertToTensor(segmentIds, 'segmentIds', 'sparseSegmentSum');
+
+	  if ($data.rank < 1) {
+	    throw new Error("Data should be at least 1 dimensional but received scalar");
+	  }
+
+	  if ($indices.rank !== 1) {
+	    throw new Error("Indices should be Tensor1D but received shape\n         " + $indices.shape);
+	  }
+
+	  if ($segmentIds.rank !== 1) {
+	    throw new Error("Segment ids should be Tensor1D but received shape\n         " + $segmentIds.shape);
+	  }
+
+	  var inputs = {
+	    data: $data,
+	    indices: $indices,
+	    segmentIds: $segmentIds
+	  };
+	  return ENGINE.runKernel(SparseSegmentSum, inputs);
+	}
+
+	var sparseSegmentSum = op({
+	  sparseSegmentSum_: sparseSegmentSum_
+	});
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Creates ngrams from ragged string data.
+	 *
+	 * This op accepts a ragged tensor with 1 ragged dimension containing only
+	 * strings and outputs a ragged tensor with 1 ragged dimension containing ngrams
+	 * of that string, joined along the innermost axis.
+	 *
+	 * ```js
+	 * const result = tf.string.stringNGrams(
+	 *   ['a', 'b', 'c', 'd'], tf.tensor1d([0, 2, 4], 'int32'),
+	 *   '|', [1, 2], 'LP', 'RP', -1, false);
+	 * result['nGrams'].print(); // ['a', 'b', 'LP|a', 'a|b', 'b|RP',
+	 *                           //  'c', 'd', 'LP|c', 'c|d', 'd|RP']
+	 * result['nGramsSplits'].print(); // [0, 5, 10]
+	 * ```
+	 * @param data: The values tensor of the ragged string tensor to make ngrams out
+	 *     of. Must be a 1D string tensor.
+	 * @param dataSplits: The splits tensor of the ragged string tensor to make
+	 *     ngrams out of.
+	 * @param separator: The string to append between elements of the token. Use ""
+	 *     for no separator.
+	 * @param nGramWidths: The sizes of the ngrams to create.
+	 * @param leftPad: The string to use to pad the left side of the ngram sequence.
+	 *     Only used if pad_width !== 0.
+	 * @param rightPad: The string to use to pad the right side of the ngram
+	 *     sequence. Only used if pad_width !== 0.
+	 * @param padWidth: The number of padding elements to add to each side of each
+	 *     sequence. Note that padding will never be greater than `nGramWidths`-1
+	 *     regardless of this value. If `padWidth`=-1 , then add max(`nGramWidths)-1
+	 *     elements.
+	 * @param preserveShortSequences: If true, then ensure that at least one ngram
+	 *     is generated for each input sequence. In particular, if an input sequence
+	 *     is shorter than min(ngramWidth) + 2*padWidth, then generate a single
+	 *     ngram containing the entire sequence. If false, then no ngrams are
+	 *     generated for these short input sequences.
+	 * @return A map with the following properties:
+	 *     - nGrams: The values tensor of the output ngrams ragged tensor.
+	 *     - nGramsSplits: The splits tensor of the output ngrams ragged tensor.
+	 *
+	 * @doc {heading: 'Operations', subheading: 'String'}
+	 */
+
+	function stringNGrams_(data, dataSplits, separator, nGramWidths, leftPad, rightPad, padWidth, preserveShortSequences) {
+	  var $data = convertToTensor(data, 'data', 'stringNGrams', 'string');
+
+	  if ($data.dtype !== 'string') {
+	    throw new Error('Data must be of datatype string');
+	  }
+
+	  if ($data.shape.length !== 1) {
+	    throw new Error("Data must be a vector, saw: " + $data.shape);
+	  }
+
+	  var $dataSplits = convertToTensor(dataSplits, 'dataSplits', 'stringNGrams');
+
+	  if ($dataSplits.dtype !== 'int32') {
+	    throw new Error('Data splits must be of datatype int32');
+	  }
+
+	  var attrs = {
+	    separator: separator,
+	    nGramWidths: nGramWidths,
+	    leftPad: leftPad,
+	    rightPad: rightPad,
+	    padWidth: padWidth,
+	    preserveShortSequences: preserveShortSequences
+	  };
+	  var inputs = {
+	    data: $data,
+	    dataSplits: $dataSplits
+	  };
+	  var result = ENGINE.runKernel(StringNGrams, inputs, attrs);
+	  return {
+	    nGrams: result[0],
+	    nGramsSplits: result[1]
+	  };
+	}
+
+	var stringNGrams = op({
+	  stringNGrams_: stringNGrams_
+	});
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Split elements of `input` based on `delimiter` into a SparseTensor .
+	 *
+	 * Let N be the size of source (typically N will be the batch size). Split each
+	 * element of `input` based on `delimiter` and return a SparseTensor containing
+	 * the splitted tokens. Empty tokens are ignored if `skipEmpty` is set to True.
+	 *
+	 * `delimiter` can be empty, or a string of split characters. If `delimiter` is
+	 * an empty string, each element of `input` is split into individual
+	 * character strings. Otherwise every character of `delimiter` is a potential
+	 * split point.
+	 *
+	 * ```js
+	 * const result = tf.string.stringSplit(['hello world',  'a b c'], ' ');
+	 * result['indices'].print(); // [[0, 0], [0, 1], [1, 0], [1, 1], [1, 2]]
+	 * result['values'].print(); // ['hello', 'world', 'a', 'b', 'c']
+	 * result['shape'].print(); // [2, 3]
+	 * ```
+	 * @param input: 1-D. Strings to split.
+	 * @param delimiter: 0-D. Delimiter characters, or empty string.
+	 * @param skipEmpty: Optional. If true, skip the empty strings from the result.
+	 *     Defaults to true.
+	 * @return A map with the following properties:
+	 *     - indices: A dense matrix of int32 representing the indices of the sparse
+	 *       tensor.
+	 *     - values: A vector of strings corresponding to the splited values.
+	 *     - shape: a length-2 vector of int32 representing the shape of the sparse
+	 * tensor, where the first value is N and the second value is the maximum number
+	 * of tokens in a single input entry.
+	 *
+	 * @doc {heading: 'Operations', subheading: 'String'}
+	 */
+
+	function stringSplit_(input, delimiter, skipEmpty) {
+	  if (skipEmpty === void 0) {
+	    skipEmpty = true;
+	  }
+
+	  var $input = convertToTensor(input, 'input', 'stringSplit', 'string');
+	  var $delimiter = convertToTensor(delimiter, 'delimiter', 'stringSplit', 'string');
+
+	  if ($input.rank !== 1) {
+	    throw new Error("Input should be Tensor1D but received shape " + $input.shape);
+	  }
+
+	  if ($delimiter.rank !== 0) {
+	    throw new Error("Delimiter should be a scalar but received shape " + $delimiter.shape);
+	  }
+
+	  var attrs = {
+	    skipEmpty: skipEmpty
+	  };
+	  var inputs = {
+	    input: $input,
+	    delimiter: $delimiter
+	  };
+	  var result = ENGINE.runKernel(StringSplit, inputs, attrs);
+	  return {
+	    indices: result[0],
+	    values: result[1],
+	    shape: result[2]
+	  };
+	}
+
+	var stringSplit = op({
+	  stringSplit_: stringSplit_
+	});
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Converts each string in the input Tensor to its hash mod by a number of
+	 * buckets.
+	 *
+	 * The hash function is deterministic on the content of the string within the
+	 * process and will never change. However, it is not suitable for cryptography.
+	 * This function may be used when CPU time is scarce and inputs are trusted or
+	 * unimportant. There is a risk of adversaries constructing inputs that all hash
+	 * to the same bucket.
+	 *
+	 * ```js
+	 * const result = tf.string.stringToHashBucketFast(
+	 *   ['Hello', 'TensorFlow', '2.x'], 3);
+	 * result.print(); // [0, 2, 2]
+	 * ```
+	 * @param input: The strings to assign a hash bucket.
+	 * @param numBuckets: The number of buckets.
+	 * @return A Tensor of the same shape as the input tensor.
+	 *
+	 * @doc {heading: 'Operations', subheading: 'String'}
+	 */
+
+	function stringToHashBucketFast_(input, numBuckets) {
+	  var $input = convertToTensor(input, 'input', 'stringToHashBucketFast', 'string');
+	  var attrs = {
+	    numBuckets: numBuckets
+	  };
+
+	  if (numBuckets <= 0) {
+	    throw new Error("Number of buckets must be at least 1");
+	  }
+
+	  var inputs = {
+	    input: $input
+	  };
+	  return ENGINE.runKernel(StringToHashBucketFast, inputs, attrs);
+	}
+
+	var stringToHashBucketFast = op({
+	  stringToHashBucketFast_: stringToHashBucketFast_
+	});
+
+	/**
+	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -41752,7 +43638,15 @@
 	};
 	var sparse = {
 	  sparseFillEmptyRows: sparseFillEmptyRows,
-	  sparseReshape: sparseReshape
+	  sparseReshape: sparseReshape,
+	  sparseSegmentMean: sparseSegmentMean,
+	  sparseSegmentSum: sparseSegmentSum
+	};
+
+	var string = {
+	  stringNGrams: stringNGrams,
+	  stringSplit: stringSplit,
+	  stringToHashBucketFast: stringToHashBucketFast
 	}; // Second level exports.
 
 	/** @doc {heading: 'Training', subheading: 'Classes', namespace: 'train'} */
@@ -53121,24 +55015,28 @@
 	  return prod;
 	}
 	/**
-	 * A helper function transforms the two input types to an instance of Tensor1D,
-	 * so the return value can be fed directly into various TF.js Core functions.
-	 * @param array
-	 */
-
-	function toArray1D(array) {
-	  array = Array.isArray(array) ? new Float32Array(array) : array;
-	  return tensor1d(array);
-	}
-	/**
 	 * Compute minimum value.
 	 * @param array
 	 * @return minimum value.
 	 */
 
-
 	function min$a(array) {
-	  return min$9(toArray1D(array)).dataSync()[0];
+	  // same behavior as tf.min()
+	  if (array.length === 0) {
+	    return Number.NaN;
+	  }
+
+	  var min = Number.POSITIVE_INFINITY;
+
+	  for (var i = 0; i < array.length; i++) {
+	    var value = array[i];
+
+	    if (value < min) {
+	      min = value;
+	    }
+	  }
+
+	  return min;
 	}
 	/**
 	 * Compute maximum value.
@@ -53147,7 +55045,22 @@
 	 */
 
 	function max$6(array) {
-	  return max$5(toArray1D(array)).dataSync()[0];
+	  // same behavior as tf.max()
+	  if (array.length === 0) {
+	    return Number.NaN;
+	  }
+
+	  var max = Number.NEGATIVE_INFINITY;
+
+	  for (var i = 0; i < array.length; i++) {
+	    var value = array[i];
+
+	    if (value > max) {
+	      max = value;
+	    }
+	  }
+
+	  return max;
 	}
 	/**
 	 * Compute sum of array.
@@ -53156,7 +55069,14 @@
 	 */
 
 	function sum$2(array) {
-	  return sum$1(toArray1D(array)).dataSync()[0];
+	  var sum = 0;
+
+	  for (var i = 0; i < array.length; i++) {
+	    var value = array[i];
+	    sum += value;
+	  }
+
+	  return sum;
 	}
 	/**
 	 * Compute mean of array.
@@ -53174,8 +55094,17 @@
 	 */
 
 	function variance(array) {
-	  var demeaned = sub(toArray1D(array), scalar(mean$2(array)));
-	  var sumSquare = sum$1(mul(demeaned, demeaned)).dataSync()[0];
+	  var meanValue = mean$2(array);
+	  var demeaned = array.map(function (value) {
+	    return value - meanValue;
+	  });
+	  var sumSquare = 0;
+
+	  for (var i = 0; i < demeaned.length; i++) {
+	    var value = demeaned[i];
+	    sumSquare += value * value;
+	  }
+
 	  return sumSquare / array.length;
 	}
 	/**
@@ -59265,7 +61194,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$2 = '3.6.0';
+	var version$2 = '3.7.0';
 
 	/**
 	 * Helper function to check the dtype and shape compatibility of a feed value.
@@ -77469,18 +79398,21 @@
 	  return tensorsMap[getNodeNameWithContextId(name, context.currentContextId)];
 	}
 	/**
-	 * Returns the node name and index from the Node input name.
+	 * Returns the node name, outputName and index from the Node input name.
 	 * @param inputName The input name of the node, in format of
 	 * node_name:output_index, i.e. MatMul:0, if the output_index is not set, it is
 	 * default to 0.
+	 * If the input name contains output name i.e. StringSplit:indices:0, it will
+	 * return ['StringSplit', 0, 'indices'].
 	 */
 
 	function getNodeNameAndIndex(inputName, context) {
 	  var _parseNodeName2 = parseNodeName(inputName),
 	      nodeName = _parseNodeName2[0],
-	      index = _parseNodeName2[1];
+	      index = _parseNodeName2[1],
+	      outputName = _parseNodeName2[2];
 
-	  return [getNodeNameWithContextId(nodeName, context && context.currentContextId), index];
+	  return [getNodeNameWithContextId(nodeName, context && context.currentContextId), index, outputName];
 	}
 
 	function getNodeNameWithContextId(name, contextId) {
@@ -77491,11 +79423,13 @@
 	  var parts = name.split(':');
 
 	  if (parts.length === 1) {
-	    return [name, 0];
+	    return [name, 0, undefined];
 	  }
 
 	  var nodeName = parts[0];
-	  return [nodeName, Number(parts[parts.length - 1])];
+	  var outputName = parts.length === 3 ? parts[1] : undefined;
+	  var index = Number(parts[parts.length - 1]);
+	  return [nodeName, index, outputName];
 	}
 	function split$2(arr, size) {
 	  var res = [];
@@ -81802,7 +83736,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -81817,6 +83751,103 @@
 	 * =============================================================================
 	 */
 	var json$f = [{
+	  'tfOpName': 'SparseFillEmptyRows',
+	  'category': 'sparse',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 'indices',
+	    'type': 'tensor'
+	  }, {
+	    'start': 1,
+	    'name': 'values',
+	    'type': 'tensor'
+	  }, {
+	    'start': 2,
+	    'name': 'denseShape',
+	    'type': 'tensor'
+	  }, {
+	    'start': 3,
+	    'name': 'defaultValue',
+	    'type': 'tensor'
+	  }]
+	}, {
+	  'tfOpName': 'SparseReshape',
+	  'category': 'sparse',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 'inputIndices',
+	    'type': 'tensor'
+	  }, {
+	    'start': 1,
+	    'name': 'inputShape',
+	    'type': 'tensor'
+	  }, {
+	    'start': 2,
+	    'name': 'newShape',
+	    'type': 'tensor'
+	  }],
+	  'attrs': [{
+	    'tfName': 'T',
+	    'name': 'dtype',
+	    'type': 'dtype',
+	    'notSupported': true
+	  }]
+	}, {
+	  'tfOpName': 'SparseSegmentMean',
+	  'category': 'sparse',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 'data',
+	    'type': 'tensor'
+	  }, {
+	    'start': 1,
+	    'name': 'indices',
+	    'type': 'tensor'
+	  }, {
+	    'start': 2,
+	    'name': 'segmentIds',
+	    'type': 'tensor'
+	  }]
+	}, {
+	  'tfOpName': 'SparseSegmentSum',
+	  'category': 'sparse',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 'data',
+	    'type': 'tensor'
+	  }, {
+	    'start': 1,
+	    'name': 'indices',
+	    'type': 'tensor'
+	  }, {
+	    'start': 2,
+	    'name': 'segmentIds',
+	    'type': 'tensor'
+	  }]
+	}];
+
+	var sparse$1 = {
+		__proto__: null,
+		json: json$f
+	};
+
+	/**
+	 * @license
+	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	var json$g = [{
 	  'tfOpName': 'FFT',
 	  'category': 'spectral',
 	  'inputs': [{
@@ -81862,7 +83893,99 @@
 
 	var spectral$1 = {
 		__proto__: null,
-		json: json$f
+		json: json$g
+	};
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	var json$h = [{
+	  'tfOpName': 'StringNGrams',
+	  'category': 'string',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 'data',
+	    'type': 'tensor'
+	  }, {
+	    'start': 1,
+	    'name': 'dataSplits',
+	    'type': 'tensor'
+	  }],
+	  'attrs': [{
+	    'tfName': 'separator',
+	    'name': 'separator',
+	    'type': 'string'
+	  }, {
+	    'tfName': 'ngram_widths',
+	    'name': 'nGramWidths',
+	    'type': 'number[]'
+	  }, {
+	    'tfName': 'left_pad',
+	    'name': 'leftPad',
+	    'type': 'string'
+	  }, {
+	    'tfName': 'right_pad',
+	    'name': 'rightPad',
+	    'type': 'string'
+	  }, {
+	    'tfName': 'pad_width',
+	    'name': 'padWidth',
+	    'type': 'number'
+	  }, {
+	    'tfName': 'preserve_short_sequences',
+	    'name': 'preserveShortSequences',
+	    'type': 'bool'
+	  }],
+	  'outputs': ['ngrams', 'ngrams_splits']
+	}, {
+	  'tfOpName': 'StringSplit',
+	  'category': 'string',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 'input',
+	    'type': 'tensor'
+	  }, {
+	    'start': 1,
+	    'name': 'delimiter',
+	    'type': 'tensor'
+	  }],
+	  'attrs': [{
+	    'tfName': 'skip_empty',
+	    'name': 'skipEmpty',
+	    'type': 'bool'
+	  }],
+	  'outputs': ['indices', 'values', 'shape']
+	}, {
+	  'tfOpName': 'StringToHashBucketFast',
+	  'category': 'string',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 'input',
+	    'type': 'tensor'
+	  }],
+	  'attrs': [{
+	    'tfName': 'num_buckets',
+	    'name': 'numBuckets',
+	    'type': 'number'
+	  }]
+	}];
+
+	var string$1 = {
+		__proto__: null,
+		json: json$h
 	};
 
 	/**
@@ -81881,7 +84004,7 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var json$g = [{
+	var json$i = [{
 	  'tfOpName': 'Cast',
 	  'category': 'transformation',
 	  'inputs': [{
@@ -82055,7 +84178,7 @@
 
 	var transformation = {
 		__proto__: null,
-		json: json$g
+		json: json$i
 	};
 
 	var OperationMapper = /*#__PURE__*/function () {
@@ -82063,7 +84186,7 @@
 	  function OperationMapper() {
 	    var _ref;
 
-	    var ops = [arithmetic, basicMath, control, convolution, creation, dynamic, evaluation, logical, image$1, graph, matrices, normalization, reduction, sliceJoin, spectral$1, transformation, hashTable];
+	    var ops = [arithmetic, basicMath, control, convolution, creation, dynamic, evaluation, graph, hashTable, image$1, logical, matrices, normalization, reduction, sliceJoin, sparse$1, spectral$1, string$1, transformation];
 
 	    var mappersJson = (_ref = []).concat.apply(_ref, ops.map(function (op) {
 	      return op.json;
@@ -82116,12 +84239,25 @@
 	    var allNodes = Object.keys(nodes);
 	    allNodes.forEach(function (key) {
 	      var node = nodes[key];
-	      node.inputNames.forEach(function (name) {
+	      node.inputNames.forEach(function (name, index) {
 	        var _getNodeNameAndIndex = getNodeNameAndIndex(name),
-	            nodeName = _getNodeNameAndIndex[0];
+	            nodeName = _getNodeNameAndIndex[0],
+	            outputName = _getNodeNameAndIndex[2];
 
-	        node.inputs.push(nodes[nodeName]);
-	        nodes[nodeName].children.push(node);
+	        var inputNode = nodes[nodeName];
+
+	        if (inputNode.outputs != null) {
+	          var outputIndex = inputNode.outputs.indexOf(outputName);
+
+	          if (outputIndex !== -1) {
+	            var inputName = nodeName + ":" + outputIndex; // update the input name to use the mapped output index directly.
+
+	            node.inputNames[index] = inputName;
+	          }
+	        }
+
+	        node.inputs.push(inputNode);
+	        inputNode.children.push(node);
 	      });
 	    }); // if signature has not outputs set, add any node that does not have
 	    // outputs.
@@ -82217,7 +84353,8 @@
 	      children: [],
 	      inputParams: {},
 	      attrParams: {},
-	      rawAttrs: node.attr
+	      rawAttrs: node.attr,
+	      outputs: mapper.outputs
 	    };
 
 	    if (mapper.inputs != null) {
@@ -82404,12 +84541,25 @@
 	    var allNodes = Object.keys(nodes);
 	    allNodes.forEach(function (key) {
 	      var node = nodes[key];
-	      node.inputNames.forEach(function (name) {
+	      node.inputNames.forEach(function (name, index) {
 	        var _getNodeNameAndIndex5 = getNodeNameAndIndex(name),
-	            nodeName = _getNodeNameAndIndex5[0];
+	            nodeName = _getNodeNameAndIndex5[0],
+	            outputName = _getNodeNameAndIndex5[2];
 
-	        node.inputs.push(nodes[nodeName]);
-	        nodes[nodeName].children.push(node);
+	        var inputNode = nodes[nodeName];
+
+	        if (inputNode.outputs != null) {
+	          var outputIndex = inputNode.outputs.indexOf(outputName);
+
+	          if (outputIndex !== -1) {
+	            var inputName = nodeName + ":" + outputIndex; // update the input name to use the mapped output index directly.
+
+	            node.inputNames[index] = inputName;
+	          }
+	        }
+
+	        node.inputs.push(inputNode);
+	        inputNode.children.push(node);
 	      });
 	    });
 	    var returnNodeMap = functionDef.ret;
@@ -82973,7 +85123,8 @@
 		spectral: spectral,
 		fused: fused_ops,
 		signal: signal,
-		sparse: sparse
+		sparse: sparse,
+		string: string
 	};
 
 	/**
@@ -84439,6 +86590,7 @@
 	      activationFunc = _getParamValue[1];
 
 	  var isBiasAdd = extraOp === 'biasadd';
+	  var noBiasAdd = !isBiasAdd;
 	  var isPrelu = activationFunc === 'prelu';
 	  var isBatchNorm = extraOp === 'fusedbatchnorm';
 	  var numArgs = getParamValue('numArgs', node, tensorMap, context);
@@ -84448,7 +86600,7 @@
 	      throw new Error('FusedConv2d and DepthwiseConv2d with BiasAdd and Prelu ' + 'must have two extra arguments: bias and alpha.');
 	    }
 
-	    if (!isPrelu && numArgs !== 1) {
+	    if (!isPrelu && isBiasAdd && numArgs !== 1) {
 	      throw new Error('FusedConv2d and DepthwiseConv2d with BiasAdd must have ' + 'one extra argument: bias.');
 	    }
 	  }
@@ -84465,6 +86617,11 @@
 	  var _getParamValue2 = getParamValue('args', node, tensorMap, context),
 	      biasArg = _getParamValue2[0],
 	      preluArg = _getParamValue2[1];
+
+	  if (noBiasAdd) {
+	    preluArg = biasArg;
+	    biasArg = undefined;
+	  }
 
 	  var leakyreluAlpha = getParamValue('leakyreluAlpha', node, tensorMap, context);
 	  return {
@@ -85858,20 +88015,44 @@
 	 */
 	var executeOp$f = function executeOp(node, tensorMap, context) {
 	  switch (node.op) {
+	    case 'SparseFillEmptyRows':
+	      {
+	        var _tfOps$sparse$sparseF = sparse.sparseFillEmptyRows(getParamValue('indices', node, tensorMap, context), getParamValue('values', node, tensorMap, context), getParamValue('denseShape', node, tensorMap, context), getParamValue('defaultValue', node, tensorMap, context)),
+	            outputIndices = _tfOps$sparse$sparseF.outputIndices,
+	            outputValues = _tfOps$sparse$sparseF.outputValues,
+	            emptyRowIndicator = _tfOps$sparse$sparseF.emptyRowIndicator,
+	            reverseIndexMap = _tfOps$sparse$sparseF.reverseIndexMap;
+
+	        return [outputIndices, outputValues, emptyRowIndicator, reverseIndexMap];
+	      }
+
 	    case 'SparseReshape':
 	      {
 	        var _tfOps$sparse$sparseR = sparse.sparseReshape(getParamValue('inputIndices', node, tensorMap, context), getParamValue('inputShape', node, tensorMap, context), getParamValue('newShape', node, tensorMap, context)),
-	            outputIndices = _tfOps$sparse$sparseR.outputIndices,
+	            _outputIndices = _tfOps$sparse$sparseR.outputIndices,
 	            outputShape = _tfOps$sparse$sparseR.outputShape;
 
-	        return [outputIndices, outputShape];
+	        return [_outputIndices, outputShape];
+	      }
+
+	    case 'SparseSegmentMean':
+	      {
+	        var outputData = sparse.sparseSegmentMean(getParamValue('data', node, tensorMap, context), getParamValue('indices', node, tensorMap, context), getParamValue('segmentIds', node, tensorMap, context));
+	        return [outputData];
+	      }
+
+	    case 'SparseSegmentSum':
+	      {
+	        var _outputData = sparse.sparseSegmentSum(getParamValue('data', node, tensorMap, context), getParamValue('indices', node, tensorMap, context), getParamValue('segmentIds', node, tensorMap, context));
+
+	        return [_outputData];
 	      }
 
 	    default:
 	      throw TypeError("Node type " + node.op + " is not implemented");
 	  }
 	};
-	var CATEGORY$f = 'convolution';
+	var CATEGORY$f = 'sparse';
 
 	/**
 	 * @license
@@ -85919,7 +88100,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -85934,6 +88115,55 @@
 	 * =============================================================================
 	 */
 	var executeOp$h = function executeOp(node, tensorMap, context) {
+	  switch (node.op) {
+	    case 'StringNGrams':
+	      {
+	        var _tfOps$string$stringN = string.stringNGrams(getParamValue('data', node, tensorMap, context), getParamValue('dataSplits', node, tensorMap, context), getParamValue('separator', node, tensorMap, context), getParamValue('nGramWidths', node, tensorMap, context), getParamValue('leftPad', node, tensorMap, context), getParamValue('rightPad', node, tensorMap, context), getParamValue('padWidth', node, tensorMap, context), getParamValue('preserveShortSequences', node, tensorMap, context)),
+	            nGrams = _tfOps$string$stringN.nGrams,
+	            nGramsSplits = _tfOps$string$stringN.nGramsSplits;
+
+	        return [nGrams, nGramsSplits];
+	      }
+
+	    case 'StringSplit':
+	      {
+	        var _tfOps$string$stringS = string.stringSplit(getParamValue('input', node, tensorMap, context), getParamValue('delimiter', node, tensorMap, context), getParamValue('skipEmpty', node, tensorMap, context)),
+	            indices = _tfOps$string$stringS.indices,
+	            values = _tfOps$string$stringS.values,
+	            shape = _tfOps$string$stringS.shape;
+
+	        return [indices, values, shape];
+	      }
+
+	    case 'StringToHashBucketFast':
+	      {
+	        var output = string.stringToHashBucketFast(getParamValue('input', node, tensorMap, context), getParamValue('numBuckets', node, tensorMap, context));
+	        return [output];
+	      }
+
+	    default:
+	      throw TypeError("Node type " + node.op + " is not implemented");
+	  }
+	};
+	var CATEGORY$h = 'string';
+
+	/**
+	 * @license
+	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	var executeOp$i = function executeOp(node, tensorMap, context) {
 	  switch (node.op) {
 	    case 'Cast':
 	      {
@@ -86000,7 +88230,7 @@
 	      throw TypeError("Node type " + node.op + " is not implemented");
 	  }
 	};
-	var CATEGORY$h = 'transformation';
+	var CATEGORY$i = 'transformation';
 
 	/**
 	 * @license
@@ -86026,7 +88256,7 @@
 	 * @param resourceManager Optional. Contains global resources of the model.
 	 */
 
-	function executeOp$i(node, tensorMap, context, resourceManager) {
+	function executeOp$j(node, tensorMap, context, resourceManager) {
 	  var value = function (node, tensorMap, context) {
 	    switch (node.category) {
 	      case 'arithmetic':
@@ -86105,9 +88335,14 @@
 	          return executeOp$g(node, tensorMap, context);
 	        });
 
-	      case 'transformation':
+	      case 'string':
 	        return tidy(function () {
 	          return executeOp$h(node, tensorMap, context);
+	        });
+
+	      case 'transformation':
+	        return tidy(function () {
+	          return executeOp$i(node, tensorMap, context);
 	        });
 
 	      case 'hash_table':
@@ -86631,7 +88866,7 @@
 	        var node = orderedNodes[i];
 
 	        if (!tensorsMap[node.name]) {
-	          var tensors = executeOp$i(node, tensorsMap, context, _this2._resourceManager);
+	          var tensors = executeOp$j(node, tensorsMap, context, _this2._resourceManager);
 
 	          if (isPromise(tensors)) {
 	            throw new Error("The execution of the op '" + node.op + "' returned a promise. " + "Please use model.executeAsync() instead.");
@@ -87000,7 +89235,7 @@
 
 
 	      if (tensorMap[item.node.name] == null) {
-	        var tensors = executeOp$i(item.node, tensorMap, context, _this5._resourceManager);
+	        var tensors = executeOp$j(item.node, tensorMap, context, _this5._resourceManager);
 
 	        if (!nodeName) {
 	          var _getNodeNameAndIndex2 = getNodeNameAndIndex(item.node.name, context);
@@ -87884,7 +90119,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$3 = '3.6.0';
+	var version$3 = '3.7.0';
 
 	/**
 	 * @license
@@ -93652,7 +95887,7 @@
 	            }
 
 	            _context.next = 4;
-	            return fetch$1(urlString, requestInit);
+	            return fetch$2(urlString, requestInit);
 
 	          case 4:
 	            response = _context.sent;
@@ -94182,7 +96417,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$4 = '3.6.0';
+	var version$4 = '3.7.0';
 
 	/**
 	 * @license
@@ -94927,9 +97162,13 @@
 	      assertNotComplex([a, b], name);
 	      var aVals = cpuBackend.data.get(a.dataId).values;
 	      var bVals = cpuBackend.data.get(b.dataId).values;
+	      var decodedAVals = a.dtype === 'string' ? // tslint:disable-next-line: no-any
+	      fromUint8ToStringArray(aVals) : aVals;
+	      var decodedBVals = a.dtype === 'string' ? // tslint:disable-next-line: no-any
+	      fromUint8ToStringArray(bVals) : bVals;
 	      var $dtype = dtype || a.dtype;
 
-	      var _simpleImpl = simpleImpl(a.shape, b.shape, aVals, bVals, $dtype),
+	      var _simpleImpl = simpleImpl(a.shape, b.shape, decodedAVals, decodedBVals, $dtype),
 	          resultData = _simpleImpl[0],
 	          resultShape = _simpleImpl[1];
 
@@ -95360,6 +97599,34 @@
 	/**
 	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	var equalImpl = createSimpleBinaryKernelImpl(function (a, b) {
+	  return a === b ? 1 : 0;
+	});
+	var equal$1 = binaryKernelFunc(Equal, equalImpl, null
+	/* complexImpl */
+	, 'bool');
+	var equalConfig = {
+	  kernelName: Equal,
+	  backendName: 'cpu',
+	  kernelFunc: equal$1
+	};
+
+	/**
+	 * @license
+	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the License);
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -95434,6 +97701,47 @@
 	  backendName: 'cpu',
 	  kernelFunc: floor$b
 	};
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function gatherNdImpl(indicesData, paramsBuf, dtype, numSlices, sliceRank, sliceSize, strides, paramsShape, paramsSize) {
+	  var outBuf = buffer([numSlices, sliceSize], dtype);
+
+	  for (var i = 0; i < numSlices; i++) {
+	    var index = [];
+	    var flattenIndex = 0;
+
+	    for (var j = 0; j < sliceRank; j++) {
+	      var dim = indicesData[i * sliceRank + j];
+	      flattenIndex += dim * strides[j];
+	      index.push(dim);
+	    }
+
+	    if (flattenIndex < 0 || flattenIndex >= paramsSize / sliceSize) {
+	      throw new Error("Invalid indices: " + index + " does not index into " + paramsShape);
+	    }
+
+	    for (var k = 0; k < sliceSize; k++) {
+	      outBuf.values[i * sliceSize + k] = paramsBuf.get.apply(paramsBuf, paramsBuf.indexToLoc(flattenIndex * sliceSize + k));
+	    }
+	  }
+
+	  return outBuf;
+	}
 
 	/**
 	 * @license
@@ -95512,6 +97820,34 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
+	var greaterEqualImpl = createSimpleBinaryKernelImpl(function (a, b) {
+	  return a >= b ? 1 : 0;
+	});
+	var greaterEqual$1 = binaryKernelFunc(GreaterEqual, greaterEqualImpl, null
+	/* complexImpl */
+	, 'bool');
+	var greaterEqualConfig = {
+	  kernelName: GreaterEqual,
+	  backendName: 'cpu',
+	  kernelFunc: greaterEqual$1
+	};
+
+	/**
+	 * @license
+	 * Copyright 2020 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
 	var lessImpl = createSimpleBinaryKernelImpl(function (a, b) {
 	  return a < b ? 1 : 0;
 	});
@@ -95522,6 +97858,34 @@
 	  kernelName: Less,
 	  backendName: 'cpu',
 	  kernelFunc: less$2
+	};
+
+	/**
+	 * @license
+	 * Copyright 2020 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	var lessEqualImpl = createSimpleBinaryKernelImpl(function (a, b) {
+	  return a <= b ? 1 : 0;
+	});
+	var lessEqual$1 = binaryKernelFunc(LessEqual, lessEqualImpl, null
+	/* complexImpl */
+	, 'bool');
+	var lessEqualConfig = {
+	  kernelName: LessEqual,
+	  backendName: 'cpu',
+	  kernelFunc: lessEqual$1
 	};
 
 	/**
@@ -95604,7 +97968,8 @@
 	    for (var j = 0; j < reduceSize; ++j) {
 	      var value = aVals[offset + j];
 
-	      if (value > max) {
+	      if (Number.isNaN(value) || value > max) {
+	        // comparison with NaN always return false
 	        max = value;
 	      }
 	    }
@@ -96216,7 +98581,7 @@
 	      }
 	    }
 
-	    return [_outputIndices2, [indicesCount, rank], _outputValues2, emptyRowIndicator, reverseIndexMap];
+	    return [_outputIndices2, [fullIndicesCount, rank], _outputValues2, emptyRowIndicator, reverseIndexMap];
 	  }
 	}
 
@@ -96329,6 +98694,140 @@
 
 	/**
 	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function sparseSegmentReductionImpl(input, inputShape, inputDType, indices, segmentIds, isMean, defaultValue) {
+	  if (isMean === void 0) {
+	    isMean = false;
+	  }
+
+	  if (defaultValue === void 0) {
+	    defaultValue = 0;
+	  }
+
+	  var numIndices = indices.length;
+
+	  if (numIndices !== segmentIds.length) {
+	    throw new Error("segmentIds and indices should have same size.");
+	  } // Flatten the array to two dimensions
+
+
+	  var inputFlat = [inputShape[0], input.length / inputShape[0]];
+	  var numCol = inputFlat[1]; // Note that the current implementation assumes that segmentIds values are
+	  // sorted.
+
+	  var lastSegmentIdPlusOne = numIndices > 0 ? segmentIds[numIndices - 1] + 1 : 0;
+	  var outputRows = lastSegmentIdPlusOne;
+
+	  if (outputRows < 0) {
+	    throw new Error("segment ids must be >= 0");
+	  }
+
+	  var outputShape = inputShape.slice();
+	  outputShape[0] = outputRows;
+	  var outputLength = outputShape.reduce(function (product, value) {
+	    return product * value;
+	  }, 1); // Output array is initialized with the value 0 by default.
+
+	  var output = getArrayFromDType(inputDType, outputLength); // Note that we do not initialize the output buffer with a default value, so
+	  // we need to explicitly set missing indices to the default value.
+
+	  if (numIndices === 0) {
+	    if (outputRows > 0) {
+	      output.fill(defaultValue);
+	    }
+
+	    return [output, outputShape];
+	  }
+
+	  if (outputRows <= 0) {
+	    throw new Error("segment ids must be >= 0");
+	  }
+
+	  var start = 0,
+	      end = 1; // Index from which the output is not initialized.
+
+	  var uninitializedIndex = 0;
+	  var outIndex = segmentIds[start];
+
+	  while (true) {
+	    // We initialize nextIndex to 0 to avoid may be uninitialized warning
+	    var nextIndex = 0;
+
+	    if (end < numIndices) {
+	      nextIndex = segmentIds[end];
+
+	      if (outIndex === nextIndex) {
+	        ++end;
+	        continue;
+	      } // We have a new segment here.  Verify that the segment ids are growing.
+
+
+	      if (outIndex >= nextIndex) {
+	        throw new Error("segment ids are not increasing");
+	      }
+	    }
+
+	    if (outIndex < 0 || outIndex >= outputRows) {
+	      throw new Error("Segment id " + outIndex + " out of range [0, " + outputRows + "), possibly because segmentIds input is not sorted.");
+	    } // If there is a gap between two indices, we need to set that gap to the
+	    // default value.
+
+
+	    if (outIndex > uninitializedIndex) {
+	      output.fill(defaultValue, uninitializedIndex * numCol, outIndex * numCol);
+	    }
+
+	    for (var i = start; i < end; ++i) {
+	      var index = indices[i];
+
+	      if (index < 0 || index >= inputFlat[0]) {
+	        throw new Error("Bad: indices[" + i + "] == " + indices[i] + " out of range [0, " + inputFlat[0] + ")");
+	      }
+
+	      for (var j = 0; j < numCol; j++) {
+	        output[outIndex * numCol + j] += input[index * numCol + j];
+	      }
+	    }
+
+	    if (isMean) {
+	      for (var _j = 0; _j < numCol; _j++) {
+	        output[outIndex * numCol + _j] /= end - start;
+	      }
+	    }
+
+	    start = end;
+	    ++end;
+	    uninitializedIndex = outIndex + 1;
+	    outIndex = nextIndex;
+
+	    if (end > numIndices) {
+	      break;
+	    }
+	  } // Fill the gap at the end with the default value.
+
+
+	  if (uninitializedIndex < outputRows) {
+	    output.fill(defaultValue, uninitializedIndex * numCol, outputRows * numCol);
+	  }
+
+	  return [output, outputShape];
+	}
+
+	/**
+	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -96385,6 +98884,392 @@
 	  }
 
 	  return outBuf;
+	}
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * The StringNGramsOp class creates ngrams from ragged string data.
+	 * The constructor contains all attributes related to the operation such as
+	 * padding widths and strings, and the compute function can be used to
+	 * compute the ngrams for different ragged tensor inputs.
+	 */
+
+	var StringNGramsOp = /*#__PURE__*/function () {
+	  function StringNGramsOp(separator, nGramWidths, leftPad, rightPad, padWidth, preserveShortSequences) {
+	    this.separator = encodeString(separator);
+	    this.nGramWidths = nGramWidths;
+	    this.leftPad = encodeString(leftPad);
+	    this.rightPad = encodeString(rightPad);
+	    this.padWidth = padWidth;
+	    this.preserveShort = preserveShortSequences;
+	  }
+
+	  var _proto = StringNGramsOp.prototype;
+
+	  _proto.getPadWidth = function getPadWidth(nGramWidth) {
+	    // Ngrams can be padded with either a fixed pad width or a dynamic pad
+	    // width depending on the 'padWidth' arg, but in no case should the padding
+	    // ever be wider than 'nGramWidth' - 1.
+	    return Math.min(this.padWidth < 0 ? nGramWidth - 1 : this.padWidth, nGramWidth - 1);
+	  };
+
+	  _proto.getNumNGrams = function getNumNGrams(length, nGramWidth) {
+	    var padWidth = this.getPadWidth(nGramWidth);
+	    return Math.max(0, length + 2 * padWidth - nGramWidth + 1);
+	  };
+
+	  _proto.createNGrams = function createNGrams(data, splitIndex, output, outputStartIndex, numNGrams, nGramWidth) {
+	    var _this = this;
+
+	    var _loop = function _loop(nGramIndex) {
+	      var padWidth = _this.getPadWidth(nGramWidth);
+
+	      var leftPadding = Math.max(0, padWidth - nGramIndex);
+	      var rightPadding = Math.max(0, padWidth - (numNGrams - (nGramIndex + 1)));
+	      var numTokens = nGramWidth - (leftPadding + rightPadding);
+	      var dataStartIndex = splitIndex + (leftPadding > 0 ? 0 : nGramIndex - padWidth); // Calculate the total expected size of the nGram so we can reserve the
+	      // correct amount of space in the string.
+
+	      var nGramSize = 0; // Size of the left padding.
+
+	      nGramSize += leftPadding * _this.leftPad.length; // Size of the tokens.
+
+	      for (var n = 0; n < numTokens; ++n) {
+	        nGramSize += data[dataStartIndex + n].length;
+	      } // Size of the right padding.
+
+
+	      nGramSize += rightPadding * _this.rightPad.length; // Size of the separators.
+
+	      var numSeparators = leftPadding + rightPadding + numTokens - 1;
+	      nGramSize += numSeparators * _this.separator.length; // Build the nGram.
+
+	      output[outputStartIndex + nGramIndex] = new Uint8Array(nGramSize);
+	      var nGram = output[outputStartIndex + nGramIndex];
+	      var nextNGramIndex = 0;
+
+	      var appendToNGram = function appendToNGram(str) {
+	        return str.forEach(function (value) {
+	          return nGram[nextNGramIndex++] = value;
+	        });
+	      };
+
+	      for (var _n = 0; _n < leftPadding; ++_n) {
+	        appendToNGram(_this.leftPad);
+	        appendToNGram(_this.separator);
+	      } // Only output first numTokens - 1 pairs of data and separator
+
+
+	      for (var _n2 = 0; _n2 < numTokens - 1; ++_n2) {
+	        appendToNGram(data[dataStartIndex + _n2]);
+	        appendToNGram(_this.separator);
+	      } // Handle case when there are no tokens or no right padding as these
+	      // can result in consecutive separators.
+
+
+	      if (numTokens > 0) {
+	        // If we have tokens, then output last and then pair each separator
+	        // with the right padding that follows, to ensure nGram ends either with
+	        // the token or with the right pad.
+	        appendToNGram(data[dataStartIndex + numTokens - 1]);
+
+	        for (var _n3 = 0; _n3 < rightPadding; ++_n3) {
+	          appendToNGram(_this.separator);
+	          appendToNGram(_this.rightPad);
+	        }
+	      } else {
+	        // If we don't have tokens, then the last item inserted into the nGram
+	        // has been the separator from the left padding loop above. Hence,
+	        // output right pad and separator and make sure to finish with a
+	        // padding, not a separator.
+	        for (var _n4 = 0; _n4 < rightPadding - 1; ++_n4) {
+	          appendToNGram(_this.rightPad);
+	          appendToNGram(_this.separator);
+	        }
+
+	        appendToNGram(_this.rightPad);
+	      }
+	    };
+
+	    for (var nGramIndex = 0; nGramIndex < numNGrams; ++nGramIndex) {
+	      _loop(nGramIndex);
+	    }
+	  } // Data and splits together form the definition of the ragged tensor,
+	  // where data is 1 dimensional and contains the values of the tensor
+	  // and splits denotes the indices at which each row starts.
+	  ;
+
+	  _proto.compute = function compute(data, splits) {
+	    var _this2 = this;
+
+	    // Validate that the splits are valid indices into data, only if there are
+	    // splits specified.
+	    var inputDataSize = data.length;
+	    var splitsSize = splits.length;
+
+	    if (splitsSize > 0) {
+	      var prevSplit = splits[0];
+
+	      if (prevSplit !== 0) {
+	        throw new Error("First split value must be 0, got " + prevSplit);
+	      }
+
+	      for (var i = 1; i < splitsSize; ++i) {
+	        var validSplits = splits[i] >= prevSplit;
+	        validSplits = validSplits && splits[i] <= inputDataSize;
+
+	        if (!validSplits) {
+	          throw new Error("Invalid split value " + splits[i] + ", must be in [" + prevSplit + ", " + inputDataSize + "]");
+	        }
+
+	        prevSplit = splits[i];
+	      }
+
+	      if (prevSplit !== inputDataSize) {
+	        throw new Error("Last split value must be data size. Expected " + inputDataSize + ", got " + prevSplit);
+	      }
+	    }
+
+	    var numBatchItems = splitsSize - 1;
+	    var nGramsSplits = getArrayFromDType('int32', splitsSize); // If there is no data or size, return an empty ragged tensor.
+
+	    if (inputDataSize === 0 || splitsSize === 0) {
+	      var empty = new Array(inputDataSize);
+
+	      for (var _i = 0; _i <= numBatchItems; ++_i) {
+	        nGramsSplits[_i] = 0;
+	      }
+
+	      return [empty, nGramsSplits];
+	    }
+
+	    nGramsSplits[0] = 0;
+
+	    var _loop2 = function _loop2(_i2) {
+	      var length = splits[_i2] - splits[_i2 - 1];
+	      var numNGrams = 0;
+
+	      _this2.nGramWidths.forEach(function (nGramWidth) {
+	        numNGrams += _this2.getNumNGrams(length, nGramWidth);
+	      });
+
+	      if (_this2.preserveShort && length > 0 && numNGrams === 0) {
+	        numNGrams = 1;
+	      }
+
+	      nGramsSplits[_i2] = nGramsSplits[_i2 - 1] + numNGrams;
+	    };
+
+	    for (var _i2 = 1; _i2 <= numBatchItems; ++_i2) {
+	      _loop2(_i2);
+	    }
+
+	    var nGrams = new Array(nGramsSplits[numBatchItems]);
+
+	    var _loop3 = function _loop3(_i3) {
+	      var splitIndex = splits[_i3];
+	      var outputStartIdx = nGramsSplits[_i3];
+
+	      _this2.nGramWidths.forEach(function (nGramWidth) {
+	        var length = splits[_i3 + 1] - splits[_i3];
+
+	        var numNGrams = _this2.getNumNGrams(length, nGramWidth);
+
+	        _this2.createNGrams(data, splitIndex, nGrams, outputStartIdx, numNGrams, nGramWidth);
+
+	        outputStartIdx += numNGrams;
+	      }); // If we're preserving short sequences, check to see if no sequence was
+	      // generated by comparing the current output start idx to the original
+	      // one (nGramSplitsdata). If no ngrams were generated, then they will
+	      // be equal (since we increment outputStartIdx by numNGrams every
+	      // time we create a set of ngrams.)
+
+
+	      if (_this2.preserveShort && outputStartIdx === nGramsSplits[_i3]) {
+	        var dataLength = splits[_i3 + 1] - splits[_i3]; // One legitimate reason to not have any ngrams when this.preserveShort
+	        // is true is if the sequence itself is empty. In that case, move on.
+
+	        if (dataLength === 0) {
+	          return "continue";
+	        } // We don't have to worry about dynamic padding sizes here: if padding
+	        // was dynamic, every sequence would have had sufficient padding to
+	        // generate at least one nGram.
+
+
+	        var nGramWidth = dataLength + 2 * _this2.padWidth;
+	        var numNGrams = 1;
+
+	        _this2.createNGrams(data, splitIndex, nGrams, outputStartIdx, numNGrams, nGramWidth);
+	      }
+	    };
+
+	    for (var _i3 = 0; _i3 < numBatchItems; ++_i3) {
+	      var _ret = _loop3(_i3);
+
+	      if (_ret === "continue") continue;
+	    }
+
+	    return [nGrams, nGramsSplits];
+	  };
+
+	  return StringNGramsOp;
+	}();
+
+	function stringNGramsImpl(data, dataSplits, separator, nGramWidths, leftPad, rightPad, padWidth, preserveShortSequences) {
+	  return new StringNGramsOp(separator, nGramWidths, leftPad, rightPad, padWidth, preserveShortSequences).compute(data, dataSplits);
+	}
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+
+	function split$4(str, delimiters, skipEmpty) {
+	  if (!str.length) {
+	    return [];
+	  } // When the delimiter is empty, the input is split into individual characters.
+
+
+	  if (delimiters.length === 0) {
+	    var _result = new Array(str.length);
+
+	    for (var i = 0; i < str.length; ++i) {
+	      _result[i] = str.subarray(i, i + 1);
+	    }
+
+	    return _result;
+	  } // When there is one delimiter, the input is split only at that delimiter.
+
+
+	  if (delimiters.length === 1) {
+	    var delimiter = delimiters[0];
+	    var _result2 = [];
+	    var f = str.indexOf(delimiter);
+
+	    while (f !== -1) {
+	      var token = str.subarray(0, f);
+
+	      if (!skipEmpty || token.length !== 0) {
+	        _result2.push(token);
+	      }
+
+	      str = str.subarray(f + 1);
+	      f = str.indexOf(delimiter);
+	    }
+
+	    if (!skipEmpty || str.length !== 0) {
+	      _result2.push(str);
+	    }
+
+	    return _result2;
+	  } // When there are multiple delimiters, the input is split at every instance
+	  // one of the delimiters appears.
+
+
+	  var result = [];
+	  var tokenStart = 0;
+
+	  for (var _i = 0; _i < str.length + 1; _i++) {
+	    if (_i === str.length || delimiters.indexOf(str[_i]) !== -1) {
+	      var _token = str.subarray(tokenStart, _i);
+
+	      if (!skipEmpty || _token.length !== 0) {
+	        result.push(_token);
+	      }
+
+	      tokenStart = _i + 1;
+	    }
+	  }
+
+	  return result;
+	}
+
+	function stringSplitImpl(input, delimiter, skipEmpty) {
+	  var batchSize = input.length; // Empty delimiter means split the input character by character.
+
+	  var tokens = [];
+	  var outputSize = 0;
+	  var maxNumEntries = 0;
+	  var numIndices = new Array(batchSize);
+
+	  for (var i = 0; i < batchSize; ++i) {
+	    var parts = split$4(input[i], delimiter, skipEmpty);
+	    var nEntries = parts.length;
+	    numIndices[i] = nEntries;
+	    outputSize += nEntries;
+	    maxNumEntries = Math.max(maxNumEntries, nEntries);
+	    tokens.push.apply(tokens, parts);
+	  }
+
+	  var indices = getArrayFromDType('int32', outputSize * 2);
+	  var values = new Array(outputSize);
+	  var shape = [batchSize, maxNumEntries];
+	  var c = 0;
+
+	  for (var _i2 = 0; _i2 < batchSize; ++_i2) {
+	    for (var j = 0; j < numIndices[_i2]; ++j) {
+	      // indices is a 2d tensor with shape of [outputSize, 2]
+	      indices[c * 2] = _i2;
+	      indices[c * 2 + 1] = j;
+	      values[c] = tokens[c];
+	      ++c;
+	    }
+	  }
+
+	  return [indices, values, shape];
+	}
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function stringToHashBucketFastImpl(input, numBuckets) {
+	  var output = getArrayFromDType('int32', input.length);
+
+	  for (var i = 0; i < input.length; ++i) {
+	    output[i] = fingerPrint64(input[i]).modulo(numBuckets).getLowBitsUnsigned();
+	  }
+
+	  return output;
 	}
 
 	/**
@@ -96692,7 +99577,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$5 = '3.6.0';
+	var version$5 = '3.7.0';
 
 	/**
 	 * @license
@@ -100878,34 +103763,6 @@
 	/**
 	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	var equalImpl = createSimpleBinaryKernelImpl(function (a, b) {
-	  return a === b ? 1 : 0;
-	});
-	var equal$1 = binaryKernelFunc(Equal, equalImpl, null
-	/* complexImpl */
-	, 'bool');
-	var equalConfig = {
-	  kernelName: Equal,
-	  backendName: 'cpu',
-	  kernelFunc: equal$1
-	};
-
-	/**
-	 * @license
-	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the License);
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -101733,30 +104590,10 @@
 	    return backend.makeTensorInfo(resultShape, params.dtype, []);
 	  }
 
-	  var outBuf = buffer([numSlices, sliceSize], params.dtype);
 	  var indicesData = backend.data.get(indices.dataId).values;
-	  var paramsData = backend.data.get(params.dataId).values;
-
-	  for (var i = 0; i < numSlices; i++) {
-	    var index = [];
-	    var flattenIndex = 0;
-
-	    for (var j = 0; j < sliceRank; j++) {
-	      var dim = indicesData[i * sliceRank + j];
-	      flattenIndex += dim * strides[j];
-	      index.push(dim);
-	    }
-
-	    if (flattenIndex < 0 || flattenIndex >= paramsSize / sliceSize) {
-	      throw new Error("Invalid indices: " + index + " does not index into " + params.shape);
-	    }
-
-	    for (var k = 0; k < sliceSize; k++) {
-	      outBuf.values[i * sliceSize + k] = paramsData[flattenIndex * sliceSize + k];
-	    }
-	  }
-
-	  return backend.makeTensorInfo(resultShape, outBuf.dtype, outBuf.values);
+	  var paramsBuf = backend.bufferSync(params);
+	  var outBuf = gatherNdImpl(indicesData, paramsBuf, params.dtype, numSlices, sliceRank, sliceSize, strides, params.shape, paramsSize);
+	  return backend.makeTensorInfo(resultShape, params.dtype, outBuf.values);
 	}
 	var gatherNdConfig = {
 	  kernelName: GatherNd,
@@ -101828,34 +104665,6 @@
 	  kernelName: GatherV2,
 	  backendName: 'cpu',
 	  kernelFunc: gatherV2
-	};
-
-	/**
-	 * @license
-	 * Copyright 2020 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	var greaterEqualImpl = createSimpleBinaryKernelImpl(function (a, b) {
-	  return a >= b ? 1 : 0;
-	});
-	var greaterEqual$1 = binaryKernelFunc(GreaterEqual, greaterEqualImpl, null
-	/* complexImpl */
-	, 'bool');
-	var greaterEqualConfig = {
-	  kernelName: GreaterEqual,
-	  backendName: 'cpu',
-	  kernelFunc: greaterEqual$1
 	};
 
 	/**
@@ -101984,34 +104793,6 @@
 	  kernelName: IsNan,
 	  backendName: 'cpu',
 	  kernelFunc: isNaN$2
-	};
-
-	/**
-	 * @license
-	 * Copyright 2020 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	var lessEqualImpl = createSimpleBinaryKernelImpl(function (a, b) {
-	  return a <= b ? 1 : 0;
-	});
-	var lessEqual$1 = binaryKernelFunc(LessEqual, lessEqualImpl, null
-	/* complexImpl */
-	, 'bool');
-	var lessEqualConfig = {
-	  kernelName: LessEqual,
-	  backendName: 'cpu',
-	  kernelFunc: lessEqual$1
 	};
 
 	/**
@@ -102856,7 +105637,8 @@
 	    for (var j = 0; j < reduceSize; ++j) {
 	      var value = aVals[offset + j];
 
-	      if (value < _min) {
+	      if (Number.isNaN(value) || value < _min) {
+	        // comparison with NaN always return false
 	        _min = value;
 	      }
 	    }
@@ -104839,6 +107621,108 @@
 
 	/**
 	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function sparseSegmentMean$1(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend;
+	  var data = inputs.data,
+	      indices = inputs.indices,
+	      segmentIds = inputs.segmentIds;
+
+	  if (data.shape.length < 1) {
+	    throw new Error("Data should be at least 1 dimensional but received scalar");
+	  }
+
+	  if (indices.shape.length !== 1) {
+	    throw new Error("Indices should be a vector but received shape\n          " + indices.shape);
+	  }
+
+	  if (segmentIds.shape.length !== 1) {
+	    throw new Error("Segment ids should be a vector but received shape\n          " + segmentIds.shape);
+	  }
+
+	  var $data = backend.data.get(data.dataId).values;
+	  var $indices = backend.data.get(indices.dataId).values;
+	  var $segmentIds = backend.data.get(segmentIds.dataId).values;
+
+	  var _sparseSegmentReducti = sparseSegmentReductionImpl($data, data.shape, data.dtype, $indices, $segmentIds, true),
+	      outputData = _sparseSegmentReducti[0],
+	      outputDataShape = _sparseSegmentReducti[1];
+
+	  return backend.makeTensorInfo(outputDataShape, data.dtype, outputData);
+	}
+	var sparseSegmentMeanConfig = {
+	  kernelName: SparseSegmentMean,
+	  backendName: 'cpu',
+	  kernelFunc: sparseSegmentMean$1
+	};
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function sparseSegmentSum$1(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend;
+	  var data = inputs.data,
+	      indices = inputs.indices,
+	      segmentIds = inputs.segmentIds;
+
+	  if (data.shape.length < 1) {
+	    throw new Error("Data should be at least 1 dimensional but received scalar");
+	  }
+
+	  if (indices.shape.length !== 1) {
+	    throw new Error("Indices should be a vector but received shape\n         " + indices.shape);
+	  }
+
+	  if (segmentIds.shape.length !== 1) {
+	    throw new Error("Segment ids should be a vector but received shape\n         " + segmentIds.shape);
+	  }
+
+	  var $data = backend.data.get(data.dataId).values;
+	  var $indices = backend.data.get(indices.dataId).values;
+	  var $segmentIds = backend.data.get(segmentIds.dataId).values;
+
+	  var _sparseSegmentReducti = sparseSegmentReductionImpl($data, data.shape, data.dtype, $indices, $segmentIds),
+	      outputData = _sparseSegmentReducti[0],
+	      outputDataShape = _sparseSegmentReducti[1];
+
+	  return backend.makeTensorInfo(outputDataShape, data.dtype, outputData);
+	}
+	var sparseSegmentSumConfig = {
+	  kernelName: SparseSegmentSum,
+	  backendName: 'cpu',
+	  kernelFunc: sparseSegmentSum$1
+	};
+
+	/**
+	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -105128,6 +108012,143 @@
 	  kernelName: StridedSlice,
 	  backendName: 'cpu',
 	  kernelFunc: stridedSlice$1
+	};
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function stringNGrams$1(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend,
+	      attrs = args.attrs;
+	  var separator = attrs.separator,
+	      nGramWidths = attrs.nGramWidths,
+	      leftPad = attrs.leftPad,
+	      rightPad = attrs.rightPad,
+	      padWidth = attrs.padWidth,
+	      preserveShortSequences = attrs.preserveShortSequences;
+	  var data = inputs.data,
+	      dataSplits = inputs.dataSplits;
+	  var $data = backend.data.get(data.dataId).values;
+	  var $dataSplits = backend.data.get(dataSplits.dataId).values;
+
+	  var _stringNGramsImpl = stringNGramsImpl($data, $dataSplits, separator, nGramWidths, leftPad, rightPad, padWidth, preserveShortSequences),
+	      nGrams = _stringNGramsImpl[0],
+	      nGramsSplits = _stringNGramsImpl[1];
+
+	  return [backend.makeTensorInfo([nGrams.length], 'string', nGrams), backend.makeTensorInfo(dataSplits.shape, 'int32', nGramsSplits)];
+	}
+	var stringNGramsConfig = {
+	  kernelName: StringNGrams,
+	  backendName: 'cpu',
+	  kernelFunc: stringNGrams$1
+	};
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function stringSplit$1(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend,
+	      attrs = args.attrs;
+	  var skipEmpty = attrs.skipEmpty;
+	  var input = inputs.input,
+	      delimiter = inputs.delimiter;
+
+	  if (input.dtype !== 'string') {
+	    throw new Error('Input must be of datatype string');
+	  }
+
+	  if (input.shape.length !== 1) {
+	    throw new Error("Input must be a vector, got shape: " + input.shape);
+	  }
+
+	  if (delimiter.shape.length !== 0) {
+	    throw new Error("Delimiter must be a scalar, got shape: " + delimiter.shape);
+	  }
+
+	  var $input = backend.data.get(input.dataId).values;
+	  var $delimiter = backend.data.get(delimiter.dataId).values[0];
+
+	  var _stringSplitImpl = stringSplitImpl($input, $delimiter, skipEmpty),
+	      indices = _stringSplitImpl[0],
+	      values = _stringSplitImpl[1],
+	      shape = _stringSplitImpl[2];
+
+	  var outputSize = values.length;
+	  return [backend.makeTensorInfo([outputSize, 2], 'int32', indices), backend.makeTensorInfo([outputSize], 'string', values), backend.makeTensorInfo([2], 'int32', new Int32Array(shape))];
+	}
+	var stringSplitConfig = {
+	  kernelName: StringSplit,
+	  backendName: 'cpu',
+	  kernelFunc: stringSplit$1
+	};
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function stringToHashBucketFast$1(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend,
+	      attrs = args.attrs;
+	  var numBuckets = attrs.numBuckets;
+	  var input = inputs.input;
+
+	  if (input.dtype !== 'string') {
+	    throw new Error('Input must be of datatype string');
+	  }
+
+	  if (numBuckets <= 0) {
+	    throw new Error("Number of buckets must be at least 1");
+	  }
+
+	  var $input = backend.data.get(input.dataId).values;
+	  var output = stringToHashBucketFastImpl($input, numBuckets);
+	  return backend.makeTensorInfo(input.shape, 'int32', output);
+	}
+	var stringToHashBucketFastConfig = {
+	  kernelName: StringToHashBucketFast,
+	  backendName: 'cpu',
+	  kernelFunc: stringToHashBucketFast$1
 	};
 
 	/**
@@ -105709,7 +108730,7 @@
 	 * =============================================================================
 	 */
 
-	var kernelConfigs = [_fusedMatMulConfig, absConfig, acosConfig, acoshConfig, addConfig, addNConfig, allConfig, anyConfig, argMaxConfig, argMinConfig, asinConfig, asinhConfig, atanConfig, atan2Config, atanhConfig, avgPoolConfig, avgPool3DConfig, avgPool3DGradConfig$1, avgPoolGradConfig$1, batchMatMulConfig, batchNormConfig, batchToSpaceNDConfig, bincountConfig, castConfig, ceilConfig, clipConfig, complexConfig, complexAbsConfig, concatConfig, conv2DBackpropFilterConfig, conv2DBackpropInputConfig, conv2DConfig, conv3DBackpropFilterV2Config, conv3DBackpropInputV2Config, conv3DConfig, cosConfig, coshConfig, cropAndResizeConfig, cumsumConfig, denseBincountConfig, depthToSpaceConfig, depthwiseConv2dNativeConfig, depthwiseConv2dNativeBackpropFilterConfig, depthwiseConv2dNativeBackpropInputConfig, diagConfig, dilation2dConfig, dilation2dBackpropInputConfig, dilation2dBackpropFilterConfig, realDivConfig, einsumConfig, eluConfig, eluGradConfig$1, equalConfig, erfConfig, expConfig, expandDimsConfig, expm1Config, fftConfig, fillConfig, flipLeftRightConfig, floorConfig, floorDivConfig, fusedConv2DConfig, fusedDepthwiseConv2DConfig, gatherNdConfig, gatherV2Config, greaterConfig, greaterEqualConfig, identityConfig, ifftConfig, imagConfig, isFiniteConfig, isInfConfig, isNaNConfig, leakyReluConfig, lessConfig, lessEqualConfig, linSpaceConfig, logConfig, log1pConfig, logicalAndConfig, logicalNotConfig, logicalOrConfig, lRNConfig, lRNGradConfig, maximumConfig, maxPoolConfig, maxPool3DConfig, maxPool3DGradConfig$1, maxPoolGradConfig$1, maxPoolWithArgmaxConfig, maxConfig, meanConfig, minConfig, minimumConfig, mirrorPadConfig, modConfig, multinomialConfig, multiplyConfig, negConfig, nonMaxSuppressionV3Config, nonMaxSuppressionV4Config, nonMaxSuppressionV5Config, notEqualConfig, oneHotConfig, onesLikeConfig, packConfig, padV2Config, powConfig, preluConfig, prodConfig, rangeConfig, realConfig, reciprocalConfig, reluConfig, relu6Config, reshapeConfig, resizeBilinearConfig, resizeBilinearGradConfig$1, resizeNearestNeighborConfig, resizeNearestNeighborGradConfig$1, reverseConfig, rotateWithOffsetConfig, roundConfig, rsqrtConfig, scatterNdConfig, selectConfig, seluConfig, sigmoidConfig, signConfig, sinConfig, sinhConfig, sliceConfig, softmaxConfig, softplusConfig, spaceToBatchNDConfig, sparseFillEmptyRowsConfig, sparseReshapeConfig, sparseToDenseConfig, splitVConfig, sqrtConfig, squareConfig, squaredDifferenceConfig, stepConfig, stridedSliceConfig, subConfig, sumConfig, tanConfig, tanhConfig, tileConfig, topKConfig, transposeConfig, transformConfig, uniqueConfig, unpackConfig, unsortedSegmentSumConfig, zerosLikeConfig];
+	var kernelConfigs = [_fusedMatMulConfig, absConfig, acosConfig, acoshConfig, addConfig, addNConfig, allConfig, anyConfig, argMaxConfig, argMinConfig, asinConfig, asinhConfig, atanConfig, atan2Config, atanhConfig, avgPoolConfig, avgPool3DConfig, avgPool3DGradConfig$1, avgPoolGradConfig$1, batchMatMulConfig, batchNormConfig, batchToSpaceNDConfig, bincountConfig, castConfig, ceilConfig, clipConfig, complexConfig, complexAbsConfig, concatConfig, conv2DBackpropFilterConfig, conv2DBackpropInputConfig, conv2DConfig, conv3DBackpropFilterV2Config, conv3DBackpropInputV2Config, conv3DConfig, cosConfig, coshConfig, cropAndResizeConfig, cumsumConfig, denseBincountConfig, depthToSpaceConfig, depthwiseConv2dNativeConfig, depthwiseConv2dNativeBackpropFilterConfig, depthwiseConv2dNativeBackpropInputConfig, diagConfig, dilation2dConfig, dilation2dBackpropInputConfig, dilation2dBackpropFilterConfig, realDivConfig, einsumConfig, eluConfig, eluGradConfig$1, equalConfig, erfConfig, expConfig, expandDimsConfig, expm1Config, fftConfig, fillConfig, flipLeftRightConfig, floorConfig, floorDivConfig, fusedConv2DConfig, fusedDepthwiseConv2DConfig, gatherNdConfig, gatherV2Config, greaterConfig, greaterEqualConfig, identityConfig, ifftConfig, imagConfig, isFiniteConfig, isInfConfig, isNaNConfig, leakyReluConfig, lessConfig, lessEqualConfig, linSpaceConfig, logConfig, log1pConfig, logicalAndConfig, logicalNotConfig, logicalOrConfig, lRNConfig, lRNGradConfig, maximumConfig, maxPoolConfig, maxPool3DConfig, maxPool3DGradConfig$1, maxPoolGradConfig$1, maxPoolWithArgmaxConfig, maxConfig, meanConfig, minConfig, minimumConfig, mirrorPadConfig, modConfig, multinomialConfig, multiplyConfig, negConfig, nonMaxSuppressionV3Config, nonMaxSuppressionV4Config, nonMaxSuppressionV5Config, notEqualConfig, oneHotConfig, onesLikeConfig, packConfig, padV2Config, powConfig, preluConfig, prodConfig, rangeConfig, realConfig, reciprocalConfig, reluConfig, relu6Config, reshapeConfig, resizeBilinearConfig, resizeBilinearGradConfig$1, resizeNearestNeighborConfig, resizeNearestNeighborGradConfig$1, reverseConfig, rotateWithOffsetConfig, roundConfig, rsqrtConfig, scatterNdConfig, selectConfig, seluConfig, sigmoidConfig, signConfig, sinConfig, sinhConfig, sliceConfig, softmaxConfig, softplusConfig, spaceToBatchNDConfig, sparseFillEmptyRowsConfig, sparseReshapeConfig, sparseSegmentMeanConfig, sparseSegmentSumConfig, sparseToDenseConfig, splitVConfig, sqrtConfig, squareConfig, squaredDifferenceConfig, stepConfig, stridedSliceConfig, stringNGramsConfig, stringSplitConfig, stringToHashBucketFastConfig, subConfig, sumConfig, tanConfig, tanhConfig, tileConfig, topKConfig, transposeConfig, transformConfig, uniqueConfig, unpackConfig, unsortedSegmentSumConfig, zerosLikeConfig];
 
 	for (var _i$1 = 0, _kernelConfigs = kernelConfigs; _i$1 < _kernelConfigs.length; _i$1++) {
 	  var kernelConfig = _kernelConfigs[_i$1];
@@ -106900,6 +109921,16 @@
 	  if (threshold < 0 && threshold !== -1) {
 	    throw new Error("WEBGL_FLUSH_THRESHOLD must be -1 (indicating never " + ("manual flush) or at least 0, but got " + threshold + "."));
 	  }
+	});
+	/**
+	 * Threshold for input tensor size that determines whether WebGL backend will
+	 * delegate computation to CPU.
+	 *
+	 * Default value is 128.
+	 */
+
+	ENV$1.registerFlag('CPU_HANDOFF_SIZE_THRESHOLD', function () {
+	  return 128;
 	});
 
 	/**
@@ -109170,12 +112201,16 @@
 	    bincountReduceImplCPU = bincountReduceImpl,
 	    ceilImplCPU = ceilImpl,
 	    concatImplCPU = concatImpl,
+	    equalImplCPU = equalImpl,
 	    expImplCPU = expImpl,
 	    expm1ImplCPU = expm1Impl,
 	    floorImplCPU = floorImpl,
+	    gatherNdImplCPU = gatherNdImpl,
 	    gatherV2ImplCPU = gatherV2Impl,
 	    greaterImplCPU = greaterImpl,
+	    greaterEqualImplCPU = greaterEqualImpl,
 	    lessImplCPU = lessImpl,
+	    lessEqualImplCPU = lessEqualImpl,
 	    linSpaceImplCPU = linSpaceImpl,
 	    logImplCPU = logImpl,
 	    maxImplCPU = maxImpl,
@@ -109183,6 +112218,7 @@
 	    minimumImplCPU = minimumImpl,
 	    multiplyImplCPU = multiplyImpl,
 	    negImplCPU = negImpl,
+	    notEqualImplCPU = notEqualImpl,
 	    prodImplCPU = prodImpl,
 	    rangeImplCPU = rangeImpl,
 	    rsqrtImplCPU = rsqrtImpl,
@@ -109190,7 +112226,11 @@
 	    sliceImplCPU = sliceImpl,
 	    sparseFillEmptyRowsImplCPU = sparseFillEmptyRowsImpl,
 	    sparseReshapeImplCPU = sparseReshapeImpl,
+	    sparseSegmentReductionImplCPU = sparseSegmentReductionImpl,
 	    stridedSliceImplCPU = stridedSliceImpl,
+	    stringNGramsImplCPU = stringNGramsImpl,
+	    stringSplitImplCPU = stringSplitImpl,
+	    stringToHashBucketFastImplCPU = stringToHashBucketFastImpl,
 	    subImplCPU = subImpl,
 	    tileImplCPU = tileImpl,
 	    topKImplCPU = topKImpl,
@@ -109753,7 +112793,7 @@
 	} // Empirically determined constant used to determine size threshold for handing
 	// off execution to the CPU.
 
-	var CPU_HANDOFF_SIZE_THRESHOLD = 128; // Empirically determined constant used to decide the number of MB on GPU
+	var CPU_HANDOFF_SIZE_THRESHOLD = env().getNumber('CPU_HANDOFF_SIZE_THRESHOLD'); // Empirically determined constant used to decide the number of MB on GPU
 	// before we warn about high memory use. The MB are this constant * screen area
 	// * dpi / 1024 / 1024.
 
@@ -110944,7 +113984,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$6 = '3.6.0';
+	var version$6 = '3.7.0';
 
 	/**
 	 * @license
@@ -111356,12 +114396,15 @@
 
 	    var $dtype = dtype || upcastType(a.dtype, b.dtype);
 
-	    if (webglBackend.shouldExecuteOnCPU([a, b]) && cpuKernelImpl != null) {
-	      var _aData = webglBackend.texData.get(a.dataId);
+	    if ((a.dtype === 'string' || b.dtype === 'string' || webglBackend.shouldExecuteOnCPU([a, b])) && cpuKernelImpl != null) {
+	      var aVals = webglBackend.texData.get(a.dataId).values;
+	      var bVals = webglBackend.texData.get(b.dataId).values;
+	      var decodedAVals = a.dtype === 'string' ? // tslint:disable-next-line: no-any
+	      fromUint8ToStringArray(aVals) : aVals;
+	      var decodedBVals = a.dtype === 'string' ? // tslint:disable-next-line: no-any
+	      fromUint8ToStringArray(bVals) : bVals;
 
-	      var _bData = webglBackend.texData.get(b.dataId);
-
-	      var _cpuKernelImpl = cpuKernelImpl(a.shape, b.shape, _aData.values, _bData.values, $dtype),
+	      var _cpuKernelImpl = cpuKernelImpl(a.shape, b.shape, decodedAVals, decodedBVals, $dtype),
 	          outValues = _cpuKernelImpl[0],
 	          outShape = _cpuKernelImpl[1];
 
@@ -111826,7 +114869,7 @@
 
 	  var windowSizeNearestVec4 = Math.floor(windowSize / 4) * 4;
 	  var windowSizeVec4Remainder = windowSize % 4;
-	  var updateSnippet = "\n      if (" + (reduceType === 'sum') + ") {\n        sumValue += dot(values, ones);\n      } else if (" + (reduceType === 'prod') + ") {\n        vec2 tmp = vec2(values[0], values[1]) * vec2(values[2], values[3]);\n        prodValue *= tmp[0] * tmp[1];\n      } else {\n        minMaxValue = " + compareOp + "(values, minMaxValue);\n      }\n    ";
+	  var updateSnippet = "\n      if (" + (reduceType === 'sum') + ") {\n        sumValue += dot(values, ones);\n      } else if (" + (reduceType === 'prod') + ") {\n        vec2 tmp = vec2(values[0], values[1]) * vec2(values[2], values[3]);\n        prodValue *= tmp[0] * tmp[1];\n      } else {\n        minMaxValue = " + compareOp + "(values, minMaxValue);\n        if (" + (reduceType === 'min') + " || " + (reduceType === 'max') + ") {\n          minMaxValue = " + compareOp + "(values, minMaxValue);\n          bvec4 isNaN = isnan(values);\n          if (isNaN.r || isNaN.g || isNaN.b || isNaN.a) {\n            minMaxValue = vec4(NAN);\n          }\n        }\n      }\n    ";
 	  var vecType = "vec4";
 
 	  if (reduceType === 'all') {
@@ -114271,6 +117314,7 @@
 	var NOT_EQUAL$1 = "return float(a != b);";
 	var notEqual$2 = binaryKernelFunc$1({
 	  opSnippet: NOT_EQUAL$1,
+	  cpuKernelImpl: notEqualImplCPU,
 	  dtype: 'bool'
 	});
 	var notEqualConfig$1 = {
@@ -117114,7 +120158,8 @@
 	var equal$2 = binaryKernelFunc$1({
 	  opSnippet: EQUAL,
 	  packedOpSnippet: PACKED_EQUAL,
-	  dtype: 'bool'
+	  dtype: 'bool',
+	  cpuKernelImpl: equalImplCPU
 	});
 	var equalConfig$1 = {
 	  kernelName: Equal,
@@ -117923,6 +120968,7 @@
 	      indices = inputs.indices;
 	  var indicesShape = indices.shape;
 	  var sliceRank = indicesShape[indicesShape.length - 1];
+	  var paramsSize = sizeFromShape(params.shape);
 
 	  var _backend_util$prepare = prepareAndValidate(params, indices),
 	      resultShape = _backend_util$prepare[0],
@@ -117948,6 +120994,14 @@
 	      shape: [sizeFromShape(params.shape) / sliceSize, sliceSize]
 	    }
 	  });
+
+	  if (backend.shouldExecuteOnCPU([params, indices]) || params.dtype === 'string') {
+	    var indicesData = backend.readSync(indices.dataId);
+	    var paramsBuf = backend.bufferSync(params);
+	    var outValue = gatherNdImplCPU(indicesData, paramsBuf, params.dtype, numSlices, sliceRank, sliceSize, strides, params.shape, paramsSize);
+	    return backend.makeTensorInfo(resultShape, params.dtype, outValue.values);
+	  }
+
 	  var program = new GatherNDProgram(sliceRank, strides, [numSlices, sliceSize]);
 	  var res = backend.runWebGLProgram(program, [flattenX, flattenIndices], flattenX.dtype);
 	  var reshaped = reshape$3({
@@ -118144,7 +121198,8 @@
 	var greaterEqual$2 = binaryKernelFunc$1({
 	  opSnippet: GREATER_EQUAL,
 	  packedOpSnippet: GREATER_EQUAL_PACKED,
-	  dtype: 'bool'
+	  dtype: 'bool',
+	  cpuKernelImpl: greaterEqualImplCPU
 	});
 	var greaterEqualConfig$1 = {
 	  kernelName: GreaterEqual,
@@ -118314,6 +121369,7 @@
 	var lessEqual$2 = binaryKernelFunc$1({
 	  opSnippet: LESS_EQUAL,
 	  packedOpSnippet: LESS_EQUAL_PACKED,
+	  cpuKernelImpl: lessEqualImplCPU,
 	  dtype: 'bool'
 	});
 	var lessEqualConfig$1 = {
@@ -121990,6 +125046,108 @@
 
 	/**
 	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function sparseSegmentMean$2(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend;
+	  var data = inputs.data,
+	      indices = inputs.indices,
+	      segmentIds = inputs.segmentIds;
+
+	  if (data.shape.length < 1) {
+	    throw new Error("Data should be at least 1 dimensional but received scalar");
+	  }
+
+	  if (indices.shape.length !== 1) {
+	    throw new Error("Indices should be a vector but received shape\n              " + indices.shape);
+	  }
+
+	  if (segmentIds.shape.length !== 1) {
+	    throw new Error("Segment ids should be a vector but received shape\n              " + segmentIds.shape);
+	  }
+
+	  var $data = backend.readSync(data.dataId);
+	  var $indices = backend.readSync(indices.dataId);
+	  var $segmentIds = backend.readSync(segmentIds.dataId);
+
+	  var _sparseSegmentReducti = sparseSegmentReductionImplCPU($data, data.shape, data.dtype, $indices, $segmentIds, true),
+	      outputData = _sparseSegmentReducti[0],
+	      outputDataShape = _sparseSegmentReducti[1];
+
+	  return backend.makeTensorInfo(outputDataShape, data.dtype, outputData);
+	}
+	var sparseSegmentMeanConfig$1 = {
+	  kernelName: SparseSegmentMean,
+	  backendName: 'webgl',
+	  kernelFunc: sparseSegmentMean$2
+	};
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function sparseSegmentSum$2(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend;
+	  var data = inputs.data,
+	      indices = inputs.indices,
+	      segmentIds = inputs.segmentIds;
+
+	  if (data.shape.length < 1) {
+	    throw new Error("Data should be at least 1 dimensional but received scalar");
+	  }
+
+	  if (indices.shape.length !== 1) {
+	    throw new Error("Indices should be a vector but received shape\n             " + indices.shape);
+	  }
+
+	  if (segmentIds.shape.length !== 1) {
+	    throw new Error("Segment ids should be a vector but received shape\n             " + segmentIds.shape);
+	  }
+
+	  var $data = backend.readSync(data.dataId);
+	  var $indices = backend.readSync(indices.dataId);
+	  var $segmentIds = backend.readSync(segmentIds.dataId);
+
+	  var _sparseSegmentReducti = sparseSegmentReductionImplCPU($data, data.shape, data.dtype, $indices, $segmentIds),
+	      outputData = _sparseSegmentReducti[0],
+	      outputDataShape = _sparseSegmentReducti[1];
+
+	  return backend.makeTensorInfo(outputDataShape, data.dtype, outputData);
+	}
+	var sparseSegmentSumConfig$1 = {
+	  kernelName: SparseSegmentSum,
+	  backendName: 'webgl',
+	  kernelFunc: sparseSegmentSum$2
+	};
+
+	/**
+	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -122344,6 +125502,143 @@
 	  kernelName: StridedSlice,
 	  backendName: 'webgl',
 	  kernelFunc: stridedSlice$2
+	};
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function stringNGrams$2(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend,
+	      attrs = args.attrs;
+	  var separator = attrs.separator,
+	      nGramWidths = attrs.nGramWidths,
+	      leftPad = attrs.leftPad,
+	      rightPad = attrs.rightPad,
+	      padWidth = attrs.padWidth,
+	      preserveShortSequences = attrs.preserveShortSequences;
+	  var data = inputs.data,
+	      dataSplits = inputs.dataSplits;
+	  var $data = backend.readSync(data.dataId);
+	  var $dataSplits = backend.readSync(dataSplits.dataId);
+
+	  var _stringNGramsImplCPU = stringNGramsImplCPU($data, $dataSplits, separator, nGramWidths, leftPad, rightPad, padWidth, preserveShortSequences),
+	      nGrams = _stringNGramsImplCPU[0],
+	      nGramsSplits = _stringNGramsImplCPU[1];
+
+	  return [backend.makeTensorInfo([nGrams.length], 'string', nGrams), backend.makeTensorInfo(dataSplits.shape, 'int32', nGramsSplits)];
+	}
+	var stringNGramsConfig$1 = {
+	  kernelName: StringNGrams,
+	  backendName: 'webgl',
+	  kernelFunc: stringNGrams$2
+	};
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function stringSplit$2(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend,
+	      attrs = args.attrs;
+	  var skipEmpty = attrs.skipEmpty;
+	  var input = inputs.input,
+	      delimiter = inputs.delimiter;
+
+	  if (input.dtype !== 'string') {
+	    throw new Error('Input must be of datatype string');
+	  }
+
+	  if (input.shape.length !== 1) {
+	    throw new Error("Input must be a vector, got shape: " + input.shape);
+	  }
+
+	  if (delimiter.shape.length !== 0) {
+	    throw new Error("Delimiter must be a scalar, got shape: " + delimiter.shape);
+	  }
+
+	  var $input = backend.readSync(input.dataId);
+	  var $delimiter = backend.readSync(delimiter.dataId)[0];
+
+	  var _stringSplitImplCPU = stringSplitImplCPU($input, $delimiter, skipEmpty),
+	      indices = _stringSplitImplCPU[0],
+	      values = _stringSplitImplCPU[1],
+	      shape = _stringSplitImplCPU[2];
+
+	  var outputSize = values.length;
+	  return [backend.makeTensorInfo([outputSize, 2], 'int32', indices), backend.makeTensorInfo([outputSize], 'string', values), backend.makeTensorInfo([2], 'int32', new Int32Array(shape))];
+	}
+	var stringSplitConfig$1 = {
+	  kernelName: StringSplit,
+	  backendName: 'webgl',
+	  kernelFunc: stringSplit$2
+	};
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function stringToHashBucketFast$2(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend,
+	      attrs = args.attrs;
+	  var numBuckets = attrs.numBuckets;
+	  var input = inputs.input;
+
+	  if (input.dtype !== 'string') {
+	    throw new Error('Input must be of datatype string');
+	  }
+
+	  if (numBuckets <= 0) {
+	    throw new Error("Number of buckets must be at least 1");
+	  }
+
+	  var $input = backend.readSync(input.dataId);
+	  var output = stringToHashBucketFastImplCPU($input, numBuckets);
+	  return backend.makeTensorInfo(input.shape, 'int32', output);
+	}
+	var stringToHashBucketFastConfig$1 = {
+	  kernelName: StringToHashBucketFast,
+	  backendName: 'webgl',
+	  kernelFunc: stringToHashBucketFast$2
 	};
 
 	/**
@@ -122943,7 +126238,7 @@
 	 * =============================================================================
 	 */
 
-	var kernelConfigs$1 = [LRNConfig, LRNGradConfig, _fusedMatMulConfig$1, absConfig$1, acosConfig$1, acoshConfig$1, addConfig$1, addNConfig$1, allConfig$1, anyConfig$1, argMaxConfig$1, argMinConfig$1, asinConfig$1, asinhConfig$1, atan2Config$1, atanConfig$1, atanhConfig$1, avgPool3DConfig$1, avgPoolConfig$1, avgPoolGrad3DConfig, avgPoolGradConfig$2, batchMatMulConfig$1, batchNormConfig$1, batchToSpaceNDConfig$1, bincountConfig$1, castConfig$1, ceilConfig$1, clipByValueConfig, complexAbsConfig$1, complexConfig$1, concatConfig$1, conv2DBackpropFilterConfig$1, conv2DBackpropInputConfig$1, conv2DConfig$1, conv3DBackpropFilterV2Config$1, conv3DBackpropInputConfig, conv3DConfig$1, cosConfig$1, coshConfig$1, cropAndResizeConfig$1, cumsumConfig$1, denseBincountConfig$1, depthToSpaceConfig$1, depthwiseConv2dNativeBackpropFilterConfig$1, depthwiseConv2dNativeBackpropInputConfig$1, depthwiseConv2dNativeConfig$1, diagConfig$1, dilation2DConfig, einsumConfig$1, eluConfig$1, eluGradConfig$2, equalConfig$1, erfConfig$1, expConfig$1, expandDimsConfig$1, expm1Config$1, fftConfig$1, fillConfig$1, flipLeftRightConfig$1, floorConfig$1, floorDivConfig$1, fromPixelsConfig, fusedConv2DConfig$1, fusedDepthwiseConv2DConfig$1, gatherNdConfig$1, gatherV2Config$1, greaterConfig$1, greaterEqualConfig$1, identityConfig$1, ifftConfig$1, imagConfig$1, isFiniteConfig$1, isInfConfig$1, isNaNConfig$1, leakyReluConfig$1, lessConfig$1, lessEqualConfig$1, linSpaceConfig$1, log1pConfig$1, logConfig$1, logicalAndConfig$1, logicalNotConfig$1, logicalOrConfig$1, maxConfig$1, maxPool3DConfig$1, maxPoolConfig$1, maxPoolGrad3DConfig, maxPoolGradConfig$2, maxPoolWithArgmaxConfig$1, maximumConfig$1, meanConfig$1, minConfig$1, minimumConfig$1, mirrorPadConfig$1, modConfig$1, multinomialConfig$1, multiplyConfig$1, negConfig$1, nonMaxSuppressionV3Config$1, nonMaxSuppressionV4Config$1, nonMaxSuppressionV5Config$1, notEqualConfig$1, oneHotConfig$1, onesLikeConfig$1, packConfig$1, padV2Config$1, powConfig$1, preluConfig$1, prodConfig$1, rangeConfig$1, realConfig$1, realDivConfig$1, reciprocalConfig$1, relu6Config$1, reluConfig$1, reshapeConfig$1, resizeBilinearConfig$1, resizeBilinearGradConfig$2, resizeNearestNeighborConfig$1, resizeNearestNeighborGradConfig$2, reverseConfig$1, rotateWithOffsetConfig$1, roundConfig$1, rsqrtConfig$1, scatterNdConfig$1, selectConfig$1, seluConfig$1, sigmoidConfig$1, signConfig$1, sinConfig$1, sinhConfig$1, sliceConfig$1, softmaxConfig$1, softplusConfig$1, spaceToBatchNDConfig$1, sparseFillEmptyRowsConfig$1, sparseReshapeConfig$1, sparseToDenseConfig$1, splitVConfig$1, sqrtConfig$1, squareConfig$1, squaredDifferenceConfig$1, stepConfig$1, stridedSliceConfig$1, subConfig$1, sumConfig$1, tanConfig$1, tanhConfig$1, tileConfig$1, topKConfig$1, transformConfig$1, transposeConfig$1, uniqueConfig$1, unpackConfig$1, unsortedSegmentSumConfig$1, zerosLikeConfig$1];
+	var kernelConfigs$1 = [LRNConfig, LRNGradConfig, _fusedMatMulConfig$1, absConfig$1, acosConfig$1, acoshConfig$1, addConfig$1, addNConfig$1, allConfig$1, anyConfig$1, argMaxConfig$1, argMinConfig$1, asinConfig$1, asinhConfig$1, atan2Config$1, atanConfig$1, atanhConfig$1, avgPool3DConfig$1, avgPoolConfig$1, avgPoolGrad3DConfig, avgPoolGradConfig$2, batchMatMulConfig$1, batchNormConfig$1, batchToSpaceNDConfig$1, bincountConfig$1, castConfig$1, ceilConfig$1, clipByValueConfig, complexAbsConfig$1, complexConfig$1, concatConfig$1, conv2DBackpropFilterConfig$1, conv2DBackpropInputConfig$1, conv2DConfig$1, conv3DBackpropFilterV2Config$1, conv3DBackpropInputConfig, conv3DConfig$1, cosConfig$1, coshConfig$1, cropAndResizeConfig$1, cumsumConfig$1, denseBincountConfig$1, depthToSpaceConfig$1, depthwiseConv2dNativeBackpropFilterConfig$1, depthwiseConv2dNativeBackpropInputConfig$1, depthwiseConv2dNativeConfig$1, diagConfig$1, dilation2DConfig, einsumConfig$1, eluConfig$1, eluGradConfig$2, equalConfig$1, erfConfig$1, expConfig$1, expandDimsConfig$1, expm1Config$1, fftConfig$1, fillConfig$1, flipLeftRightConfig$1, floorConfig$1, floorDivConfig$1, fromPixelsConfig, fusedConv2DConfig$1, fusedDepthwiseConv2DConfig$1, gatherNdConfig$1, gatherV2Config$1, greaterConfig$1, greaterEqualConfig$1, identityConfig$1, ifftConfig$1, imagConfig$1, isFiniteConfig$1, isInfConfig$1, isNaNConfig$1, leakyReluConfig$1, lessConfig$1, lessEqualConfig$1, linSpaceConfig$1, log1pConfig$1, logConfig$1, logicalAndConfig$1, logicalNotConfig$1, logicalOrConfig$1, maxConfig$1, maxPool3DConfig$1, maxPoolConfig$1, maxPoolGrad3DConfig, maxPoolGradConfig$2, maxPoolWithArgmaxConfig$1, maximumConfig$1, meanConfig$1, minConfig$1, minimumConfig$1, mirrorPadConfig$1, modConfig$1, multinomialConfig$1, multiplyConfig$1, negConfig$1, nonMaxSuppressionV3Config$1, nonMaxSuppressionV4Config$1, nonMaxSuppressionV5Config$1, notEqualConfig$1, oneHotConfig$1, onesLikeConfig$1, packConfig$1, padV2Config$1, powConfig$1, preluConfig$1, prodConfig$1, rangeConfig$1, realConfig$1, realDivConfig$1, reciprocalConfig$1, relu6Config$1, reluConfig$1, reshapeConfig$1, resizeBilinearConfig$1, resizeBilinearGradConfig$2, resizeNearestNeighborConfig$1, resizeNearestNeighborGradConfig$2, reverseConfig$1, rotateWithOffsetConfig$1, roundConfig$1, rsqrtConfig$1, scatterNdConfig$1, selectConfig$1, seluConfig$1, sigmoidConfig$1, signConfig$1, sinConfig$1, sinhConfig$1, sliceConfig$1, softmaxConfig$1, softplusConfig$1, spaceToBatchNDConfig$1, sparseFillEmptyRowsConfig$1, sparseReshapeConfig$1, sparseSegmentMeanConfig$1, sparseSegmentSumConfig$1, sparseToDenseConfig$1, splitVConfig$1, sqrtConfig$1, squareConfig$1, squaredDifferenceConfig$1, stepConfig$1, stridedSliceConfig$1, stringNGramsConfig$1, stringSplitConfig$1, stringToHashBucketFastConfig$1, subConfig$1, sumConfig$1, tanConfig$1, tanhConfig$1, tileConfig$1, topKConfig$1, transformConfig$1, transposeConfig$1, uniqueConfig$1, unpackConfig$1, unsortedSegmentSumConfig$1, zerosLikeConfig$1];
 
 	for (var _i$2 = 0, _kernelConfigs$1 = kernelConfigs$1; _i$2 < _kernelConfigs$1.length; _i$2++) {
 	  var kernelConfig$1 = _kernelConfigs$1[_i$2];
@@ -122969,7 +126264,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$7 = '3.6.0';
+	var version$7 = '3.7.0';
 
 	/**
 	 * @license
@@ -123178,6 +126473,8 @@
 	exports.SpaceToBatchND = SpaceToBatchND;
 	exports.SparseFillEmptyRows = SparseFillEmptyRows;
 	exports.SparseReshape = SparseReshape;
+	exports.SparseSegmentMean = SparseSegmentMean;
+	exports.SparseSegmentSum = SparseSegmentSum;
 	exports.SparseToDense = SparseToDense;
 	exports.SplitV = SplitV;
 	exports.Sqrt = Sqrt;
@@ -123185,6 +126482,9 @@
 	exports.SquaredDifference = SquaredDifference;
 	exports.Step = Step;
 	exports.StridedSlice = StridedSlice;
+	exports.StringNGrams = StringNGrams;
+	exports.StringSplit = StringSplit;
+	exports.StringToHashBucketFast = StringToHashBucketFast;
 	exports.Sub = Sub;
 	exports.Sum = Sum;
 	exports.SymbolicTensor = SymbolicTensor;
@@ -123436,6 +126736,7 @@
 	exports.stack = stack;
 	exports.step = step;
 	exports.stridedSlice = stridedSlice;
+	exports.string = string;
 	exports.sub = sub;
 	exports.sum = sum$1;
 	exports.sumOutType = sumOutType;
