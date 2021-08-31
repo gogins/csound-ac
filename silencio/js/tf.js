@@ -13546,7 +13546,6 @@
 	// tslint:disable-next-line:no-any
 	function shuffle(array) {
 	  var counter = array.length;
-	  var temp = 0;
 	  var index = 0; // While there are elements in the array
 
 	  while (counter > 0) {
@@ -13555,9 +13554,7 @@
 
 	    counter--; // And swap the last element with it
 
-	    temp = array[counter];
-	    array[counter] = array[index];
-	    array[index] = temp;
+	    swap(array, counter, index);
 	  }
 	}
 	/**
@@ -13585,7 +13582,6 @@
 	  }
 
 	  var counter = array.length;
-	  var temp, temp2;
 	  var index = 0; // While there are elements in the array
 
 	  while (counter > 0) {
@@ -13594,12 +13590,8 @@
 
 	    counter--; // And swap the last element of each array with it
 
-	    temp = array[counter];
-	    temp2 = array2[counter];
-	    array[counter] = array[index];
-	    array2[counter] = array2[index];
-	    array[index] = temp;
-	    array2[index] = temp2;
+	    swap(array, counter, index);
+	    swap(array2, counter, index);
 	  }
 	}
 	/** Clamps a value to a specified range. */
@@ -13609,6 +13601,11 @@
 	}
 	function nearestLargerEven(val) {
 	  return val % 2 === 0 ? val : val + 1;
+	}
+	function swap(object, left, right) {
+	  var temp = object[left];
+	  object[left] = object[right];
+	  object[right] = temp;
 	}
 	function sum(arr) {
 	  var sum = 0;
@@ -16541,6 +16538,7 @@
 		shuffleCombo: shuffleCombo,
 		clamp: clamp,
 		nearestLargerEven: nearestLargerEven,
+		swap: swap,
 		sum: sum,
 		randUniform: randUniform,
 		distSquared: distSquared,
@@ -18426,6 +18424,15 @@
 	  ;
 
 	  _proto2.runKernel = function runKernel(kernelName, inputs, attrs) {
+	    if (this.backendName == null) {
+	      // backend has not been initialized yet (backend initialization is lazy
+	      // can be deferred until an op/ kernel is run).
+	      // The below getter has side effects that will try to initialize the
+	      // backend and set properties like this.backendName
+	      // tslint:disable-next-line: no-unused-expression
+	      this.backend;
+	    }
+
 	    var hasKernel = getKernel(kernelName, this.backendName) != null;
 
 	    if (!hasKernel) {
@@ -19974,7 +19981,7 @@
 	                    }, _callee);
 	                  }));
 
-	                  return function (_x3) {
+	                  return function (_x5) {
 	                    return _ref.apply(this, arguments);
 	                  };
 	                }());
@@ -20275,10 +20282,119 @@
 	  return items[items.length - 1];
 	}
 	/**
+	 * Create `ModelJSON` from `ModelArtifacts`.
+	 *
+	 * @param artifacts Model artifacts, describing the model and its weights.
+	 * @param manifest Weight manifest, describing where the weights of the
+	 *     `ModelArtifacts` are stored, and some metadata about them.
+	 * @returns Object representing the `model.json` file describing the model
+	 *     artifacts and weights
+	 */
+
+	function getModelJSONForModelArtifacts(artifacts, manifest) {
+	  var result = {
+	    modelTopology: artifacts.modelTopology,
+	    format: artifacts.format,
+	    generatedBy: artifacts.generatedBy,
+	    convertedBy: artifacts.convertedBy,
+	    weightsManifest: manifest
+	  };
+
+	  if (artifacts.signature != null) {
+	    result.signature = artifacts.signature;
+	  }
+
+	  if (artifacts.userDefinedMetadata != null) {
+	    result.userDefinedMetadata = artifacts.userDefinedMetadata;
+	  }
+
+	  if (artifacts.modelInitializer != null) {
+	    result.modelInitializer = artifacts.modelInitializer;
+	  }
+
+	  if (artifacts.trainingConfig != null) {
+	    result.trainingConfig = artifacts.trainingConfig;
+	  }
+
+	  return result;
+	}
+	/**
+	 * Create `ModelArtifacts` from a JSON file.
+	 *
+	 * @param modelJSON Object containing the parsed JSON of `model.json`
+	 * @param loadWeights Function that takes the JSON file's weights manifest,
+	 *     reads weights from the listed path(s), and returns a Promise of the
+	 *     weight manifest entries along with the weights data.
+	 * @returns A Promise of the `ModelArtifacts`, as described by the JSON file.
+	 */
+
+	function getModelArtifactsForJSON(_x3, _x4) {
+	  return _getModelArtifactsForJSON.apply(this, arguments);
+	}
+	/**
 	 * Populate ModelArtifactsInfo fields for a model with JSON topology.
 	 * @param modelArtifacts
 	 * @returns A ModelArtifactsInfo object.
 	 */
+
+	function _getModelArtifactsForJSON() {
+	  _getModelArtifactsForJSON = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee3(modelJSON, loadWeights) {
+	    var modelArtifacts, _yield$loadWeights, weightSpecs, weightData;
+
+	    return regeneratorRuntime.wrap(function _callee3$(_context3) {
+	      while (1) {
+	        switch (_context3.prev = _context3.next) {
+	          case 0:
+	            modelArtifacts = {
+	              modelTopology: modelJSON.modelTopology,
+	              format: modelJSON.format,
+	              generatedBy: modelJSON.generatedBy,
+	              convertedBy: modelJSON.convertedBy
+	            };
+
+	            if (modelJSON.trainingConfig != null) {
+	              modelArtifacts.trainingConfig = modelJSON.trainingConfig;
+	            }
+
+	            if (!(modelJSON.weightsManifest != null)) {
+	              _context3.next = 10;
+	              break;
+	            }
+
+	            _context3.next = 5;
+	            return loadWeights(modelJSON.weightsManifest);
+
+	          case 5:
+	            _yield$loadWeights = _context3.sent;
+	            weightSpecs = _yield$loadWeights[0];
+	            weightData = _yield$loadWeights[1];
+	            modelArtifacts.weightSpecs = weightSpecs;
+	            modelArtifacts.weightData = weightData;
+
+	          case 10:
+	            if (modelJSON.signature != null) {
+	              modelArtifacts.signature = modelJSON.signature;
+	            }
+
+	            if (modelJSON.userDefinedMetadata != null) {
+	              modelArtifacts.userDefinedMetadata = modelJSON.userDefinedMetadata;
+	            }
+
+	            if (modelJSON.modelInitializer != null) {
+	              modelArtifacts.modelInitializer = modelJSON.modelInitializer;
+	            }
+
+	            return _context3.abrupt("return", modelArtifacts);
+
+	          case 14:
+	          case "end":
+	            return _context3.stop();
+	        }
+	      }
+	    }, _callee3);
+	  }));
+	  return _getModelArtifactsForJSON.apply(this, arguments);
+	}
 
 	function getModelArtifactsInfoForJSON(modelArtifacts) {
 	  if (modelArtifacts.modelTopology instanceof ArrayBuffer) {
@@ -21043,6 +21159,13 @@
 	    modelMetadata: [PATH_PREFIX, path, MODEL_METADATA_SUFFIX].join(PATH_SEPARATOR)
 	  };
 	}
+
+	function removeItems(keys) {
+	  for (var _i = 0, _Object$values = Object.values(keys); _i < _Object$values.length; _i++) {
+	    var key = _Object$values[_i];
+	    window.localStorage.removeItem(key);
+	  }
+	}
 	/**
 	 * Get model path from a local-storage key.
 	 *
@@ -21108,7 +21231,7 @@
 	  /*#__PURE__*/
 	  function () {
 	    var _save = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(modelArtifacts) {
-	      var topology, weightSpecs, modelArtifactsInfo, result;
+	      var topology, weightSpecs, modelArtifactsInfo, metadata;
 	      return regeneratorRuntime.wrap(function _callee$(_context) {
 	        while (1) {
 	          switch (_context.prev = _context.next) {
@@ -21128,47 +21251,37 @@
 	              this.LS.setItem(this.keys.info, JSON.stringify(modelArtifactsInfo));
 	              this.LS.setItem(this.keys.topology, topology);
 	              this.LS.setItem(this.keys.weightSpecs, weightSpecs);
-	              this.LS.setItem(this.keys.weightData, arrayBufferToBase64String(modelArtifacts.weightData));
-	              result = {
+	              this.LS.setItem(this.keys.weightData, arrayBufferToBase64String(modelArtifacts.weightData)); // Note that JSON.stringify doesn't write out keys that have undefined
+	              // values, so for some keys, we set undefined instead of a null-ish
+	              // value.
+
+	              metadata = {
 	                format: modelArtifacts.format,
 	                generatedBy: modelArtifacts.generatedBy,
-	                convertedBy: modelArtifacts.convertedBy
+	                convertedBy: modelArtifacts.convertedBy,
+	                signature: modelArtifacts.signature != null ? modelArtifacts.signature : undefined,
+	                userDefinedMetadata: modelArtifacts.userDefinedMetadata != null ? modelArtifacts.userDefinedMetadata : undefined,
+	                modelInitializer: modelArtifacts.modelInitializer != null ? modelArtifacts.modelInitializer : undefined,
+	                trainingConfig: modelArtifacts.trainingConfig != null ? modelArtifacts.trainingConfig : undefined
 	              };
-
-	              if (modelArtifacts.signature != null) {
-	                result.signature = modelArtifacts.signature;
-	              }
-
-	              if (modelArtifacts.userDefinedMetadata != null) {
-	                result.userDefinedMetadata = modelArtifacts.userDefinedMetadata;
-	              }
-
-	              if (modelArtifacts.modelInitializer != null) {
-	                result.modelInitializer = modelArtifacts.modelInitializer;
-	              }
-
-	              this.LS.setItem(this.keys.modelMetadata, JSON.stringify(result));
+	              this.LS.setItem(this.keys.modelMetadata, JSON.stringify(metadata));
 	              return _context.abrupt("return", {
 	                modelArtifactsInfo: modelArtifactsInfo
 	              });
 
-	            case 20:
-	              _context.prev = 20;
+	            case 17:
+	              _context.prev = 17;
 	              _context.t0 = _context["catch"](7);
 	              // If saving failed, clean up all items saved so far.
-	              this.LS.removeItem(this.keys.info);
-	              this.LS.removeItem(this.keys.topology);
-	              this.LS.removeItem(this.keys.weightSpecs);
-	              this.LS.removeItem(this.keys.weightData);
-	              this.LS.removeItem(this.keys.modelMetadata);
+	              removeItems(this.keys);
 	              throw new Error("Failed to save model '" + this.modelPath + "' to local storage: " + "size quota being exceeded is a possible cause of this failure: " + ("modelTopologyBytes=" + modelArtifactsInfo.modelTopologyBytes + ", ") + ("weightSpecsBytes=" + modelArtifactsInfo.weightSpecsBytes + ", ") + ("weightDataBytes=" + modelArtifactsInfo.weightDataBytes + "."));
 
-	            case 28:
+	            case 21:
 	            case "end":
 	              return _context.stop();
 	          }
 	        }
-	      }, _callee, this, [[7, 20]]);
+	      }, _callee, this, [[7, 17]]);
 	    }));
 
 	    function save(_x) {
@@ -21244,20 +21357,24 @@
 
 	              if (metadataString != null) {
 	                metadata = JSON.parse(metadataString);
-	                out.format = metadata['format'];
-	                out.generatedBy = metadata['generatedBy'];
-	                out.convertedBy = metadata['convertedBy'];
+	                out.format = metadata.format;
+	                out.generatedBy = metadata.generatedBy;
+	                out.convertedBy = metadata.convertedBy;
 
-	                if (metadata['signature'] != null) {
-	                  out.signature = metadata['signature'];
+	                if (metadata.signature != null) {
+	                  out.signature = metadata.signature;
 	                }
 
-	                if (metadata['userDefinedMetadata'] != null) {
-	                  out.userDefinedMetadata = metadata['userDefinedMetadata'];
+	                if (metadata.userDefinedMetadata != null) {
+	                  out.userDefinedMetadata = metadata.userDefinedMetadata;
 	                }
 
-	                if (metadata['modelInitializer'] != null) {
-	                  out.modelInitializer = metadata['modelInitializer'];
+	                if (metadata.modelInitializer != null) {
+	                  out.modelInitializer = metadata.modelInitializer;
+	                }
+
+	                if (metadata.trainingConfig != null) {
+	                  out.trainingConfig = metadata.trainingConfig;
 	                }
 	              } // Load weight data.
 
@@ -21403,13 +21520,10 @@
 
 	            case 4:
 	              info = JSON.parse(this.LS.getItem(keys.info));
-	              this.LS.removeItem(keys.info);
-	              this.LS.removeItem(keys.topology);
-	              this.LS.removeItem(keys.weightSpecs);
-	              this.LS.removeItem(keys.weightData);
+	              removeItems(keys);
 	              return _context4.abrupt("return", info);
 
-	            case 10:
+	            case 7:
 	            case "end":
 	              return _context4.stop();
 	          }
@@ -22268,7 +22382,7 @@
 	      fileNamePrefix = DEFAULT_FILE_NAME_PREFIX;
 	    }
 
-	    this.modelTopologyFileName = fileNamePrefix + DEFAULT_JSON_EXTENSION_NAME;
+	    this.modelJsonFileName = fileNamePrefix + DEFAULT_JSON_EXTENSION_NAME;
 	    this.weightDataFileName = fileNamePrefix + DEFAULT_WEIGHT_DATA_EXTENSION_NAME;
 	  }
 
@@ -22276,7 +22390,7 @@
 
 	  _proto.save = /*#__PURE__*/function () {
 	    var _save = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(modelArtifacts) {
-	      var weightsURL, weightsManifest, modelTopologyAndWeightManifest, modelTopologyAndWeightManifestURL, jsonAnchor, weightDataAnchor;
+	      var weightsURL, weightsManifest, modelJSON, modelJsonURL, jsonAnchor, weightDataAnchor;
 	      return regeneratorRuntime.wrap(function _callee$(_context) {
 	        while (1) {
 	          switch (_context.prev = _context.next) {
@@ -22305,62 +22419,43 @@
 	                paths: ['./' + this.weightDataFileName],
 	                weights: modelArtifacts.weightSpecs
 	              }];
-	              modelTopologyAndWeightManifest = {
-	                modelTopology: modelArtifacts.modelTopology,
-	                format: modelArtifacts.format,
-	                generatedBy: modelArtifacts.generatedBy,
-	                convertedBy: modelArtifacts.convertedBy,
-	                weightsManifest: weightsManifest
-	              };
-
-	              if (modelArtifacts.signature != null) {
-	                modelTopologyAndWeightManifest.signature = modelArtifacts.signature;
-	              }
-
-	              if (modelArtifacts.userDefinedMetadata != null) {
-	                modelTopologyAndWeightManifest.userDefinedMetadata = modelArtifacts.userDefinedMetadata;
-	              }
-
-	              if (modelArtifacts.modelInitializer != null) {
-	                modelTopologyAndWeightManifest.modelInitializer = modelArtifacts.modelInitializer;
-	              }
-
-	              modelTopologyAndWeightManifestURL = window.URL.createObjectURL(new Blob([JSON.stringify(modelTopologyAndWeightManifest)], {
+	              modelJSON = getModelJSONForModelArtifacts(modelArtifacts, weightsManifest);
+	              modelJsonURL = window.URL.createObjectURL(new Blob([JSON.stringify(modelJSON)], {
 	                type: 'application/json'
 	              })); // If anchor elements are not provided, create them without attaching them
 	              // to parents, so that the downloaded file names can be controlled.
 
-	              jsonAnchor = this.jsonAnchor == null ? document.createElement('a') : this.jsonAnchor;
-	              jsonAnchor.download = this.modelTopologyFileName;
-	              jsonAnchor.href = modelTopologyAndWeightManifestURL; // Trigger downloads by evoking a click event on the download anchors.
+	              jsonAnchor = this.modelJsonAnchor == null ? document.createElement('a') : this.modelJsonAnchor;
+	              jsonAnchor.download = this.modelJsonFileName;
+	              jsonAnchor.href = modelJsonURL; // Trigger downloads by evoking a click event on the download anchors.
 	              // When multiple downloads are started synchronously, Firefox will only
 	              // save the last one.
 
-	              _context.next = 18;
+	              _context.next = 15;
 	              return defer$1(function () {
 	                return jsonAnchor.dispatchEvent(new MouseEvent('click'));
 	              });
 
-	            case 18:
+	            case 15:
 	              if (!(modelArtifacts.weightData != null)) {
-	                _context.next = 24;
+	                _context.next = 21;
 	                break;
 	              }
 
 	              weightDataAnchor = this.weightDataAnchor == null ? document.createElement('a') : this.weightDataAnchor;
 	              weightDataAnchor.download = this.weightDataFileName;
 	              weightDataAnchor.href = weightsURL;
-	              _context.next = 24;
+	              _context.next = 21;
 	              return defer$1(function () {
 	                return weightDataAnchor.dispatchEvent(new MouseEvent('click'));
 	              });
 
-	            case 24:
+	            case 21:
 	              return _context.abrupt("return", {
 	                modelArtifactsInfo: getModelArtifactsInfoForJSON(modelArtifacts)
 	              });
 
-	            case 25:
+	            case 22:
 	            case "end":
 	              return _context.stop();
 	          }
@@ -22385,7 +22480,8 @@
 	      throw new Error("When calling browserFiles, at least 1 file is required, " + ("but received " + files));
 	    }
 
-	    this.files = files;
+	    this.jsonFile = files[0];
+	    this.weightsFiles = files.slice(1);
 	  }
 
 	  var _proto2 = BrowserFiles.prototype;
@@ -22394,13 +22490,10 @@
 	    var _load = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2() {
 	      var _this = this;
 
-	      var jsonFile, weightFiles;
 	      return regeneratorRuntime.wrap(function _callee2$(_context2) {
 	        while (1) {
 	          switch (_context2.prev = _context2.next) {
 	            case 0:
-	              jsonFile = this.files[0];
-	              weightFiles = this.files.slice(1);
 	              return _context2.abrupt("return", new Promise(function (resolve, reject) {
 	                var jsonReader = new FileReader();
 
@@ -22410,100 +22503,43 @@
 	                  var modelTopology = modelJSON.modelTopology;
 
 	                  if (modelTopology == null) {
-	                    reject(new Error("modelTopology field is missing from file " + jsonFile.name));
+	                    reject(new Error("modelTopology field is missing from file " + _this.jsonFile.name));
 	                    return;
-	                  }
-
-	                  if (weightFiles.length === 0) {
-	                    resolve({
-	                      modelTopology: modelTopology
-	                    });
 	                  }
 
 	                  var weightsManifest = modelJSON.weightsManifest;
 
 	                  if (weightsManifest == null) {
-	                    reject(new Error("weightManifest field is missing from file " + jsonFile.name));
+	                    reject(new Error("weightManifest field is missing from file " + _this.jsonFile.name));
 	                    return;
 	                  }
 
-	                  var pathToFile;
-
-	                  try {
-	                    pathToFile = _this.checkManifestAndWeightFiles(weightsManifest, weightFiles);
-	                  } catch (err) {
-	                    reject(err);
+	                  if (_this.weightsFiles.length === 0) {
+	                    resolve({
+	                      modelTopology: modelTopology
+	                    });
 	                    return;
 	                  }
 
-	                  var weightSpecs = [];
-	                  var paths = [];
-	                  var perFileBuffers = [];
-	                  weightsManifest.forEach(function (weightsGroup) {
-	                    weightsGroup.paths.forEach(function (path) {
-	                      paths.push(path);
-	                      perFileBuffers.push(null);
-	                    });
-	                    weightSpecs.push.apply(weightSpecs, weightsGroup.weights);
+	                  var modelArtifactsPromise = getModelArtifactsForJSON(modelJSON, function (weightsManifest) {
+	                    return _this.loadWeights(weightsManifest);
 	                  });
-	                  weightsManifest.forEach(function (weightsGroup) {
-	                    weightsGroup.paths.forEach(function (path) {
-	                      var weightFileReader = new FileReader();
-
-	                      weightFileReader.onload = function (event) {
-	                        // tslint:disable-next-line:no-any
-	                        var weightData = event.target.result;
-	                        var index = paths.indexOf(path);
-	                        perFileBuffers[index] = weightData;
-
-	                        if (perFileBuffers.indexOf(null) === -1) {
-	                          var result = {
-	                            modelTopology: modelTopology,
-	                            weightSpecs: weightSpecs,
-	                            weightData: concatenateArrayBuffers(perFileBuffers),
-	                            format: modelJSON.format,
-	                            generatedBy: modelJSON.generatedBy,
-	                            convertedBy: modelJSON.convertedBy
-	                          };
-
-	                          if (modelJSON.signature != null) {
-	                            result.signature = modelJSON.signature;
-	                          }
-
-	                          if (modelJSON.userDefinedMetadata != null) {
-	                            result.userDefinedMetadata = modelJSON.userDefinedMetadata;
-	                          }
-
-	                          if (modelJSON.modelInitializer != null) {
-	                            result.modelInitializer = modelJSON.modelInitializer;
-	                          }
-
-	                          resolve(result);
-	                        }
-	                      };
-
-	                      weightFileReader.onerror = function (error) {
-	                        return reject("Failed to weights data from file of path '" + path + "'.");
-	                      };
-
-	                      weightFileReader.readAsArrayBuffer(pathToFile[path]);
-	                    });
-	                  });
+	                  resolve(modelArtifactsPromise);
 	                };
 
 	                jsonReader.onerror = function (error) {
-	                  return reject("Failed to read model topology and weights manifest JSON " + ("from file '" + jsonFile.name + "'. BrowserFiles supports loading ") + "Keras-style tf.Model artifacts only.");
+	                  return reject("Failed to read model topology and weights manifest JSON " + ("from file '" + _this.jsonFile.name + "'. BrowserFiles supports loading ") + "Keras-style tf.Model artifacts only.");
 	                };
 
-	                jsonReader.readAsText(jsonFile);
+	                jsonReader.readAsText(_this.jsonFile);
 	              }));
 
-	            case 3:
+	            case 1:
 	            case "end":
 	              return _context2.stop();
 	          }
 	        }
-	      }, _callee2, this);
+	      }, _callee2);
 	    }));
 
 	    function load() {
@@ -22511,21 +22547,62 @@
 	    }
 
 	    return load;
-	  }()
+	  }();
+
+	  _proto2.loadWeights = function loadWeights(weightsManifest) {
+	    var _this2 = this;
+
+	    var weightSpecs = [];
+	    var paths = [];
+
+	    for (var _iterator = _createForOfIteratorHelperLoose(weightsManifest), _step; !(_step = _iterator()).done;) {
+	      var entry = _step.value;
+	      weightSpecs.push.apply(weightSpecs, entry.weights);
+	      paths.push.apply(paths, entry.paths);
+	    }
+
+	    var pathToFile = this.checkManifestAndWeightFiles(weightsManifest);
+	    var promises = paths.map(function (path) {
+	      return _this2.loadWeightsFile(path, pathToFile[path]);
+	    });
+	    return Promise.all(promises).then(function (buffers) {
+	      return [weightSpecs, concatenateArrayBuffers(buffers)];
+	    });
+	  };
+
+	  _proto2.loadWeightsFile = function loadWeightsFile(path, file) {
+	    return new Promise(function (resolve, reject) {
+	      var weightFileReader = new FileReader();
+
+	      weightFileReader.onload = function (event) {
+	        // tslint:disable-next-line:no-any
+	        var weightData = event.target.result;
+	        resolve(weightData);
+	      };
+
+	      weightFileReader.onerror = function (error) {
+	        return reject("Failed to weights data from file of path '" + path + "'.");
+	      };
+
+	      weightFileReader.readAsArrayBuffer(file);
+	    });
+	  }
 	  /**
 	   * Check the compatibility between weights manifest and weight files.
 	   */
 	  ;
 
-	  _proto2.checkManifestAndWeightFiles = function checkManifestAndWeightFiles(manifest, files) {
+	  _proto2.checkManifestAndWeightFiles = function checkManifestAndWeightFiles(manifest) {
+	    var _this3 = this;
+
 	    var basenames = [];
-	    var fileNames = files.map(function (file) {
+	    var fileNames = this.weightsFiles.map(function (file) {
 	      return basename(file.name);
 	    });
 	    var pathToFile = {};
 
-	    for (var _iterator = _createForOfIteratorHelperLoose(manifest), _step; !(_step = _iterator()).done;) {
-	      var group = _step.value;
+	    for (var _iterator2 = _createForOfIteratorHelperLoose(manifest), _step2; !(_step2 = _iterator2()).done;) {
+	      var group = _step2.value;
 	      group.paths.forEach(function (path) {
 	        var pathBasename = basename(path);
 
@@ -22538,13 +22615,13 @@
 	        if (fileNames.indexOf(pathBasename) === -1) {
 	          throw new Error("Weight file with basename '" + pathBasename + "' is not provided.");
 	        } else {
-	          pathToFile[path] = files[fileNames.indexOf(pathBasename)];
+	          pathToFile[path] = _this3.weightsFiles[fileNames.indexOf(pathBasename)];
 	        }
 	      });
 	    }
 
-	    if (basenames.length !== files.length) {
-	      throw new Error("Mismatch in the number of files in weights manifest " + ("(" + basenames.length + ") and the number of weight files provided ") + ("(" + files.length + ")."));
+	    if (basenames.length !== this.weightsFiles.length) {
+	      throw new Error("Mismatch in the number of files in weights manifest " + ("(" + basenames.length + ") and the number of weight files provided ") + ("(" + this.weightsFiles.length + ")."));
 	    }
 
 	    return pathToFile;
@@ -23098,26 +23175,7 @@
 	                paths: ['./model.weights.bin'],
 	                weights: modelArtifacts.weightSpecs
 	              }];
-	              modelTopologyAndWeightManifest = {
-	                modelTopology: modelArtifacts.modelTopology,
-	                format: modelArtifacts.format,
-	                generatedBy: modelArtifacts.generatedBy,
-	                convertedBy: modelArtifacts.convertedBy,
-	                weightsManifest: weightsManifest
-	              };
-
-	              if (modelArtifacts.signature != null) {
-	                modelTopologyAndWeightManifest.signature = modelArtifacts.signature;
-	              }
-
-	              if (modelArtifacts.userDefinedMetadata != null) {
-	                modelTopologyAndWeightManifest.userDefinedMetadata = modelArtifacts.userDefinedMetadata;
-	              }
-
-	              if (modelArtifacts.modelInitializer != null) {
-	                modelTopologyAndWeightManifest.modelInitializer = modelArtifacts.modelInitializer;
-	              }
-
+	              modelTopologyAndWeightManifest = getModelJSONForModelArtifacts(modelArtifacts, weightsManifest);
 	              init.body.append('model.json', new Blob([JSON.stringify(modelTopologyAndWeightManifest)], {
 	                type: JSON_TYPE
 	              }), 'model.json');
@@ -23128,14 +23186,14 @@
 	                }), 'model.weights.bin');
 	              }
 
-	              _context.next = 13;
+	              _context.next = 10;
 	              return this.fetch(this.path, init);
 
-	            case 13:
+	            case 10:
 	              response = _context.sent;
 
 	              if (!response.ok) {
-	                _context.next = 18;
+	                _context.next = 15;
 	                break;
 	              }
 
@@ -23144,10 +23202,10 @@
 	                responses: [response]
 	              });
 
-	            case 18:
+	            case 15:
 	              throw new Error("BrowserHTTPRequest.save() failed due to HTTP response status " + (response.status + "."));
 
-	            case 19:
+	            case 16:
 	            case "end":
 	              return _context.stop();
 	          }
@@ -23175,7 +23233,9 @@
 	  /*#__PURE__*/
 	  function () {
 	    var _load = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2() {
-	      var modelConfigRequest, modelConfig, message, modelTopology, weightsManifest, generatedBy, convertedBy, format, signature, userDefinedMetadata, weightSpecs, weightData, results, artifacts, initializer;
+	      var _this = this;
+
+	      var modelConfigRequest, modelJSON, message, modelTopology, weightsManifest;
 	      return regeneratorRuntime.wrap(function _callee2$(_context2) {
 	        while (1) {
 	          switch (_context2.prev = _context2.next) {
@@ -23199,7 +23259,7 @@
 	              return modelConfigRequest.json();
 
 	            case 8:
-	              modelConfig = _context2.sent;
+	              modelJSON = _context2.sent;
 	              _context2.next = 16;
 	              break;
 
@@ -23218,62 +23278,23 @@
 	              throw new Error(message);
 
 	            case 16:
-	              modelTopology = modelConfig.modelTopology;
-	              weightsManifest = modelConfig.weightsManifest;
-	              generatedBy = modelConfig.generatedBy;
-	              convertedBy = modelConfig.convertedBy;
-	              format = modelConfig.format;
-	              signature = modelConfig.signature;
-	              userDefinedMetadata = modelConfig.userDefinedMetadata; // We do not allow both modelTopology and weightsManifest to be missing.
+	              // We do not allow both modelTopology and weightsManifest to be missing.
+	              modelTopology = modelJSON.modelTopology;
+	              weightsManifest = modelJSON.weightsManifest;
 
 	              if (!(modelTopology == null && weightsManifest == null)) {
-	                _context2.next = 25;
+	                _context2.next = 20;
 	                break;
 	              }
 
 	              throw new Error("The JSON from HTTP path " + this.path + " contains neither model " + "topology or manifest for weights.");
 
-	            case 25:
-	              if (!(weightsManifest != null)) {
-	                _context2.next = 31;
-	                break;
-	              }
+	            case 20:
+	              return _context2.abrupt("return", getModelArtifactsForJSON(modelJSON, function (weightsManifest) {
+	                return _this.loadWeights(weightsManifest);
+	              }));
 
-	              _context2.next = 28;
-	              return this.loadWeights(weightsManifest);
-
-	            case 28:
-	              results = _context2.sent;
-	              weightSpecs = results[0];
-	              weightData = results[1];
-
-	            case 31:
-	              artifacts = {
-	                modelTopology: modelTopology,
-	                weightSpecs: weightSpecs,
-	                weightData: weightData,
-	                generatedBy: generatedBy,
-	                convertedBy: convertedBy,
-	                format: format
-	              };
-
-	              if (signature != null) {
-	                artifacts.signature = signature;
-	              }
-
-	              if (userDefinedMetadata != null) {
-	                artifacts.userDefinedMetadata = userDefinedMetadata;
-	              }
-
-	              initializer = modelConfig.modelInitializer;
-
-	              if (initializer) {
-	                artifacts.modelInitializer = initializer;
-	              }
-
-	              return _context2.abrupt("return", artifacts);
-
-	            case 37:
+	            case 21:
 	            case "end":
 	              return _context2.stop();
 	          }
@@ -23676,6 +23697,7 @@
 		encodeWeights: encodeWeights,
 		fromMemory: fromMemory,
 		getLoadHandlers: getLoadHandlers,
+		getModelArtifactsForJSON: getModelArtifactsForJSON,
 		getModelArtifactsInfoForJSON: getModelArtifactsInfoForJSON,
 		getSaveHandlers: getSaveHandlers,
 		http: http,
@@ -25389,7 +25411,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$1 = '3.7.0';
+	var version$1 = '3.8.0';
 
 	/**
 	 * @license
@@ -26716,8 +26738,8 @@
 	 *    - `valid`: output will be smaller than input if filter is larger
 	 *       than 1*1x1.
 	 *    - For more info, see this guide:
-	 *     [https://www.tensorflow.org/api_guides/python/nn#Convolution](
-	 *          https://www.tensorflow.org/api_guides/python/nn#Convolution)
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *          https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
 	 * @param dataFormat The data format of the input and output data.
 	 *     Defaults to 'NHWC'.
 	 * @param dilations The dilation rates: `[dilationHeight, dilationWidth]`.
@@ -27337,8 +27359,8 @@
 	 *    - `valid`: output will be smaller than input if filter is larger
 	 *       than 1x1.
 	 *    - For more info, see this guide:
-	 *     [https://www.tensorflow.org/api_guides/python/nn#Convolution](
-	 *         https://www.tensorflow.org/api_guides/python/nn#Convolution)
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *         https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
 	 * @param dimRoundingMode A string from: 'ceil', 'round', 'floor'. If none is
 	 *     provided, it will default to truncate.
 	 */
@@ -27432,8 +27454,8 @@
 	 *    - `valid`: output will be smaller than input if filter is larger
 	 *       than 1*1x1.
 	 *    - For more info, see this guide:
-	 *     [https://www.tensorflow.org/api_guides/python/nn#Convolution](
-	 *          https://www.tensorflow.org/api_guides/python/nn#Convolution)
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *          https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
 	 * @param dimRoundingMode A string from: 'ceil', 'round', 'floor'. If none is
 	 *     provided, it will default to truncate.
 	 * @param dataFormat An optional string from: "NDHWC", "NCDHW". Defaults to
@@ -28560,8 +28582,8 @@
 	 *    - `valid`: output will be smaller than input if filter is larger
 	 *       than 1x1.
 	 *   - For more info, see this guide:
-	 *     [https://www.tensorflow.org/api_guides/python/nn#Convolution](
-	 *          https://www.tensorflow.org/api_guides/python/nn#Convolution)
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *          https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
 	 * @param dataFormat: An optional string from: "NHWC", "NCHW". Defaults to
 	 *     "NHWC". Specify the data format of the input and output data. With the
 	 *     default format "NHWC", the data is stored in the order of: [batch,
@@ -28656,8 +28678,8 @@
 	 *    - `valid`: output will be smaller than input if filter is larger
 	 *       than 1x1.
 	 *   - For more info, see this guide:
-	 *     [https://www.tensorflow.org/api_guides/python/nn#Convolution](
-	 *          https://www.tensorflow.org/api_guides/python/nn#Convolution)
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *          https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
 	 * @param dataFormat An optional string from "NWC", "NCW". Defaults to "NWC",
 	 *     the data is stored in the order of [batch, in_width, in_channels]. Only
 	 *     "NWC" is currently supported.
@@ -28901,8 +28923,8 @@
 	 *    - `valid`: output will be smaller than input if filter is larger
 	 *       than 1x1.
 	 *   - For more info, see this guide:
-	 *     [https://www.tensorflow.org/api_guides/python/nn#Convolution](
-	 *          https://www.tensorflow.org/api_guides/python/nn#Convolution)
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *          https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
 	 * @param dataFormat: An optional string from: "NDHWC", "NCDHW". Defaults to
 	 *     "NDHWC". Specify the data format of the input and output data. With the
 	 *     default format "NDHWC", the data is stored in the order of: [batch,
@@ -29446,8 +29468,8 @@
 	 *   - `valid`: output will be smaller than input if filter is larger
 	 *       than 1x1.
 	 *   - For more info, see this guide:
-	 *     [https://www.tensorflow.org/api_guides/python/nn#Convolution](
-	 *          https://www.tensorflow.org/api_guides/python/nn#Convolution)
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *          https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
 	 * @param dilations The dilation rates: `[dilationHeight, dilationWidth]`
 	 *     in which we sample input values across the height and width dimensions
 	 *     in atrous convolution. Defaults to `[1, 1]`. If `rate` is a single
@@ -29608,8 +29630,8 @@
 	 *    - `valid`: output will be smaller than input if filter is larger
 	 *       than 1*1x1.
 	 *    - For more info, see this guide:
-	 *     [https://www.tensorflow.org/api_guides/python/nn#Convolution](
-	 *          https://www.tensorflow.org/api_guides/python/nn#Convolution)
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *          https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
 	 * @param dataFormat Specify the data format of the input and output data.
 	 *      Defaults to 'NHWC'. Only 'NHWC' is currently supported. With the
 	 *      default format "NHWC", the data is stored in the order of: [batch,
@@ -32574,8 +32596,8 @@
 	 *    - `valid`: output will be smaller than input if filter is larger
 	 *       than 1x1.
 	 *    - For more info, see this guide:
-	 *     [https://www.tensorflow.org/api_guides/python/nn#Convolution](
-	 *          https://www.tensorflow.org/api_guides/python/nn#Convolution)
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *          https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
 	 * @param dimRoundingMode A string from: 'ceil', 'round', 'floor'. If none is
 	 *     provided, it will default to truncate.
 	 */
@@ -32668,8 +32690,8 @@
 	 *    - `valid`: output will be smaller than input if filter is larger
 	 *       than 1*1x1.
 	 *    - For more info, see this guide:
-	 *     [https://www.tensorflow.org/api_guides/python/nn#Convolution](
-	 *          https://www.tensorflow.org/api_guides/python/nn#Convolution)
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *          https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
 	 * @param dimRoundingMode A string from: 'ceil', 'round', 'floor'. If none is
 	 *     provided, it will default to truncate.
 	 * @param dataFormat An optional string from: "NDHWC", "NCDHW". Defaults to
@@ -32776,8 +32798,8 @@
 	 *    - `valid`: output will be smaller than input if filter is larger
 	 *       than 1x1.
 	 *    - For more info, see this guide:
-	 *     [https://www.tensorflow.org/api_guides/python/nn#Convolution](
-	 *          https://www.tensorflow.org/api_guides/python/nn#Convolution)
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *          https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
 	 * @param includeBatchIndex Defaults to False. Whether to include batch
 	 *    dimension in flattened index of argmax.
 	 *
@@ -36590,8 +36612,8 @@
 	 *   - `valid`: output will be smaller than input if filter is larger
 	 *       than 1x1.
 	 *   - For more info, see this guide:
-	 *     [https://www.tensorflow.org/api_guides/python/nn#Convolution](
-	 *          https://www.tensorflow.org/api_guides/python/nn#Convolution)
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *          https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
 	 * @param dilations The dilation rates: `[dilationHeight, dilationWidth]`
 	 *     in which we sample input values across the height and width dimensions
 	 *     in atrous convolution. Defaults to `[1, 1]`. If `rate` is a single
@@ -38135,6 +38157,10 @@
 
 	  var lastDim = $x.shape[$x.shape.length - 1];
 
+	  if (k < 0) {
+	    throw new Error("'k' passed to topk() must be >= 0 but got " + k);
+	  }
+
 	  if (k > lastDim) {
 	    throw new Error("'k' passed to topk() must be <= the last dimension (" + lastDim + ") " + ("but got " + k));
 	  }
@@ -39604,8 +39630,8 @@
 	 *   - `valid` output will be smaller than input if filter is larger
 	 *       than 1x1.
 	 *   - For more info, see this guide:
-	 *     [https://www.tensorflow.org/api_guides/python/nn#Convolution](
-	 *          https://www.tensorflow.org/api_guides/python/nn#Convolution)
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *          https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
 	 * @param dataFormat An optional string from: "NHWC", "NCHW". Defaults to
 	 *     "NHWC". Specify the data format of the input and output data. With the
 	 *     default format "NHWC", the data is stored in the order of: [batch,
@@ -39937,8 +39963,8 @@
 	 *   - `valid`: output will be smaller than input if filter is larger
 	 *       than 1x1.
 	 *   - For more info, see this guide:
-	 *     [https://www.tensorflow.org/api_guides/python/nn#Convolution](
-	 *          https://www.tensorflow.org/api_guides/python/nn#Convolution)
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *          https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
 	 * @param dilations The dilation rates: `[dilationHeight, dilationWidth]`
 	 *     in which we sample input values across the height and width dimensions
 	 *     in atrous convolution. Defaults to `[1, 1]`. If `rate` is a single
@@ -47147,8 +47173,10 @@
 	 *     `filterSize` is a single number, then `filterHeight == filterWidth`.
 	 * @param strides The strides of the pooling: `[strideHeight, strideWidth]`. If
 	 *     `strides` is a single number, then `strideHeight == strideWidth`.
-	 * @param pad A string from: 'same', 'valid'. The type of padding algorithm
-	 *     used in the forward prop of the op.
+	 * @param pad The type of padding algorithm used in the forward prop of the op.
+	 *     'same', 'valid', for more info, see this guide:
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *         https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
 	 */
 
 	function avgPoolGrad_(dy, input, filterSize, strides, pad) {
@@ -48950,8 +48978,10 @@
 	 *     `filterSize` is a single number, then `filterHeight == filterWidth`.
 	 * @param strides The strides of the pooling: `[strideHeight, strideWidth]`. If
 	 *     `strides` is a single number, then `strideHeight == strideWidth`.
-	 * @param pad A string from: 'same', 'valid'. The type of padding algorithm
-	 *     used in the forward prop of the op.
+	 * @param pad The type of padding algorithm used in the forward prop of the op.
+	 *     'same', 'valid', for more info, see this guide:
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *          https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
 	 * @param dimRoundingMode A string from: 'ceil', 'round', 'floor'. If none is
 	 *     provided, it will default to truncate.
 	 */
@@ -51214,23 +51244,6 @@
 	  return atanh(this);
 	};
 
-	/**
-	 * @license
-	 * Copyright 2020 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-
 	getGlobalTensorClass().prototype.avgPool = function (filterSize, strides, pad, dimRoundingMode) {
 	  this.throwIfDisposed();
 	  return avgPool(this, filterSize, strides, pad, dimRoundingMode);
@@ -52367,23 +52380,6 @@
 	  return matMul(this, b, transposeA, transposeB);
 	};
 
-	/**
-	 * @license
-	 * Copyright 2020 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-
 	getGlobalTensorClass().prototype.maxPool = function (filterSize, strides, pad, dimRoundingMode) {
 	  this.throwIfDisposed();
 	  return maxPool(this, filterSize, strides, pad, dimRoundingMode);
@@ -52704,23 +52700,6 @@
 	  this.throwIfDisposed();
 	  return pad(this, paddings, constantValue);
 	};
-
-	/**
-	 * @license
-	 * Copyright 2020 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
 
 	getGlobalTensorClass().prototype.pool = function (windowShape, poolingType, padding, dilationRate, strides) {
 	  this.throwIfDisposed();
@@ -55206,7 +55185,7 @@
 	 */
 
 	function cast$1(x, dtype) {
-	  return x.asType(dtype);
+	  return cast(x, dtype);
 	}
 	/**
 	 * Adds a 1-sized dimension at index "axis".
@@ -55227,7 +55206,7 @@
 	  }
 
 	  outShape.splice(axis, 0, 1);
-	  return x.reshape(outShape);
+	  return reshape(x, outShape);
 	}
 	/**
 	 * Repeats a 2D tensor.
@@ -55259,7 +55238,7 @@
 
 	function flatten$1(x) {
 	  var newShape = [arrayProd(x.shape)];
-	  return x.reshape(newShape);
+	  return reshape(x, newShape);
 	}
 	/**
 	 * Turn a nD tensor into a 2D tensor with same 0th dimension.
@@ -55276,7 +55255,7 @@
 	  }
 
 	  var newShape = [x.shape[0], arrayProd(x.shape, 1)];
-	  return x.reshape(newShape);
+	  return reshape(x, newShape);
 	}
 	/**
 	 * Do slicing along the first axis.
@@ -55563,7 +55542,7 @@
 	    var aFirstDims = a.shape.slice(); // Holds all but the last dim of x.
 
 	    var aLastDim = aFirstDims.pop();
-	    a = a.reshape([-1, aLastDim]); // Reshape y into the analogous 2D Tensor, and keep track of the
+	    a = reshape(a, [-1, aLastDim]); // Reshape y into the analogous 2D Tensor, and keep track of the
 	    // required dimensions to reproduce the output shape.
 
 	    var bShape = b.shape.slice();
@@ -55585,19 +55564,19 @@
 
 	      return i;
 	    });
-	    b = b.transpose(perm).reshape([_ySecondLastDim, -1]); // Multiply x and y as 2D Tensors, and then reshape back to original.
+	    b = reshape(transpose(b, perm), [_ySecondLastDim, -1]); // Multiply x and y as 2D Tensors, and then reshape back to original.
 
 	    var outputShape = [].concat(aFirstDims, yOtherDims);
 	    var _transposeA = false;
 	    var _transposeB = false;
-	    return matMul$1({
+	    return reshape(matMul$1({
 	      a: a,
 	      b: b,
 	      transposeA: _transposeA,
 	      transposeB: _transposeB,
 	      bias: bias ? reshapeBias(a.rank, bias, imageDataFormat()) : null,
 	      activation: activation
-	    }).reshape(outputShape);
+	    }), outputShape);
 	  }
 	}
 	/**
@@ -55634,8 +55613,8 @@
 	      throw new Error('Only 1D one-hot tensors are supported in the ' + 'deeplearn backend, at present.');
 	    }
 
-	    indices = indices.toInt();
-	    return oneHot(indices, numClasses).toFloat();
+	    indices = cast(indices, 'int32');
+	    return cast(oneHot(indices, numClasses), 'float32');
 	  });
 	}
 	/* Elementary math functions. */
@@ -55653,7 +55632,7 @@
 	    if (Array.isArray(indices)) {
 	      indices = tensor1d(indices, 'int32');
 	    } else {
-	      indices = indices.toInt();
+	      indices = cast(indices, 'int32');
 	    }
 
 	    return gather(reference, indices, axis);
@@ -55708,43 +55687,43 @@
 	  if (xRank === 5) {
 	    if (dataFormat === 'channelsFirst') {
 	      if (biasShape.length === 1) {
-	        return bias.reshape([1, biasShape[0], 1, 1, 1]);
+	        return reshape(bias, [1, biasShape[0], 1, 1, 1]);
 	      } else {
-	        return bias.reshape([1, biasShape[3], biasShape[0], biasShape[1], biasShape[2]]);
+	        return reshape(bias, [1, biasShape[3], biasShape[0], biasShape[1], biasShape[2]]);
 	      }
 	    } else if (dataFormat === 'channelsLast') {
 	      if (biasShape.length === 1) {
-	        return bias.reshape([1, 1, 1, 1, biasShape[0]]);
+	        return reshape(bias, [1, 1, 1, 1, biasShape[0]]);
 	      } else {
-	        return bias.reshape([1].concat(biasShape));
+	        return reshape(bias, [1].concat(biasShape));
 	      }
 	    }
 	  } else if (xRank === 4) {
 	    if (dataFormat === 'channelsFirst') {
 	      if (biasShape.length === 1) {
-	        return bias.reshape([1, biasShape[0], 1, 1]);
+	        return reshape(bias, [1, biasShape[0], 1, 1]);
 	      } else {
-	        return bias.reshape([1, biasShape[2], biasShape[0], biasShape[1]]);
+	        return reshape(bias, [1, biasShape[2], biasShape[0], biasShape[1]]);
 	      }
 	    } else if (dataFormat === 'channelsLast') {
 	      if (biasShape.length === 1) {
-	        return bias.reshape([1, 1, 1, biasShape[0]]);
+	        return reshape(bias, [1, 1, 1, biasShape[0]]);
 	      } else {
-	        return bias.reshape([1].concat(biasShape));
+	        return reshape(bias, [1].concat(biasShape));
 	      }
 	    }
 	  } else if (xRank === 3) {
 	    if (dataFormat === 'channelsFirst') {
 	      if (biasShape.length === 1) {
-	        return bias.reshape([1, biasShape[0], 1]);
+	        return reshape(bias, [1, biasShape[0], 1]);
 	      } else {
-	        return bias.reshape([1, biasShape[1], biasShape[0]]);
+	        return reshape(bias, [1, biasShape[1], biasShape[0]]);
 	      }
 	    } else if (dataFormat === 'channelsLast') {
 	      if (biasShape.length === 1) {
-	        return bias.reshape([1, 1, biasShape[0]]);
+	        return reshape(bias, [1, 1, biasShape[0]]);
 	      } else {
-	        return bias.reshape([1].concat(biasShape));
+	        return reshape(bias, [1].concat(biasShape));
 	      }
 	    }
 	  } else if (xRank < 3) {
@@ -55772,7 +55751,7 @@
 	    }
 
 	    checkDataFormat(dataFormat);
-	    return x.add(reshapeBias(x.rank, bias, dataFormat));
+	    return add$1(x, reshapeBias(x.rank, bias, dataFormat));
 	  });
 	}
 	/**
@@ -55805,7 +55784,7 @@
 
 	function softsign(x) {
 	  return tidy(function () {
-	    return div(x, abs$8(x).add(1));
+	    return div(x, add$1(abs$8(x), 1));
 	  });
 	}
 	/**
@@ -56476,7 +56455,7 @@
 	      var q = linalg.gramSchmidt(a);
 
 	      if (shape[0] > shape[1]) {
-	        q = q.transpose();
+	        q = transpose(q);
 	      }
 
 	      return mul(_this10.gain, q);
@@ -60289,7 +60268,7 @@
 	function l2Normalize(x, axis) {
 	  return tidy(function () {
 	    if (x.dtype !== 'float32') {
-	      x = x.asType('float32');
+	      x = cast(x, 'float32');
 	    }
 
 	    var squareSum = sum$1(square$1(x), axis, true);
@@ -60376,7 +60355,7 @@
 	    }
 
 	    output = clipByValue(output, epsilon(), 1 - epsilon());
-	    return neg(sum$1(mul(target.toFloat(), log$9(output)), output.shape.length - 1));
+	    return neg(sum$1(mul(cast(target, 'float32'), log$9(output)), output.shape.length - 1));
 	  });
 	}
 	/**
@@ -60395,10 +60374,10 @@
 	  }
 
 	  return tidy(function () {
-	    var flatTarget = floor$a(flatten$1(target)).toInt();
+	    var flatTarget = cast(floor$a(flatten$1(target)), 'int32');
 	    output = clipByValue(output, epsilon(), 1 - epsilon());
 	    var outputShape = output.shape;
-	    var oneHotTarget = oneHot(flatTarget, outputShape[outputShape.length - 1]).reshape(outputShape);
+	    var oneHotTarget = reshape(oneHot(flatTarget, outputShape[outputShape.length - 1]), outputShape);
 	    return categoricalCrossentropy(oneHotTarget, output, fromLogits);
 	  });
 	}
@@ -60436,9 +60415,9 @@
 	    //   -x * z + log(1 + exp(x))
 	    // Note that these two expressions can be combined into the following:
 	    //   max(x, 0) - x * z + log(1 + exp(-abs(x)))
-	    var reluLogits = logits.relu();
-	    var negAbsLogits = logits.abs().neg();
-	    return reluLogits.sub(logits.mul(labels)).add(negAbsLogits.exp().log1p());
+	    var reluLogits = relu(logits);
+	    var negAbsLogits = neg(abs$8(logits));
+	    return add$1(sub(reluLogits, mul(logits, labels)), log1p(exp$3(negAbsLogits)));
 	  });
 	}
 	function binaryCrossentropy(yTrue, yPred) {
@@ -60542,19 +60521,19 @@
 
 	function truePositives(yTrue, yPred) {
 	  return tidy(function () {
-	    return logicalAnd(yTrue.equal(1), yPred.equal(1)).sum().cast('float32');
+	    return cast(sum$1(logicalAnd(equal(yTrue, 1), equal(yPred, 1))), 'float32');
 	  });
 	}
 
 	function falseNegatives(yTrue, yPred) {
 	  return tidy(function () {
-	    return logicalAnd(yTrue.equal(1), yPred.equal(0)).sum().cast('float32');
+	    return cast(sum$1(logicalAnd(equal(yTrue, 1), equal(yPred, 0))), 'float32');
 	  });
 	}
 
 	function falsePositives(yTrue, yPred) {
 	  return tidy(function () {
-	    return logicalAnd(yTrue.equal(0), yPred.equal(1)).sum().cast('float32');
+	    return cast(sum$1(logicalAnd(equal(yTrue, 0), equal(yPred, 1))), 'float32');
 	  });
 	}
 
@@ -60562,16 +60541,16 @@
 	  return tidy(function () {
 	    var tp = truePositives(yTrue, yPred);
 	    var fp = falsePositives(yTrue, yPred);
-	    var denominator = tp.add(fp);
-	    return where(greater(denominator, 0), tp.div(denominator), 0).cast('float32');
+	    var denominator = add$1(tp, fp);
+	    return cast(where(greater(denominator, 0), div(tp, denominator), 0), 'float32');
 	  });
 	}
 	function recall(yTrue, yPred) {
 	  return tidy(function () {
 	    var tp = truePositives(yTrue, yPred);
 	    var fn = falseNegatives(yTrue, yPred);
-	    var denominator = tp.add(fn);
-	    return where(greater(denominator, 0), tp.div(denominator), 0).cast('float32');
+	    var denominator = add$1(tp, fn);
+	    return cast(where(greater(denominator, 0), div(tp, denominator), 0), 'float32');
 	  });
 	}
 	function binaryCrossentropy$1(yTrue, yPred) {
@@ -60579,16 +60558,16 @@
 	}
 	function sparseCategoricalAccuracy(yTrue, yPred) {
 	  if (yTrue.rank === yPred.rank) {
-	    yTrue = yTrue.squeeze([yTrue.rank - 1]);
+	    yTrue = squeeze(yTrue, [yTrue.rank - 1]);
 	  }
 
-	  yPred = yPred.argMax(-1);
+	  yPred = argMax(yPred, -1);
 
 	  if (yPred.dtype !== yTrue.dtype) {
-	    yPred = yPred.asType(yTrue.dtype);
+	    yPred = cast(yPred, yTrue.dtype);
 	  }
 
-	  return equal(yTrue, yPred).asType('float32');
+	  return cast(equal(yTrue, yPred), 'float32');
 	}
 	function topKCategoricalAccuracy(yTrue, yPred) {
 	  throw new NotImplementedError();
@@ -61194,7 +61173,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$2 = '3.7.0';
+	var version$2 = '3.8.0';
 
 	/**
 	 * Helper function to check the dtype and shape compatibility of a feed value.
@@ -63277,15 +63256,15 @@
 	            yClasses = tidy(function () {
 	              if (y.shape.length === 1) {
 	                // Assume class indices.
-	                return y.clone();
+	                return clone(y);
 	              } else if (y.shape.length === 2) {
 	                if (y.shape[1] > 1) {
 	                  // Assume one-hot encoding of classes.
 	                  var axis = 1;
-	                  return y.argMax(axis);
+	                  return argMax(y, axis);
 	                } else if (y.shape[1] === 1) {
 	                  // Class index.
-	                  return y.reshape([y.shape[0]]);
+	                  return reshape(y, [y.shape[0]]);
 	                } else {
 	                  throw new Error("Encountered unexpected last-dimension size (" + y.shape[1] + ") " + "during handling of class weights. The size is expected to be " + ">= 1.");
 	                }
@@ -63978,7 +63957,7 @@
 	    } else {
 	      // TODO(cais): indices should be a pre-constructed Tensor1D to avoid
 	      //   tensor1d() calls.
-	      return gather$1(arrays, indices.dtype === 'int32' ? indices : indices.toInt());
+	      return gather$1(arrays, indices.dtype === 'int32' ? indices : cast(indices, 'int32'));
 	    }
 	  });
 	}
@@ -68535,7 +68514,7 @@
 	    }
 
 	    return tidy(function () {
-	      return sigmoid(x.mul(alpha)).mul(x);
+	      return mul(sigmoid(mul(x, alpha)), x);
 	    });
 	  };
 
@@ -68661,7 +68640,7 @@
 	        regularization = add$1(regularization, sum$1(mul(_this2.l2, square$1(x))));
 	      }
 
-	      return regularization.asScalar();
+	      return reshape(regularization, []);
 	    });
 	  };
 
@@ -68985,7 +68964,7 @@
 
 	  _proto5.call = function call(inputs, kwargs) {
 	    var x = getExactlyOneTensor(inputs);
-	    return x.mul(cast$1(x.greater(this.theta), 'float32'));
+	    return mul(x, cast(greater(x, this.theta), 'float32'));
 	  };
 
 	  _proto5.computeOutputShape = function computeOutputShape(inputShape) {
@@ -70319,14 +70298,14 @@
 	        input = transpose(input, [0, 2, 3, 1]);
 	        var height = _this16.size[0] * inputShape[2];
 	        var width = _this16.size[1] * inputShape[3];
-	        var resized = _this16.interpolation === 'nearest' ? input.resizeNearestNeighbor([height, width]) : input.resizeBilinear([height, width]);
+	        var resized = _this16.interpolation === 'nearest' ? image.resizeNearestNeighbor(input, [height, width]) : image.resizeBilinear(input, [height, width]);
 	        return transpose(resized, [0, 3, 1, 2]);
 	      } else {
 	        var _height2 = _this16.size[0] * inputShape[1];
 
 	        var _width2 = _this16.size[1] * inputShape[2];
 
-	        return _this16.interpolation === 'nearest' ? input.resizeNearestNeighbor([_height2, _width2]) : input.resizeBilinear([_height2, _width2]);
+	        return _this16.interpolation === 'nearest' ? image.resizeNearestNeighbor(input, [_height2, _width2]) : image.resizeBilinear(input, [_height2, _width2]);
 	      }
 	    });
 	  };
@@ -70628,7 +70607,7 @@
 	    }
 
 	    if (mask != null) {
-	      mask = mask.asType('bool').asType('float32');
+	      mask = cast(cast(mask, 'bool'), 'float32');
 
 	      if (mask.rank === ndim - 1) {
 	        mask = expandDims(mask, -1);
@@ -70677,11 +70656,11 @@
 	      } else {
 	        var maskedOutputs = tidy(function () {
 	          var stepMask = perStepMasks[t];
-	          var negStepMask = onesLike(stepMask).sub(stepMask); // TODO(cais): Would tfc.where() be better for performance?
+	          var negStepMask = sub(onesLike(stepMask), stepMask); // TODO(cais): Would tfc.where() be better for performance?
 
-	          var output = stepOutputs[0].mul(stepMask).add(states[0].mul(negStepMask));
+	          var output = add$1(mul(stepOutputs[0], stepMask), mul(states[0], negStepMask));
 	          var newStates = states.map(function (state, i) {
-	            return stepOutputs[1][i].mul(stepMask).add(state.mul(negStepMask));
+	            return add$1(mul(stepOutputs[1][i], stepMask), mul(state, negStepMask));
 	          });
 	          return {
 	            output: output,
@@ -72974,7 +72953,7 @@
 	        }
 
 	        permutation.push(1);
-	        input = input.transpose(permutation);
+	        input = transpose(input, permutation);
 	      }
 
 	      return batchFlatten(input);
@@ -73188,7 +73167,7 @@
 	      var input = getExactlyOneTensor(inputs);
 	      var inputShape = input.shape;
 	      var outputShape = inputShape.slice(0, 1).concat(_this13.fixUnknownDimension(inputShape.slice(1), _this13.targetShape));
-	      return input.reshape(outputShape);
+	      return reshape(input, outputShape);
 	    });
 	  };
 
@@ -73322,7 +73301,7 @@
 	      var axis = -1;
 	      var keepDims = true;
 	      var booleanMask = any(notEqual(input, _this16.maskValue), axis, keepDims);
-	      var output = input.mul(booleanMask.asType(input.dtype));
+	      var output = mul(input, cast(booleanMask, input.dtype));
 	      return output;
 	    });
 	  };
@@ -73449,8 +73428,8 @@
 	        input = cast$1(input, 'int32');
 	      }
 
-	      var output = gather$1(_this3.embeddings.read(), input.as1D());
-	      return output.reshape(getExactlyOneShape(_this3.computeOutputShape(input.shape)));
+	      var output = gather$1(_this3.embeddings.read(), reshape(input, [input.size]));
+	      return reshape(output, getExactlyOneShape(_this3.computeOutputShape(input.shape)));
 	    });
 	  };
 
@@ -73646,10 +73625,9 @@
 
 	              var _newShape = xShape.slice(1).concat([_batchSize]);
 
-	              var xTransposed = _x.reshape([_batchSize].concat(arrayProd(xShape.slice(1))));
-
+	              var xTransposed = reshape(_x, [_batchSize].concat(arrayProd(xShape.slice(1))));
 	              xTransposed = transpose(xTransposed, [1, 0]);
-	              xTransposed = xTransposed.reshape(_newShape);
+	              xTransposed = reshape(xTransposed, _newShape);
 	              reshapedInputs.push(xTransposed);
 	              transposed = true;
 	            } else if (_xNDim > 1) {
@@ -73675,7 +73653,7 @@
 	              var _yNDim = yShape.length;
 	              var batchSize = yShape[_yNDim - 1];
 	              var newShape = [batchSize].concat(yShape.slice(0, yShape.length - 1));
-	              y = transpose(y.reshape([-1, batchSize]), [1, 0]).reshape(newShape);
+	              y = reshape(transpose(reshape(y, [-1, batchSize]), [1, 0]), newShape);
 	            } else if (yNDim > 1) {
 	              var dims = [yNDim - 1].concat(range$1(0, yNDim - 1));
 	              y = transpose(y, dims);
@@ -74314,7 +74292,7 @@
 	      for (var i = 0; i < inputs.length; ++i) {
 	        if (mask[i] == null) {
 	          // Input is unmasked. Append all 1's to masks.
-	          outputMasks.push(onesLike(inputs[i]).asType('bool'));
+	          outputMasks.push(cast(onesLike(inputs[i]), 'bool'));
 	        } else if (mask[i].rank < inputs[i].rank) {
 	          // Mask is smaller than the input, expand it.
 	          outputMasks.push(expandDims(mask[i], -1));
@@ -74460,7 +74438,7 @@
 	        diffShape.push(1);
 	      }
 
-	      y = y.reshape(y.shape.concat(diffShape));
+	      y = reshape(y, y.shape.concat(diffShape));
 	    } else if (yNDim > xNDim) {
 	      diff = yNDim - xNDim;
 	      var _diffShape = [];
@@ -74469,7 +74447,7 @@
 	        _diffShape.push(1);
 	      }
 
-	      x = x.reshape(x.shape.concat(_diffShape));
+	      x = reshape(x, x.shape.concat(_diffShape));
 	    } else {
 	      diff = 0;
 	    }
@@ -74478,14 +74456,14 @@
 
 	    if (x.shape.length === 2 && y.shape.length === 2) {
 	      if (axesArray[0] === axesArray[1]) {
-	        out = x.mul(y).sum(axesArray[0]);
+	        out = sum$1(mul(x, y), axesArray[0]);
 	      } else {
-	        out = x.transpose([1, 0]).mul(y).sum(axesArray[1]);
+	        out = sum$1(mul(transpose(x, [1, 0]), y), axesArray[1]);
 	      }
 	    } else {
 	      var adjX = axesArray[0] !== x.shape.length - 1;
 	      var adjY = axesArray[1] === y.shape.length - 1;
-	      out = x.matMul(y, adjX, adjY);
+	      out = matMul(x, y, adjX, adjY);
 	    }
 
 	    if (diff > 0) {
@@ -74503,11 +74481,11 @@
 	        squeezeAxes.push(_i2);
 	      }
 
-	      out = out.squeeze(squeezeAxes);
+	      out = squeeze(out, squeezeAxes);
 	    }
 
 	    if (out.shape.length === 1) {
-	      out = out.expandDims(1);
+	      out = expandDims(out, 1);
 	    }
 
 	    return out;
@@ -74671,7 +74649,7 @@
 	      var input = getExactlyOneTensor(inputs);
 
 	      var noised = function noised() {
-	        return randomNormal$1(input.shape, 0, _this2.stddev).add(input);
+	        return add$1(randomNormal$1(input.shape, 0, _this2.stddev), input);
 	      };
 
 	      var output = inTrainPhase(noised, function () {
@@ -74726,7 +74704,7 @@
 	      if (_this4.rate > 0 && _this4.rate < 1) {
 	        var noised = function noised() {
 	          var stddev = Math.sqrt(_this4.rate / (1 - _this4.rate));
-	          return input.mul(randomNormal$1(input.shape, 1, stddev));
+	          return mul(input, randomNormal$1(input.shape, 1, stddev));
 	        };
 
 	        return inTrainPhase(noised, function () {
@@ -74826,8 +74804,8 @@
 	          var a = Math.pow((1 - _this6.rate) * (1 + _this6.rate * Math.pow(alphaP, 2)), -0.5);
 	          var b = -a * alphaP * _this6.rate; // Apply mask.
 
-	          var x = input.mul(keptIdx).add(keptIdx.add(-1).mul(alphaP));
-	          return x.mul(a).add(b);
+	          var x = add$1(mul(input, keptIdx), mul(add$1(keptIdx, -1), alphaP));
+	          return add$1(mul(x, a), b);
 	        };
 
 	        return inTrainPhase(droppedInputs, function () {
@@ -74952,10 +74930,10 @@
 	      }
 	    }
 
-	    var broadcastMean = mean.reshape(targetShape);
-	    var broadcastVariance = variance.reshape(targetShape);
-	    var broadcastGamma = gamma == null ? null : gamma.reshape(targetShape);
-	    var broadcastBeta = beta == null ? null : beta.reshape(targetShape);
+	    var broadcastMean = reshape(mean, targetShape);
+	    var broadcastVariance = reshape(variance, targetShape);
+	    var broadcastGamma = gamma == null ? null : reshape(gamma, targetShape);
+	    var broadcastBeta = beta == null ? null : reshape(beta, targetShape);
 	    var normed = batchNormalization(x, broadcastMean, broadcastVariance, broadcastBeta, broadcastGamma, epsilon);
 	    return [normed, mean, variance];
 	  });
@@ -75063,12 +75041,10 @@
 
 	      var normalizeInference = function normalizeInference() {
 	        if (needsBroadcasting) {
-	          var broadcastMovingMean = _this2.movingMean.read().reshape(broadcastShape);
-
-	          var broadcastMovingVariance = _this2.movingVariance.read().reshape(broadcastShape);
-
-	          var broadcastBeta = _this2.center ? _this2.beta.read().reshape(broadcastShape) : null;
-	          var broadcastGamma = _this2.scale ? _this2.gamma.read().reshape(broadcastShape) : null;
+	          var broadcastMovingMean = reshape(_this2.movingMean.read(), broadcastShape);
+	          var broadcastMovingVariance = reshape(_this2.movingVariance.read(), broadcastShape);
+	          var broadcastBeta = _this2.center ? reshape(_this2.beta.read(), broadcastShape) : null;
+	          var broadcastGamma = _this2.scale ? reshape(_this2.gamma.read(), broadcastShape) : null;
 	          return batchNormalization(input, broadcastMovingMean, broadcastMovingVariance, broadcastBeta, broadcastGamma, _this2.epsilon);
 	        } else {
 	          return batchNormalization(input, _this2.movingMean.read(), _this2.movingVariance.read(), _this2.beta == null ? null : _this2.beta.read(), _this2.gamma == null ? null : _this2.gamma.read(), _this2.epsilon);
@@ -75088,8 +75064,8 @@
 	        tidy(function () {
 	          var decay = 1 - momentum;
 	          var origValue = variable.read();
-	          var updateDelta = origValue.sub(value).mul(decay);
-	          variable.write(origValue.sub(updateDelta));
+	          var updateDelta = mul(sub(origValue, value), decay);
+	          variable.write(sub(origValue, updateDelta));
 	        });
 	      }; // Perform updates to moving mean and moving variance for training.
 	      // Porting Note: In PyKeras, these updates to `movingMean` and
@@ -75249,7 +75225,7 @@
 
 	      var broadcast = function broadcast(v) {
 	        if (v != null && v.shape.length !== nDims && _this4.axis !== [nDims - 1]) {
-	          return v.reshape(broadcastShape);
+	          return reshape(v, broadcastShape);
 	        } else {
 	          return v;
 	        }
@@ -75276,10 +75252,10 @@
 	        }
 	      }
 
-	      mean = mean.tile(momentsTiling);
-	      variance = variance.tile(momentsTiling);
-	      scale = scale.tile(scaleOffsetTiling);
-	      offset = offset.tile(scaleOffsetTiling);
+	      mean = tile(mean, momentsTiling);
+	      variance = tile(variance, momentsTiling);
+	      scale = tile(scale, scaleOffsetTiling);
+	      offset = tile(offset, scaleOffsetTiling);
 	      return batchNormalization(input, mean, variance, offset, scale, _this4.epsilon);
 	    });
 	  };
@@ -90119,7 +90095,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$3 = '3.7.0';
+	var version$3 = '3.8.0';
 
 	/**
 	 * @license
@@ -96417,7 +96393,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$4 = '3.7.0';
+	var version$4 = '3.8.0';
 
 	/**
 	 * @license
@@ -99365,6 +99341,93 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
+
+	var comparePair = function comparePair(a, b) {
+	  var valueDiff = b.value - a.value;
+	  return valueDiff === 0 ? a.index - b.index : valueDiff;
+	};
+	/**
+	 * Partitions array where all elements smaller than the (k+1) smallest element
+	 * are found to the left of it, and all larger to the right of it.
+	 * Based on the Floyd-Rivest Algorithm, ref:
+	 * https://en.wikipedia.org/wiki/Floyd%E2%80%93Rivest_algorithm
+	 * @param array: Array to partition
+	 * @param left: Left index for the interval
+	 * @param right: Right index for the interval
+	 * @param k: Desired index value, where array[k] is the (k+1)th smallest element
+	 *           when left = 0
+	 */
+
+
+	function select(array, k, left, right) {
+	  if (left === void 0) {
+	    left = 0;
+	  }
+
+	  if (right === void 0) {
+	    right = array.length - 1;
+	  }
+
+	  while (right > left) {
+	    // Use select recursively to sample a smaller set of size s
+	    // the arbitrary constants 600 and 0.5 are used in the original
+	    // version to minimize execution time.
+	    if (right - left > 600) {
+	      var n = right - left + 1;
+
+	      var _i = k - left + 1;
+
+	      var z = Math.log(n);
+	      var s = 0.5 * Math.exp(2 * z / 3);
+	      var sd = 0.5 * Math.sqrt(z * s * (n - s) / n) * Math.sign(_i - n / 2);
+	      var newLeft = Math.max(left, Math.floor(k - _i * s / n + sd));
+	      var newRight = Math.min(right, Math.floor(k + (n - _i) * s / n + sd));
+	      select(array, k, newLeft, newRight);
+	    } // partition the elements between left and right around t
+
+
+	    var t = array[k];
+	    var i = left;
+	    var j = right;
+	    swap(array, left, k);
+
+	    if (comparePair(array[right], t) > 0) {
+	      swap(array, left, right);
+	    }
+
+	    while (i < j) {
+	      swap(array, i, j);
+	      i++;
+	      j--;
+
+	      while (comparePair(array[i], t) < 0) {
+	        i = i + 1;
+	      }
+
+	      while (comparePair(array[j], t) > 0) {
+	        j = j - 1;
+	      }
+	    }
+
+	    if (comparePair(array[left], t) === 0) {
+	      swap(array, left, j);
+	    } else {
+	      j = j + 1;
+	      swap(array, j, right);
+	    } // Adjust left and right towards the boundaries of the subset
+	    // containing the (k - left + 1)th smallest element.
+
+
+	    if (j <= k) {
+	      left = j + 1;
+	    }
+
+	    if (k <= j) {
+	      right = j - 1;
+	    }
+	  }
+	}
+
 	function topKImpl(x, xShape, xDtype, k, sorted) {
 	  // Reshape into a 2d tensor [batch, lastDim] and compute topk along lastDim.
 	  var lastDim = xShape[xShape.length - 1];
@@ -99373,29 +99436,38 @@
 	  var allTopKVals = getTypedArrayFromDType(xDtype, batch * k);
 	  var allTopKIndices = getTypedArrayFromDType('int32', batch * k);
 
-	  for (var b = 0; b < batch; b++) {
+	  var _loop = function _loop(b) {
 	    var offset = b * size;
 	    var vals = x.subarray(offset, offset + size);
-	    var valAndInd = [];
+	    var valAndInd = new Array(vals.length);
+	    vals.forEach(function (value, index) {
+	      return valAndInd[index] = {
+	        value: value,
+	        index: index
+	      };
+	    });
 
-	    for (var i = 0; i < vals.length; i++) {
-	      valAndInd.push({
-	        value: vals[i],
-	        index: i
-	      });
+	    if (k < valAndInd.length) {
+	      select(valAndInd, k);
+	      valAndInd = valAndInd.slice(0, k);
 	    }
 
-	    valAndInd.sort(function (a, b) {
-	      return b.value - a.value;
-	    });
+	    if (sorted) {
+	      valAndInd.sort(comparePair);
+	    }
+
 	    var outOffset = b * k;
 	    var topKVals = allTopKVals.subarray(outOffset, outOffset + k);
 	    var topKIndices = allTopKIndices.subarray(outOffset, outOffset + k);
 
-	    for (var _i = 0; _i < k; _i++) {
-	      topKVals[_i] = valAndInd[_i].value;
-	      topKIndices[_i] = valAndInd[_i].index;
+	    for (var i = 0; i < k; i++) {
+	      topKVals[i] = valAndInd[i].value;
+	      topKIndices[i] = valAndInd[i].index;
 	    }
+	  };
+
+	  for (var b = 0; b < batch; b++) {
+	    _loop(b);
 	  } // Reshape back to the original input shape, except that the last
 	  // dimension is k.
 
@@ -99577,7 +99649,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$5 = '3.7.0';
+	var version$5 = '3.8.0';
 
 	/**
 	 * @license
@@ -104355,9 +104427,7 @@
 	          var colOffset = col * numChannels;
 
 	          for (var channel = 0; channel < numChannels; channel++) {
-	            var coords = [batch, row, col, channel];
-	            var x = coords[2];
-	            var coordX = Math.round(imageWidth - x);
+	            var coordX = Math.round(imageWidth - col - 1);
 	            var outIdx = batchOffset + rowOffset + colOffset + channel;
 	            var outputValue = imageVals[outIdx]; // If the coordinate position falls within the image boundaries...
 
@@ -107222,7 +107292,7 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	function select(args) {
+	function select$1(args) {
 	  var inputs = args.inputs,
 	      backend = args.backend;
 	  var condition = inputs.condition,
@@ -107253,7 +107323,7 @@
 	var selectConfig = {
 	  kernelName: Select,
 	  backendName: 'cpu',
-	  kernelFunc: select
+	  kernelFunc: select$1
 	};
 
 	/**
@@ -109932,6 +110002,33 @@
 	ENV$1.registerFlag('CPU_HANDOFF_SIZE_THRESHOLD', function () {
 	  return 128;
 	});
+	/** Whether we will use shapes uniforms. */
+
+	ENV$1.registerFlag('WEBGL_USE_SHAPES_UNIFORMS', function () {
+	  return false;
+	});
+	/**
+	 * Threshold for last dimension of input tensor that determines whether
+	 * WebGL backend for the Top K op will delegate computation to CPU. If input
+	 * is smaller than threshold then CPU will be used
+	 *
+	 * Default value is 100000.
+	 */
+
+	ENV$1.registerFlag('TOPK_LAST_DIM_CPU_HANDOFF_SIZE_THRESHOLD', function () {
+	  return 100000;
+	});
+	/**
+	 * Threshold for K that determines whether
+	 * WebGL backend for the Top K op will delegate computation to CPU. If k
+	 * is larger than threshold then CPU will be used
+	 *
+	 * Default value is 128.
+	 */
+
+	ENV$1.registerFlag('TOPK_K_CPU_HANDOFF_THRESHOLD', function () {
+	  return 128;
+	});
 
 	/**
 	 * @license
@@ -110037,6 +110134,18 @@
 	  return strides.map(function (stride, i) {
 	    var line1 = "int " + coords[i] + " = " + index + " / " + stride;
 	    var line2 = i === strides.length - 1 ? "int " + coords[i + 1] + " = " + index + " - " + coords[i] + " * " + stride : "index -= " + coords[i] + " * " + stride;
+	    return line1 + "; " + line2 + ";";
+	  }).join('');
+	}
+	function getLogicalCoordinatesFromFlatIndexByUniform(coords, shape, index) {
+	  if (index === void 0) {
+	    index = 'index';
+	  }
+
+	  var strides = computeStrides(shape);
+	  return strides.map(function (_, i) {
+	    var line1 = "int " + coords[i] + " = " + index + " / outShapeStrides[" + i + "]";
+	    var line2 = i === strides.length - 1 ? "int " + coords[i + 1] + " = " + index + " - " + coords[i] + " * outShapeStrides[" + i + "]" : "index -= " + coords[i] + " * outShapeStrides[" + i + "]";
 	    return line1 + "; " + line2 + ";";
 	  }).join('');
 	}
@@ -111192,7 +111301,7 @@
 	 * =============================================================================
 	 */
 	var getBroadcastDims$1 = getBroadcastDims;
-	function makeShader(inputsInfo, outputShape, userCode, usesPackedTextures) {
+	function makeShader(inputsInfo, outputShape, program) {
 	  var prefixSnippets = [];
 	  inputsInfo.forEach(function (x) {
 	    var size = sizeFromShape(x.shapeInfo.logicalShape); // Snippet when we decided to upload the values as uniform.
@@ -111203,10 +111312,73 @@
 	      prefixSnippets.push("uniform sampler2D " + x.name + ";");
 	      prefixSnippets.push("uniform int offset" + x.name + ";");
 	    }
+
+	    if (program.enableShapeUniforms) {
+	      var _getUniformInfoFromSh = getUniformInfoFromShape(program.packedInputs, x.shapeInfo.logicalShape, x.shapeInfo.texShape),
+	          uniformShape = _getUniformInfoFromSh.uniformShape;
+
+	      switch (uniformShape.length) {
+	        case 1:
+	          prefixSnippets.push("uniform int " + x.name + "Shape;");
+	          break;
+
+	        case 2:
+	          prefixSnippets.push("uniform ivec2 " + x.name + "Shape;");
+	          break;
+
+	        case 3:
+	          prefixSnippets.push("uniform ivec3 " + x.name + "Shape;");
+	          break;
+
+	        case 4:
+	          prefixSnippets.push("uniform ivec4 " + x.name + "Shape;");
+	          break;
+
+	        default:
+	          break;
+	      }
+
+	      prefixSnippets.push("uniform ivec2 " + x.name + "TexShape;");
+	    }
 	  });
+
+	  if (program.enableShapeUniforms) {
+	    switch (outputShape.logicalShape.length) {
+	      case 1:
+	        prefixSnippets.push("uniform int outShape;");
+	        break;
+
+	      case 2:
+	        prefixSnippets.push("uniform ivec2 outShape;");
+	        prefixSnippets.push("uniform int outShapeStrides;");
+	        break;
+
+	      case 3:
+	        prefixSnippets.push("uniform ivec3 outShape;");
+	        prefixSnippets.push("uniform ivec2 outShapeStrides;");
+	        break;
+
+	      case 4:
+	        prefixSnippets.push("uniform ivec4 outShape;");
+	        prefixSnippets.push("uniform ivec3 outShapeStrides;");
+	        break;
+
+	      default:
+	        break;
+	    }
+
+	    prefixSnippets.push("uniform ivec2 outTexShape;");
+	  }
+
+	  if (program.customUniforms) {
+	    program.customUniforms.forEach(function (d) {
+	      prefixSnippets.push("uniform " + d.type + " " + d.name + (d.arrayIndex ? "[" + d.arrayIndex + "]" : '') + ";");
+	    });
+	  }
+
 	  var inputPrefixSnippet = prefixSnippets.join('\n');
 	  var inputSamplingSnippet = inputsInfo.map(function (x) {
-	    return getInputSamplingSnippet(x, outputShape, usesPackedTextures);
+	    return getInputSamplingSnippet(x, outputShape, program.packedInputs, program.enableShapeUniforms);
 	  }).join('\n');
 	  var outTexShape = outputShape.texShape;
 	  var glsl = getGlslDifferences();
@@ -111216,39 +111388,43 @@
 	  var shaderPrefix = getShaderPrefix(glsl);
 
 	  if (outputShape.isPacked) {
-	    outputSamplingSnippet = getPackedOutputSamplingSnippet(outputShape.logicalShape, outTexShape);
+	    outputSamplingSnippet = getPackedOutputSamplingSnippet(outputShape.logicalShape, outTexShape, program.enableShapeUniforms);
 	    floatTextureSetOutputSnippet = getFloatTextureSetRGBASnippet(glsl);
 	  } else {
-	    outputSamplingSnippet = getOutputSamplingSnippet(outputShape.logicalShape, outTexShape);
+	    outputSamplingSnippet = getOutputSamplingSnippet(outputShape.logicalShape, outTexShape, program.enableShapeUniforms);
 	    floatTextureSetOutputSnippet = getFloatTextureSetRSnippet(glsl);
 	  }
 
-	  if (usesPackedTextures) {
+	  if (program.packedInputs) {
 	    shaderPrefix += SHADER_PACKED_PREFIX;
 	  }
 
-	  var source = [shaderPrefix, floatTextureSampleSnippet, floatTextureSetOutputSnippet, inputPrefixSnippet, outputSamplingSnippet, inputSamplingSnippet, userCode].join('\n');
+	  var source = [shaderPrefix, floatTextureSampleSnippet, floatTextureSetOutputSnippet, inputPrefixSnippet, outputSamplingSnippet, inputSamplingSnippet, program.userCode].join('\n');
 	  return source;
 	}
 
-	function getSamplerFromInInfo(inInfo) {
+	function getSamplerFromInInfo(inInfo, enableShapeUniforms) {
+	  if (enableShapeUniforms === void 0) {
+	    enableShapeUniforms = false;
+	  }
+
 	  var shape = inInfo.shapeInfo.logicalShape;
 
 	  switch (shape.length) {
 	    case 0:
-	      return getSamplerScalar(inInfo);
+	      return getSamplerScalar(inInfo, enableShapeUniforms);
 
 	    case 1:
-	      return getSampler1D(inInfo);
+	      return getSampler1D(inInfo, enableShapeUniforms);
 
 	    case 2:
-	      return getSampler2D(inInfo);
+	      return getSampler2D(inInfo, enableShapeUniforms);
 
 	    case 3:
-	      return getSampler3D(inInfo);
+	      return getSampler3D(inInfo, enableShapeUniforms);
 
 	    case 4:
-	      return getSampler4D(inInfo);
+	      return getSampler4D(inInfo, enableShapeUniforms);
 
 	    case 5:
 	      return getSampler5D(inInfo);
@@ -111261,7 +111437,7 @@
 	  }
 	}
 
-	function getPackedSamplerFromInInfo(inInfo) {
+	function getPackedSamplerFromInInfo(inInfo, enableShapeUniforms) {
 	  var shape = inInfo.shapeInfo.logicalShape;
 
 	  switch (shape.length) {
@@ -111269,20 +111445,20 @@
 	      return getPackedSamplerScalar(inInfo);
 
 	    case 1:
-	      return getPackedSampler1D(inInfo);
+	      return getPackedSampler1D(inInfo, enableShapeUniforms);
 
 	    case 2:
-	      return getPackedSampler2D(inInfo);
+	      return getPackedSampler2D(inInfo, enableShapeUniforms);
 
 	    case 3:
-	      return getPackedSampler3D(inInfo);
+	      return getPackedSampler3D(inInfo, enableShapeUniforms);
 
 	    default:
-	      return getPackedSamplerND(inInfo);
+	      return getPackedSamplerND(inInfo, enableShapeUniforms);
 	  }
 	}
 
-	function getInputSamplingSnippet(inInfo, outShapeInfo, usesPackedTextures) {
+	function getInputSamplingSnippet(inInfo, outShapeInfo, usesPackedTextures, enableShapeUniforms) {
 	  if (usesPackedTextures === void 0) {
 	    usesPackedTextures = false;
 	  }
@@ -111290,9 +111466,9 @@
 	  var res = '';
 
 	  if (usesPackedTextures) {
-	    res += getPackedSamplerFromInInfo(inInfo);
+	    res += getPackedSamplerFromInInfo(inInfo, enableShapeUniforms);
 	  } else {
-	    res += getSamplerFromInInfo(inInfo);
+	    res += getSamplerFromInInfo(inInfo, enableShapeUniforms);
 	  }
 
 	  var inShape = inInfo.shapeInfo.logicalShape;
@@ -111309,41 +111485,41 @@
 	  return res;
 	}
 
-	function getPackedOutputSamplingSnippet(outShape, outTexShape) {
+	function getPackedOutputSamplingSnippet(outShape, outTexShape, enableShapeUniforms) {
 	  switch (outShape.length) {
 	    case 0:
 	      return getOutputScalarCoords();
 
 	    case 1:
-	      return getOutputPacked1DCoords(outShape, outTexShape);
+	      return getOutputPacked1DCoords(outShape, outTexShape, enableShapeUniforms);
 
 	    case 2:
-	      return getOutputPacked2DCoords(outShape, outTexShape);
+	      return getOutputPacked2DCoords(outShape, outTexShape, enableShapeUniforms);
 
 	    case 3:
-	      return getOutputPacked3DCoords(outShape, outTexShape);
+	      return getOutputPacked3DCoords(outShape, outTexShape, enableShapeUniforms);
 
 	    default:
-	      return getOutputPackedNDCoords(outShape, outTexShape);
+	      return getOutputPackedNDCoords(outShape, outTexShape, enableShapeUniforms);
 	  }
 	}
 
-	function getOutputSamplingSnippet(outShape, outTexShape) {
+	function getOutputSamplingSnippet(outShape, outTexShape, enableShapeUniforms) {
 	  switch (outShape.length) {
 	    case 0:
 	      return getOutputScalarCoords();
 
 	    case 1:
-	      return getOutput1DCoords(outShape, outTexShape);
+	      return getOutput1DCoords(outShape, outTexShape, enableShapeUniforms);
 
 	    case 2:
-	      return getOutput2DCoords(outShape, outTexShape);
+	      return getOutput2DCoords(outShape, outTexShape, enableShapeUniforms);
 
 	    case 3:
-	      return getOutput3DCoords(outShape, outTexShape);
+	      return getOutput3DCoords(outShape, outTexShape, enableShapeUniforms);
 
 	    case 4:
-	      return getOutput4DCoords(outShape, outTexShape);
+	      return getOutput4DCoords(outShape, outTexShape, enableShapeUniforms);
 
 	    case 5:
 	      return getOutput5DCoords(outShape, outTexShape);
@@ -111382,45 +111558,84 @@
 	  return "\n    int getOutputCoords() {\n      return 0;\n    }\n  ";
 	}
 
-	function getOutputPacked1DCoords(shape, texShape) {
+	function getOutputPacked1DCoords(shape, texShape, enableShapeUniforms) {
 	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
 
 	  if (packedTexShape[0] === 1) {
+	    if (enableShapeUniforms) {
+	      return "\n      int getOutputCoords() {\n        return 2 * int(resultUV.x * ceil(float(outTexShape[1]) / 2.0));\n      }\n    ";
+	    }
+
 	    return "\n      int getOutputCoords() {\n        return 2 * int(resultUV.x * " + packedTexShape[1] + ".0);\n      }\n    ";
 	  }
 
 	  if (packedTexShape[1] === 1) {
+	    if (enableShapeUniforms) {
+	      return "\n      int getOutputCoords() {\n        return 2 * int(resultUV.y * ceil(float(outTexShape[0]) / 2.0));\n      }\n    ";
+	    }
+
 	    return "\n      int getOutputCoords() {\n        return 2 * int(resultUV.y * " + packedTexShape[0] + ".0);\n      }\n    ";
+	  }
+
+	  if (enableShapeUniforms) {
+	    return "\n    int getOutputCoords() {\n      ivec2 packedTexShape = ivec2(ceil(float(outTexShape[0]) / 2.0), ceil(float(outTexShape[1]) / 2.0));\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(packedTexShape[0], packedTexShape[1]));\n      return 2 * (resTexRC.x * packedTexShape[1] + resTexRC.y);\n    }\n  ";
 	  }
 
 	  return "\n    int getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + packedTexShape[0] + ", " + packedTexShape[1] + "));\n      return 2 * (resTexRC.x * " + packedTexShape[1] + " + resTexRC.y);\n    }\n  ";
 	}
 
-	function getOutput1DCoords(shape, texShape) {
+	function getOutput1DCoords(shape, texShape, enableShapeUniforms) {
 	  if (texShape[0] === 1) {
+	    if (enableShapeUniforms) {
+	      return "\n      int getOutputCoords() {\n        return int(resultUV.x * float(outTexShape[1]));\n      }\n    ";
+	    }
+
 	    return "\n      int getOutputCoords() {\n        return int(resultUV.x * " + texShape[1] + ".0);\n      }\n    ";
 	  }
 
 	  if (texShape[1] === 1) {
+	    if (enableShapeUniforms) {
+	      return "\n      int getOutputCoords() {\n        return int(resultUV.y * float(outTexShape[0]));\n      }\n    ";
+	    }
+
 	    return "\n      int getOutputCoords() {\n        return int(resultUV.y * " + texShape[0] + ".0);\n      }\n    ";
+	  }
+
+	  if (enableShapeUniforms) {
+	    return "\n    int getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(outTexShape[0], outTexShape[1]));\n      return resTexRC.x * outTexShape[1] + resTexRC.y;\n    }\n  ";
 	  }
 
 	  return "\n    int getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + texShape[0] + ", " + texShape[1] + "));\n      return resTexRC.x * " + texShape[1] + " + resTexRC.y;\n    }\n  ";
 	}
 
-	function getOutputPacked3DCoords(shape, texShape) {
+	function getOutputPacked3DCoords(shape, texShape, enableShapeUniforms) {
+	  if (enableShapeUniforms) {
+	    return "\n    ivec3 getOutputCoords() {\n      ivec2 packedTexShape = ivec2(ceil(float(outTexShape[0]) / 2.0), ceil(float(outTexShape[1]) / 2.0));\n      int texelsInLogicalRow = int(ceil(float(outShape[2]) / 2.0));\n      int texelsInBatch = texelsInLogicalRow * int(ceil(float(outShape[1]) / 2.0));\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(packedTexShape[0], packedTexShape[1]));\n      int index = resTexRC.x * packedTexShape[1] + resTexRC.y;\n\n      int b = index / texelsInBatch;\n      index -= b * texelsInBatch;\n\n      int r = 2 * (index / texelsInLogicalRow);\n      int c = imod(index, texelsInLogicalRow) * 2;\n\n      return ivec3(b, r, c);\n    }\n  ";
+	  }
+
 	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
 	  var texelsInLogicalRow = Math.ceil(shape[2] / 2);
 	  var texelsInBatch = texelsInLogicalRow * Math.ceil(shape[1] / 2);
 	  return "\n    ivec3 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + packedTexShape[0] + ", " + packedTexShape[1] + "));\n      int index = resTexRC.x * " + packedTexShape[1] + " + resTexRC.y;\n\n      int b = index / " + texelsInBatch + ";\n      index -= b * " + texelsInBatch + ";\n\n      int r = 2 * (index / " + texelsInLogicalRow + ");\n      int c = imod(index, " + texelsInLogicalRow + ") * 2;\n\n      return ivec3(b, r, c);\n    }\n  ";
 	}
 
-	function getOutput3DCoords(shape, texShape) {
+	function getOutput3DCoords(shape, texShape, enableShapeUniforms) {
+	  if (enableShapeUniforms) {
+	    var _coordsFromIndexSnippet = getLogicalCoordinatesFromFlatIndexByUniform(['r', 'c', 'd'], shape);
+
+	    return "\n  ivec3 getOutputCoords() {\n    ivec2 resTexRC = ivec2(resultUV.yx *\n                           vec2(outTexShape[0], outTexShape[1]));\n    int index = resTexRC.x * outTexShape[1] + resTexRC.y;\n    " + _coordsFromIndexSnippet + "\n    return ivec3(r, c, d);\n  }\n";
+	  }
+
 	  var coordsFromIndexSnippet = getLogicalCoordinatesFromFlatIndex(['r', 'c', 'd'], shape);
 	  return "\n    ivec3 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + texShape[0] + ", " + texShape[1] + "));\n      int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n      " + coordsFromIndexSnippet + "\n      return ivec3(r, c, d);\n    }\n  ";
 	}
 
-	function getOutputPackedNDCoords(shape, texShape) {
+	function getOutputPackedNDCoords(shape, texShape, enableShapeUniforms) {
+	  if (enableShapeUniforms) {
+	    // TODO: support 5d and 6d
+	    return "\n    ivec4 getOutputCoords() {\n      ivec2 packedTexShape = ivec2(ceil(float(outTexShape[0]) / 2.0), ceil(float(outTexShape[1]) / 2.0));\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(packedTexShape[0], packedTexShape[1]));\n      int index = resTexRC.x * packedTexShape[1] + resTexRC.y;\n\n      int texelsInLogicalRow = int(ceil(float(outShape[3]) / 2.0));\n      int texelsInBatch = texelsInLogicalRow * int(ceil(float(outShape[2]) / 2.0));\n      int texelsInBatchN = texelsInBatch * outShape[1];\n\n      int b2 = index / texelsInBatchN;\n      index -= b2 * texelsInBatchN;\n\n      int b = index / texelsInBatch;\n      index -= b * texelsInBatch;\n\n      int r = 2 * (index / texelsInLogicalRow);\n      int c = imod(index, texelsInLogicalRow) * 2;\n\n      return ivec4(b2, b, r, c);\n    }\n  ";
+	  }
+
 	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
 	  var texelsInLogicalRow = Math.ceil(shape[shape.length - 1] / 2);
 	  var texelsInBatch = texelsInLogicalRow * Math.ceil(shape[shape.length - 2] / 2);
@@ -111437,7 +111652,13 @@
 	  return "\n    ivec" + shape.length + " getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + packedTexShape[0] + ", " + packedTexShape[1] + "));\n      int index = resTexRC.x * " + packedTexShape[1] + " + resTexRC.y;\n\n      " + batches + "\n\n      int b = index / " + texelsInBatch + ";\n      index -= b * " + texelsInBatch + ";\n\n      int r = 2 * (index / " + texelsInLogicalRow + ");\n      int c = imod(index, " + texelsInLogicalRow + ") * 2;\n\n      return ivec" + shape.length + "(" + coords + ");\n    }\n  ";
 	}
 
-	function getOutput4DCoords(shape, texShape) {
+	function getOutput4DCoords(shape, texShape, enableShapeUniforms) {
+	  if (enableShapeUniforms) {
+	    var _coordsFromIndexSnippet2 = getLogicalCoordinatesFromFlatIndexByUniform(['r', 'c', 'd', 'd2'], shape);
+
+	    return "\n    ivec4 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n        vec2(outTexShape[0], outTexShape[1]));\n      int index = resTexRC.x * outTexShape[1] + resTexRC.y;\n      " + _coordsFromIndexSnippet2 + "\n      return ivec4(r, c, d, d2);\n    }\n  ";
+	  }
+
 	  var coordsFromIndexSnippet = getLogicalCoordinatesFromFlatIndex(['r', 'c', 'd', 'd2'], shape);
 	  return "\n    ivec4 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n        vec2(" + texShape[0] + ", " + texShape[1] + "));\n      int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n      " + coordsFromIndexSnippet + "\n      return ivec4(r, c, d, d2);\n    }\n  ";
 	}
@@ -111452,10 +111673,14 @@
 	  return "\n    ivec6 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n        vec2(" + texShape[0] + ", " + texShape[1] + "));\n      int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n\n      " + coordsFromIndexSnippet + "\n\n      ivec6 result = ivec6(r, c, d, d2, d3, d4);\n      return result;\n    }\n  ";
 	}
 
-	function getOutputPacked2DCoords(shape, texShape) {
+	function getOutputPacked2DCoords(shape, texShape, enableShapeUniforms) {
 	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
 
 	  if (arraysEqual(shape, texShape)) {
+	    if (enableShapeUniforms) {
+	      return "\n      ivec2 getOutputCoords() {\n        ivec2 packedTexShape = ivec2(ceil(float(outTexShape[0]) / 2.0), ceil(float(outTexShape[1]) / 2.0));\n        return 2 * ivec2(resultUV.yx * vec2(packedTexShape[0], packedTexShape[1]));\n      }\n    ";
+	    }
+
 	    return "\n      ivec2 getOutputCoords() {\n        return 2 * ivec2(resultUV.yx * vec2(" + packedTexShape[0] + ", " + packedTexShape[1] + "));\n      }\n    ";
 	  } // texels needed to accommodate a logical row
 
@@ -111471,20 +111696,40 @@
 	   * index: The texel index
 	   */
 
+	  if (enableShapeUniforms) {
+	    return "\n    ivec2 getOutputCoords() {\n      ivec2 packedTexShape = ivec2(ceil(float(outTexShape[0]) / 2.0), ceil(float(outTexShape[1]) / 2.0));\n      int texelsInLogicalRow = int(ceil(float(outShape[1]) / 2.0));\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(packedTexShape[0], packedTexShape[1]));\n\n      int index = resTexRC.x * packedTexShape[1] + resTexRC.y;\n      int r = 2 * (index / texelsInLogicalRow);\n      int c = imod(index, texelsInLogicalRow) * 2;\n\n      return ivec2(r, c);\n    }\n  ";
+	  }
+
 	  return "\n    ivec2 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + packedTexShape[0] + ", " + packedTexShape[1] + "));\n\n      int index = resTexRC.x * " + packedTexShape[1] + " + resTexRC.y;\n      int r = 2 * (index / " + texelsInLogicalRow + ");\n      int c = imod(index, " + texelsInLogicalRow + ") * 2;\n\n      return ivec2(r, c);\n    }\n  ";
 	}
 
-	function getOutput2DCoords(shape, texShape) {
+	function getOutput2DCoords(shape, texShape, enableShapeUniforms) {
 	  if (arraysEqual(shape, texShape)) {
+	    if (enableShapeUniforms) {
+	      return "\n      ivec2 getOutputCoords() {\n        return ivec2(resultUV.yx * vec2(outTexShape[0], outTexShape[1]));\n      }\n    ";
+	    }
+
 	    return "\n      ivec2 getOutputCoords() {\n        return ivec2(resultUV.yx * vec2(" + texShape[0] + ", " + texShape[1] + "));\n      }\n    ";
 	  }
 
 	  if (shape[1] === 1) {
+	    if (enableShapeUniforms) {
+	      return "\n      ivec2 getOutputCoords() {\n        ivec2 resTexRC = ivec2(resultUV.yx *\n                               vec2(outTexShape[0], outTexShape[1]));\n        int index = resTexRC.x * outTexShape[1] + resTexRC.y;\n        return ivec2(index, 0);\n      }\n    ";
+	    }
+
 	    return "\n      ivec2 getOutputCoords() {\n        ivec2 resTexRC = ivec2(resultUV.yx *\n                               vec2(" + texShape[0] + ", " + texShape[1] + "));\n        int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n        return ivec2(index, 0);\n      }\n    ";
 	  }
 
 	  if (shape[0] === 1) {
+	    if (enableShapeUniforms) {
+	      return "\n      ivec2 getOutputCoords() {\n        ivec2 resTexRC = ivec2(resultUV.yx *\n                               vec2(outTexShape[0], outTexShape[1]));\n        int index = resTexRC.x * outTexShape[1] + resTexRC.y;\n        return ivec2(0, index);\n      }\n    ";
+	    }
+
 	    return "\n      ivec2 getOutputCoords() {\n        ivec2 resTexRC = ivec2(resultUV.yx *\n                               vec2(" + texShape[0] + ", " + texShape[1] + "));\n        int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n        return ivec2(0, index);\n      }\n    ";
+	  }
+
+	  if (enableShapeUniforms) {
+	    return "\n    ivec2 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(outTexShape[0], outTexShape[1]));\n      int index = resTexRC.x * outTexShape[1] + resTexRC.y;\n      int r = index / outShape[1];\n      int c = index - r * outShape[1];\n      return ivec2(r, c);\n    }\n  ";
 	  }
 
 	  return "\n    ivec2 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + texShape[0] + ", " + texShape[1] + "));\n      int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n      int r = index / " + shape[1] + ";\n      int c = index - r * " + shape[1] + ";\n      return ivec2(r, c);\n    }\n  ";
@@ -111501,7 +111746,7 @@
 	  return "\n    vec4 " + funcName + "() {\n      return " + glsl.texture2D + "(" + texName + ", halfCR);\n    }\n  ";
 	}
 
-	function getSamplerScalar(inputInfo) {
+	function getSamplerScalar(inputInfo, enableShapeUniforms) {
 	  var texName = inputInfo.name;
 	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
 
@@ -111517,23 +111762,33 @@
 	    return "\n      float " + funcName + "() {\n        return sampleTexture(" + texName + ", halfCR);\n      }\n    ";
 	  }
 
+	  var offset = getFlatOffsetUniformName(texName);
+
+	  if (enableShapeUniforms) {
+	    return "\n    float " + funcName + "() {\n      vec2 uv = uvFromFlat(" + texName + "TexShape[0], " + texName + "TexShape[1], " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
+	  }
+
 	  var _inputInfo$shapeInfo$2 = inputInfo.shapeInfo.texShape,
 	      tNumR = _inputInfo$shapeInfo$2[0],
 	      tNumC = _inputInfo$shapeInfo$2[1];
-	  var offset = getFlatOffsetUniformName(texName);
 	  return "\n    float " + funcName + "() {\n      vec2 uv = uvFromFlat(" + tNumR + ", " + tNumC + ", " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
 	}
 
-	function getPackedSampler1D(inputInfo) {
+	function getPackedSampler1D(inputInfo, enableShapeUniforms) {
 	  var texName = inputInfo.name;
 	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
 	  var texShape = inputInfo.shapeInfo.texShape;
-	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
 	  var glsl = getGlslDifferences();
+
+	  if (enableShapeUniforms) {
+	    return "\n    vec4 " + funcName + "(int index) {\n      ivec2 packedTexShape = ivec2(ceil(float(" + texName + "TexShape[0]) / 2.0), ceil(float(" + texName + "TexShape[1]) / 2.0));\n      vec2 uv = packedUVfrom1D(\n        packedTexShape[0], packedTexShape[1], index);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
+	  }
+
+	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
 	  return "\n    vec4 " + funcName + "(int index) {\n      vec2 uv = packedUVfrom1D(\n        " + packedTexShape[0] + ", " + packedTexShape[1] + ", index);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
 	}
 
-	function getSampler1D(inputInfo) {
+	function getSampler1D(inputInfo, enableShapeUniforms) {
 	  var texName = inputInfo.name;
 	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
 
@@ -111553,17 +111808,29 @@
 	  var offset = getFlatOffsetUniformName(texName);
 
 	  if (tNumC === 1) {
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int index) {\n        vec2 uv = vec2(0.5, (float(index + " + offset + ") + 0.5) / float(" + texName + "TexShape[0]));\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
 	    return "\n      float " + funcName + "(int index) {\n        vec2 uv = vec2(0.5, (float(index + " + offset + ") + 0.5) / " + tNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
 	  }
 
 	  if (tNumR === 1) {
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int index) {\n        vec2 uv = vec2((float(index + " + offset + ") + 0.5) / float(" + texName + "TexShape[1]), 0.5);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
 	    return "\n      float " + funcName + "(int index) {\n        vec2 uv = vec2((float(index + " + offset + ") + 0.5) / " + tNumC + ".0, 0.5);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	  }
+
+	  if (enableShapeUniforms) {
+	    return "\n    float " + funcName + "(int index) {\n      vec2 uv = uvFromFlat(" + texName + "TexShape[0], " + texName + "TexShape[1], index + " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
 	  }
 
 	  return "\n    float " + funcName + "(int index) {\n      vec2 uv = uvFromFlat(" + tNumR + ", " + tNumC + ", index + " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
 	}
 
-	function getPackedSampler2D(inputInfo) {
+	function getPackedSampler2D(inputInfo, enableShapeUniforms) {
 	  var shape = inputInfo.shapeInfo.logicalShape;
 	  var texName = inputInfo.name;
 	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
@@ -111573,7 +111840,15 @@
 	  var glsl = getGlslDifferences();
 
 	  if (texShape != null && arraysEqual(shape, texShape)) {
+	    if (enableShapeUniforms) {
+	      return "\n      vec4 " + funcName + "(int row, int col) {\n        vec2 uv = (vec2(col, row) + halfCR) / vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n\n        return " + glsl.texture2D + "(" + texName + ", uv);\n      }\n    ";
+	    }
+
 	    return "\n      vec4 " + funcName + "(int row, int col) {\n        vec2 uv = (vec2(col, row) + halfCR) / vec2(" + texNumC + ".0, " + texNumR + ".0);\n\n        return " + glsl.texture2D + "(" + texName + ", uv);\n      }\n    ";
+	  }
+
+	  if (enableShapeUniforms) {
+	    return "\n    vec4 " + funcName + "(int row, int col) {\n      ivec2 packedTexShape = ivec2(ceil(float(" + texName + "TexShape[0]) / 2.0), ceil(float(" + texName + "TexShape[1]) / 2.0));\n      int valuesPerRow = int(ceil(float(" + texName + "Shape[1]) / 2.0));\n      vec2 uv = packedUVfrom2D(valuesPerRow, packedTexShape[0], packedTexShape[1], row, col);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
 	  }
 
 	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
@@ -111581,13 +111856,17 @@
 	  return "\n    vec4 " + funcName + "(int row, int col) {\n      vec2 uv = packedUVfrom2D(" + valuesPerRow + ", " + packedTexShape[0] + ", " + packedTexShape[1] + ", row, col);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
 	}
 
-	function getSampler2D(inputInfo) {
+	function getSampler2D(inputInfo, enableShapeUniforms) {
 	  var shape = inputInfo.shapeInfo.logicalShape;
 	  var texName = inputInfo.name;
 	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
 	  var texShape = inputInfo.shapeInfo.texShape;
 
 	  if (texShape != null && arraysEqual(shape, texShape)) {
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int row, int col) {\n        vec2 uv = (vec2(col, row) + halfCR) / vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
 	    var _texNumR = texShape[0];
 	    var _texNumC = texShape[1];
 	    return "\n    float " + funcName + "(int row, int col) {\n      vec2 uv = (vec2(col, row) + halfCR) / vec2(" + _texNumC + ".0, " + _texNumR + ".0);\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
@@ -111602,7 +111881,7 @@
 	  if (squeezedShape.length < shape.length) {
 	    var newInputInfo = squeezeInputInfo(inputInfo, squeezedShape);
 	    var params = ['row', 'col'];
-	    return "\n      " + getSamplerFromInInfo(newInputInfo) + "\n      float " + funcName + "(int row, int col) {\n        return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n      }\n    ";
+	    return "\n      " + getSamplerFromInInfo(newInputInfo, enableShapeUniforms) + "\n      float " + funcName + "(int row, int col) {\n        return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n      }\n    ";
 	  }
 
 	  if (inputInfo.shapeInfo.isUniform) {
@@ -111616,18 +111895,30 @@
 
 	  if (texNumC === 1) {
 	    // index is used directly as physical (no risk of float16 overflow).
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int row, int col) {\n        float index = dot(vec3(row, col, " + offset + "), vec3(" + texName + "Shape[1], 1, 1));\n        vec2 uv = vec2(0.5, (index + 0.5) / float(" + texName + "TexShape[0]));\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
 	    return "\n    float " + funcName + "(int row, int col) {\n      float index = dot(vec3(row, col, " + offset + "), vec3(" + shape[1] + ", 1, 1));\n      vec2 uv = vec2(0.5, (index + 0.5) / " + texNumR + ".0);\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
 	  }
 
 	  if (texNumR === 1) {
 	    // index is used directly as physical (no risk of float16 overflow).
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int row, int col) {\n        float index = dot(vec3(row, col, " + offset + "), vec3(" + texName + "Shape[1], 1, 1));\n        vec2 uv = vec2((index + 0.5) / float(" + texName + "TexShape[1]), 0.5);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
 	    return "\n    float " + funcName + "(int row, int col) {\n      float index = dot(vec3(row, col, " + offset + "), vec3(" + shape[1] + ", 1, 1));\n      vec2 uv = vec2((index + 0.5) / " + texNumC + ".0, 0.5);\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
+	  }
+
+	  if (enableShapeUniforms) {
+	    return "\n      float " + funcName + "(int row, int col) {\n        // Explicitly use integer operations as dot() only works on floats.\n        int index = row * " + texName + "Shape[1] + col + " + offset + ";\n        vec2 uv = uvFromFlat(" + texName + "TexShape[0], " + texName + "TexShape[1], index);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
 	  }
 
 	  return "\n  float " + funcName + "(int row, int col) {\n    // Explicitly use integer operations as dot() only works on floats.\n    int index = row * " + shape[1] + " + col + " + offset + ";\n    vec2 uv = uvFromFlat(" + texNumR + ", " + texNumC + ", index);\n    return sampleTexture(" + texName + ", uv);\n  }\n";
 	}
 
-	function getPackedSampler3D(inputInfo) {
+	function getPackedSampler3D(inputInfo, enableShapeUniforms) {
 	  var shape = inputInfo.shapeInfo.logicalShape;
 	  var texName = inputInfo.name;
 	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
@@ -111639,18 +111930,23 @@
 	    var keptDims = [1, 2];
 	    var newInputInfo = squeezeInputInfo(inputInfo, squeezedShape);
 	    var params = ['b', 'row', 'col'];
-	    return "\n        " + getPackedSamplerFromInInfo(newInputInfo) + "\n        vec4 " + funcName + "(int b, int row, int col) {\n          return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n        }\n      ";
+	    return "\n        " + getPackedSamplerFromInInfo(newInputInfo, enableShapeUniforms) + "\n        vec4 " + funcName + "(int b, int row, int col) {\n          return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n        }\n      ";
+	  }
+
+	  var glsl = getGlslDifferences();
+
+	  if (enableShapeUniforms) {
+	    return "\n    vec4 " + funcName + "(int b, int row, int col) {\n      ivec2 packedTexShape = ivec2(ceil(float(" + texName + "TexShape[0]) / 2.0), ceil(float(" + texName + "TexShape[1]) / 2.0));\n      int valuesPerRow = int(ceil(float(" + texName + "Shape[2]) / 2.0));\n      int texelsInBatch = valuesPerRow * int(ceil(float(" + texName + "Shape[1]) / 2.0));\n      vec2 uv = packedUVfrom3D(\n        packedTexShape[0], packedTexShape[1], texelsInBatch, valuesPerRow, b, row, col);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
 	  }
 
 	  var texNumR = packedTexShape[0];
 	  var texNumC = packedTexShape[1];
 	  var valuesPerRow = Math.ceil(shape[2] / 2);
 	  var texelsInBatch = valuesPerRow * Math.ceil(shape[1] / 2);
-	  var glsl = getGlslDifferences();
 	  return "\n    vec4 " + funcName + "(int b, int row, int col) {\n      vec2 uv = packedUVfrom3D(\n        " + texNumR + ", " + texNumC + ", " + texelsInBatch + ", " + valuesPerRow + ", b, row, col);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
 	}
 
-	function getSampler3D(inputInfo) {
+	function getSampler3D(inputInfo, enableShapeUniforms) {
 	  var shape = inputInfo.shapeInfo.logicalShape;
 	  var texName = inputInfo.name;
 	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
@@ -111666,7 +111962,7 @@
 	  if (squeezedShape.length < shape.length) {
 	    var newInputInfo = squeezeInputInfo(inputInfo, squeezedShape);
 	    var params = ['row', 'col', 'depth'];
-	    return "\n        " + getSamplerFromInInfo(newInputInfo) + "\n        float " + funcName + "(int row, int col, int depth) {\n          return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n        }\n      ";
+	    return "\n        " + getSamplerFromInInfo(newInputInfo, enableShapeUniforms) + "\n        float " + funcName + "(int row, int col, int depth) {\n          return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n        }\n      ";
 	  }
 
 	  if (inputInfo.shapeInfo.isUniform) {
@@ -111681,23 +111977,43 @@
 
 	  if (texNumC === stride0 && flatOffset == null) {
 	    // texC is used directly as physical (no risk of float16 overflow).
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int row, int col, int depth) {\n        int stride1 = " + texName + "Shape[2];\n        float texR = float(row);\n        float texC = dot(vec2(col, depth), vec2(stride1, 1));\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                   vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
 	    return "\n        float " + funcName + "(int row, int col, int depth) {\n          float texR = float(row);\n          float texC = dot(vec2(col, depth), vec2(" + stride1 + ", 1));\n          vec2 uv = (vec2(texC, texR) + halfCR) /\n                     vec2(" + texNumC + ".0, " + texNumR + ".0);\n          return sampleTexture(" + texName + ", uv);\n        }\n      ";
 	  }
 
 	  if (texNumC === stride1 && flatOffset == null) {
 	    // texR is used directly as physical (no risk of float16 overflow).
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int row, int col, int depth) {\n        float texR = dot(vec2(row, col), vec2(" + texName + "Shape[1], 1));\n        float texC = float(depth);\n        vec2 uv = (vec2(texC, texR) + halfCR) / vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
 	    return "\n    float " + funcName + "(int row, int col, int depth) {\n      float texR = dot(vec2(row, col), vec2(" + shape[1] + ", 1));\n      float texC = float(depth);\n      vec2 uv = (vec2(texC, texR) + halfCR) / vec2(" + texNumC + ".0, " + texNumR + ".0);\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
 	  }
 
 	  var offset = getFlatOffsetUniformName(texName);
+
+	  if (enableShapeUniforms) {
+	    return "\n    float " + funcName + "(int row, int col, int depth) {\n      // Explicitly use integer operations as dot() only works on floats.\n      int stride0 = " + texName + "Shape[1] * " + texName + "Shape[2];\n      int stride1 = " + texName + "Shape[2];\n      int index = row * " + stride0 + " + col * " + stride1 + " + depth + " + offset + ";\n      vec2 uv = uvFromFlat(" + texName + "TexShape[0], " + texName + "TexShape[1], index);\n      return sampleTexture(" + texName + ", uv);\n    }\n    ";
+	  }
+
 	  return "\n      float " + funcName + "(int row, int col, int depth) {\n        // Explicitly use integer operations as dot() only works on floats.\n        int index = row * " + stride0 + " + col * " + stride1 + " + depth + " + offset + ";\n        vec2 uv = uvFromFlat(" + texNumR + ", " + texNumC + ", index);\n        return sampleTexture(" + texName + ", uv);\n      }\n  ";
 	}
 
-	function getPackedSamplerND(inputInfo) {
-	  var shape = inputInfo.shapeInfo.logicalShape;
-	  var rank = shape.length;
+	function getPackedSamplerND(inputInfo, enableShapeUniforms) {
 	  var texName = inputInfo.name;
 	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
+	  var glsl = getGlslDifferences();
+
+	  if (enableShapeUniforms) {
+	    // TODO: support 5d and 6d
+	    return "\n    vec4 " + funcName + "(int b2, int b, int row, int col) {\n      int valuesPerRow = int(ceil(float(" + texName + "Shape[3]) / 2.0));\n      int texelsInBatch = valuesPerRow * int(ceil(float(" + texName + "Shape[2]) / 2.0));\n      int index = b * texelsInBatch + (row / 2) * valuesPerRow + (col / 2);\n      texelsInBatch *= " + texName + "Shape[1];\n      index = b2 * texelsInBatch + index;\n      ivec2 packedTexShape = ivec2(ceil(float(" + texName + "TexShape[0]) / 2.0), ceil(float(" + texName + "TexShape[1]) / 2.0));\n      int texR = index / packedTexShape[1];\n      int texC = index - texR * packedTexShape[1];\n      vec2 uv = (vec2(texC, texR) + halfCR) / vec2(packedTexShape[1], packedTexShape[0]); return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
+	  }
+
+	  var shape = inputInfo.shapeInfo.logicalShape;
+	  var rank = shape.length;
 	  var texShape = inputInfo.shapeInfo.texShape;
 	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
 	  var texNumR = packedTexShape[0];
@@ -111713,11 +112029,10 @@
 	    index = "b" + b + " * " + texelsInBatch + " + " + index;
 	  }
 
-	  var glsl = getGlslDifferences();
 	  return "\n    vec4 " + funcName + "(" + params + ") {\n      int index = " + index + ";\n      int texR = index / " + texNumC + ";\n      int texC = index - texR * " + texNumC + ";\n      vec2 uv = (vec2(texC, texR) + halfCR) / vec2(" + texNumC + ", " + texNumR + ");\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
 	}
 
-	function getSampler4D(inputInfo) {
+	function getSampler4D(inputInfo, enableShapeUniforms) {
 	  var shape = inputInfo.shapeInfo.logicalShape;
 	  var texName = inputInfo.name;
 	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
@@ -111732,7 +112047,7 @@
 	  if (newShape.length < shape.length) {
 	    var newInputInfo = squeezeInputInfo(inputInfo, newShape);
 	    var params = ['row', 'col', 'depth', 'depth2'];
-	    return "\n      " + getSamplerFromInInfo(newInputInfo) + "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n      }\n    ";
+	    return "\n      " + getSamplerFromInInfo(newInputInfo, enableShapeUniforms) + "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n      }\n    ";
 	  }
 
 	  if (inputInfo.shapeInfo.isUniform) {
@@ -111744,18 +112059,34 @@
 	  var texShape = inputInfo.shapeInfo.texShape;
 	  var texNumR = texShape[0];
 	  var texNumC = texShape[1];
+	  var stride2Str = "int stride2 = " + texName + "Shape[3];";
+	  var stride1Str = "int stride1 = " + texName + "Shape[2] * stride2;";
+	  var stride0Str = "int stride0 = " + texName + "Shape[1] * stride1;";
 
 	  if (texNumC === stride0 && flatOffset == null) {
 	    // texC is used directly as physical (no risk of float16 overflow).
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        " + stride2Str + "\n        " + stride1Str + "\n        float texR = float(row);\n        float texC =\n            dot(vec3(col, depth, depth2),\n                vec3(stride1, stride2, 1));\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                   vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
 	    return "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        float texR = float(row);\n        float texC =\n            dot(vec3(col, depth, depth2),\n                vec3(" + stride1 + ", " + stride2 + ", 1));\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                   vec2(" + texNumC + ".0, " + texNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
 	  }
 
 	  if (texNumC === stride2 && flatOffset == null) {
 	    // texR is used directly as physical (no risk of float16 overflow).
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        float texR = dot(vec3(row, col, depth),\n                         vec3(" + texName + "Shape[1] * " + texName + "Shape[2], " + texName + "Shape[2], 1));\n        float texC = float(depth2);\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                  vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
 	    return "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        float texR = dot(vec3(row, col, depth),\n                         vec3(" + shape[1] * shape[2] + ", " + shape[2] + ", 1));\n        float texC = float(depth2);\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                  vec2(" + texNumC + ".0, " + texNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
 	  }
 
 	  var offset = getFlatOffsetUniformName(texName);
+
+	  if (enableShapeUniforms) {
+	    return "\n    float " + funcName + "(int row, int col, int depth, int depth2) {\n      // Explicitly use integer operations as dot() only works on floats.\n      " + stride2Str + "\n      " + stride1Str + "\n      " + stride0Str + "\n      int index = row * stride0 + col * stride1 +\n          depth * stride2 + depth2;\n      vec2 uv = uvFromFlat(" + texName + "TexShape[0], " + texName + "TexShape[1], index + " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
+	  }
+
 	  return "\n    float " + funcName + "(int row, int col, int depth, int depth2) {\n      // Explicitly use integer operations as dot() only works on floats.\n      int index = row * " + stride0 + " + col * " + stride1 + " +\n          depth * " + stride2 + " + depth2;\n      vec2 uv = uvFromFlat(" + texNumR + ", " + texNumC + ", index + " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
 	}
 
@@ -111979,6 +112310,20 @@
 	    throw Error("GPU for rank " + rank + " is not yet supported");
 	  }
 	}
+	function getUniformInfoFromShape(isPacked, shape, texShape) {
+	  var _util$squeezeShape6 = squeezeShape(shape),
+	      newShape = _util$squeezeShape6.newShape;
+
+	  var rank = shape.length;
+	  var useSqueezePackedShape = isPacked && rank === 3 && shape[0] === 1;
+	  var squeezeShape$1 = useSqueezePackedShape ? shape.slice(1) : newShape;
+	  var useSqueezeShape = !isPacked && rank > 1 && !arraysEqual(shape, texShape) && newShape.length < rank || useSqueezePackedShape;
+	  var uniformShape = useSqueezeShape ? squeezeShape$1 : shape;
+	  return {
+	    useSqueezeShape: useSqueezeShape,
+	    uniformShape: uniformShape
+	  };
+	}
 	/** Returns a new input info (a copy) that has a squeezed logical shape. */
 
 	function squeezeInputInfo(inInfo, squeezedShape) {
@@ -112011,7 +112356,6 @@
 	 * =============================================================================
 	 */
 	function compileProgram(gpgpu, program, inputs, output) {
-	  var userCode = program.userCode;
 	  var inputInfos = inputs.map(function (input, i) {
 	    var shapeInfo = {
 	      logicalShape: input.shape,
@@ -112040,7 +112384,7 @@
 	    isPacked: output.texData.isPacked,
 	    flatOffset: null
 	  };
-	  var source = makeShader(inputInfos, outShapeInfo, userCode, program.packedInputs);
+	  var source = makeShader(inputInfos, outShapeInfo, program);
 	  var webGLProgram = gpgpu.createProgram(source); // Add special uniforms (NAN, INFINITY)
 
 	  var infLoc = null;
@@ -112051,13 +112395,38 @@
 	  } // Add user-defined uniforms
 
 
+	  var shouldThrow = false;
 	  var uniformLocations = {};
+	  var inShapesLocations = {};
+	  var inTexShapesLocations = {};
 
 	  for (var i = 0; i < program.variableNames.length; i++) {
 	    var varName = program.variableNames[i];
-	    var shouldThrow = false;
 	    uniformLocations[varName] = gpgpu.getUniformLocation(webGLProgram, varName, shouldThrow);
 	    uniformLocations["offset" + varName] = gpgpu.getUniformLocation(webGLProgram, "offset" + varName, shouldThrow);
+
+	    if (program.enableShapeUniforms) {
+	      inShapesLocations[varName + "Shape"] = gpgpu.getUniformLocation(webGLProgram, varName + "Shape", shouldThrow);
+	      inTexShapesLocations[varName + "TexShape"] = gpgpu.getUniformLocation(webGLProgram, varName + "TexShape", shouldThrow);
+	    }
+	  }
+
+	  var outShapeLocation;
+	  var outTexShapeLocation;
+	  var outShapeStridesLocation;
+
+	  if (program.enableShapeUniforms) {
+	    outShapeLocation = gpgpu.getUniformLocation(webGLProgram, 'outShape', shouldThrow);
+	    outShapeStridesLocation = gpgpu.getUniformLocation(webGLProgram, 'outShapeStrides', shouldThrow);
+	    outTexShapeLocation = gpgpu.getUniformLocation(webGLProgram, 'outTexShape', shouldThrow);
+	  }
+
+	  var customUniformLocations = [];
+
+	  if (program.customUniforms) {
+	    program.customUniforms.forEach(function (d, i) {
+	      customUniformLocations[i] = gpgpu.getUniformLocation(webGLProgram, d.name, shouldThrow);
+	    });
 	  }
 
 	  return {
@@ -112065,10 +112434,16 @@
 	    source: source,
 	    webGLProgram: webGLProgram,
 	    uniformLocations: uniformLocations,
+	    customUniformLocations: customUniformLocations,
 	    inShapeInfos: inShapeInfos,
 	    outShapeInfo: outShapeInfo,
 	    infLoc: infLoc,
-	    nanLoc: nanLoc
+	    nanLoc: nanLoc,
+	    inShapesLocations: inShapesLocations,
+	    inTexShapesLocations: inTexShapesLocations,
+	    outShapeLocation: outShapeLocation,
+	    outShapeStridesLocation: outShapeStridesLocation,
+	    outTexShapeLocation: outTexShapeLocation
 	  };
 	}
 
@@ -112100,9 +112475,12 @@
 	  });
 	}
 
-	function runProgram(gpgpu, binary, inputs, output, customSetup) {
-	  validateBinaryAndProgram(binary.inShapeInfos, inputs);
-	  validateBinaryAndProgram([binary.outShapeInfo], [output]);
+	function runProgram(gpgpu, binary, inputs, output, customUniformValues) {
+	  if (!binary.program.enableShapeUniforms) {
+	    validateBinaryAndProgram(binary.inShapeInfos, inputs);
+	    validateBinaryAndProgram([binary.outShapeInfo], [output]);
+	  }
+
 	  var outTex = output.texData.texture;
 	  var outTexShape = output.texData.texShape;
 
@@ -112129,6 +112507,38 @@
 	    var varName = binary.program.variableNames[i];
 	    var varLoc = binary.uniformLocations[varName];
 	    var varOffsetLoc = binary.uniformLocations["offset" + varName];
+	    var varShapeLoc = binary.inShapesLocations[varName + "Shape"];
+	    var varTexShapeLoc = binary.inTexShapesLocations[varName + "TexShape"];
+
+	    if (varShapeLoc) {
+	      var _shader_compiler$getU = getUniformInfoFromShape(binary.program.packedInputs, input.shape, input.texData.texShape),
+	          uniformShape = _shader_compiler$getU.uniformShape;
+
+	      switch (uniformShape.length) {
+	        case 1:
+	          gpgpu.gl.uniform1iv(varShapeLoc, new Int32Array(uniformShape));
+	          break;
+
+	        case 2:
+	          gpgpu.gl.uniform2iv(varShapeLoc, new Int32Array(uniformShape));
+	          break;
+
+	        case 3:
+	          gpgpu.gl.uniform3iv(varShapeLoc, new Int32Array(uniformShape));
+	          break;
+
+	        case 4:
+	          gpgpu.gl.uniform4iv(varShapeLoc, new Int32Array(uniformShape));
+	          break;
+
+	        default:
+	          break;
+	      }
+	    }
+
+	    if (varTexShapeLoc) {
+	      gpgpu.gl.uniform2i(varTexShapeLoc, input.texData.texShape[0], input.texData.texShape[1]);
+	    }
 
 	    if (varLoc == null) {
 	      // The compiler inferred that this variable is not used in this shader.
@@ -112159,9 +112569,81 @@
 
 	    gpgpu.setInputMatrixTexture(input.texData.texture, varLoc, i);
 	  });
+	  var outShapeLoc = binary.outShapeLocation;
 
-	  if (customSetup != null) {
-	    customSetup(gpgpu, binary.webGLProgram);
+	  if (outShapeLoc) {
+	    switch (output.shape.length) {
+	      case 1:
+	        gpgpu.gl.uniform1iv(outShapeLoc, new Int32Array(output.shape));
+	        break;
+
+	      case 2:
+	        gpgpu.gl.uniform2iv(outShapeLoc, new Int32Array(output.shape));
+	        break;
+
+	      case 3:
+	        gpgpu.gl.uniform3iv(outShapeLoc, new Int32Array(output.shape));
+	        break;
+
+	      case 4:
+	        gpgpu.gl.uniform4iv(outShapeLoc, new Int32Array(output.shape));
+	        break;
+
+	      default:
+	        break;
+	    }
+	  }
+
+	  if (binary.outShapeStridesLocation) {
+	    var strides = computeStrides(output.shape);
+
+	    switch (output.shape.length) {
+	      case 2:
+	        gpgpu.gl.uniform1iv(binary.outShapeStridesLocation, new Int32Array(strides));
+	        break;
+
+	      case 3:
+	        gpgpu.gl.uniform2iv(binary.outShapeStridesLocation, new Int32Array(strides));
+	        break;
+
+	      case 4:
+	        gpgpu.gl.uniform3iv(binary.outShapeStridesLocation, new Int32Array(strides));
+	        break;
+
+	      default:
+	        break;
+	    }
+	  }
+
+	  if (binary.outTexShapeLocation) {
+	    gpgpu.gl.uniform2i(binary.outTexShapeLocation, output.texData.texShape[0], output.texData.texShape[1]);
+	  }
+
+	  if (binary.program.customUniforms && customUniformValues) {
+	    binary.program.customUniforms.forEach(function (d, i) {
+	      var customLoc = binary.customUniformLocations[i];
+	      var customValue = customUniformValues[i];
+
+	      if (d.type === 'float') {
+	        gpgpu.gl.uniform1fv(customLoc, customValue);
+	      } else if (d.type === 'vec2') {
+	        gpgpu.gl.uniform2fv(customLoc, customValue);
+	      } else if (d.type === 'vec3') {
+	        gpgpu.gl.uniform3fv(customLoc, customValue);
+	      } else if (d.type === 'vec4') {
+	        gpgpu.gl.uniform4fv(customLoc, customValue);
+	      } else if (d.type === 'int') {
+	        gpgpu.gl.uniform1iv(customLoc, customValue);
+	      } else if (d.type === 'ivec2') {
+	        gpgpu.gl.uniform2iv(customLoc, customValue);
+	      } else if (d.type === 'ivec3') {
+	        gpgpu.gl.uniform3iv(customLoc, customValue);
+	      } else if (d.type === 'ivec4') {
+	        gpgpu.gl.uniform4iv(customLoc, customValue);
+	      } else {
+	        throw Error("uniform type " + d.type + " is not supported yet.");
+	      }
+	    });
 	  }
 
 	  gpgpu.executeProgram();
@@ -112169,15 +112651,68 @@
 	function makeShaderKey(program, inputs, output) {
 	  var keyInputs = '';
 	  inputs.concat(output).forEach(function (x) {
-	    var hasOffset = x.texData != null && x.texData.slice != null && x.texData.slice.flatOffset > 0;
-	    var texShape = x.isUniform ? 'uniform' : x.texData.texShape;
-	    keyInputs += x.shape + "_" + texShape + "_" + hasOffset;
+	    var hasOffset = x.texData != null && x.texData.slice != null && x.texData.slice.flatOffset > 0; // TODO: Remove the condition of !x.isUniform.
+
+	    if (program.enableShapeUniforms && !x.isUniform) {
+	      var xTexShape = x.texData.texShape;
+
+	      var _shader_compiler$getU2 = getUniformInfoFromShape(program.packedInputs, x.shape, xTexShape),
+	          useSqueezeShape = _shader_compiler$getU2.useSqueezeShape,
+	          uniformShape = _shader_compiler$getU2.uniformShape;
+
+	      var rank1 = '',
+	          rank2 = '',
+	          rank34 = '';
+
+	      if (uniformShape.length === 1 && program.packedInputs) {
+	        var packedTexShape = [Math.ceil(xTexShape[0] / 2), Math.ceil(xTexShape[1] / 2)];
+	        rank1 = (packedTexShape[0] > 1) + "_" + (packedTexShape[1] > 1);
+	      } else if (uniformShape.length === 2 && !program.packedInputs) {
+	        rank2 = (uniformShape[0] > 1) + "_" + (uniformShape[1] > 1);
+	      } else if (uniformShape.length > 2 && !program.packedInputs) {
+	        var strides = computeStrides(uniformShape);
+	        rank34 = (strides[0] === xTexShape[1]) + "_" + (strides[strides.length - 1] === xTexShape[1]);
+	      }
+
+	      var xRank = x.shape.length;
+	      var isLogicalShapTexShapeEqual = xRank === 2 && arraysEqual(x.shape, xTexShape);
+	      var isScalar = sizeFromShape(x.shape) === 1;
+	      var broadcastDims = getBroadcastDims(x.shape, output.shape);
+	      var isInOutTexShapeEqual = !program.packedInputs && xRank === output.shape.length && arraysEqual(xTexShape, output.texData.texShape);
+	      var isTexShapeGreaterThanOne = program.packedInputs || xRank > 2 ? '' : (xTexShape[0] > 1) + "_" + (xTexShape[1] > 1); // These key components are needed due to shader_compiler is embedding
+	      // them in the shader.
+	      // |xRank| is used to determine the coords length. See
+	      // get[Packed]SamplerAtOutputCoords.
+	      // |isInOutTexShapeEqual| is used to determine whether going to an
+	      // optimization path in getSamplerAtOutputCoords.
+	      // |useSqueezeShape| is extracted from squeezeInputInfo of
+	      // getSampler[2|3|4]D/getPackedSampler3D.
+	      // |isScalar| is extracted from isInputScalar/isOutputScalar in
+	      // getPackedSamplerAtOutputCoords.
+	      // |broadcastDims| is extracted from get[Packed]SamplerAtOutputCoords.
+	      // |isLogicalShapTexShapeEqual| is used in
+	      // getOutput[Packed]2DCoords/get[Packed]Sampler2D.
+	      // |rank1| is used in getOutputPacked1DCoords.
+	      // |rank2| is used in getOutput2DCoords.
+	      // |rank34| is used in getSampler3D/getSampler4D.
+	      // |isTexShapeGreaterThanOne| are used in
+	      // getSampler[Scalar|1D|2D]/getOutput1DCoords.
+
+	      keyInputs += xRank + "_" + isInOutTexShapeEqual + "_" + useSqueezeShape + "_" + uniformShape.length + "_" + isScalar + "_" + broadcastDims + "_" + isLogicalShapTexShapeEqual + "_" + rank1 + "_" + rank2 + "_" + rank34 + "_" + isTexShapeGreaterThanOne + "_" + hasOffset;
+	    } else {
+	      var texShape = x.isUniform ? 'uniform' : x.texData.texShape;
+	      keyInputs += x.shape + "_" + texShape + "_" + hasOffset;
+	    }
 	  });
 	  var keyUserCode = program.userCode;
 	  var key = program.constructor.name; // Fast string concat. See https://jsperf.com/string-concatenation/14.
 
-	  key += '_' + keyInputs + '_' + keyUserCode;
+	  key += '_' + keyInputs + '_' + keyUserCode + ("" + env().getNumber('WEBGL_VERSION'));
 	  return key;
+	}
+	function useShapeUniforms(rank) {
+	  // TODO: Remove the limitaion of rank <= 4.
+	  return env().getBool('WEBGL_USE_SHAPES_UNIFORMS') && rank <= 4;
 	}
 
 	/**
@@ -112702,6 +113237,7 @@
 	var UnaryOpProgram = function UnaryOpProgram(aShape, opSnippet) {
 	  this.variableNames = ['A'];
 	  this.outputShape = aShape;
+	  this.enableShapeUniforms = useShapeUniforms(this.outputShape.length);
 	  this.userCode = "\n      float unaryOperation(float x) {\n        " + opSnippet + "\n      }\n\n      void main() {\n        float x = getAAtOutCoords();\n        float y = unaryOperation(x);\n\n        setOutput(y);\n      }\n    ";
 	};
 	var CHECK_NAN_SNIPPET = "if (isnan(x)) return x;";
@@ -112746,6 +113282,7 @@
 	  this.packedInputs = true;
 	  this.packedOutput = true;
 	  this.outputShape = aShape;
+	  this.enableShapeUniforms = useShapeUniforms(this.outputShape.length);
 	  this.userCode = "\n      vec4 unaryOperation(vec4 x) {\n        " + opSnippet + "\n      }\n\n      void main() {\n        vec4 x = getAAtOutCoords();\n        vec4 y = unaryOperation(x);\n\n        setOutput(y);\n      }\n    ";
 	};
 
@@ -113001,7 +113538,7 @@
 
 	  _proto.read = /*#__PURE__*/function () {
 	    var _read = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(dataId) {
-	      var _subscribers, texData, values, shape, slice, dtype, complexTensorInfos, isPacked, program, res, data, buffer, tmpDownloadTarget, _this$gpgpu, tmpData, vals, ps, realValues, imagValues, size, dTypeVals, subscribers;
+	      var _subscribers, texData, values, shape, slice, dtype, complexTensorInfos, isPacked, program, res, data, buffer, tmpDownloadTarget, _this$gpgpu, tmpData, vals, ps, realValues, imagValues, size, gl, dTypeVals, subscribers;
 
 	      return regeneratorRuntime.wrap(function _callee$(_context) {
 	        while (1) {
@@ -113109,6 +113646,13 @@
 	                this.disposeIntermediateTensorInfo(tmpDownloadTarget);
 	              }
 
+	              if (buffer != null) {
+	                gl = this.gpgpu.gl;
+	                callAndCheck(gl, function () {
+	                  return gl.deleteBuffer(buffer);
+	                });
+	              }
+
 	              dTypeVals = this.convertAndCacheOnCPU(dataId, vals);
 	              subscribers = this.pendingRead.get(dataId);
 	              this.pendingRead.delete(dataId); // Notify all pending reads.
@@ -113129,7 +113673,7 @@
 
 	              return _context.abrupt("return", dTypeVals);
 
-	            case 38:
+	            case 39:
 	            case "end":
 	              return _context.stop();
 	          }
@@ -113571,7 +114115,7 @@
 	    var program = new PackProgram(input.shape);
 	    var preventEagerUnpackingOutput = true;
 	    return this.runWebGLProgram(program, [input], input.dtype, null
-	    /* customSetup */
+	    /* customUniformValues */
 	    , preventEagerUnpackingOutput);
 	  };
 
@@ -113586,7 +114130,7 @@
 	    var program = new ReshapePackedProgram(afterShapeAs3D, input3DShape);
 	    var preventEagerUnpackingOfOutput = true;
 	    var output = this.runWebGLProgram(program, [input3D], input.dtype, null
-	    /* customSetup */
+	    /* customUniformValues */
 	    , preventEagerUnpackingOfOutput);
 	    return {
 	      dataId: output.dataId,
@@ -113615,7 +114159,7 @@
 	      dtype: dtype,
 	      dataId: dataId
 	    }], dtype, null
-	    /* customSetup */
+	    /* customUniformValues */
 	    , preventEagerUnpackingOfOutput);
 	    return {
 	      dtype: dtype,
@@ -113624,7 +114168,7 @@
 	    };
 	  };
 
-	  _proto.runWebGLProgram = function runWebGLProgram(program, inputs, outputDtype, customSetup, preventEagerUnpackingOfOutput) {
+	  _proto.runWebGLProgram = function runWebGLProgram(program, inputs, outputDtype, customUniformValues, preventEagerUnpackingOfOutput) {
 	    var _this3 = this;
 
 	    if (preventEagerUnpackingOfOutput === void 0) {
@@ -113734,7 +114278,7 @@
 	      query = this.startTimer();
 	    }
 
-	    runProgram(this.gpgpu, binary, inputsData, outputData, customSetup);
+	    runProgram(this.gpgpu, binary, inputsData, outputData, customUniformValues);
 	    dataToDispose.forEach(function (info) {
 	      return _this3.disposeIntermediateTensorInfo(info);
 	    });
@@ -113767,13 +114311,13 @@
 	    return output;
 	  };
 
-	  _proto.compileAndRun = function compileAndRun(program, inputs, outputDtype, customSetup, preventEagerUnpackingOfOutput) {
+	  _proto.compileAndRun = function compileAndRun(program, inputs, outputDtype, customUniformValues, preventEagerUnpackingOfOutput) {
 	    if (preventEagerUnpackingOfOutput === void 0) {
 	      preventEagerUnpackingOfOutput = false;
 	    }
 
 	    outputDtype = outputDtype || inputs[0].dtype;
-	    var outInfo = this.runWebGLProgram(program, inputs, outputDtype, customSetup, preventEagerUnpackingOfOutput);
+	    var outInfo = this.runWebGLProgram(program, inputs, outputDtype, customUniformValues, preventEagerUnpackingOfOutput);
 	    return outInfo;
 	  };
 
@@ -113984,7 +114528,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$6 = '3.7.0';
+	var version$6 = '3.8.0';
 
 	/**
 	 * @license
@@ -114061,6 +114605,7 @@
 	var BinaryOpProgram = function BinaryOpProgram(op, aShape, bShape) {
 	  this.variableNames = ['A', 'B'];
 	  this.outputShape = assertAndGetBroadcastShape(aShape, bShape);
+	  this.enableShapeUniforms = useShapeUniforms(this.outputShape.length);
 	  this.userCode = "\n      float binaryOperation(float a, float b) {\n        " + op + "\n      }\n\n      void main() {\n        float a = getAAtOutCoords();\n        float b = getBAtOutCoords();\n        setOutput(binaryOperation(a, b));\n      }\n    ";
 	};
 
@@ -114094,6 +114639,7 @@
 	  this.packedOutput = true;
 	  this.outputShape = assertAndGetBroadcastShape(aShape, bShape);
 	  var rank = this.outputShape.length;
+	  this.enableShapeUniforms = useShapeUniforms(rank);
 	  var checkOutOfBoundsString = '';
 
 	  if (checkOutOfBounds) {
@@ -114104,10 +114650,19 @@
 	      checkOutOfBoundsString = "\n          " + dtype + " coords = getOutputCoords();\n        ";
 
 	      if (rank === 1) {
-	        checkOutOfBoundsString += "\n            result.y = (coords + 1) >= " + this.outputShape[0] + " ? 0. : result.y;\n            result.z = 0.;\n            result.w = 0.;\n          ";
+	        if (this.enableShapeUniforms) {
+	          checkOutOfBoundsString += "\n            result.y = (coords + 1) >= outShape ? 0. : result.y;\n            result.z = 0.;\n            result.w = 0.;\n          ";
+	        } else {
+	          checkOutOfBoundsString += "\n            result.y = (coords + 1) >= " + this.outputShape[0] + " ? 0. : result.y;\n            result.z = 0.;\n            result.w = 0.;\n          ";
+	        }
 	      } else {
 	        var channels = getChannels('coords', rank);
-	        checkOutOfBoundsString += "\n            bool nextRowOutOfBounds =\n              (" + channels[rank - 2] + " + 1) >= " + this.outputShape[rank - 2] + ";\n            bool nextColOutOfBounds =\n              (" + channels[rank - 1] + " + 1) >= " + this.outputShape[rank - 1] + ";\n            result.y = nextColOutOfBounds ? 0. : result.y;\n            result.z = nextRowOutOfBounds ? 0. : result.z;\n            result.w = nextColOutOfBounds || nextRowOutOfBounds ? 0. : result.w;\n          ";
+
+	        if (this.enableShapeUniforms) {
+	          checkOutOfBoundsString += "\n            bool nextRowOutOfBounds =\n              (" + channels[rank - 2] + " + 1) >= outShape[" + rank + " - 2];\n            bool nextColOutOfBounds =\n              (" + channels[rank - 1] + " + 1) >= outShape[" + rank + " - 1];\n            result.y = nextColOutOfBounds ? 0. : result.y;\n            result.z = nextRowOutOfBounds ? 0. : result.z;\n            result.w = nextColOutOfBounds || nextRowOutOfBounds ? 0. : result.w;\n          ";
+	        } else {
+	          checkOutOfBoundsString += "\n            bool nextRowOutOfBounds =\n              (" + channels[rank - 2] + " + 1) >= " + this.outputShape[rank - 2] + ";\n            bool nextColOutOfBounds =\n              (" + channels[rank - 1] + " + 1) >= " + this.outputShape[rank - 1] + ";\n            result.y = nextColOutOfBounds ? 0. : result.y;\n            result.z = nextRowOutOfBounds ? 0. : result.z;\n            result.w = nextColOutOfBounds || nextRowOutOfBounds ? 0. : result.w;\n          ";
+	        }
 	      }
 	    }
 	  }
@@ -116959,48 +117514,24 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var SliceProgram = /*#__PURE__*/function () {
-	  function SliceProgram(destSize) {
-	    this.variableNames = ['source'];
-	    this.outputShape = destSize;
-	    this.rank = destSize.length;
-	    var dtype = getCoordsDataType(this.rank);
-	    var uniformPart = "uniform int start[" + this.rank + "];";
-	    var sourceCoords = getCoords(this.rank);
-	    var body;
-	    var coordSum = destSize.map(function (_, i) {
-	      return "sourceLoc." + coords[i] + " = start[" + i + "] + coords." + coords[i] + ";";
-	    });
-	    body = "\n        " + dtype + " sourceLoc;\n        " + dtype + " coords = getOutputCoords();\n        " + coordSum.join('\n') + "\n      ";
-	    this.userCode = "\n      " + uniformPart + "\n      void main() {\n        " + body + "\n        setOutput(getSource(" + sourceCoords + "));\n      }\n    ";
-	  }
-
-	  var _proto = SliceProgram.prototype;
-
-	  _proto.getCustomSetupFunc = function getCustomSetupFunc(start) {
-	    var _this = this;
-
-	    if (start.length !== this.rank) {
-	      throw Error("The rank (" + this.rank + ") of the program must match the " + ("length of start (" + start.length + ")"));
-	    }
-
-	    return function (gpgpu, webGLProgram) {
-	      if (_this.startLoc == null) {
-	        _this.startLoc = gpgpu.getUniformLocationNoThrow(webGLProgram, 'start');
-
-	        if (_this.startLoc == null) {
-	          // This means the compiler has optimized and realized it doesn't need
-	          // the uniform.
-	          return;
-	        }
-	      }
-
-	      gpgpu.gl.uniform1iv(_this.startLoc, start);
-	    };
-	  };
-
-	  return SliceProgram;
-	}();
+	var SliceProgram = function SliceProgram(destSize) {
+	  this.variableNames = ['source'];
+	  this.outputShape = destSize;
+	  this.rank = destSize.length;
+	  var dtype = getCoordsDataType(this.rank);
+	  this.customUniforms = [{
+	    name: 'start',
+	    arrayIndex: this.rank,
+	    type: 'int'
+	  }];
+	  var sourceCoords = getCoords(this.rank);
+	  var body;
+	  var coordSum = destSize.map(function (_, i) {
+	    return "sourceLoc." + coords[i] + " = start[" + i + "] + coords." + coords[i] + ";";
+	  });
+	  body = "\n        " + dtype + " sourceLoc;\n        " + dtype + " coords = getOutputCoords();\n        " + coordSum.join('\n') + "\n      ";
+	  this.userCode = "\n      void main() {\n        " + body + "\n        setOutput(getSource(" + sourceCoords + "));\n      }\n    ";
+	};
 	var coords = ['x', 'y', 'z', 'w', 'u', 'v'];
 
 	function getCoords(rank) {
@@ -117031,54 +117562,31 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var SlicePackedProgram = /*#__PURE__*/function () {
-	  function SlicePackedProgram(destSize) {
-	    this.variableNames = ['source'];
-	    this.packedInputs = true;
-	    this.packedOutput = true;
-	    this.outputShape = destSize;
-	    this.rank = destSize.length;
-	    var dtype = getCoordsDataType(this.rank);
-	    var coords = getChannels('coords', this.rank);
-	    var sourceLoc = getChannels('sourceLoc', this.rank);
-	    var innerDims = this.rank === 1 ? 'sourceLoc' : "vec2(" + sourceLoc.slice(-2).join() + ")";
-	    var getChannel = "getChannel(getSource(" + sourceLoc.join() + "), " + innerDims + ")";
-	    var upperRow = "\n      result.x = " + getChannel + ";\n      if (++" + coords[this.rank - 1] + " < " + destSize[this.rank - 1] + ") {\n        ++" + sourceLoc[this.rank - 1] + ";\n        result.y = " + getChannel + ";\n        --" + sourceLoc[this.rank - 1] + ";\n      }\n    ";
-	    var lowerRow = this.rank === 1 ? '' : "\n      --" + coords[this.rank - 1] + ";\n      if (++" + coords[this.rank - 2] + " < " + destSize[this.rank - 2] + ") {\n        ++" + sourceLoc[this.rank - 2] + ";\n        result.z = " + getChannel + ";\n        if (++" + coords[this.rank - 1] + " < " + destSize[this.rank - 1] + ") {\n          ++" + sourceLoc[this.rank - 1] + ";\n          result.w = " + getChannel + ";\n        }\n      }\n    ";
-	    var sourceLocSetup = this.rank <= 4 ? "sourceLoc = coords +\n            " + dtype + "(" + destSize.map(function (_, i) {
-	      return "start[" + i + "]";
-	    }).join() + ");" : destSize.map(function (_, i) {
-	      return sourceLoc[i] + " = " + coords[i] + " + start[" + i + "];";
-	    }).join('\n');
-	    this.userCode = "\n      uniform int start[" + this.rank + "];\n      void main() {\n        " + dtype + " coords = getOutputCoords();\n        " + dtype + " sourceLoc;\n        " + sourceLocSetup + "\n        vec4 result = vec4(0.);\n        " + upperRow + "\n        " + lowerRow + "\n        setOutput(result);\n      }\n    ";
-	  }
-
-	  var _proto = SlicePackedProgram.prototype;
-
-	  _proto.getCustomSetupFunc = function getCustomSetupFunc(start) {
-	    var _this = this;
-
-	    if (start.length !== this.rank) {
-	      throw Error("The rank (" + this.rank + ") of the program must match the " + ("length of start (" + start.length + ")"));
-	    }
-
-	    return function (gpgpu, webGLProgram) {
-	      if (_this.startLoc == null) {
-	        _this.startLoc = gpgpu.getUniformLocationNoThrow(webGLProgram, 'start');
-
-	        if (_this.startLoc == null) {
-	          // This means the compiler has optimized and realized it doesn't need
-	          // the uniform.
-	          return;
-	        }
-	      }
-
-	      gpgpu.gl.uniform1iv(_this.startLoc, start);
-	    };
-	  };
-
-	  return SlicePackedProgram;
-	}();
+	var SlicePackedProgram = function SlicePackedProgram(destSize) {
+	  this.variableNames = ['source'];
+	  this.packedInputs = true;
+	  this.packedOutput = true;
+	  this.outputShape = destSize;
+	  this.rank = destSize.length;
+	  this.customUniforms = [{
+	    name: 'start',
+	    arrayIndex: this.rank,
+	    type: 'int'
+	  }];
+	  var dtype = getCoordsDataType(this.rank);
+	  var coords = getChannels('coords', this.rank);
+	  var sourceLoc = getChannels('sourceLoc', this.rank);
+	  var innerDims = this.rank === 1 ? 'sourceLoc' : "vec2(" + sourceLoc.slice(-2).join() + ")";
+	  var getChannel = "getChannel(getSource(" + sourceLoc.join() + "), " + innerDims + ")";
+	  var upperRow = "\n      result.x = " + getChannel + ";\n      if (++" + coords[this.rank - 1] + " < " + destSize[this.rank - 1] + ") {\n        ++" + sourceLoc[this.rank - 1] + ";\n        result.y = " + getChannel + ";\n        --" + sourceLoc[this.rank - 1] + ";\n      }\n    ";
+	  var lowerRow = this.rank === 1 ? '' : "\n      --" + coords[this.rank - 1] + ";\n      if (++" + coords[this.rank - 2] + " < " + destSize[this.rank - 2] + ") {\n        ++" + sourceLoc[this.rank - 2] + ";\n        result.z = " + getChannel + ";\n        if (++" + coords[this.rank - 1] + " < " + destSize[this.rank - 1] + ") {\n          ++" + sourceLoc[this.rank - 1] + ";\n          result.w = " + getChannel + ";\n        }\n      }\n    ";
+	  var sourceLocSetup = this.rank <= 4 ? "sourceLoc = coords +\n            " + dtype + "(" + destSize.map(function (_, i) {
+	    return "start[" + i + "]";
+	  }).join() + ");" : destSize.map(function (_, i) {
+	    return sourceLoc[i] + " = " + coords[i] + " + start[" + i + "];";
+	  }).join('\n');
+	  this.userCode = "\n      void main() {\n        " + dtype + " coords = getOutputCoords();\n        " + dtype + " sourceLoc;\n        " + sourceLocSetup + "\n        vec4 result = vec4(0.);\n        " + upperRow + "\n        " + lowerRow + "\n        setOutput(result);\n      }\n    ";
+	};
 
 	/**
 	 * @license
@@ -117162,8 +117670,8 @@
 
 	  if (isPacked || !isContinous) {
 	    var program = env().getBool('WEBGL_PACK_ARRAY_OPERATIONS') ? new SlicePackedProgram($size) : new SliceProgram($size);
-	    var customSetup = program.getCustomSetupFunc($begin);
-	    return backend.runWebGLProgram(program, [x], x.dtype, customSetup);
+	    var customValues = [$begin];
+	    return backend.runWebGLProgram(program, [x], x.dtype, customValues);
 	  }
 
 	  backend.uploadToGPU(x.dataId);
@@ -117552,31 +118060,18 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var ClipProgram = /*#__PURE__*/function () {
-	  function ClipProgram(aShape) {
-	    this.variableNames = ['A'];
-	    this.outputShape = aShape;
-	    this.userCode = "\n      uniform float minVal;\n      uniform float maxVal;\n\n      void main() {\n        float value = getAAtOutCoords();\n        if (isnan(value)) {\n          setOutput(value);\n          return;\n        }\n\n        setOutput(clamp(value, minVal, maxVal));\n      }\n    ";
-	  }
-
-	  var _proto = ClipProgram.prototype;
-
-	  _proto.getCustomSetupFunc = function getCustomSetupFunc(min, max) {
-	    var _this = this;
-
-	    return function (gpgpu, webGLProgram) {
-	      if (_this.minLoc == null) {
-	        _this.minLoc = gpgpu.getUniformLocationNoThrow(webGLProgram, 'minVal');
-	        _this.maxLoc = gpgpu.getUniformLocationNoThrow(webGLProgram, 'maxVal');
-	      }
-
-	      gpgpu.gl.uniform1f(_this.minLoc, min);
-	      gpgpu.gl.uniform1f(_this.maxLoc, max);
-	    };
-	  };
-
-	  return ClipProgram;
-	}();
+	var ClipProgram = function ClipProgram(aShape) {
+	  this.variableNames = ['A'];
+	  this.customUniforms = [{
+	    name: 'minVal',
+	    type: 'float'
+	  }, {
+	    name: 'maxVal',
+	    type: 'float'
+	  }];
+	  this.outputShape = aShape;
+	  this.userCode = "\n\n      void main() {\n        float value = getAAtOutCoords();\n        if (isnan(value)) {\n          setOutput(value);\n          return;\n        }\n\n        setOutput(clamp(value, minVal, maxVal));\n      }\n    ";
+	};
 
 	/**
 	 * @license
@@ -117594,33 +118089,20 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var ClipPackedProgram = /*#__PURE__*/function () {
-	  function ClipPackedProgram(aShape) {
-	    this.variableNames = ['A'];
-	    this.packedInputs = true;
-	    this.packedOutput = true;
-	    this.outputShape = aShape;
-	    this.userCode = "\n      uniform float minVal;\n      uniform float maxVal;\n\n      void main() {\n        vec4 value = getAAtOutCoords();\n\n        if (any(isnan(value))) {\n          setOutput(value);\n          return;\n        }\n\n        setOutput(clamp(value, vec4(minVal), vec4(maxVal)));\n      }\n    ";
-	  }
-
-	  var _proto = ClipPackedProgram.prototype;
-
-	  _proto.getCustomSetupFunc = function getCustomSetupFunc(min, max) {
-	    var _this = this;
-
-	    return function (gpgpu, webGLProgram) {
-	      if (_this.minLoc == null) {
-	        _this.minLoc = gpgpu.getUniformLocationNoThrow(webGLProgram, 'minVal');
-	        _this.maxLoc = gpgpu.getUniformLocationNoThrow(webGLProgram, 'maxVal');
-	      }
-
-	      gpgpu.gl.uniform1f(_this.minLoc, min);
-	      gpgpu.gl.uniform1f(_this.maxLoc, max);
-	    };
-	  };
-
-	  return ClipPackedProgram;
-	}();
+	var ClipPackedProgram = function ClipPackedProgram(aShape) {
+	  this.variableNames = ['A'];
+	  this.packedInputs = true;
+	  this.packedOutput = true;
+	  this.customUniforms = [{
+	    name: 'minVal',
+	    type: 'float'
+	  }, {
+	    name: 'maxVal',
+	    type: 'float'
+	  }];
+	  this.outputShape = aShape;
+	  this.userCode = "\n      void main() {\n        vec4 value = getAAtOutCoords();\n\n        if (any(isnan(value))) {\n          setOutput(value);\n          return;\n        }\n\n        setOutput(clamp(value, vec4(minVal), vec4(maxVal)));\n      }\n    ";
+	};
 
 	/**
 	 * @license
@@ -117653,8 +118135,8 @@
 	    program = new ClipProgram(x.shape);
 	  }
 
-	  var customSetup = program.getCustomSetupFunc(clipValueMin, clipValueMax);
-	  return backend.runWebGLProgram(program, [x], x.dtype, customSetup);
+	  var customValues = [[clipValueMin], [clipValueMax]];
+	  return backend.runWebGLProgram(program, [x], x.dtype, customValues);
 	}
 	var clipByValueConfig = {
 	  kernelName: ClipByValue,
@@ -119023,45 +119505,31 @@
 	  kernelFunc: cropAndResize$2
 	};
 
-	var CumSumProgram = /*#__PURE__*/function () {
-	  function CumSumProgram(shape, exclusive, reverse) {
-	    this.variableNames = ['x'];
-	    this.outputShape = shape;
-	    var rank = shape.length;
-	    var val = exclusive ? '0.0' : "getX(" + getCoords$1(rank, 'coords') + ")";
-	    var length = shape[shape.length - 1];
-	    var condition = '';
-	    var idxString = ''; // When exclusive is set, the cumsum op becomes roll op that copies the
-	    // value from the previous index based on the direction specified by the
-	    // reverse flag.
+	var CumSumProgram = function CumSumProgram(shape, exclusive, reverse) {
+	  this.variableNames = ['x'];
+	  this.customUniforms = [{
+	    name: 'index',
+	    type: 'float'
+	  }];
+	  this.outputShape = shape;
+	  var rank = shape.length;
+	  var val = exclusive ? '0.0' : "getX(" + getCoords$1(rank, 'coords') + ")";
+	  var length = shape[shape.length - 1];
+	  var condition = '';
+	  var idxString = ''; // When exclusive is set, the cumsum op becomes roll op that copies the
+	  // value from the previous index based on the direction specified by the
+	  // reverse flag.
 
-	    if (exclusive) {
-	      condition = reverse ? "end != " + (length - 1) : 'end != 0';
-	      idxString = reverse ? 'end + 1' : 'end - 1';
-	    } else {
-	      condition = reverse ? "end + pow2 < " + length : 'end >= pow2';
-	      idxString = reverse ? 'end + pow2' : 'end - pow2';
-	    }
-
-	    this.userCode = "\n      uniform float index;\n      void main() {\n        " + getCoordsDataType(rank) + " coords = getOutputCoords();\n        int end = " + getFinalCoord(rank, 'coords') + ";\n        float val = " + val + ";\n        int pow2 = int(pow(2.0, index));\n        if (" + condition + ") {\n          int idx = " + idxString + ";\n          " + getFinalCoord(rank, 'coords') + " = idx;\n          val += getX(" + getCoords$1(rank, 'coords') + ");\n        }\n        setOutput(val);\n      }\n    ";
+	  if (exclusive) {
+	    condition = reverse ? "end != " + (length - 1) : 'end != 0';
+	    idxString = reverse ? 'end + 1' : 'end - 1';
+	  } else {
+	    condition = reverse ? "end + pow2 < " + length : 'end >= pow2';
+	    idxString = reverse ? 'end + pow2' : 'end - pow2';
 	  }
 
-	  var _proto = CumSumProgram.prototype;
-
-	  _proto.getCustomSetupFunc = function getCustomSetupFunc(index) {
-	    var _this = this;
-
-	    return function (gpgpu, webGLProgram) {
-	      if (_this.index == null) {
-	        _this.index = gpgpu.getUniformLocation(webGLProgram, 'index');
-	      }
-
-	      gpgpu.gl.uniform1f(_this.index, index);
-	    };
-	  };
-
-	  return CumSumProgram;
-	}();
+	  this.userCode = "\n      void main() {\n        " + getCoordsDataType(rank) + " coords = getOutputCoords();\n        int end = " + getFinalCoord(rank, 'coords') + ";\n        float val = " + val + ";\n        int pow2 = int(pow(2.0, index));\n        if (" + condition + ") {\n          int idx = " + idxString + ";\n          " + getFinalCoord(rank, 'coords') + " = idx;\n          val += getX(" + getCoords$1(rank, 'coords') + ");\n        }\n        setOutput(val);\n      }\n    ";
+	};
 
 	function getCoords$1(rank, name) {
 	  if (rank === 1) {
@@ -119148,9 +119616,9 @@
 
 	  for (var i = 0; i <= Math.ceil(Math.log2(size)) - 1; i++) {
 	    var program = new CumSumProgram(permutedX.shape, false, reverse);
-	    var customSetup = program.getCustomSetupFunc(i);
+	    var customValues = [[i]];
 	    var prevResult = result;
-	    result = backend.runWebGLProgram(program, [result], result.dtype, customSetup);
+	    result = backend.runWebGLProgram(program, [result], result.dtype, customValues);
 	    backend.disposeIntermediateTensorInfo(prevResult);
 	  } // For exclusive cumsum, shift the end result in the direction of sum
 	  // and add 0 to the front index.
@@ -119477,7 +119945,7 @@
 	  var mainLoop = "\n      int xR; int xC; int xCOffset;\n      vec4 wTexel; vec4 previous; vec4 final;";
 
 	  for (var c = 0; c < filterWidth; c++) {
-	    mainLoop += "\n          vec4 xTexelC" + c * 2 + ";\n          int xTexelC" + c * 2 + "Ready;\n          vec4 xC" + c + ";";
+	    mainLoop += "\n          vec4 xTexelC" + c * 2 + ";\n          int xTexelC" + c * 2 + "Ready;\n          vec4 xTexelC" + (c * 2 + 1) + ";\n          int xTexelC" + (c * 2 + 1) + "Ready;\n          vec4 xC" + c + ";";
 	  }
 	  /**
 	   * This vectorized implementation works by gathering the values needed for
@@ -119491,7 +119959,7 @@
 
 	  for (var r = 0; r < filterHeight; r++) {
 	    for (var _c = 0; _c < filterWidth; _c++) {
-	      mainLoop += "\n          xTexelC" + _c * 2 + " = vec4(0.0);\n          xTexelC" + _c * 2 + "Ready = 0;\n          xC" + _c + " = vec4(0.0);";
+	      mainLoop += "\n          xTexelC" + _c * 2 + " = vec4(0.0);\n          xTexelC" + _c * 2 + "Ready = 0;\n          xTexelC" + (_c * 2 + 1) + " = vec4(0.0);\n          xTexelC" + (_c * 2 + 1) + "Ready = 0;\n          xC" + _c + " = vec4(0.0);";
 	    }
 
 	    mainLoop += "\n        xR = xRCorner + " + r * dilationHeight + ";\n        if (xR >=0 && xR < " + xNumRows + ") {\n      ";
@@ -119514,17 +119982,17 @@
 	            // - If padding is odd, we must add 1 to ensure we ask for an
 	            // even-numbered row.
 	            // - We subtract 2 to access the previous texel.
-	            mainLoop += "\n                xCOffset = xC + 1;\n                if (xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + _c2 + "Ready == 0) {\n                  xTexelC" + _c2 + " = getX(batch, xR, xCOffset, d1);\n\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xCOffset + 1 >= " + xNumCols + ") {\n                    xTexelC" + _c2 + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + _c2 + "Ready = 1;\n                }\n              "; // This texel has been read in previous iteration if the dilation
+	            mainLoop += "\n                xCOffset = xC + 1;\n                if (xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xCOffset + 1 >= " + xNumCols + ") {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n              "; // This texel has been read in previous iteration if the dilation
 	            // is 1.
 
 	            if (dilationWidth === 1 && _c2 > 0) {
-	              mainLoop += "\n                xC" + colIndex + " = vec4(xTexelC" + (_c2 - 2) + ".zw, xTexelC" + _c2 + ".xy);\n                ";
+	              mainLoop += "\n                xC" + colIndex + " = vec4(xTexelC" + (colIndex - 2) + ".zw, xTexelC" + colIndex + ".xy);\n                ";
 	            } else {
-	              mainLoop += "\n                  xCOffset = xC + 1 - 2;\n\n                  if (xCOffset >= 0 && xCOffset < " + xNumCols + ") {\n                    previous = getX(batch, xR, xCOffset, d1);\n\n                    // Need to manually clear unused channels in case\n                    // we're reading from recycled texture.\n                    if (xCOffset + 1 >= " + xNumCols + ") {\n                      previous.zw = vec2(0.0);\n                    }\n\n                    xC" + colIndex + " = vec4(previous.zw, xTexelC" + _c2 + ".xy);\n                  } else {\n                    xC" + colIndex + " = vec4(0.0, 0.0, xTexelC" + _c2 + ".xy);\n                  }\n                  ";
+	              mainLoop += "\n                  xCOffset = xC + 1 - 2;\n\n                  if (xCOffset >= 0 && xCOffset < " + xNumCols + ") {\n                    previous = getX(batch, xR, xCOffset, d1);\n\n                    // Need to manually clear unused channels in case\n                    // we're reading from recycled texture.\n                    if (xCOffset + 1 >= " + xNumCols + ") {\n                      previous.zw = vec2(0.0);\n                    }\n\n                    xC" + colIndex + " = vec4(previous.zw, xTexelC" + colIndex + ".xy);\n                  } else {\n                    xC" + colIndex + " = vec4(0.0, 0.0, xTexelC" + colIndex + ".xy);\n                  }\n                  ";
 	            }
 	          } else {
 	            // Padding is even, so xRC corresponds to a single texel.
-	            mainLoop += "\n                if (xC >= 0 && xC < " + xNumCols + " && xTexelC" + _c2 + "Ready == 0) {\n                  xTexelC" + _c2 + " = getX(batch, xR, xC, d1);\n                  if (xC + 1 >= " + xNumCols + ") {\n                    xTexelC" + _c2 + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + _c2 + "Ready = 1;\n                }\n\n                xC" + colIndex + " = xTexelC" + _c2 + ";\n                ";
+	            mainLoop += "\n                if (xC >= 0 && xC < " + xNumCols + " && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xC, d1);\n                  if (xC + 1 >= " + xNumCols + ") {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                xC" + colIndex + " = xTexelC" + colIndex + ";\n                ";
 	          }
 
 	          if (_c2 + 1 < filterWidth) {
@@ -119536,22 +120004,22 @@
 	            var nextTexelOffset = padLeft % 2 === 0 ? nearestLargerEven(dilationWidth) : dilationWidth;
 
 	            if (dilationWidth % 2 === 0 && padLeft % 2 === 1 || dilationWidth % 2 !== 0 && padLeft % 2 !== 1) {
-	              mainLoop += "\n                  xCOffset = xC + " + padLeft % 2 + " + " + nextTexelOffset + ";\n\n                  if (xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + (_c2 + 2) + "Ready == 0) {\n                    xTexelC" + (_c2 + 2) + " = getX(batch, xR, xCOffset, d1);\n\n                    // Need to manually clear unused channels in case\n                    // we're reading from recycled texture.\n                    if (xCOffset + 1 >= " + xNumCols + ") {\n                      xTexelC" + (_c2 + 2) + ".zw = vec2(0.0);\n                    }\n                    xTexelC" + (_c2 + 2) + "Ready = 1;\n                  }\n                  "; // If dilation > 1 then the xRC's will not be able to share any
+	              mainLoop += "\n                  xCOffset = xC + " + padLeft % 2 + " + " + nextTexelOffset + ";\n\n                  if (xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                    xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n\n                    // Need to manually clear unused channels in case\n                    // we're reading from recycled texture.\n                    if (xCOffset + 1 >= " + xNumCols + ") {\n                      xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                    }\n                    xTexelC" + (colIndex + 1) + "Ready = 1;\n                  }\n                  "; // If dilation > 1 then the xRC's will not be able to share any
 	              // values, so each xRC will require two unique calls to getX.
 
 	              if (dilationWidth > 1) {
-	                mainLoop += "\n                    xCOffset -= 2;\n                    if (xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + _c2 + "Ready == 0) {\n                      xTexelC" + _c2 + " = getX(batch, xR, xCOffset, d1);\n                      xTexelC" + _c2 + "Ready = 1;\n                    }\n                    ";
+	                mainLoop += "\n                    xCOffset -= 2;\n                    if (xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + colIndex + "Ready == 0) {\n                      xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n                      xTexelC" + colIndex + "Ready = 1;\n                    }\n                    ";
 	              }
 
-	              mainLoop += "\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + _c2 + ".zw, xTexelC" + (_c2 + 2) + ".xy);\n                  ";
+	              mainLoop += "\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".xy);\n                  ";
 	            } else {
 	              // If dilation is 1 and padding is odd, we have already read the
 	              // texel when constructing the previous x value. Here we can
 	              // simply skip the texture read.
 	              if (nextTexelOffset === 1) {
-	                mainLoop += "\n                    xC" + (colIndex + 1) + " = xTexelC" + _c2 + ";\n                    ";
+	                mainLoop += "\n                    xC" + (colIndex + 1) + " = xTexelC" + colIndex + ";\n                    ";
 	              } else {
-	                mainLoop += "\n                    xCOffset = xC + " + nextTexelOffset + ";\n\n                    if (xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + (_c2 + 2) + "Ready == 0) {\n                      xTexelC" + (_c2 + 2) + " = getX(batch, xR, xCOffset, d1);\n                      if (xCOffset + 1 >= " + xNumCols + ") {\n                        xTexelC" + (_c2 + 2) + ".zw = vec2(0.0);\n                      }\n                      xTexelC" + (_c2 + 2) + "Ready = 1;\n                    }\n\n                    xC" + (colIndex + 1) + " = xTexelC" + (_c2 + 2) + ";\n                    ";
+	                mainLoop += "\n                    xCOffset = xC + " + nextTexelOffset + ";\n\n                    if (xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                      xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n                      if (xCOffset + 1 >= " + xNumCols + ") {\n                        xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                      }\n                      xTexelC" + (colIndex + 1) + "Ready = 1;\n                    }\n\n                    xC" + (colIndex + 1) + " = xTexelC" + (colIndex + 1) + ";\n                    ";
 	              }
 	            }
 	          }
@@ -119567,16 +120035,16 @@
 	          // vec4
 	          // final` initialized below.
 	          if (padLeft % 2 === 1) {
-	            mainLoop += "\n                xCOffset = xC + 1 - " + strideWidth + ";\n                if(xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + _c2 + "Ready == 0) {\n                  xTexelC" + _c2 + " = getX(batch, xR, xCOffset, d1);\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xCOffset + 1 >= " + xNumCols + ") {\n                    xTexelC" + _c2 + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + _c2 + "Ready = 1;\n                }\n\n                if(xC + 1 >= 0 && xC + 1 < " + xNumCols + " && xTexelC" + (_c2 + 2) + "Ready == 0) {\n                  xTexelC" + (_c2 + 2) + " = getX(batch, xR, xC + 1, d1);\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xC + 2 >= " + xNumCols + ") {\n                    xTexelC" + (_c2 + 2) + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + (_c2 + 2) + "Ready = 1;\n                }\n\n                xC" + colIndex + " = vec4(xTexelC" + _c2 + ".zw, xTexelC" + (_c2 + 2) + ".zw);\n              ";
+	            mainLoop += "\n                xCOffset = xC + 1 - " + strideWidth + ";\n                if(xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xCOffset + 1 >= " + xNumCols + ") {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                if(xC + 1 >= 0 && xC + 1 < " + xNumCols + " && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                  xTexelC" + (colIndex + 1) + " = getX(batch, xR, xC + 1, d1);\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xC + 2 >= " + xNumCols + ") {\n                    xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + (colIndex + 1) + "Ready = 1;\n                }\n\n                xC" + colIndex + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".zw);\n              ";
 
 	            if (_c2 + 1 < filterWidth) {
-	              mainLoop += "\n                  final = vec4(0.0);\n                  xCOffset = xC + 1 + " + strideWidth + ";\n                  if(xCOffset >= 0 && xCOffset < " + xNumCols + ") {\n                    final = getX(batch, xR, xCOffset, d1);\n                  }\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + (_c2 + 2) + ".xy, final.xy);\n                ";
+	              mainLoop += "\n                  final = vec4(0.0);\n                  xCOffset = xC + 1 + " + strideWidth + ";\n                  if(xCOffset >= 0 && xCOffset < " + xNumCols + ") {\n                    final = getX(batch, xR, xCOffset, d1);\n                  }\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + (colIndex + 1) + ".xy, final.xy);\n                ";
 	            }
 	          } else {
-	            mainLoop += "\n                if(xC >= 0 && xC < " + xNumCols + " && xTexelC" + _c2 + "Ready == 0) {\n                  xTexelC" + _c2 + " = getX(batch, xR, xC, d1);\n                  if (xC + 1 >= " + xNumCols + ") {\n                    xTexelC" + _c2 + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + _c2 + "Ready = 1;\n                }\n\n                xCOffset = xC + " + strideWidth + ";\n                if(xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + (_c2 + 2) + "Ready == 0) {\n                  xTexelC" + (_c2 + 2) + " = getX(batch, xR, xCOffset, d1);\n                  if (xCOffset + 1 >= " + xNumCols + ") {\n                    xTexelC" + (_c2 + 2) + ".zw = vec2(0.);\n                  }\n                  xTexelC" + (_c2 + 2) + "Ready = 1;\n                }\n\n                xC" + colIndex + " = vec4(\n                  xTexelC" + _c2 + ".xy, xTexelC" + (_c2 + 2) + ".xy);\n              ";
+	            mainLoop += "\n                if(xC >= 0 && xC < " + xNumCols + " && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xC, d1);\n                  if (xC + 1 >= " + xNumCols + ") {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                xCOffset = xC + " + strideWidth + ";\n                if(xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                  xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n                  if (xCOffset + 1 >= " + xNumCols + ") {\n                    xTexelC" + (colIndex + 1) + ".zw = vec2(0.);\n                  }\n                  xTexelC" + (colIndex + 1) + "Ready = 1;\n                }\n\n                xC" + colIndex + " = vec4(\n                  xTexelC" + colIndex + ".xy, xTexelC" + (colIndex + 1) + ".xy);\n              ";
 
 	            if (_c2 + 1 < filterWidth) {
-	              mainLoop += "\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + _c2 + ".zw, xTexelC" + (_c2 + 2) + ".zw);\n                ";
+	              mainLoop += "\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".zw);\n                ";
 	            }
 	          }
 	        }
@@ -120449,30 +120917,16 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var FillProgram = /*#__PURE__*/function () {
-	  function FillProgram(shape, value) {
-	    this.outputShape = [];
-	    this.variableNames = ['x'];
-	    this.outputShape = shape;
-	    this.userCode = "\n      uniform float value;\n      void main() {\n        // Input can be obtained from uniform value.\n        setOutput(value);\n      }\n    ";
-	  }
-
-	  var _proto = FillProgram.prototype;
-
-	  _proto.getCustomSetupFunc = function getCustomSetupFunc(value) {
-	    var _this = this;
-
-	    return function (gpgpu, webGLProgram) {
-	      if (_this.valueLoc == null) {
-	        _this.valueLoc = gpgpu.getUniformLocationNoThrow(webGLProgram, 'value');
-	      }
-
-	      gpgpu.gl.uniform1f(_this.valueLoc, value);
-	    };
-	  };
-
-	  return FillProgram;
-	}();
+	var FillProgram = function FillProgram(shape, value) {
+	  this.outputShape = [];
+	  this.customUniforms = [{
+	    name: 'value',
+	    type: 'float'
+	  }];
+	  this.variableNames = ['x'];
+	  this.outputShape = shape;
+	  this.userCode = "\n      void main() {\n        // Input can be obtained from uniform value.\n        setOutput(value);\n      }\n    ";
+	};
 
 	/**
 	 * @license
@@ -120505,8 +120959,8 @@
 	    return backend.makeTensorInfo(shape, dtype, values);
 	  } else {
 	    var program = new FillProgram(shape, value);
-	    var customSetup = program.getCustomSetupFunc(value);
-	    return backend.runWebGLProgram(program, [], dtype, customSetup);
+	    var customValues = [[value]];
+	    return backend.runWebGLProgram(program, [], dtype, customValues);
 	  }
 	}
 	var fillConfig$1 = {
@@ -120536,7 +120990,7 @@
 	  this.outputShape = [];
 	  var imageWidth = imageShape[2];
 	  this.outputShape = imageShape;
-	  this.userCode = "\n        void main() {\n          ivec4 coords = getOutputCoords();\n          int x = coords[2];\n\n          int coordX = " + imageWidth + " - x;\n          float outputValue;\n          if(coordX >= 0 && coordX < " + imageWidth + ") {\n            outputValue = getImage(coords[0], coords[1], coordX, coords[3]);\n          } else {\n            outputValue = getImage(coords[0], coords[1], coords[2], coords[3]);\n          }\n          setOutput(outputValue);\n        }\n    ";
+	  this.userCode = "\n        void main() {\n          ivec4 coords = getOutputCoords();\n          int x = coords[2];\n\n          int coordX = " + imageWidth + " - x - 1;\n          float outputValue;\n          if(coordX >= 0 && coordX < " + imageWidth + ") {\n            outputValue = getImage(coords[0], coords[1], coordX, coords[3]);\n          } else {\n            outputValue = getImage(coords[0], coords[1], coords[2], coords[3]);\n          }\n          setOutput(outputValue);\n        }\n    ";
 	};
 
 	/**
@@ -122659,29 +123113,15 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var MultinomialProgram = /*#__PURE__*/function () {
-	  function MultinomialProgram(batchSize, numOutcomes, numSamples) {
-	    this.variableNames = ['probs'];
-	    this.outputShape = [batchSize, numSamples];
-	    this.userCode = "\n      uniform float seed;\n\n      void main() {\n        ivec2 coords = getOutputCoords();\n        int batch = coords[0];\n\n        float r = random(seed);\n        float cdf = 0.0;\n\n        for (int i = 0; i < " + (numOutcomes - 1) + "; i++) {\n          cdf += getProbs(batch, i);\n\n          if (r < cdf) {\n            setOutput(float(i));\n            return;\n          }\n        }\n\n        // If no other event happened, last event happened.\n        setOutput(float(" + (numOutcomes - 1) + "));\n      }\n    ";
-	  }
-
-	  var _proto = MultinomialProgram.prototype;
-
-	  _proto.getCustomSetupFunc = function getCustomSetupFunc(seed) {
-	    var _this = this;
-
-	    return function (gpgpu, webGLProgram) {
-	      if (_this.seedLoc == null) {
-	        _this.seedLoc = gpgpu.getUniformLocation(webGLProgram, 'seed');
-	      }
-
-	      gpgpu.gl.uniform1f(_this.seedLoc, seed);
-	    };
-	  };
-
-	  return MultinomialProgram;
-	}();
+	var MultinomialProgram = function MultinomialProgram(batchSize, numOutcomes, numSamples) {
+	  this.variableNames = ['probs'];
+	  this.customUniforms = [{
+	    name: 'seed',
+	    type: 'float'
+	  }];
+	  this.outputShape = [batchSize, numSamples];
+	  this.userCode = "\n      void main() {\n        ivec2 coords = getOutputCoords();\n        int batch = coords[0];\n\n        float r = random(seed);\n        float cdf = 0.0;\n\n        for (int i = 0; i < " + (numOutcomes - 1) + "; i++) {\n          cdf += getProbs(batch, i);\n\n          if (r < cdf) {\n            setOutput(float(i));\n            return;\n          }\n        }\n\n        // If no other event happened, last event happened.\n        setOutput(float(" + (numOutcomes - 1) + "));\n      }\n    ";
+	};
 
 	/**
 	 * @license
@@ -122877,8 +123317,8 @@
 	  var batchSize = probs.shape[0];
 	  var numOutcomes = probs.shape[1];
 	  var program = new MultinomialProgram(batchSize, numOutcomes, numSamples);
-	  var customSetup = program.getCustomSetupFunc(seed);
-	  var res = backend.runWebGLProgram(program, [probs], 'int32', customSetup);
+	  var customValues = [[seed]];
+	  var res = backend.runWebGLProgram(program, [probs], 'int32', customValues);
 
 	  if (!normalized) {
 	    backend.disposeIntermediateTensorInfo(probs);
@@ -123395,50 +123835,36 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var PadProgram = /*#__PURE__*/function () {
-	  function PadProgram(xShape, paddings, constantValue) {
-	    this.variableNames = ['x'];
-	    this.outputShape = paddings.map(function (p, i) {
-	      return p[0]
-	      /* beforePad */
-	      + xShape[i] + p[1];
-	    }
-	    /* afterPad */
-	    );
-	    var rank = xShape.length;
-	    var type = getCoordsDataType(rank);
-	    var start = paddings.map(function (p) {
-	      return p[0];
-	    }).join(',');
-	    var end = paddings.map(function (p, i) {
-	      return p[0] + xShape[i];
-	    }).join(',');
-	    var unpackedCoords = ['coords[0]', 'coords[1]', 'coords[2]', 'coords[3]'].slice(0, rank);
+	var PadProgram = function PadProgram(xShape, paddings, constantValue) {
+	  this.variableNames = ['x'];
+	  this.customUniforms = [{
+	    name: 'value',
+	    type: 'float'
+	  }];
+	  this.outputShape = paddings.map(function (p, i) {
+	    return p[0]
+	    /* beforePad */
+	    + xShape[i] + p[1];
+	  }
+	  /* afterPad */
+	  );
+	  var rank = xShape.length;
+	  var type = getCoordsDataType(rank);
+	  var start = paddings.map(function (p) {
+	    return p[0];
+	  }).join(',');
+	  var end = paddings.map(function (p, i) {
+	    return p[0] + xShape[i];
+	  }).join(',');
+	  var unpackedCoords = ['coords[0]', 'coords[1]', 'coords[2]', 'coords[3]'].slice(0, rank);
 
-	    if (rank === 1) {
-	      this.userCode = "\n        int start = " + start + ";\n        int end = " + end + ";\n        uniform float value;\n\n        void main() {\n          int outC = getOutputCoords();\n          if (outC < start || outC >= end) {\n            setOutput(value);\n          } else {\n            setOutput(getX(outC - start));\n          }\n        }\n      ";
-	      return;
-	    }
-
-	    this.userCode = "\n      " + type + " start = " + type + "(" + start + ");\n      " + type + " end = " + type + "(" + end + ");\n      uniform float value;\n\n      void main() {\n        " + type + " outC = getOutputCoords();\n        if (any(lessThan(outC, start)) || any(greaterThanEqual(outC, end))) {\n          setOutput(value);\n        } else {\n          " + type + " coords = outC - start;\n          setOutput(getX(" + unpackedCoords + "));\n        }\n      }\n    ";
+	  if (rank === 1) {
+	    this.userCode = "\n        int start = " + start + ";\n        int end = " + end + ";\n\n        void main() {\n          int outC = getOutputCoords();\n          if (outC < start || outC >= end) {\n            setOutput(value);\n          } else {\n            setOutput(getX(outC - start));\n          }\n        }\n      ";
+	    return;
 	  }
 
-	  var _proto = PadProgram.prototype;
-
-	  _proto.getCustomSetupFunc = function getCustomSetupFunc(value) {
-	    var _this = this;
-
-	    return function (gpgpu, webGLProgram) {
-	      if (_this.valueLoc == null) {
-	        _this.valueLoc = gpgpu.getUniformLocationNoThrow(webGLProgram, 'value');
-	      }
-
-	      gpgpu.gl.uniform1f(_this.valueLoc, value);
-	    };
-	  };
-
-	  return PadProgram;
-	}();
+	  this.userCode = "\n      " + type + " start = " + type + "(" + start + ");\n      " + type + " end = " + type + "(" + end + ");\n\n      void main() {\n        " + type + " outC = getOutputCoords();\n        if (any(lessThan(outC, start)) || any(greaterThanEqual(outC, end))) {\n          setOutput(value);\n        } else {\n          " + type + " coords = outC - start;\n          setOutput(getX(" + unpackedCoords + "));\n        }\n      }\n    ";
+	};
 
 	/**
 	 * @license
@@ -123456,58 +123882,44 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var PadPackedProgram = /*#__PURE__*/function () {
-	  function PadPackedProgram(xShape, paddings, constantValue) {
-	    this.variableNames = ['x'];
-	    this.packedInputs = true;
-	    this.packedOutput = true;
-	    this.outputShape = paddings.map(function (p, i) {
-	      return p[0]
-	      /* beforePad */
-	      + xShape[i] + p[1];
-	    }
-	    /* afterPad */
-	    );
-	    var rank = xShape.length;
-	    var dtype = getCoordsDataType(rank);
-	    var start = paddings.map(function (p) {
-	      return p[0];
-	    }).join(',');
-	    var end = paddings.map(function (p, i) {
-	      return p[0] + xShape[i];
-	    }).join(',');
-	    var coords = getChannels('rc', rank);
-	    var source = getChannels('source', rank);
-	    var cLimit = coords[rank - 1] + " < " + this.outputShape[rank - 1];
-	    var innerDims = rank === 1 ? 'source' : "vec2(" + source.slice(-2).join() + ")";
-	    var componentSetup = [dtype + " rc = outputLoc;", coords[rank - 1] + " += 1;\n       if(" + cLimit + ") {\n      ", rank === 1 ? '' : "}\n       rc = outputLoc;\n       " + coords[rank - 2] + " += 1;\n       if(" + coords[rank - 2] + " < " + this.outputShape[rank - 2] + ") {", rank === 1 ? '' : "  " + coords[rank - 1] + " += 1;\n         if(" + cLimit + ") {"];
-	    var paddingArea = rank === 1 ? 'rc < start || rc >= end' : 'any(lessThan(rc, start)) || any(greaterThanEqual(rc, end))';
-	    var mainLoop = '';
+	var PadPackedProgram = function PadPackedProgram(xShape, paddings, constantValue) {
+	  this.variableNames = ['x'];
+	  this.packedInputs = true;
+	  this.packedOutput = true;
+	  this.customUniforms = [{
+	    name: 'value',
+	    type: 'float'
+	  }];
+	  this.outputShape = paddings.map(function (p, i) {
+	    return p[0]
+	    /* beforePad */
+	    + xShape[i] + p[1];
+	  }
+	  /* afterPad */
+	  );
+	  var rank = xShape.length;
+	  var dtype = getCoordsDataType(rank);
+	  var start = paddings.map(function (p) {
+	    return p[0];
+	  }).join(',');
+	  var end = paddings.map(function (p, i) {
+	    return p[0] + xShape[i];
+	  }).join(',');
+	  var coords = getChannels('rc', rank);
+	  var source = getChannels('source', rank);
+	  var cLimit = coords[rank - 1] + " < " + this.outputShape[rank - 1];
+	  var innerDims = rank === 1 ? 'source' : "vec2(" + source.slice(-2).join() + ")";
+	  var componentSetup = [dtype + " rc = outputLoc;", coords[rank - 1] + " += 1;\n       if(" + cLimit + ") {\n      ", rank === 1 ? '' : "}\n       rc = outputLoc;\n       " + coords[rank - 2] + " += 1;\n       if(" + coords[rank - 2] + " < " + this.outputShape[rank - 2] + ") {", rank === 1 ? '' : "  " + coords[rank - 1] + " += 1;\n         if(" + cLimit + ") {"];
+	  var paddingArea = rank === 1 ? 'rc < start || rc >= end' : 'any(lessThan(rc, start)) || any(greaterThanEqual(rc, end))';
+	  var mainLoop = '';
 
-	    for (var i = 0, j = rank === 1 ? 2 : 4; i < j; i++) {
-	      mainLoop += "\n        " + componentSetup[i] + "\n        if (" + paddingArea + ") {\n          result[" + i + "] = float(value);\n        } else {\n          " + dtype + " source = rc - start;\n          result[" + i + "] = getChannel(getX(" + source.join() + "), " + innerDims + ");\n        }\n      ";
-	    }
-
-	    mainLoop += rank === 1 ? "} " : "}}";
-	    this.userCode = "\n      const " + dtype + " start = " + dtype + "(" + start + ");\n      const " + dtype + " end = " + dtype + "(" + end + ");\n      uniform float value;\n\n      void main() {\n        " + dtype + " outputLoc = getOutputCoords();\n        vec4 result = vec4(0.);\n        " + mainLoop + "\n        setOutput(result);\n      }\n    ";
+	  for (var i = 0, j = rank === 1 ? 2 : 4; i < j; i++) {
+	    mainLoop += "\n        " + componentSetup[i] + "\n        if (" + paddingArea + ") {\n          result[" + i + "] = float(value);\n        } else {\n          " + dtype + " source = rc - start;\n          result[" + i + "] = getChannel(getX(" + source.join() + "), " + innerDims + ");\n        }\n      ";
 	  }
 
-	  var _proto = PadPackedProgram.prototype;
-
-	  _proto.getCustomSetupFunc = function getCustomSetupFunc(value) {
-	    var _this = this;
-
-	    return function (gpgpu, webGLProgram) {
-	      if (_this.valueLoc == null) {
-	        _this.valueLoc = gpgpu.getUniformLocationNoThrow(webGLProgram, 'value');
-	      }
-
-	      gpgpu.gl.uniform1f(_this.valueLoc, value);
-	    };
-	  };
-
-	  return PadPackedProgram;
-	}();
+	  mainLoop += rank === 1 ? "} " : "}}";
+	  this.userCode = "\n      const " + dtype + " start = " + dtype + "(" + start + ");\n      const " + dtype + " end = " + dtype + "(" + end + ");\n\n      void main() {\n        " + dtype + " outputLoc = getOutputCoords();\n        vec4 result = vec4(0.);\n        " + mainLoop + "\n        setOutput(result);\n      }\n    ";
+	};
 
 	/**
 	 * @license
@@ -123533,8 +123945,8 @@
 	  var paddings = attrs.paddings,
 	      constantValue = attrs.constantValue;
 	  var program = env().getBool('WEBGL_PACK_ARRAY_OPERATIONS') ? new PadPackedProgram(x.shape, paddings, constantValue) : new PadProgram(x.shape, paddings, constantValue);
-	  var customSetup = program.getCustomSetupFunc(constantValue);
-	  return backend.runWebGLProgram(program, [x], x.dtype, customSetup);
+	  var customValues = [[constantValue]];
+	  return backend.runWebGLProgram(program, [x], x.dtype, customValues);
 	};
 	var padV2Config$1 = {
 	  kernelName: PadV2,
@@ -124346,40 +124758,26 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var RotateProgram = /*#__PURE__*/function () {
-	  function RotateProgram(imageShape, fillValue) {
-	    this.variableNames = ['Image'];
-	    this.outputShape = [];
-	    var imageHeight = imageShape[1];
-	    var imageWidth = imageShape[2];
-	    this.outputShape = imageShape;
-	    var fillSnippet = '';
+	var RotateProgram = function RotateProgram(imageShape, fillValue) {
+	  this.variableNames = ['Image'];
+	  this.outputShape = [];
+	  this.customUniforms = [{
+	    name: 'params',
+	    type: 'vec4'
+	  }];
+	  var imageHeight = imageShape[1];
+	  var imageWidth = imageShape[2];
+	  this.outputShape = imageShape;
+	  var fillSnippet = '';
 
-	    if (typeof fillValue === 'number') {
-	      fillSnippet = "float outputValue = " + fillValue.toFixed(2) + ";";
-	    } else {
-	      fillSnippet = "\n        vec3 fill = vec3(" + fillValue.join(',') + ");\n        float outputValue = fill[coords[3]];";
-	    }
-
-	    this.userCode = "\n        uniform vec4 params;\n        void main() {\n          ivec4 coords = getOutputCoords();\n          int x = coords[2];\n          int y = coords[1];\n          float coordXFloat = (float(x) - params[0]) * params[3] -\n            (float(y) - params[1]) * params[2];\n          float coordYFloat = (float(x) - params[0]) * params[2] +\n            (float(y) - params[1]) * params[3];\n          int coordX = int(round(coordXFloat + params[0]));\n          int coordY = int(round(coordYFloat + params[1]));\n          " + fillSnippet + "\n          if(coordX >= 0 && coordX < " + imageWidth + " && coordY >= 0 && coordY < " + imageHeight + ") {\n            outputValue = getImage(coords[0], coordY, coordX, coords[3]);\n          }\n          setOutput(outputValue);\n        }\n    ";
+	  if (typeof fillValue === 'number') {
+	    fillSnippet = "float outputValue = " + fillValue.toFixed(2) + ";";
+	  } else {
+	    fillSnippet = "\n        vec3 fill = vec3(" + fillValue.join(',') + ");\n        float outputValue = fill[coords[3]];";
 	  }
 
-	  var _proto = RotateProgram.prototype;
-
-	  _proto.getCustomSetupFunc = function getCustomSetupFunc(centerX, centerY, sinFactor, cosFactor) {
-	    var _this = this;
-
-	    return function (gpgpu, webGLProgram) {
-	      if (_this.paramsLoc == null) {
-	        _this.paramsLoc = gpgpu.getUniformLocationNoThrow(webGLProgram, 'params');
-	      }
-
-	      gpgpu.gl.uniform4f(_this.paramsLoc, centerX, centerY, sinFactor, cosFactor);
-	    };
-	  };
-
-	  return RotateProgram;
-	}();
+	  this.userCode = "\n        void main() {\n          ivec4 coords = getOutputCoords();\n          int x = coords[2];\n          int y = coords[1];\n          float coordXFloat = (float(x) - params[0]) * params[3] -\n            (float(y) - params[1]) * params[2];\n          float coordYFloat = (float(x) - params[0]) * params[2] +\n            (float(y) - params[1]) * params[3];\n          int coordX = int(round(coordXFloat + params[0]));\n          int coordY = int(round(coordYFloat + params[1]));\n          " + fillSnippet + "\n          if(coordX >= 0 && coordX < " + imageWidth + " && coordY >= 0 && coordY < " + imageHeight + ") {\n            outputValue = getImage(coords[0], coordY, coordX, coords[3]);\n          }\n          setOutput(outputValue);\n        }\n    ";
+	};
 
 	/**
 	 * @license
@@ -124415,8 +124813,8 @@
 	        centerX = _backend_util$getImag[0],
 	        centerY = _backend_util$getImag[1];
 
-	    var customSetup = program.getCustomSetupFunc(centerX, centerY, Math.sin(radians), Math.cos(radians));
-	    var output = webglBackend.runWebGLProgram(program, [image], image.dtype, customSetup);
+	    var customValues = [[centerX, centerY, Math.sin(radians), Math.cos(radians)]];
+	    var output = webglBackend.runWebGLProgram(program, [image], image.dtype, customValues);
 	    return output;
 	  }
 	};
@@ -124667,7 +125065,7 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	function select$1(args) {
+	function select$2(args) {
 	  var inputs = args.inputs,
 	      backend = args.backend;
 	  var condition = inputs.condition,
@@ -124679,7 +125077,7 @@
 	var selectConfig$1 = {
 	  kernelName: Select,
 	  backendName: 'webgl',
-	  kernelFunc: select$1
+	  kernelFunc: select$2
 	};
 
 	/**
@@ -125790,6 +126188,69 @@
 	  kernelFunc: tile$3
 	};
 
+	// Based on Algorithm 2 of Bitonic Top K, ref:
+	// https://anilshanbhag.in/static/papers/gputopk_sigmod18.pdf
+	// The original algorithm is based on computing the top K only, however
+	// since for TFJS we require the indices of the top K values as well then the
+	// algorithm found here is a bit modified. Rather than producing the values
+	// at each step, the indices containing the top K are generated instead.
+	// The output values are not generated to reduce the number of outputs in the
+	// GPU, the values can easily be retrieved from the indices using a gather
+	// op.
+	var SwapProgram =
+	/**
+	 * @param shape desired output shape (can be larger than input shape, output
+	 *                                    will be padded with -Infinity)
+	 */
+	function SwapProgram(shape) {
+	  this.variableNames = ['x', 'indices']; // |n| Size of the original input of TopK.
+	  // |firstPass|indicates if this is the first time swap is being used which
+	  // means no indices input containing the top K is present yet.
+	  // |inc| Swaps pairs of indices (0, inc), (1, inc + 1), (2, inc + 2) ...
+
+	  this.customUniforms = [{
+	    name: 'n',
+	    type: 'int'
+	  }, {
+	    name: 'firstPass',
+	    type: 'int'
+	  }, {
+	    name: 'negativeInf',
+	    type: 'float'
+	  }, {
+	    name: 'dir',
+	    type: 'int'
+	  }, {
+	    name: 'inc',
+	    type: 'int'
+	  }];
+	  this.outputShape = shape;
+	  this.userCode = "\n       void main() {\n         ivec2 coords = getOutputCoords();\n         int batch = coords[0];\n         int elemIdx = coords[1];\n\n         // We compare elements pair-wise within a group of size 2 * inc.\n         // The comparing rule for each group alternates between ascending\n         // and descending. Within each group, we compare each pair at\n         // positions i and i+inc. To decide whether an element at position i\n         // is x0 or x1, we mod it by 2 * inc, if the result is smaller than\n         // inc, it is in the first half of the group, we denote it as x0,\n         // otherwise we denote it as x1.\n         // For example, as shown in the Bitonic top K paper referenced above,\n         // Figure5(a) shows that element[1] is in the\n         // second half of the group when group size is 2, but it is in the\n         // first half of the group when group size is 4.\n\n         bool isFirstInPair = imod(elemIdx, 2 * inc) < inc;\n         int i = isFirstInPair ? elemIdx : elemIdx - inc;\n\n         int i0 = firstPass == 1 ? i : int(getIndices(batch, i));\n         int i1 = firstPass == 1 ? i + inc : int(getIndices(batch, i + inc));\n         float x0 = i0 < n ? getX(batch, i0) : negativeInf;\n         float x1 = i1 < n ? getX(batch, i1) : negativeInf;\n\n         // Denotes which direction indices are in (ascending or descending).\n         bool reverse = imod(elemIdx, 2 * dir) >= dir;\n         bool isGreater = x0 > x1 || (x0 == x1 && i1 > i0);\n         if (reverse == isGreater) { // Elements in opposite order of direction\n           int iTemp = i0;\n           i0 = i1;\n           i1 = iTemp;\n         }\n         if (isFirstInPair) {\n            setOutput(float(i0));\n         } else {\n            setOutput(float(i1));\n         }\n       }\n     ";
+	};
+	var MergeProgram =
+	/**
+	 * @param shape desired output shape (must be half of the input size)
+	 */
+	function MergeProgram(shape) {
+	  this.variableNames = ['x', 'indices']; // |n| Size of the original input of TopK
+	  // |firstPass| indicates if this is the first time swap is being used which
+	  // means no indices input containing the top K is present yet.
+	  // |k| Top k elements desired
+
+	  this.customUniforms = [{
+	    name: 'n',
+	    type: 'int'
+	  }, {
+	    name: 'firstPass',
+	    type: 'int'
+	  }, {
+	    name: 'k',
+	    type: 'int'
+	  }];
+	  this.outputShape = shape;
+	  this.userCode = "\n    void main() {\n         // Takes max of indices (0, k), (1, k + 1), (2, k + 2) ...\n         ivec2 coords = getOutputCoords();\n         int batch = coords[0];\n         int elemIdx = coords[1];\n\n         // The output size is half of the previous size.\n         // If the previous sequence is | | | | _ _ _ _  | | | |  _ _ _ _ (k=4),\n         // we only need to output the indices at positions |, the indices at\n         // positions _ can be thrown away, see Figure5(b) After Phase 2\n         // (Merge phase) in the Bitonic Top K paper referenced above.\n         // For example, the paper shows we only need to output the orange bars.\n         // The output sequence should look like this | | | | | | | |.\n         // Because the sequence is halved, to map the output index back\n         // to the previous sequence to find the corresponding value,\n         // we need to double the index. When we double the index,\n         // we basically interpolate a position, so 2i looks like\n         // | _ | _ | _ | _ | _ | _ | _. We move the | to the first k position\n         // of each 2k positions by - elemIdx % k. E.g. for output at\n         // index 4,5,6,7, we want to get the corresponding element at\n         // original index 8,9,10,11, for output at index 8,9,10,11,\n         // we want to get the corresponding element at original index\n         // 16,17,18,19, so on and so forth.\n\n         int i = elemIdx < k ? elemIdx : (elemIdx * 2 - imod(elemIdx, k));\n         int i0 = firstPass == 1 ? i : int(getIndices(batch, i));\n         int i1 = firstPass == 1 ? i + k : int(getIndices(batch, i + k));\n\n         float x0 = getX(batch, i0);\n         float x1 = i1 < n ? getX(batch, i1) : x0;\n\n         setOutput(x0 >= x1 ? float(i0) : float(i1));\n       }\n     ";
+	};
+
 	/**
 	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
@@ -125806,20 +126267,197 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
+
+	function disposeIntermediateTensorInfoOrNull(backend, tensorInfo) {
+	  if (tensorInfo !== null) {
+	    backend.disposeIntermediateTensorInfo(tensorInfo);
+	  }
+	}
+
+	function roundUpToPow2(num) {
+	  var pow2 = 1;
+
+	  while (pow2 < num) {
+	    pow2 *= 2;
+	  }
+
+	  return pow2;
+	} // Based on Algorithm 2 of Bitonic Top K, ref:
+	// https://anilshanbhag.in/static/papers/gputopk_sigmod18.pdf
+
+
 	function topK$1(args) {
 	  var inputs = args.inputs,
 	      backend = args.backend,
 	      attrs = args.attrs;
 	  var x = inputs.x;
 	  var k = attrs.k,
-	      sorted = attrs.sorted;
-	  var xVals = backend.readSync(x.dataId);
+	      sorted = attrs.sorted; // Empirically determined constant used to determine last dim threshold for
+	  // handing off execution to the CPU.
 
-	  var _topKImplCPU = topKImplCPU(xVals, x.shape, x.dtype, k, sorted),
-	      allTopKVals = _topKImplCPU[0],
-	      allTopKIndices = _topKImplCPU[1];
+	  var TOPK_LAST_DIM_CPU_HANDOFF_SIZE_THRESHOLD = env().getNumber('TOPK_LAST_DIM_CPU_HANDOFF_SIZE_THRESHOLD'); // Empirically determined constant used to determine k threshold for handing
+	  // off execution to the CPU.
 
-	  return [backend.makeTensorInfo(allTopKVals.shape, allTopKVals.dtype, allTopKVals.values), backend.makeTensorInfo(allTopKIndices.shape, allTopKIndices.dtype, allTopKIndices.values)];
+	  var TOPK_K_CPU_HANDOFF_THRESHOLD = env().getNumber('TOPK_K_CPU_HANDOFF_THRESHOLD');
+	  var xShape = x.shape;
+	  var lastDim = xShape[xShape.length - 1];
+
+	  if (backend.shouldExecuteOnCPU([x]) || lastDim < TOPK_LAST_DIM_CPU_HANDOFF_SIZE_THRESHOLD || k > TOPK_K_CPU_HANDOFF_THRESHOLD) {
+	    var xVals = backend.readSync(x.dataId);
+
+	    var _topKImplCPU = topKImplCPU(xVals, xShape, x.dtype, k, sorted),
+	        allTopKVals = _topKImplCPU[0],
+	        allTopKIndices = _topKImplCPU[1];
+
+	    return [backend.makeTensorInfo(allTopKVals.shape, allTopKVals.dtype, allTopKVals.values), backend.makeTensorInfo(allTopKIndices.shape, allTopKIndices.dtype, allTopKIndices.values)];
+	  }
+
+	  if (k === 0) {
+	    xShape[xShape.length - 1] = 0;
+	    return [backend.makeTensorInfo(xShape, x.dtype, []), backend.makeTensorInfo(xShape, 'int32', [])];
+	  }
+
+	  if (lastDim === 1
+	  /* firstPass */
+	  ) {
+	      return [x, fill$2({
+	        attrs: {
+	          shape: xShape,
+	          dtype: 'int32',
+	          value: 0
+	        },
+	        backend: backend
+	      })];
+	    } // Eagerly unpack x input since it is passed in to all the shaders which
+	  // require unpacked inputs.
+
+
+	  var xtexData = backend.texData.get(x.dataId);
+	  var xIsPacked = xtexData !== null && xtexData.isPacked;
+	  var xUnPacked = xIsPacked ? backend.unpackTensor(x) : x; // Reshape into a 2d tensor [batch, lastDim] and compute topk along lastDim.
+
+	  var xSize = sizeFromShape(xShape);
+	  var batch = xSize / lastDim;
+	  var x2D = reshape$3({
+	    inputs: {
+	      x: xUnPacked
+	    },
+	    attrs: {
+	      shape: [batch, lastDim]
+	    },
+	    backend: backend
+	  });
+
+	  if (xIsPacked) {
+	    disposeIntermediateTensorInfoOrNull(backend, xUnPacked);
+	  }
+
+	  var kPow2 = roundUpToPow2(k);
+	  var lastDimPow2 = roundUpToPow2(lastDim); // Only the indices containing the top K are kept at every step to reduce
+	  // number of outputs in the GPU algorithms, so once the final set of indices
+	  // is computed then gather is used to grab the corresponding values
+	  // from the original input.
+
+	  var indices = null; // GPU algorithm always takes in an indices input but this input is not used
+	  // on the first run of a GPU algorithm, therefore if indices is null we simply
+	  // pass in x2D instead of it but the value will not actually be used
+
+	  var getInputs = function getInputs() {
+	    return indices === null ? [x2D, x2D] : [x2D, indices];
+	  };
+
+	  var runSwap = function runSwap(dir, inc, shape) {
+	    var inputs = getInputs();
+	    var program = new SwapProgram(shape);
+	    var fistPass = indices === null ? 1 : 0;
+	    var customValues = [[lastDim], [fistPass], [Number.NEGATIVE_INFINITY], [dir], [inc]];
+	    var prevIndices = indices;
+	    indices = backend.runWebGLProgram(program, inputs, 'int32', customValues);
+	    disposeIntermediateTensorInfoOrNull(backend, prevIndices);
+	  }; // Step 1: local sort
+
+
+	  for (var len = 1; len < kPow2; len *= 2) {
+	    var dir = len * 2;
+
+	    for (var inc = len; inc >= 1; inc /= 2) {
+	      runSwap(dir, inc, [batch, lastDimPow2]);
+	    }
+	  } // Step 2: merge
+
+
+	  for (var indicesSize = lastDimPow2; indicesSize > kPow2; indicesSize /= 2) {
+	    var _inputs = getInputs();
+
+	    var mergeProgram = new MergeProgram([batch, indicesSize / 2]);
+	    var firstPass = indices === null ? 1 : 0;
+	    var customValues = [[lastDim], [firstPass], [kPow2]];
+	    var _prevIndices = indices;
+	    indices = backend.runWebGLProgram(mergeProgram, _inputs, 'int32', customValues);
+	    disposeIntermediateTensorInfoOrNull(backend, _prevIndices); // Step 3: rebuild
+
+	    var _len = kPow2 / 2;
+
+	    var _dir = _len * 2;
+
+	    for (var _inc = _len; _inc >= 1; _inc /= 2) {
+	      runSwap(_dir, _inc, indices.shape);
+	    }
+	  } // Keep only the requested top K results instead of kPow2
+
+
+	  var prevIndices = indices;
+	  indices = slice$4({
+	    inputs: {
+	      x: indices
+	    },
+	    backend: backend,
+	    attrs: {
+	      begin: 0,
+	      size: [batch, k]
+	    }
+	  });
+	  disposeIntermediateTensorInfoOrNull(backend, prevIndices); // Gather values on last dimension
+
+	  var values = gatherV2$1({
+	    inputs: {
+	      x: x2D,
+	      indices: indices
+	    },
+	    backend: backend,
+	    attrs: {
+	      axis: 1,
+	      batchDims: 1
+	    }
+	  });
+	  disposeIntermediateTensorInfoOrNull(backend, x2D); // Reshape back to the original input shape, except that the last
+	  // dimension is k.
+
+	  var newShape = xShape.slice(0, -1);
+	  newShape.push(k);
+	  prevIndices = indices;
+	  indices = reshape$3({
+	    inputs: {
+	      x: indices
+	    },
+	    attrs: {
+	      shape: newShape
+	    },
+	    backend: backend
+	  });
+	  disposeIntermediateTensorInfoOrNull(backend, prevIndices);
+	  var prevValues = values;
+	  values = reshape$3({
+	    inputs: {
+	      x: values
+	    },
+	    attrs: {
+	      shape: newShape
+	    },
+	    backend: backend
+	  });
+	  disposeIntermediateTensorInfoOrNull(backend, prevValues);
+	  return [values, indices];
 	}
 	var topKConfig$1 = {
 	  kernelName: TopK,
@@ -126264,7 +126902,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$7 = '3.7.0';
+	var version$7 = '3.8.0';
 
 	/**
 	 * @license
