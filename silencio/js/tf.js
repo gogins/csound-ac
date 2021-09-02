@@ -14289,6 +14289,37 @@
 	  return object && object.then && typeof object.then === 'function';
 	}
 
+	/**
+	 * @license
+	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function warn() {
+	  if (!(env().getBool('IS_TEST') || env().getBool('PROD'))) {
+	    var _console;
+
+	    (_console = console).warn.apply(_console, arguments);
+	  }
+	}
+	function log$9() {
+	  if (!(env().getBool('IS_TEST') || env().getBool('PROD'))) {
+	    var _console2;
+
+	    (_console2 = console).log.apply(_console2, arguments);
+	  }
+	}
+
 	var TENSORFLOWJS_FLAGS_PREFIX = 'tfjsflags';
 	/**
 	 * The environment contains evaluated flags as well as the registered platform.
@@ -14314,7 +14345,7 @@
 
 	  _proto.setPlatform = function setPlatform(platformName, platform) {
 	    if (this.platform != null) {
-	      console.warn("Platform " + this.platformName + " has already been set. " + ("Overwriting the platform with " + platform + "."));
+	      warn("Platform " + this.platformName + " has already been set. " + ("Overwriting the platform with " + platform + "."));
 	    }
 
 	    this.platformName = platformName;
@@ -14330,7 +14361,7 @@
 
 	    if (this.urlFlags[flagName] != null) {
 	      var flagValue = this.urlFlags[flagName];
-	      console.warn("Setting feature override from URL " + flagName + ": " + flagValue + ".");
+	      warn("Setting feature override from URL " + flagName + ": " + flagValue + ".");
 	      this.set(flagName, flagValue);
 	    }
 	  };
@@ -14602,6 +14633,7 @@
 	var BatchToSpaceND = 'BatchToSpaceND';
 	var Bincount = 'Bincount';
 	var BroadcastTo = 'BroadcastTo';
+	var BroadcastArgs = 'BroadcastArgs';
 	var Cast = 'Cast';
 	var Ceil = 'Ceil';
 	var ClipByValue = 'ClipByValue';
@@ -14836,7 +14868,7 @@
 	  var key = makeKey(kernelName, backendName);
 
 	  if (kernelRegistry.has(key)) {
-	    console.warn("The kernel '" + kernelName + "' for backend " + ("'" + backendName + "' is already registered"));
+	    warn("The kernel '" + kernelName + "' for backend " + ("'" + backendName + "' is already registered"));
 	  }
 
 	  kernelRegistry.set(key, config);
@@ -14857,7 +14889,7 @@
 	    // TODO (yassogba) after 3.0 assess whether we need to keep this gated
 	    // to debug mode.
 	    if (env().getBool('DEBUG')) {
-	      console.warn("Overriding the gradient for '" + kernelName + "'");
+	      warn("Overriding the gradient for '" + kernelName + "'");
 	    }
 	  }
 
@@ -18057,7 +18089,7 @@
 	    }
 
 	    if (backendName in this.registryFactory) {
-	      console.warn(backendName + " backend was already registered. " + "Reusing existing backend factory.");
+	      warn(backendName + " backend was already registered. " + "Reusing existing backend factory.");
 	      return false;
 	    }
 
@@ -18206,8 +18238,8 @@
 	          }
 
 	          _this3.pendingBackendInit = null;
-	          console.warn("Initialization of backend " + backendName + " failed");
-	          console.warn(err.stack || err.message);
+	          warn("Initialization of backend " + backendName + " failed");
+	          warn(err.stack || err.message);
 	          return false;
 	        });
 	        this.pendingBackendInit = success;
@@ -18223,8 +18255,8 @@
 	        };
 	      }
 	    } catch (err) {
-	      console.warn("Initialization of backend " + backendName + " failed");
-	      console.warn(err.stack || err.message);
+	      warn("Initialization of backend " + backendName + " failed");
+	      warn(err.stack || err.message);
 	      return {
 	        success: false,
 	        asyncInit: false
@@ -19388,7 +19420,14 @@
 	    } // tslint:disable-next-line:no-any
 
 
-	    var a = nav.userAgent || nav.vendor || window.opera; // tslint:disable-next-line:max-line-length
+	    var a = nav.userAgent || nav.vendor || (typeof window !== 'undefined' ? window.opera : ''); // Use `navigator.userAgentData.mobile` as fallback.
+
+	    if (!a) {
+	      // tslint:disable-next-line:no-any
+	      var navAny = nav;
+	      return navAny.userAgentData && navAny.userAgentData.mobile;
+	    } // tslint:disable-next-line:max-line-length
+
 
 	    return /(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i.test(a) || // tslint:disable-next-line:max-line-length
 	    /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(a.substr(0, 4));
@@ -25411,7 +25450,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$1 = '3.8.0';
+	var version$1 = '3.9.0';
 
 	/**
 	 * @license
@@ -28256,6 +28295,60 @@
 
 	/**
 	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Return the shape of s0 op s1 with broadcast.
+	 *
+	 * compute r0, the broadcasted shape as a tensor.
+	 * s0, s1 and r0 are all integer vectors.
+	 *
+	 * This function returns the shape of the result of an operation between
+	 * two tensors of size s0 and s1 performed with broadcast.
+	 *
+	 * @param s0 A tensor representing a shape
+	 * @param s1 A tensor representing a shape
+	 *
+	 * @doc {heading: 'Tensors', subheading: 'Transformations'}
+	 */
+
+	function broadcastArgs_(s0, s1) {
+	  var shape1Input = convertToTensor(s0, 's0', 'broadcastArgs', 'int32');
+	  var shape2Input = convertToTensor(s1, 's1', 'broadcastArgs', 'int32');
+
+	  if (shape1Input.rank !== 1) {
+	    throw new Error('broadcastArgs(): first input must be a vector (rank=1). ' + ("Has rank " + shape1Input.rank));
+	  }
+
+	  if (shape2Input.rank !== 1) {
+	    throw new Error('broadcastArgs(): second input must be a vector (rank=1). ' + ("Has rank " + shape2Input.rank));
+	  }
+
+	  var inputs = {
+	    s0: shape1Input,
+	    s1: shape2Input
+	  };
+	  return ENGINE.runKernel(BroadcastArgs, inputs);
+	}
+
+	var broadcastArgs = op({
+	  broadcastArgs_: broadcastArgs_
+	});
+
+	/**
+	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -30218,7 +30311,7 @@
 	 * =============================================================================
 	 */
 	/**
-	 * Computes exponential linear element-wise: `x > 0 ? e ^ x - 1 : 0`.
+	 * Computes exponential linear element-wise: `x > 0 ? x : (e ^ x) - 1`.
 	 *
 	 * ```js
 	 * const x = tf.tensor1d([-1, 1, -3, 2]);
@@ -31303,7 +31396,7 @@
 	  return ENGINE.runKernel(Log, inputs);
 	}
 
-	var log$9 = op({
+	var log$a = op({
 	  log_: log_
 	});
 
@@ -32159,7 +32252,7 @@
 	    var keepDims = true;
 	    var xMax = max$5(logits, axis, true);
 	    var shifted = sub(logits, xMax);
-	    var value = sub(cast(shifted, 'float32'), log$9(sum$1(exp$3(shifted), axis, keepDims)));
+	    var value = sub(cast(shifted, 'float32'), log$a(sum$1(exp$3(shifted), axis, keepDims)));
 	    save([value]);
 
 	    var gradFunc = function gradFunc(dy, saved) {
@@ -32366,7 +32459,7 @@
 	  var a = sub($x, xMax);
 	  var b = exp$3(a);
 	  var c = sum$1(b, axes);
-	  var d = log$9(c);
+	  var d = log$a(c);
 	  var res = add$1(reshape(xMax, d.shape), d);
 
 	  if (keepDims) {
@@ -40675,6 +40768,51 @@
 
 	/**
 	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Converts images from grayscale to RGB format.
+	 *
+	 * @param image A grayscale tensor to convert. The `image`'s last dimension must
+	 *     be size 1 with at least a two-dimensional shape.
+	 *
+	 * @doc {heading: 'Operations', subheading: 'Images', namespace: 'image'}
+	 */
+
+	function grayscaleToRGB_(image) {
+	  var $image = convertToTensor(image, 'image', 'grayscaleToRGB');
+	  var lastDimsIdx = $image.rank - 1;
+	  var lastDims = $image.shape[lastDimsIdx];
+	  assert($image.rank >= 2, function () {
+	    return 'Error in grayscaleToRGB: images must be at least rank 2, ' + ("but got rank " + $image.rank + ".");
+	  });
+	  assert(lastDims === 1, function () {
+	    return 'Error in grayscaleToRGB: last dimension of a grayscale image ' + ("should be size 1, but got size " + lastDims + ".");
+	  });
+	  var reps = new Array($image.rank);
+	  reps.fill(1, 0, lastDimsIdx);
+	  reps[lastDimsIdx] = 3;
+	  return tile($image, reps);
+	}
+
+	var grayscaleToRGB = op({
+	  grayscaleToRGB_: grayscaleToRGB_
+	});
+
+	/**
+	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -42702,8 +42840,8 @@
 	  assertShapesMatch($labels.shape, $predictions.shape, 'Error in logLoss: ');
 	  var one = scalar(1);
 	  var epsilonScalar = scalar(epsilon);
-	  var l1 = neg(mul($labels, log$9(add$1($predictions, epsilonScalar))));
-	  var l2 = mul(sub(one, $labels), log$9(add$1(sub(one, $predictions), epsilonScalar)));
+	  var l1 = neg(mul($labels, log$a(add$1($predictions, epsilonScalar))));
+	  var l2 = mul(sub(one, $labels), log$a(add$1(sub(one, $predictions), epsilonScalar)));
 	  var losses = sub(l1, l2);
 	  return computeWeightedLoss(losses, $weights, reduction);
 	}
@@ -43633,6 +43771,7 @@
 	}; // Image Ops namespace
 	var image = {
 	  flipLeftRight: flipLeftRight,
+	  grayscaleToRGB: grayscaleToRGB,
 	  resizeNearestNeighbor: resizeNearestNeighbor,
 	  resizeBilinear: resizeBilinear,
 	  rotateWithOffset: rotateWithOffset,
@@ -45857,37 +45996,6 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	function warn() {
-	  if (!env().getBool('IS_TEST')) {
-	    var _console;
-
-	    (_console = console).warn.apply(_console, arguments);
-	  }
-	}
-	function log$a() {
-	  if (!env().getBool('IS_TEST')) {
-	    var _console2;
-
-	    (_console2 = console).log.apply(_console2, arguments);
-	  }
-	}
-
-	/**
-	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
 
 	/**
 	 * Merges real and imaginary Float32Arrays into a single complex Float32Array.
@@ -46545,7 +46653,7 @@
 		ERF_A4: ERF_A4,
 		ERF_A5: ERF_A5,
 		warn: warn,
-		log: log$a,
+		log: log$9,
 		mergeRealAndImagArrays: mergeRealAndImagArrays,
 		splitRealAndImagArrays: splitRealAndImagArrays,
 		complexWithEvenIndex: complexWithEvenIndex,
@@ -47889,10 +47997,10 @@
 
 	    return {
 	      x: function x() {
-	        return depthwiseConv2dNativeBackpropInput(_x.shape, dy, _filter, strides, pad, dilations, dimRoundingMode);
+	        return depthwiseConv2dNativeBackpropInput(_x.shape, dy, _filter, strides, pad, $dilations, dimRoundingMode);
 	      },
 	      filter: function filter() {
-	        return depthwiseConv2dNativeBackpropFilter(_x, dy, _filter.shape, strides, pad, dilations, dimRoundingMode);
+	        return depthwiseConv2dNativeBackpropFilter(_x, dy, _filter.shape, strides, pad, $dilations, dimRoundingMode);
 	      }
 	    };
 	  }
@@ -49505,7 +49613,7 @@
 
 	    var derExp = function derExp() {
 	      var condition = greater(base, 0);
-	      var logBase = where(condition, log$9(base), zerosLike(base));
+	      var logBase = where(condition, log$a(base), zerosLike(base));
 	      var res = mul(dy, mul(y, logBase));
 	      var reduceAxes = getReductionAxes(exp.shape, outShape);
 
@@ -52245,7 +52353,7 @@
 
 	getGlobalTensorClass().prototype.log = function () {
 	  this.throwIfDisposed();
-	  return log$9(this);
+	  return log$a(this);
 	};
 
 	/**
@@ -60298,9 +60406,9 @@
 	function meanSquaredLogarithmicError(yTrue, yPred) {
 	  return tidy(function () {
 	    var clippedPred = clipByValue(yPred, epsilon(), Number.MAX_VALUE);
-	    var firstLog = log$9(add$1(1, clippedPred));
+	    var firstLog = log$a(add$1(1, clippedPred));
 	    var clippedTrue = clipByValue(yTrue, epsilon(), Number.MAX_VALUE);
-	    var secondLog = log$9(add$1(1, clippedTrue));
+	    var secondLog = log$a(add$1(1, clippedTrue));
 	    return mean(square$1(sub(firstLog, secondLog)), -1);
 	  });
 	}
@@ -60355,7 +60463,7 @@
 	    }
 
 	    output = clipByValue(output, epsilon(), 1 - epsilon());
-	    return neg(sum$1(mul(cast(target, 'float32'), log$9(output)), output.shape.length - 1));
+	    return neg(sum$1(mul(cast(target, 'float32'), log$a(output)), output.shape.length - 1));
 	  });
 	}
 	/**
@@ -60424,7 +60532,7 @@
 	  return tidy(function () {
 	    var y;
 	    y = clipByValue(yPred, epsilon(), 1 - epsilon());
-	    y = log$9(div(y, sub(1, y)));
+	    y = log$a(div(y, sub(1, y)));
 	    return mean(sigmoidCrossEntropyWithLogits(yTrue, y), -1);
 	  });
 	}
@@ -60432,12 +60540,12 @@
 	  return tidy(function () {
 	    var clippedTrue = clipByValue(yTrue, epsilon(), 1);
 	    var clippedPred = clipByValue(yPred, epsilon(), 1);
-	    return sum$1(mul(yTrue, log$9(div(clippedTrue, clippedPred))), -1);
+	    return sum$1(mul(yTrue, log$a(div(clippedTrue, clippedPred))), -1);
 	  });
 	}
 	function poisson(yTrue, yPred) {
 	  return tidy(function () {
-	    var logPred = log$9(add$1(epsilon(), yPred));
+	    var logPred = log$a(add$1(epsilon(), yPred));
 	    return mean(sub(yPred, mul(yTrue, logPred)), -1);
 	  });
 	}
@@ -61173,7 +61281,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$2 = '3.8.0';
+	var version$2 = '3.9.0';
 
 	/**
 	 * Helper function to check the dtype and shape compatibility of a feed value.
@@ -64692,7 +64800,7 @@
 	        var refDim = shapes[i][j];
 
 	        if (refDim != null && refDim >= 0 && dim !== refDim) {
-	          throw new ValueError("Error when checking " + exceptionPrefix + ": expected " + names[i] + " " + ("to have shape [" + shapes[i] + "], but got array with shape ") + ("[" + array.shape + "]."));
+	          throw new ValueError(exceptionPrefix + " expected a batch of elements where each " + ("example has shape [" + shapes[i].slice(1, shapes[i].length) + "] ") + ("(i.e.,tensor shape [*," + shapes[i].slice(1, shapes[i].length) + "])") + (" but the " + exceptionPrefix + " received an input with " + array.shape[0]) + (" examples, each with shape [" + array.shape.slice(1, array.shape.length) + "]") + (" (tensor shape [" + array.shape + "])"));
 	        }
 	      }
 	    }
@@ -67444,7 +67552,7 @@
 	   * Computation is done in batches.
 	   *
 	   * Note: the "step" mode of predict() is currently not supported.
-	   *   This is because the TensorFow.js core backend is imperative only.
+	   *   This is because the TensorFlow.js core backend is imperative only.
 	   *
 	   * ```js
 	   * const model = tf.sequential({
@@ -84150,6 +84258,19 @@
 	    'type': 'number[]'
 	  }],
 	  'attrs': []
+	}, {
+	  'tfOpName': 'BroadcastArgs',
+	  'category': 'transformation',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 's0',
+	    'type': 'tensor'
+	  }, {
+	    'start': 1,
+	    'name': 's1',
+	    'type': 'tensor'
+	  }],
+	  'attrs': []
 	}];
 
 	var transformation = {
@@ -84921,6 +85042,7 @@
 		batchNorm3d: batchNorm3d,
 		batchNorm4d: batchNorm4d,
 		bincount: bincount,
+		broadcastArgs: broadcastArgs,
 		broadcastTo: broadcastTo,
 		buffer: buffer,
 		cast: cast,
@@ -84972,7 +85094,7 @@
 		lessEqual: lessEqual,
 		linspace: linspace,
 		localResponseNormalization: localResponseNormalization,
-		log: log$9,
+		log: log$a,
 		log1p: log1p,
 		logSigmoid: logSigmoid,
 		logSoftmax: logSoftmax,
@@ -85260,7 +85382,7 @@
 	      return [floor$a(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Log':
-	      return [log$9(getParamValue('x', node, tensorMap, context))];
+	      return [log$a(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Log1p':
 	      {
@@ -88202,6 +88324,11 @@
 	        return [broadcastTo(getParamValue('x', node, tensorMap, context), getParamValue('shape', node, tensorMap, context))];
 	      }
 
+	    case 'BroadcastArgs':
+	      {
+	        return [broadcastArgs(getParamValue('s0', node, tensorMap, context), getParamValue('s1', node, tensorMap, context))];
+	      }
+
 	    default:
 	      throw TypeError("Node type " + node.op + " is not implemented");
 	  }
@@ -90095,7 +90222,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$3 = '3.8.0';
+	var version$3 = '3.9.0';
 
 	/**
 	 * @license
@@ -90385,7 +90512,19 @@
 	}
 
 	function isIterable$1(obj) {
-	  return obj != null && !ArrayBuffer.isView(obj) && (Array.isArray(obj) || typeof obj === 'object' && !(obj instanceof Tensor));
+	  var isTextDecoder = false;
+
+	  if (env().get('IS_BROWSER')) {
+	    isTextDecoder = obj instanceof TextDecoder;
+	  } else {
+	    // tslint:disable-next-line:no-require-imports
+	    var _require = require('string_decoder'),
+	        StringDecoder = _require.StringDecoder;
+
+	    isTextDecoder = obj instanceof StringDecoder;
+	  }
+
+	  return obj != null && !ArrayBuffer.isView(obj) && (Array.isArray(obj) || typeof obj === 'object' && !(obj instanceof Tensor) && !(obj instanceof Promise) && !isTextDecoder);
 	}
 	/**
 	 * Determine whether the argument can be converted to Tensor.
@@ -96393,7 +96532,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$4 = '3.8.0';
+	var version$4 = '3.9.0';
 
 	/**
 	 * @license
@@ -98358,6 +98497,34 @@
 	/**
 	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the License);
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an AS IS BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	var sigmoidImpl = createSimpleUnaryImpl(function (xi) {
+	  return 1 / (1 + Math.exp(-xi));
+	});
+	var sigmoid$1 = unaryKernelFunc(Sigmoid, function (xi) {
+	  return 1 / (1 + Math.exp(-xi));
+	});
+	var sigmoidConfig = {
+	  kernelName: Sigmoid,
+	  backendName: 'cpu',
+	  kernelFunc: sigmoid$1
+	};
+
+	/**
+	 * @license
+	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -98805,6 +98972,34 @@
 	/**
 	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the License);
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an AS IS BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	var sqrtImpl = createSimpleUnaryImpl(function (xi) {
+	  return Math.sqrt(xi);
+	});
+	var sqrt$4 = unaryKernelFunc(Sqrt, function (xi) {
+	  return Math.sqrt(xi);
+	});
+	var sqrtConfig = {
+	  kernelName: Sqrt,
+	  backendName: 'cpu',
+	  kernelFunc: sqrt$4
+	};
+
+	/**
+	 * @license
+	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -99127,33 +99322,30 @@
 	 * =============================================================================
 	 */
 
-	function split$4(str, delimiters, skipEmpty) {
+	function split$4(str, delimiters, skipEmpty, result) {
 	  if (!str.length) {
-	    return [];
+	    return;
 	  } // When the delimiter is empty, the input is split into individual characters.
 
 
 	  if (delimiters.length === 0) {
-	    var _result = new Array(str.length);
-
 	    for (var i = 0; i < str.length; ++i) {
-	      _result[i] = str.subarray(i, i + 1);
+	      result.push(str.subarray(i, i + 1));
 	    }
 
-	    return _result;
+	    return;
 	  } // When there is one delimiter, the input is split only at that delimiter.
 
 
 	  if (delimiters.length === 1) {
 	    var delimiter = delimiters[0];
-	    var _result2 = [];
 	    var f = str.indexOf(delimiter);
 
 	    while (f !== -1) {
 	      var token = str.subarray(0, f);
 
 	      if (!skipEmpty || token.length !== 0) {
-	        _result2.push(token);
+	        result.push(token);
 	      }
 
 	      str = str.subarray(f + 1);
@@ -99161,15 +99353,14 @@
 	    }
 
 	    if (!skipEmpty || str.length !== 0) {
-	      _result2.push(str);
+	      result.push(str);
 	    }
 
-	    return _result2;
+	    return;
 	  } // When there are multiple delimiters, the input is split at every instance
 	  // one of the delimiters appears.
 
 
-	  var result = [];
 	  var tokenStart = 0;
 
 	  for (var _i = 0; _i < str.length + 1; _i++) {
@@ -99183,8 +99374,6 @@
 	      tokenStart = _i + 1;
 	    }
 	  }
-
-	  return result;
 	}
 
 	function stringSplitImpl(input, delimiter, skipEmpty) {
@@ -99196,12 +99385,12 @@
 	  var numIndices = new Array(batchSize);
 
 	  for (var i = 0; i < batchSize; ++i) {
-	    var parts = split$4(input[i], delimiter, skipEmpty);
-	    var nEntries = parts.length;
+	    var prevTokensLength = tokens.length;
+	    split$4(input[i], delimiter, skipEmpty, tokens);
+	    var nEntries = tokens.length - prevTokensLength;
 	    numIndices[i] = nEntries;
 	    outputSize += nEntries;
 	    maxNumEntries = Math.max(maxNumEntries, nEntries);
-	    tokens.push.apply(tokens, parts);
 	  }
 
 	  var indices = getArrayFromDType('int32', outputSize * 2);
@@ -99649,7 +99838,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$5 = '3.8.0';
+	var version$5 = '3.9.0';
 
 	/**
 	 * @license
@@ -99826,31 +100015,6 @@
 	  kernelName: Relu6,
 	  backendName: 'cpu',
 	  kernelFunc: relu6$1
-	};
-
-	/**
-	 * @license
-	 * Copyright 2020 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the License);
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an AS IS BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	var sigmoid$1 = unaryKernelFunc(Sigmoid, function (xi) {
-	  return 1 / (1 + Math.exp(-xi));
-	});
-	var sigmoidConfig = {
-	  kernelName: Sigmoid,
-	  backendName: 'cpu',
-	  kernelFunc: sigmoid$1
 	};
 
 	/**
@@ -101569,6 +101733,38 @@
 	  kernelName: Bincount,
 	  backendName: 'cpu',
 	  kernelFunc: bincount$1
+	};
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function broadcastArgs$1(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend;
+	  var s0 = inputs.s0,
+	      s1 = inputs.s1;
+	  var s0Vals = backend.data.get(s0.dataId).values;
+	  var s1Vals = backend.data.get(s1.dataId).values;
+	  var broadcastShape = assertAndGetBroadcastShape(Array.from(s0Vals), Array.from(s1Vals));
+	  return backend.makeTensorInfo([broadcastShape.length], 'int32', Int32Array.from(broadcastShape));
+	}
+	var broadcastArgsConfig = {
+	  kernelName: BroadcastArgs,
+	  backendName: 'cpu',
+	  kernelFunc: broadcastArgs$1
 	};
 
 	/**
@@ -107888,31 +108084,6 @@
 
 	/**
 	 * @license
-	 * Copyright 2020 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the License);
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an AS IS BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	var sqrt$4 = unaryKernelFunc(Sqrt, function (xi) {
-	  return Math.sqrt(xi);
-	});
-	var sqrtConfig = {
-	  kernelName: Sqrt,
-	  backendName: 'cpu',
-	  kernelFunc: sqrt$4
-	};
-
-	/**
-	 * @license
 	 * Copyright 2019 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -108800,7 +108971,7 @@
 	 * =============================================================================
 	 */
 
-	var kernelConfigs = [_fusedMatMulConfig, absConfig, acosConfig, acoshConfig, addConfig, addNConfig, allConfig, anyConfig, argMaxConfig, argMinConfig, asinConfig, asinhConfig, atanConfig, atan2Config, atanhConfig, avgPoolConfig, avgPool3DConfig, avgPool3DGradConfig$1, avgPoolGradConfig$1, batchMatMulConfig, batchNormConfig, batchToSpaceNDConfig, bincountConfig, castConfig, ceilConfig, clipConfig, complexConfig, complexAbsConfig, concatConfig, conv2DBackpropFilterConfig, conv2DBackpropInputConfig, conv2DConfig, conv3DBackpropFilterV2Config, conv3DBackpropInputV2Config, conv3DConfig, cosConfig, coshConfig, cropAndResizeConfig, cumsumConfig, denseBincountConfig, depthToSpaceConfig, depthwiseConv2dNativeConfig, depthwiseConv2dNativeBackpropFilterConfig, depthwiseConv2dNativeBackpropInputConfig, diagConfig, dilation2dConfig, dilation2dBackpropInputConfig, dilation2dBackpropFilterConfig, realDivConfig, einsumConfig, eluConfig, eluGradConfig$1, equalConfig, erfConfig, expConfig, expandDimsConfig, expm1Config, fftConfig, fillConfig, flipLeftRightConfig, floorConfig, floorDivConfig, fusedConv2DConfig, fusedDepthwiseConv2DConfig, gatherNdConfig, gatherV2Config, greaterConfig, greaterEqualConfig, identityConfig, ifftConfig, imagConfig, isFiniteConfig, isInfConfig, isNaNConfig, leakyReluConfig, lessConfig, lessEqualConfig, linSpaceConfig, logConfig, log1pConfig, logicalAndConfig, logicalNotConfig, logicalOrConfig, lRNConfig, lRNGradConfig, maximumConfig, maxPoolConfig, maxPool3DConfig, maxPool3DGradConfig$1, maxPoolGradConfig$1, maxPoolWithArgmaxConfig, maxConfig, meanConfig, minConfig, minimumConfig, mirrorPadConfig, modConfig, multinomialConfig, multiplyConfig, negConfig, nonMaxSuppressionV3Config, nonMaxSuppressionV4Config, nonMaxSuppressionV5Config, notEqualConfig, oneHotConfig, onesLikeConfig, packConfig, padV2Config, powConfig, preluConfig, prodConfig, rangeConfig, realConfig, reciprocalConfig, reluConfig, relu6Config, reshapeConfig, resizeBilinearConfig, resizeBilinearGradConfig$1, resizeNearestNeighborConfig, resizeNearestNeighborGradConfig$1, reverseConfig, rotateWithOffsetConfig, roundConfig, rsqrtConfig, scatterNdConfig, selectConfig, seluConfig, sigmoidConfig, signConfig, sinConfig, sinhConfig, sliceConfig, softmaxConfig, softplusConfig, spaceToBatchNDConfig, sparseFillEmptyRowsConfig, sparseReshapeConfig, sparseSegmentMeanConfig, sparseSegmentSumConfig, sparseToDenseConfig, splitVConfig, sqrtConfig, squareConfig, squaredDifferenceConfig, stepConfig, stridedSliceConfig, stringNGramsConfig, stringSplitConfig, stringToHashBucketFastConfig, subConfig, sumConfig, tanConfig, tanhConfig, tileConfig, topKConfig, transposeConfig, transformConfig, uniqueConfig, unpackConfig, unsortedSegmentSumConfig, zerosLikeConfig];
+	var kernelConfigs = [_fusedMatMulConfig, absConfig, acosConfig, acoshConfig, addConfig, addNConfig, allConfig, anyConfig, argMaxConfig, argMinConfig, asinConfig, asinhConfig, atanConfig, atan2Config, atanhConfig, avgPoolConfig, avgPool3DConfig, avgPool3DGradConfig$1, avgPoolGradConfig$1, batchMatMulConfig, batchNormConfig, batchToSpaceNDConfig, bincountConfig, broadcastArgsConfig, castConfig, ceilConfig, clipConfig, complexConfig, complexAbsConfig, concatConfig, conv2DBackpropFilterConfig, conv2DBackpropInputConfig, conv2DConfig, conv3DBackpropFilterV2Config, conv3DBackpropInputV2Config, conv3DConfig, cosConfig, coshConfig, cropAndResizeConfig, cumsumConfig, denseBincountConfig, depthToSpaceConfig, depthwiseConv2dNativeConfig, depthwiseConv2dNativeBackpropFilterConfig, depthwiseConv2dNativeBackpropInputConfig, diagConfig, dilation2dConfig, dilation2dBackpropInputConfig, dilation2dBackpropFilterConfig, realDivConfig, einsumConfig, eluConfig, eluGradConfig$1, equalConfig, erfConfig, expConfig, expandDimsConfig, expm1Config, fftConfig, fillConfig, flipLeftRightConfig, floorConfig, floorDivConfig, fusedConv2DConfig, fusedDepthwiseConv2DConfig, gatherNdConfig, gatherV2Config, greaterConfig, greaterEqualConfig, identityConfig, ifftConfig, imagConfig, isFiniteConfig, isInfConfig, isNaNConfig, leakyReluConfig, lessConfig, lessEqualConfig, linSpaceConfig, logConfig, log1pConfig, logicalAndConfig, logicalNotConfig, logicalOrConfig, lRNConfig, lRNGradConfig, maximumConfig, maxPoolConfig, maxPool3DConfig, maxPool3DGradConfig$1, maxPoolGradConfig$1, maxPoolWithArgmaxConfig, maxConfig, meanConfig, minConfig, minimumConfig, mirrorPadConfig, modConfig, multinomialConfig, multiplyConfig, negConfig, nonMaxSuppressionV3Config, nonMaxSuppressionV4Config, nonMaxSuppressionV5Config, notEqualConfig, oneHotConfig, onesLikeConfig, packConfig, padV2Config, powConfig, preluConfig, prodConfig, rangeConfig, realConfig, reciprocalConfig, reluConfig, relu6Config, reshapeConfig, resizeBilinearConfig, resizeBilinearGradConfig$1, resizeNearestNeighborConfig, resizeNearestNeighborGradConfig$1, reverseConfig, rotateWithOffsetConfig, roundConfig, rsqrtConfig, scatterNdConfig, selectConfig, seluConfig, sigmoidConfig, signConfig, sinConfig, sinhConfig, sliceConfig, softmaxConfig, softplusConfig, spaceToBatchNDConfig, sparseFillEmptyRowsConfig, sparseReshapeConfig, sparseSegmentMeanConfig, sparseSegmentSumConfig, sparseToDenseConfig, splitVConfig, sqrtConfig, squareConfig, squaredDifferenceConfig, stepConfig, stridedSliceConfig, stringNGramsConfig, stringSplitConfig, stringToHashBucketFastConfig, subConfig, sumConfig, tanConfig, tanhConfig, tileConfig, topKConfig, transposeConfig, transformConfig, uniqueConfig, unpackConfig, unsortedSegmentSumConfig, zerosLikeConfig];
 
 	for (var _i$1 = 0, _kernelConfigs = kernelConfigs; _i$1 < _kernelConfigs.length; _i$1++) {
 	  var kernelConfig = _kernelConfigs[_i$1];
@@ -110137,7 +110308,7 @@
 	    return line1 + "; " + line2 + ";";
 	  }).join('');
 	}
-	function getLogicalCoordinatesFromFlatIndexByUniform(coords, shape, index) {
+	function getOutputLogicalCoordinatesFromFlatIndexByUniform(coords, shape, index) {
 	  if (index === void 0) {
 	    index = 'index';
 	  }
@@ -110146,6 +110317,37 @@
 	  return strides.map(function (_, i) {
 	    var line1 = "int " + coords[i] + " = " + index + " / outShapeStrides[" + i + "]";
 	    var line2 = i === strides.length - 1 ? "int " + coords[i + 1] + " = " + index + " - " + coords[i] + " * outShapeStrides[" + i + "]" : "index -= " + coords[i] + " * outShapeStrides[" + i + "]";
+	    return line1 + "; " + line2 + ";";
+	  }).join('');
+	} // Produces GLSL code that computes strides.
+
+	function symbolicallyComputeStrides(indicesArr, variableName) {
+	  var numCoords = indicesArr.length;
+	  var shape = indicesArr.map(function (d) {
+	    return variableName + "[" + d + "]";
+	  });
+	  var strides = new Array(numCoords - 1);
+	  strides[numCoords - 2] = shape[numCoords - 1];
+
+	  for (var i = numCoords - 3; i >= 0; --i) {
+	    strides[i] = "(" + strides[i + 1] + " * " + shape[i + 1] + ")";
+	  }
+
+	  return strides;
+	}
+
+	function getLogicalCoordinatesFromFlatIndexByUniform(coords, variableName, index) {
+	  if (index === void 0) {
+	    index = 'index';
+	  }
+
+	  var indicesArray = coords.map(function (_, i) {
+	    return i;
+	  });
+	  var strides = symbolicallyComputeStrides(indicesArray, variableName);
+	  return strides.map(function (_, i) {
+	    var line1 = "int " + coords[i] + " = " + index + " / " + strides[i];
+	    var line2 = i === strides.length - 1 ? "int " + coords[i + 1] + " = " + index + " - " + coords[i] + " * " + strides[i] : "index -= " + coords[i] + " * " + strides[i];
 	    return line1 + "; " + line2 + ";";
 	  }).join('');
 	}
@@ -110209,7 +110411,1444 @@
 	  });
 	  return "\n  int getFlatIndex(ivec3 coords) {\n    return coords.x * " + strides[0] + " + coords.y * " + strides[1] + " + coords.z;\n  }\n";
 	}
+	function getFlatIndexFrom3DOutput() {
+	  return "\n  int getFlatIndex(ivec3 coords) {\n    return coords.x * outShapeStrides[0] + coords.y * outShapeStrides[1] + coords.z;\n  }\n";
+	}
 	var ENCODE_FLOAT_SNIPPET = "\n  const float FLOAT_MAX = 1.70141184e38;\n  const float FLOAT_MIN = 1.17549435e-38;\n\n  lowp vec4 encode_float(highp float v) {\n    if (isnan(v)) {\n      return vec4(255, 255, 255, 255);\n    }\n\n    highp float av = abs(v);\n\n    if(av < FLOAT_MIN) {\n      return vec4(0.0, 0.0, 0.0, 0.0);\n    } else if(v > FLOAT_MAX) {\n      return vec4(0.0, 0.0, 128.0, 127.0) / 255.0;\n    } else if(v < -FLOAT_MAX) {\n      return vec4(0.0, 0.0,  128.0, 255.0) / 255.0;\n    }\n\n    highp vec4 c = vec4(0,0,0,0);\n\n    highp float e = floor(log2(av));\n    highp float m = exp2(fract(log2(av))) - 1.0;\n\n    c[2] = floor(128.0 * m);\n    m -= c[2] / 128.0;\n    c[1] = floor(32768.0 * m);\n    m -= c[1] / 32768.0;\n    c[0] = floor(8388608.0 * m);\n\n    highp float ebias = e + 127.0;\n    c[3] = floor(ebias / 2.0);\n    ebias -= c[3] * 2.0;\n    c[2] += floor(ebias) * 128.0;\n\n    c[3] += 128.0 * step(0.0, -v);\n\n    return c / 255.0;\n  }\n";
+
+	/**
+	 * @license
+	 * Copyright 2017 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	var getBroadcastDims$1 = getBroadcastDims;
+	function makeShader(inputsInfo, outputShape, program) {
+	  var prefixSnippets = [];
+	  inputsInfo.forEach(function (x) {
+	    var size = sizeFromShape(x.shapeInfo.logicalShape); // Snippet when we decided to upload the values as uniform.
+
+	    if (x.shapeInfo.isUniform) {
+	      prefixSnippets.push("uniform float " + x.name + (size > 1 ? "[" + size + "]" : '') + ";");
+	    } else {
+	      prefixSnippets.push("uniform sampler2D " + x.name + ";");
+	      prefixSnippets.push("uniform int offset" + x.name + ";");
+	    }
+
+	    if (program.enableShapeUniforms) {
+	      var _getUniformInfoFromSh = getUniformInfoFromShape(program.packedInputs, x.shapeInfo.logicalShape, x.shapeInfo.texShape),
+	          uniformShape = _getUniformInfoFromSh.uniformShape;
+
+	      switch (uniformShape.length) {
+	        case 1:
+	          prefixSnippets.push("uniform int " + x.name + "Shape;");
+	          break;
+
+	        case 2:
+	          prefixSnippets.push("uniform ivec2 " + x.name + "Shape;");
+	          break;
+
+	        case 3:
+	          prefixSnippets.push("uniform ivec3 " + x.name + "Shape;");
+	          break;
+
+	        case 4:
+	          prefixSnippets.push("uniform ivec4 " + x.name + "Shape;");
+	          break;
+
+	        default:
+	          break;
+	      }
+
+	      prefixSnippets.push("uniform ivec2 " + x.name + "TexShape;");
+	    }
+	  });
+
+	  if (program.enableShapeUniforms) {
+	    switch (outputShape.logicalShape.length) {
+	      case 1:
+	        prefixSnippets.push("uniform int outShape;");
+	        break;
+
+	      case 2:
+	        prefixSnippets.push("uniform ivec2 outShape;");
+	        prefixSnippets.push("uniform int outShapeStrides;");
+	        break;
+
+	      case 3:
+	        prefixSnippets.push("uniform ivec3 outShape;");
+	        prefixSnippets.push("uniform ivec2 outShapeStrides;");
+	        break;
+
+	      case 4:
+	        prefixSnippets.push("uniform ivec4 outShape;");
+	        prefixSnippets.push("uniform ivec3 outShapeStrides;");
+	        break;
+
+	      default:
+	        break;
+	    }
+
+	    prefixSnippets.push("uniform ivec2 outTexShape;");
+	  }
+
+	  if (program.customUniforms) {
+	    program.customUniforms.forEach(function (d) {
+	      prefixSnippets.push("uniform " + d.type + " " + d.name + (d.arrayIndex ? "[" + d.arrayIndex + "]" : '') + ";");
+	    });
+	  }
+
+	  var inputPrefixSnippet = prefixSnippets.join('\n');
+	  var inputSamplingSnippet = inputsInfo.map(function (x) {
+	    return getInputSamplingSnippet(x, outputShape, program.packedInputs, program.enableShapeUniforms);
+	  }).join('\n');
+	  var outTexShape = outputShape.texShape;
+	  var glsl = getGlslDifferences();
+	  var floatTextureSampleSnippet = getFloatTextureSampleSnippet(glsl);
+	  var outputSamplingSnippet;
+	  var floatTextureSetOutputSnippet;
+	  var shaderPrefix = getShaderPrefix(glsl);
+
+	  if (outputShape.isPacked) {
+	    outputSamplingSnippet = getPackedOutputSamplingSnippet(outputShape.logicalShape, outTexShape, program.enableShapeUniforms);
+	    floatTextureSetOutputSnippet = getFloatTextureSetRGBASnippet(glsl);
+	  } else {
+	    outputSamplingSnippet = getOutputSamplingSnippet(outputShape.logicalShape, outTexShape, program.enableShapeUniforms);
+	    floatTextureSetOutputSnippet = getFloatTextureSetRSnippet(glsl);
+	  }
+
+	  if (program.packedInputs) {
+	    shaderPrefix += SHADER_PACKED_PREFIX;
+	  }
+
+	  var source = [shaderPrefix, floatTextureSampleSnippet, floatTextureSetOutputSnippet, inputPrefixSnippet, outputSamplingSnippet, inputSamplingSnippet, program.userCode].join('\n');
+	  return source;
+	}
+
+	function getSamplerFromInInfo(inInfo, enableShapeUniforms) {
+	  if (enableShapeUniforms === void 0) {
+	    enableShapeUniforms = false;
+	  }
+
+	  var shape = inInfo.shapeInfo.logicalShape;
+
+	  switch (shape.length) {
+	    case 0:
+	      return getSamplerScalar(inInfo, enableShapeUniforms);
+
+	    case 1:
+	      return getSampler1D(inInfo, enableShapeUniforms);
+
+	    case 2:
+	      return getSampler2D(inInfo, enableShapeUniforms);
+
+	    case 3:
+	      return getSampler3D(inInfo, enableShapeUniforms);
+
+	    case 4:
+	      return getSampler4D(inInfo, enableShapeUniforms);
+
+	    case 5:
+	      return getSampler5D(inInfo);
+
+	    case 6:
+	      return getSampler6D(inInfo);
+
+	    default:
+	      throw new Error(shape.length + "-D input sampling" + " is not yet supported");
+	  }
+	}
+
+	function getPackedSamplerFromInInfo(inInfo, enableShapeUniforms) {
+	  var shape = inInfo.shapeInfo.logicalShape;
+
+	  switch (shape.length) {
+	    case 0:
+	      return getPackedSamplerScalar(inInfo);
+
+	    case 1:
+	      return getPackedSampler1D(inInfo, enableShapeUniforms);
+
+	    case 2:
+	      return getPackedSampler2D(inInfo, enableShapeUniforms);
+
+	    case 3:
+	      return getPackedSampler3D(inInfo, enableShapeUniforms);
+
+	    default:
+	      return getPackedSamplerND(inInfo, enableShapeUniforms);
+	  }
+	}
+
+	function getInputSamplingSnippet(inInfo, outShapeInfo, usesPackedTextures, enableShapeUniforms) {
+	  if (usesPackedTextures === void 0) {
+	    usesPackedTextures = false;
+	  }
+
+	  var res = '';
+
+	  if (usesPackedTextures) {
+	    res += getPackedSamplerFromInInfo(inInfo, enableShapeUniforms);
+	  } else {
+	    res += getSamplerFromInInfo(inInfo, enableShapeUniforms);
+	  }
+
+	  var inShape = inInfo.shapeInfo.logicalShape;
+	  var outShape = outShapeInfo.logicalShape;
+
+	  if (inShape.length <= outShape.length) {
+	    if (usesPackedTextures) {
+	      res += getPackedSamplerAtOutputCoords(inInfo, outShapeInfo);
+	    } else {
+	      res += getSamplerAtOutputCoords(inInfo, outShapeInfo);
+	    }
+	  }
+
+	  return res;
+	}
+
+	function getPackedOutputSamplingSnippet(outShape, outTexShape, enableShapeUniforms) {
+	  switch (outShape.length) {
+	    case 0:
+	      return getOutputScalarCoords();
+
+	    case 1:
+	      return getOutputPacked1DCoords(outShape, outTexShape, enableShapeUniforms);
+
+	    case 2:
+	      return getOutputPacked2DCoords(outShape, outTexShape, enableShapeUniforms);
+
+	    case 3:
+	      return getOutputPacked3DCoords(outShape, outTexShape, enableShapeUniforms);
+
+	    default:
+	      return getOutputPackedNDCoords(outShape, outTexShape, enableShapeUniforms);
+	  }
+	}
+
+	function getOutputSamplingSnippet(outShape, outTexShape, enableShapeUniforms) {
+	  switch (outShape.length) {
+	    case 0:
+	      return getOutputScalarCoords();
+
+	    case 1:
+	      return getOutput1DCoords(outShape, outTexShape, enableShapeUniforms);
+
+	    case 2:
+	      return getOutput2DCoords(outShape, outTexShape, enableShapeUniforms);
+
+	    case 3:
+	      return getOutput3DCoords(outShape, outTexShape, enableShapeUniforms);
+
+	    case 4:
+	      return getOutput4DCoords(outShape, outTexShape, enableShapeUniforms);
+
+	    case 5:
+	      return getOutput5DCoords(outShape, outTexShape);
+
+	    case 6:
+	      return getOutput6DCoords(outShape, outTexShape);
+
+	    default:
+	      throw new Error(outShape.length + "-D output sampling is not yet supported");
+	  }
+	}
+
+	function getFloatTextureSampleSnippet(glsl) {
+	  return "\n    float sampleTexture(sampler2D textureSampler, vec2 uv) {\n      return " + glsl.texture2D + "(textureSampler, uv).r;\n    }\n  ";
+	}
+
+	function getFloatTextureSetRSnippet(glsl) {
+	  return "\n    void setOutput(float val) {\n      " + glsl.output + " = vec4(val, 0, 0, 0);\n    }\n  ";
+	}
+
+	function getFloatTextureSetRGBASnippet(glsl) {
+	  return "\n    void setOutput(vec4 val) {\n      " + glsl.output + " = val;\n    }\n  ";
+	}
+
+	function getShaderPrefix(glsl) {
+	  var SHADER_PREFIX = glsl.version + "\n    precision highp float;\n    precision highp int;\n    precision highp sampler2D;\n    " + glsl.varyingFs + " vec2 resultUV;\n    " + glsl.defineOutput + "\n    const vec2 halfCR = vec2(0.5, 0.5);\n\n    struct ivec5\n    {\n      int x;\n      int y;\n      int z;\n      int w;\n      int u;\n    };\n\n    struct ivec6\n    {\n      int x;\n      int y;\n      int z;\n      int w;\n      int u;\n      int v;\n    };\n\n    uniform float NAN;\n    " + glsl.defineSpecialNaN + "\n    " + glsl.defineSpecialInf + "\n    " + glsl.defineRound + "\n\n    int imod(int x, int y) {\n      return x - y * (x / y);\n    }\n\n    int idiv(int a, int b, float sign) {\n      int res = a / b;\n      int mod = imod(a, b);\n      if (sign < 0. && mod != 0) {\n        res -= 1;\n      }\n      return res;\n    }\n\n    //Based on the work of Dave Hoskins\n    //https://www.shadertoy.com/view/4djSRW\n    #define HASHSCALE1 443.8975\n    float random(float seed){\n      vec2 p = resultUV * seed;\n      vec3 p3  = fract(vec3(p.xyx) * HASHSCALE1);\n      p3 += dot(p3, p3.yzx + 19.19);\n      return fract((p3.x + p3.y) * p3.z);\n    }\n\n    " + SAMPLE_1D_SNIPPET + "\n    " + SAMPLE_2D_SNIPPET + "\n    " + SAMPLE_3D_SNIPPET + "\n  ";
+	  return SHADER_PREFIX;
+	}
+
+	var SAMPLE_1D_SNIPPET = "\nvec2 uvFromFlat(int texNumR, int texNumC, int index) {\n  int texR = index / texNumC;\n  int texC = index - texR * texNumC;\n  return (vec2(texC, texR) + halfCR) / vec2(texNumC, texNumR);\n}\nvec2 packedUVfrom1D(int texNumR, int texNumC, int index) {\n  int texelIndex = index / 2;\n  int texR = texelIndex / texNumC;\n  int texC = texelIndex - texR * texNumC;\n  return (vec2(texC, texR) + halfCR) / vec2(texNumC, texNumR);\n}\n";
+	var SAMPLE_2D_SNIPPET = "\nvec2 packedUVfrom2D(int texelsInLogicalRow, int texNumR,\n  int texNumC, int row, int col) {\n  int texelIndex = (row / 2) * texelsInLogicalRow + (col / 2);\n  int texR = texelIndex / texNumC;\n  int texC = texelIndex - texR * texNumC;\n  return (vec2(texC, texR) + halfCR) / vec2(texNumC, texNumR);\n}\n";
+	var SAMPLE_3D_SNIPPET = "\nvec2 packedUVfrom3D(int texNumR, int texNumC,\n    int texelsInBatch, int texelsInLogicalRow, int b,\n    int row, int col) {\n  int index = b * texelsInBatch + (row / 2) * texelsInLogicalRow + (col / 2);\n  int texR = index / texNumC;\n  int texC = index - texR * texNumC;\n  return (vec2(texC, texR) + halfCR) / vec2(texNumC, texNumR);\n}\n";
+	var SHADER_PACKED_PREFIX = "\n  float getChannel(vec4 frag, vec2 innerDims) {\n    vec2 modCoord = mod(innerDims, 2.);\n    return modCoord.x == 0. ?\n      (modCoord.y == 0. ? frag.r : frag.g) :\n      (modCoord.y == 0. ? frag.b : frag.a);\n  }\n  float getChannel(vec4 frag, int dim) {\n    float modCoord = mod(float(dim), 2.);\n    return modCoord == 0. ? frag.r : frag.g;\n  }\n";
+
+	function getOutputScalarCoords() {
+	  return "\n    int getOutputCoords() {\n      return 0;\n    }\n  ";
+	}
+
+	function getOutputPacked1DCoords(shape, texShape, enableShapeUniforms) {
+	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
+
+	  if (packedTexShape[0] === 1) {
+	    if (enableShapeUniforms) {
+	      return "\n      int getOutputCoords() {\n        return 2 * int(resultUV.x * ceil(float(outTexShape[1]) / 2.0));\n      }\n    ";
+	    }
+
+	    return "\n      int getOutputCoords() {\n        return 2 * int(resultUV.x * " + packedTexShape[1] + ".0);\n      }\n    ";
+	  }
+
+	  if (packedTexShape[1] === 1) {
+	    if (enableShapeUniforms) {
+	      return "\n      int getOutputCoords() {\n        return 2 * int(resultUV.y * ceil(float(outTexShape[0]) / 2.0));\n      }\n    ";
+	    }
+
+	    return "\n      int getOutputCoords() {\n        return 2 * int(resultUV.y * " + packedTexShape[0] + ".0);\n      }\n    ";
+	  }
+
+	  if (enableShapeUniforms) {
+	    return "\n    int getOutputCoords() {\n      ivec2 packedTexShape = ivec2(ceil(float(outTexShape[0]) / 2.0), ceil(float(outTexShape[1]) / 2.0));\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(packedTexShape[0], packedTexShape[1]));\n      return 2 * (resTexRC.x * packedTexShape[1] + resTexRC.y);\n    }\n  ";
+	  }
+
+	  return "\n    int getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + packedTexShape[0] + ", " + packedTexShape[1] + "));\n      return 2 * (resTexRC.x * " + packedTexShape[1] + " + resTexRC.y);\n    }\n  ";
+	}
+
+	function getOutput1DCoords(shape, texShape, enableShapeUniforms) {
+	  if (texShape[0] === 1) {
+	    if (enableShapeUniforms) {
+	      return "\n      int getOutputCoords() {\n        return int(resultUV.x * float(outTexShape[1]));\n      }\n    ";
+	    }
+
+	    return "\n      int getOutputCoords() {\n        return int(resultUV.x * " + texShape[1] + ".0);\n      }\n    ";
+	  }
+
+	  if (texShape[1] === 1) {
+	    if (enableShapeUniforms) {
+	      return "\n      int getOutputCoords() {\n        return int(resultUV.y * float(outTexShape[0]));\n      }\n    ";
+	    }
+
+	    return "\n      int getOutputCoords() {\n        return int(resultUV.y * " + texShape[0] + ".0);\n      }\n    ";
+	  }
+
+	  if (enableShapeUniforms) {
+	    return "\n    int getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(outTexShape[0], outTexShape[1]));\n      return resTexRC.x * outTexShape[1] + resTexRC.y;\n    }\n  ";
+	  }
+
+	  return "\n    int getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + texShape[0] + ", " + texShape[1] + "));\n      return resTexRC.x * " + texShape[1] + " + resTexRC.y;\n    }\n  ";
+	}
+
+	function getOutputPacked3DCoords(shape, texShape, enableShapeUniforms) {
+	  if (enableShapeUniforms) {
+	    return "\n    ivec3 getOutputCoords() {\n      ivec2 packedTexShape = ivec2(ceil(float(outTexShape[0]) / 2.0), ceil(float(outTexShape[1]) / 2.0));\n      int texelsInLogicalRow = int(ceil(float(outShape[2]) / 2.0));\n      int texelsInBatch = texelsInLogicalRow * int(ceil(float(outShape[1]) / 2.0));\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(packedTexShape[0], packedTexShape[1]));\n      int index = resTexRC.x * packedTexShape[1] + resTexRC.y;\n\n      int b = index / texelsInBatch;\n      index -= b * texelsInBatch;\n\n      int r = 2 * (index / texelsInLogicalRow);\n      int c = imod(index, texelsInLogicalRow) * 2;\n\n      return ivec3(b, r, c);\n    }\n  ";
+	  }
+
+	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
+	  var texelsInLogicalRow = Math.ceil(shape[2] / 2);
+	  var texelsInBatch = texelsInLogicalRow * Math.ceil(shape[1] / 2);
+	  return "\n    ivec3 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + packedTexShape[0] + ", " + packedTexShape[1] + "));\n      int index = resTexRC.x * " + packedTexShape[1] + " + resTexRC.y;\n\n      int b = index / " + texelsInBatch + ";\n      index -= b * " + texelsInBatch + ";\n\n      int r = 2 * (index / " + texelsInLogicalRow + ");\n      int c = imod(index, " + texelsInLogicalRow + ") * 2;\n\n      return ivec3(b, r, c);\n    }\n  ";
+	}
+
+	function getOutput3DCoords(shape, texShape, enableShapeUniforms) {
+	  if (enableShapeUniforms) {
+	    var _coordsFromIndexSnippet = getOutputLogicalCoordinatesFromFlatIndexByUniform(['r', 'c', 'd'], shape);
+
+	    return "\n  ivec3 getOutputCoords() {\n    ivec2 resTexRC = ivec2(resultUV.yx *\n                           vec2(outTexShape[0], outTexShape[1]));\n    int index = resTexRC.x * outTexShape[1] + resTexRC.y;\n    " + _coordsFromIndexSnippet + "\n    return ivec3(r, c, d);\n  }\n";
+	  }
+
+	  var coordsFromIndexSnippet = getLogicalCoordinatesFromFlatIndex(['r', 'c', 'd'], shape);
+	  return "\n    ivec3 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + texShape[0] + ", " + texShape[1] + "));\n      int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n      " + coordsFromIndexSnippet + "\n      return ivec3(r, c, d);\n    }\n  ";
+	}
+
+	function getOutputPackedNDCoords(shape, texShape, enableShapeUniforms) {
+	  if (enableShapeUniforms) {
+	    // TODO: support 5d and 6d
+	    return "\n    ivec4 getOutputCoords() {\n      ivec2 packedTexShape = ivec2(ceil(float(outTexShape[0]) / 2.0), ceil(float(outTexShape[1]) / 2.0));\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(packedTexShape[0], packedTexShape[1]));\n      int index = resTexRC.x * packedTexShape[1] + resTexRC.y;\n\n      int texelsInLogicalRow = int(ceil(float(outShape[3]) / 2.0));\n      int texelsInBatch = texelsInLogicalRow * int(ceil(float(outShape[2]) / 2.0));\n      int texelsInBatchN = texelsInBatch * outShape[1];\n\n      int b2 = index / texelsInBatchN;\n      index -= b2 * texelsInBatchN;\n\n      int b = index / texelsInBatch;\n      index -= b * texelsInBatch;\n\n      int r = 2 * (index / texelsInLogicalRow);\n      int c = imod(index, texelsInLogicalRow) * 2;\n\n      return ivec4(b2, b, r, c);\n    }\n  ";
+	  }
+
+	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
+	  var texelsInLogicalRow = Math.ceil(shape[shape.length - 1] / 2);
+	  var texelsInBatch = texelsInLogicalRow * Math.ceil(shape[shape.length - 2] / 2);
+	  var texelsInBatchN = texelsInBatch;
+	  var batches = "";
+	  var coords = 'b, r, c';
+
+	  for (var b = 2; b < shape.length - 1; b++) {
+	    texelsInBatchN *= shape[shape.length - b - 1];
+	    batches = "\n      int b" + b + " = index / " + texelsInBatchN + ";\n      index -= b" + b + " * " + texelsInBatchN + ";\n    " + batches;
+	    coords = "b" + b + ", " + coords;
+	  }
+
+	  return "\n    ivec" + shape.length + " getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + packedTexShape[0] + ", " + packedTexShape[1] + "));\n      int index = resTexRC.x * " + packedTexShape[1] + " + resTexRC.y;\n\n      " + batches + "\n\n      int b = index / " + texelsInBatch + ";\n      index -= b * " + texelsInBatch + ";\n\n      int r = 2 * (index / " + texelsInLogicalRow + ");\n      int c = imod(index, " + texelsInLogicalRow + ") * 2;\n\n      return ivec" + shape.length + "(" + coords + ");\n    }\n  ";
+	}
+
+	function getOutput4DCoords(shape, texShape, enableShapeUniforms) {
+	  if (enableShapeUniforms) {
+	    var _coordsFromIndexSnippet2 = getOutputLogicalCoordinatesFromFlatIndexByUniform(['r', 'c', 'd', 'd2'], shape);
+
+	    return "\n    ivec4 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n        vec2(outTexShape[0], outTexShape[1]));\n      int index = resTexRC.x * outTexShape[1] + resTexRC.y;\n      " + _coordsFromIndexSnippet2 + "\n      return ivec4(r, c, d, d2);\n    }\n  ";
+	  }
+
+	  var coordsFromIndexSnippet = getLogicalCoordinatesFromFlatIndex(['r', 'c', 'd', 'd2'], shape);
+	  return "\n    ivec4 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n        vec2(" + texShape[0] + ", " + texShape[1] + "));\n      int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n      " + coordsFromIndexSnippet + "\n      return ivec4(r, c, d, d2);\n    }\n  ";
+	}
+
+	function getOutput5DCoords(shape, texShape) {
+	  var coordsFromIndexSnippet = getLogicalCoordinatesFromFlatIndex(['r', 'c', 'd', 'd2', 'd3'], shape);
+	  return "\n    ivec5 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx * vec2(" + texShape[0] + ",\n                             " + texShape[1] + "));\n\n      int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n\n      " + coordsFromIndexSnippet + "\n\n      ivec5 outShape = ivec5(r, c, d, d2, d3);\n      return outShape;\n    }\n  ";
+	}
+
+	function getOutput6DCoords(shape, texShape) {
+	  var coordsFromIndexSnippet = getLogicalCoordinatesFromFlatIndex(['r', 'c', 'd', 'd2', 'd3', 'd4'], shape);
+	  return "\n    ivec6 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n        vec2(" + texShape[0] + ", " + texShape[1] + "));\n      int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n\n      " + coordsFromIndexSnippet + "\n\n      ivec6 result = ivec6(r, c, d, d2, d3, d4);\n      return result;\n    }\n  ";
+	}
+
+	function getOutputPacked2DCoords(shape, texShape, enableShapeUniforms) {
+	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
+
+	  if (arraysEqual(shape, texShape)) {
+	    if (enableShapeUniforms) {
+	      return "\n      ivec2 getOutputCoords() {\n        ivec2 packedTexShape = ivec2(ceil(float(outTexShape[0]) / 2.0), ceil(float(outTexShape[1]) / 2.0));\n        return 2 * ivec2(resultUV.yx * vec2(packedTexShape[0], packedTexShape[1]));\n      }\n    ";
+	    }
+
+	    return "\n      ivec2 getOutputCoords() {\n        return 2 * ivec2(resultUV.yx * vec2(" + packedTexShape[0] + ", " + packedTexShape[1] + "));\n      }\n    ";
+	  } // texels needed to accommodate a logical row
+
+
+	  var texelsInLogicalRow = Math.ceil(shape[1] / 2);
+	  /**
+	   * getOutputCoords
+	   *
+	   * resTexRC: The rows and columns of the texels. If you move over one
+	   * texel to the right in the packed texture, you are moving over one column
+	   * (not two).
+	   *
+	   * index: The texel index
+	   */
+
+	  if (enableShapeUniforms) {
+	    return "\n    ivec2 getOutputCoords() {\n      ivec2 packedTexShape = ivec2(ceil(float(outTexShape[0]) / 2.0), ceil(float(outTexShape[1]) / 2.0));\n      int texelsInLogicalRow = int(ceil(float(outShape[1]) / 2.0));\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(packedTexShape[0], packedTexShape[1]));\n\n      int index = resTexRC.x * packedTexShape[1] + resTexRC.y;\n      int r = 2 * (index / texelsInLogicalRow);\n      int c = imod(index, texelsInLogicalRow) * 2;\n\n      return ivec2(r, c);\n    }\n  ";
+	  }
+
+	  return "\n    ivec2 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + packedTexShape[0] + ", " + packedTexShape[1] + "));\n\n      int index = resTexRC.x * " + packedTexShape[1] + " + resTexRC.y;\n      int r = 2 * (index / " + texelsInLogicalRow + ");\n      int c = imod(index, " + texelsInLogicalRow + ") * 2;\n\n      return ivec2(r, c);\n    }\n  ";
+	}
+
+	function getOutput2DCoords(shape, texShape, enableShapeUniforms) {
+	  if (arraysEqual(shape, texShape)) {
+	    if (enableShapeUniforms) {
+	      return "\n      ivec2 getOutputCoords() {\n        return ivec2(resultUV.yx * vec2(outTexShape[0], outTexShape[1]));\n      }\n    ";
+	    }
+
+	    return "\n      ivec2 getOutputCoords() {\n        return ivec2(resultUV.yx * vec2(" + texShape[0] + ", " + texShape[1] + "));\n      }\n    ";
+	  }
+
+	  if (shape[1] === 1) {
+	    if (enableShapeUniforms) {
+	      return "\n      ivec2 getOutputCoords() {\n        ivec2 resTexRC = ivec2(resultUV.yx *\n                               vec2(outTexShape[0], outTexShape[1]));\n        int index = resTexRC.x * outTexShape[1] + resTexRC.y;\n        return ivec2(index, 0);\n      }\n    ";
+	    }
+
+	    return "\n      ivec2 getOutputCoords() {\n        ivec2 resTexRC = ivec2(resultUV.yx *\n                               vec2(" + texShape[0] + ", " + texShape[1] + "));\n        int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n        return ivec2(index, 0);\n      }\n    ";
+	  }
+
+	  if (shape[0] === 1) {
+	    if (enableShapeUniforms) {
+	      return "\n      ivec2 getOutputCoords() {\n        ivec2 resTexRC = ivec2(resultUV.yx *\n                               vec2(outTexShape[0], outTexShape[1]));\n        int index = resTexRC.x * outTexShape[1] + resTexRC.y;\n        return ivec2(0, index);\n      }\n    ";
+	    }
+
+	    return "\n      ivec2 getOutputCoords() {\n        ivec2 resTexRC = ivec2(resultUV.yx *\n                               vec2(" + texShape[0] + ", " + texShape[1] + "));\n        int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n        return ivec2(0, index);\n      }\n    ";
+	  }
+
+	  if (enableShapeUniforms) {
+	    return "\n    ivec2 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(outTexShape[0], outTexShape[1]));\n      int index = resTexRC.x * outTexShape[1] + resTexRC.y;\n      int r = index / outShape[1];\n      int c = index - r * outShape[1];\n      return ivec2(r, c);\n    }\n  ";
+	  }
+
+	  return "\n    ivec2 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + texShape[0] + ", " + texShape[1] + "));\n      int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n      int r = index / " + shape[1] + ";\n      int c = index - r * " + shape[1] + ";\n      return ivec2(r, c);\n    }\n  ";
+	}
+
+	function getFlatOffsetUniformName(texName) {
+	  return "offset" + texName;
+	}
+
+	function getPackedSamplerScalar(inputInfo) {
+	  var texName = inputInfo.name;
+	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
+	  var glsl = getGlslDifferences();
+	  return "\n    vec4 " + funcName + "() {\n      return " + glsl.texture2D + "(" + texName + ", halfCR);\n    }\n  ";
+	}
+
+	function getSamplerScalar(inputInfo, enableShapeUniforms) {
+	  var texName = inputInfo.name;
+	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
+
+	  if (inputInfo.shapeInfo.isUniform) {
+	    return "float " + funcName + "() {return " + texName + ";}";
+	  }
+
+	  var _inputInfo$shapeInfo$ = inputInfo.shapeInfo.texShape,
+	      texNumR = _inputInfo$shapeInfo$[0],
+	      texNumC = _inputInfo$shapeInfo$[1];
+
+	  if (texNumR === 1 && texNumC === 1) {
+	    return "\n      float " + funcName + "() {\n        return sampleTexture(" + texName + ", halfCR);\n      }\n    ";
+	  }
+
+	  var offset = getFlatOffsetUniformName(texName);
+
+	  if (enableShapeUniforms) {
+	    return "\n    float " + funcName + "() {\n      vec2 uv = uvFromFlat(" + texName + "TexShape[0], " + texName + "TexShape[1], " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
+	  }
+
+	  var _inputInfo$shapeInfo$2 = inputInfo.shapeInfo.texShape,
+	      tNumR = _inputInfo$shapeInfo$2[0],
+	      tNumC = _inputInfo$shapeInfo$2[1];
+	  return "\n    float " + funcName + "() {\n      vec2 uv = uvFromFlat(" + tNumR + ", " + tNumC + ", " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
+	}
+
+	function getPackedSampler1D(inputInfo, enableShapeUniforms) {
+	  var texName = inputInfo.name;
+	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
+	  var texShape = inputInfo.shapeInfo.texShape;
+	  var glsl = getGlslDifferences();
+
+	  if (enableShapeUniforms) {
+	    return "\n    vec4 " + funcName + "(int index) {\n      ivec2 packedTexShape = ivec2(ceil(float(" + texName + "TexShape[0]) / 2.0), ceil(float(" + texName + "TexShape[1]) / 2.0));\n      vec2 uv = packedUVfrom1D(\n        packedTexShape[0], packedTexShape[1], index);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
+	  }
+
+	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
+	  return "\n    vec4 " + funcName + "(int index) {\n      vec2 uv = packedUVfrom1D(\n        " + packedTexShape[0] + ", " + packedTexShape[1] + ", index);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
+	}
+
+	function getSampler1D(inputInfo, enableShapeUniforms) {
+	  var texName = inputInfo.name;
+	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
+
+	  if (inputInfo.shapeInfo.isUniform) {
+	    // Uniform arrays will be less than 65505 (no risk of float16 overflow).
+	    return "\n      float " + funcName + "(int index) {\n        " + getUniformSampler(inputInfo) + "\n      }\n    ";
+	  }
+
+	  var texShape = inputInfo.shapeInfo.texShape;
+	  var tNumR = texShape[0];
+	  var tNumC = texShape[1];
+
+	  if (tNumC === 1 && tNumR === 1) {
+	    return "\n      float " + funcName + "(int index) {\n        return sampleTexture(" + texName + ", halfCR);\n      }\n    ";
+	  }
+
+	  var offset = getFlatOffsetUniformName(texName);
+
+	  if (tNumC === 1) {
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int index) {\n        vec2 uv = vec2(0.5, (float(index + " + offset + ") + 0.5) / float(" + texName + "TexShape[0]));\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
+	    return "\n      float " + funcName + "(int index) {\n        vec2 uv = vec2(0.5, (float(index + " + offset + ") + 0.5) / " + tNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	  }
+
+	  if (tNumR === 1) {
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int index) {\n        vec2 uv = vec2((float(index + " + offset + ") + 0.5) / float(" + texName + "TexShape[1]), 0.5);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
+	    return "\n      float " + funcName + "(int index) {\n        vec2 uv = vec2((float(index + " + offset + ") + 0.5) / " + tNumC + ".0, 0.5);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	  }
+
+	  if (enableShapeUniforms) {
+	    return "\n    float " + funcName + "(int index) {\n      vec2 uv = uvFromFlat(" + texName + "TexShape[0], " + texName + "TexShape[1], index + " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
+	  }
+
+	  return "\n    float " + funcName + "(int index) {\n      vec2 uv = uvFromFlat(" + tNumR + ", " + tNumC + ", index + " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
+	}
+
+	function getPackedSampler2D(inputInfo, enableShapeUniforms) {
+	  var shape = inputInfo.shapeInfo.logicalShape;
+	  var texName = inputInfo.name;
+	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
+	  var texShape = inputInfo.shapeInfo.texShape;
+	  var texNumR = texShape[0];
+	  var texNumC = texShape[1];
+	  var glsl = getGlslDifferences();
+
+	  if (texShape != null && arraysEqual(shape, texShape)) {
+	    if (enableShapeUniforms) {
+	      return "\n      vec4 " + funcName + "(int row, int col) {\n        vec2 uv = (vec2(col, row) + halfCR) / vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n\n        return " + glsl.texture2D + "(" + texName + ", uv);\n      }\n    ";
+	    }
+
+	    return "\n      vec4 " + funcName + "(int row, int col) {\n        vec2 uv = (vec2(col, row) + halfCR) / vec2(" + texNumC + ".0, " + texNumR + ".0);\n\n        return " + glsl.texture2D + "(" + texName + ", uv);\n      }\n    ";
+	  }
+
+	  if (enableShapeUniforms) {
+	    return "\n    vec4 " + funcName + "(int row, int col) {\n      ivec2 packedTexShape = ivec2(ceil(float(" + texName + "TexShape[0]) / 2.0), ceil(float(" + texName + "TexShape[1]) / 2.0));\n      int valuesPerRow = int(ceil(float(" + texName + "Shape[1]) / 2.0));\n      vec2 uv = packedUVfrom2D(valuesPerRow, packedTexShape[0], packedTexShape[1], row, col);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
+	  }
+
+	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
+	  var valuesPerRow = Math.ceil(shape[1] / 2);
+	  return "\n    vec4 " + funcName + "(int row, int col) {\n      vec2 uv = packedUVfrom2D(" + valuesPerRow + ", " + packedTexShape[0] + ", " + packedTexShape[1] + ", row, col);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
+	}
+
+	function getSampler2D(inputInfo, enableShapeUniforms) {
+	  var shape = inputInfo.shapeInfo.logicalShape;
+	  var texName = inputInfo.name;
+	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
+	  var texShape = inputInfo.shapeInfo.texShape;
+
+	  if (texShape != null && arraysEqual(shape, texShape)) {
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int row, int col) {\n        vec2 uv = (vec2(col, row) + halfCR) / vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
+	    var _texNumR = texShape[0];
+	    var _texNumC = texShape[1];
+	    return "\n    float " + funcName + "(int row, int col) {\n      vec2 uv = (vec2(col, row) + halfCR) / vec2(" + _texNumC + ".0, " + _texNumR + ".0);\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
+	  }
+
+	  var _util$squeezeShape = squeezeShape(shape),
+	      newShape = _util$squeezeShape.newShape,
+	      keptDims = _util$squeezeShape.keptDims;
+
+	  var squeezedShape = newShape;
+
+	  if (squeezedShape.length < shape.length) {
+	    var newInputInfo = squeezeInputInfo(inputInfo, squeezedShape);
+	    var params = ['row', 'col'];
+	    return "\n      " + getSamplerFromInInfo(newInputInfo, enableShapeUniforms) + "\n      float " + funcName + "(int row, int col) {\n        return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n      }\n    ";
+	  }
+
+	  if (inputInfo.shapeInfo.isUniform) {
+	    // Uniform arrays will be less than 65505 (no risk of float16 overflow).
+	    return "\n      float " + funcName + "(int row, int col) {\n        int index = round(dot(vec2(row, col), vec2(" + shape[1] + ", 1)));\n        " + getUniformSampler(inputInfo) + "\n      }\n    ";
+	  }
+
+	  var texNumR = texShape[0];
+	  var texNumC = texShape[1];
+	  var offset = getFlatOffsetUniformName(texName);
+
+	  if (texNumC === 1) {
+	    // index is used directly as physical (no risk of float16 overflow).
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int row, int col) {\n        float index = dot(vec3(row, col, " + offset + "), vec3(" + texName + "Shape[1], 1, 1));\n        vec2 uv = vec2(0.5, (index + 0.5) / float(" + texName + "TexShape[0]));\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
+	    return "\n    float " + funcName + "(int row, int col) {\n      float index = dot(vec3(row, col, " + offset + "), vec3(" + shape[1] + ", 1, 1));\n      vec2 uv = vec2(0.5, (index + 0.5) / " + texNumR + ".0);\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
+	  }
+
+	  if (texNumR === 1) {
+	    // index is used directly as physical (no risk of float16 overflow).
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int row, int col) {\n        float index = dot(vec3(row, col, " + offset + "), vec3(" + texName + "Shape[1], 1, 1));\n        vec2 uv = vec2((index + 0.5) / float(" + texName + "TexShape[1]), 0.5);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
+	    return "\n    float " + funcName + "(int row, int col) {\n      float index = dot(vec3(row, col, " + offset + "), vec3(" + shape[1] + ", 1, 1));\n      vec2 uv = vec2((index + 0.5) / " + texNumC + ".0, 0.5);\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
+	  }
+
+	  if (enableShapeUniforms) {
+	    return "\n      float " + funcName + "(int row, int col) {\n        // Explicitly use integer operations as dot() only works on floats.\n        int index = row * " + texName + "Shape[1] + col + " + offset + ";\n        vec2 uv = uvFromFlat(" + texName + "TexShape[0], " + texName + "TexShape[1], index);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	  }
+
+	  return "\n  float " + funcName + "(int row, int col) {\n    // Explicitly use integer operations as dot() only works on floats.\n    int index = row * " + shape[1] + " + col + " + offset + ";\n    vec2 uv = uvFromFlat(" + texNumR + ", " + texNumC + ", index);\n    return sampleTexture(" + texName + ", uv);\n  }\n";
+	}
+
+	function getPackedSampler3D(inputInfo, enableShapeUniforms) {
+	  var shape = inputInfo.shapeInfo.logicalShape;
+	  var texName = inputInfo.name;
+	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
+	  var texShape = inputInfo.shapeInfo.texShape;
+	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
+
+	  if (shape[0] === 1) {
+	    var squeezedShape = shape.slice(1);
+	    var keptDims = [1, 2];
+	    var newInputInfo = squeezeInputInfo(inputInfo, squeezedShape);
+	    var params = ['b', 'row', 'col'];
+	    return "\n        " + getPackedSamplerFromInInfo(newInputInfo, enableShapeUniforms) + "\n        vec4 " + funcName + "(int b, int row, int col) {\n          return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n        }\n      ";
+	  }
+
+	  var glsl = getGlslDifferences();
+
+	  if (enableShapeUniforms) {
+	    return "\n    vec4 " + funcName + "(int b, int row, int col) {\n      ivec2 packedTexShape = ivec2(ceil(float(" + texName + "TexShape[0]) / 2.0), ceil(float(" + texName + "TexShape[1]) / 2.0));\n      int valuesPerRow = int(ceil(float(" + texName + "Shape[2]) / 2.0));\n      int texelsInBatch = valuesPerRow * int(ceil(float(" + texName + "Shape[1]) / 2.0));\n      vec2 uv = packedUVfrom3D(\n        packedTexShape[0], packedTexShape[1], texelsInBatch, valuesPerRow, b, row, col);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
+	  }
+
+	  var texNumR = packedTexShape[0];
+	  var texNumC = packedTexShape[1];
+	  var valuesPerRow = Math.ceil(shape[2] / 2);
+	  var texelsInBatch = valuesPerRow * Math.ceil(shape[1] / 2);
+	  return "\n    vec4 " + funcName + "(int b, int row, int col) {\n      vec2 uv = packedUVfrom3D(\n        " + texNumR + ", " + texNumC + ", " + texelsInBatch + ", " + valuesPerRow + ", b, row, col);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
+	}
+
+	function getSampler3D(inputInfo, enableShapeUniforms) {
+	  var shape = inputInfo.shapeInfo.logicalShape;
+	  var texName = inputInfo.name;
+	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
+	  var stride0 = shape[1] * shape[2];
+	  var stride1 = shape[2];
+
+	  var _util$squeezeShape2 = squeezeShape(shape),
+	      newShape = _util$squeezeShape2.newShape,
+	      keptDims = _util$squeezeShape2.keptDims;
+
+	  var squeezedShape = newShape;
+
+	  if (squeezedShape.length < shape.length) {
+	    var newInputInfo = squeezeInputInfo(inputInfo, squeezedShape);
+	    var params = ['row', 'col', 'depth'];
+	    return "\n        " + getSamplerFromInInfo(newInputInfo, enableShapeUniforms) + "\n        float " + funcName + "(int row, int col, int depth) {\n          return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n        }\n      ";
+	  }
+
+	  if (inputInfo.shapeInfo.isUniform) {
+	    // Uniform arrays will be less than 65505 (no risk of float16 overflow).
+	    return "\n      float " + funcName + "(int row, int col, int depth) {\n        int index = round(dot(vec3(row, col, depth),\n                          vec3(" + stride0 + ", " + stride1 + ", 1)));\n        " + getUniformSampler(inputInfo) + "\n      }\n    ";
+	  }
+
+	  var texShape = inputInfo.shapeInfo.texShape;
+	  var texNumR = texShape[0];
+	  var texNumC = texShape[1];
+	  var flatOffset = inputInfo.shapeInfo.flatOffset;
+
+	  if (texNumC === stride0 && flatOffset == null) {
+	    // texC is used directly as physical (no risk of float16 overflow).
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int row, int col, int depth) {\n        int stride1 = " + texName + "Shape[2];\n        float texR = float(row);\n        float texC = dot(vec2(col, depth), vec2(stride1, 1));\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                   vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
+	    return "\n        float " + funcName + "(int row, int col, int depth) {\n          float texR = float(row);\n          float texC = dot(vec2(col, depth), vec2(" + stride1 + ", 1));\n          vec2 uv = (vec2(texC, texR) + halfCR) /\n                     vec2(" + texNumC + ".0, " + texNumR + ".0);\n          return sampleTexture(" + texName + ", uv);\n        }\n      ";
+	  }
+
+	  if (texNumC === stride1 && flatOffset == null) {
+	    // texR is used directly as physical (no risk of float16 overflow).
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int row, int col, int depth) {\n        float texR = dot(vec2(row, col), vec2(" + texName + "Shape[1], 1));\n        float texC = float(depth);\n        vec2 uv = (vec2(texC, texR) + halfCR) / vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
+	    return "\n    float " + funcName + "(int row, int col, int depth) {\n      float texR = dot(vec2(row, col), vec2(" + shape[1] + ", 1));\n      float texC = float(depth);\n      vec2 uv = (vec2(texC, texR) + halfCR) / vec2(" + texNumC + ".0, " + texNumR + ".0);\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
+	  }
+
+	  var offset = getFlatOffsetUniformName(texName);
+
+	  if (enableShapeUniforms) {
+	    return "\n    float " + funcName + "(int row, int col, int depth) {\n      // Explicitly use integer operations as dot() only works on floats.\n      int stride0 = " + texName + "Shape[1] * " + texName + "Shape[2];\n      int stride1 = " + texName + "Shape[2];\n      int index = row * " + stride0 + " + col * " + stride1 + " + depth + " + offset + ";\n      vec2 uv = uvFromFlat(" + texName + "TexShape[0], " + texName + "TexShape[1], index);\n      return sampleTexture(" + texName + ", uv);\n    }\n    ";
+	  }
+
+	  return "\n      float " + funcName + "(int row, int col, int depth) {\n        // Explicitly use integer operations as dot() only works on floats.\n        int index = row * " + stride0 + " + col * " + stride1 + " + depth + " + offset + ";\n        vec2 uv = uvFromFlat(" + texNumR + ", " + texNumC + ", index);\n        return sampleTexture(" + texName + ", uv);\n      }\n  ";
+	}
+
+	function getPackedSamplerND(inputInfo, enableShapeUniforms) {
+	  var texName = inputInfo.name;
+	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
+	  var glsl = getGlslDifferences();
+
+	  if (enableShapeUniforms) {
+	    // TODO: support 5d and 6d
+	    return "\n    vec4 " + funcName + "(int b2, int b, int row, int col) {\n      int valuesPerRow = int(ceil(float(" + texName + "Shape[3]) / 2.0));\n      int texelsInBatch = valuesPerRow * int(ceil(float(" + texName + "Shape[2]) / 2.0));\n      int index = b * texelsInBatch + (row / 2) * valuesPerRow + (col / 2);\n      texelsInBatch *= " + texName + "Shape[1];\n      index = b2 * texelsInBatch + index;\n      ivec2 packedTexShape = ivec2(ceil(float(" + texName + "TexShape[0]) / 2.0), ceil(float(" + texName + "TexShape[1]) / 2.0));\n      int texR = index / packedTexShape[1];\n      int texC = index - texR * packedTexShape[1];\n      vec2 uv = (vec2(texC, texR) + halfCR) / vec2(packedTexShape[1], packedTexShape[0]); return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
+	  }
+
+	  var shape = inputInfo.shapeInfo.logicalShape;
+	  var rank = shape.length;
+	  var texShape = inputInfo.shapeInfo.texShape;
+	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
+	  var texNumR = packedTexShape[0];
+	  var texNumC = packedTexShape[1];
+	  var valuesPerRow = Math.ceil(shape[rank - 1] / 2);
+	  var texelsInBatch = valuesPerRow * Math.ceil(shape[rank - 2] / 2);
+	  var params = "int b, int row, int col";
+	  var index = "b * " + texelsInBatch + " + (row / 2) * " + valuesPerRow + " + (col / 2)";
+
+	  for (var b = 2; b < rank - 1; b++) {
+	    params = "int b" + b + ", " + params;
+	    texelsInBatch *= shape[rank - b - 1];
+	    index = "b" + b + " * " + texelsInBatch + " + " + index;
+	  }
+
+	  return "\n    vec4 " + funcName + "(" + params + ") {\n      int index = " + index + ";\n      int texR = index / " + texNumC + ";\n      int texC = index - texR * " + texNumC + ";\n      vec2 uv = (vec2(texC, texR) + halfCR) / vec2(" + texNumC + ", " + texNumR + ");\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
+	}
+
+	function getSampler4D(inputInfo, enableShapeUniforms) {
+	  var shape = inputInfo.shapeInfo.logicalShape;
+	  var texName = inputInfo.name;
+	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
+	  var stride2 = shape[3];
+	  var stride1 = shape[2] * stride2;
+	  var stride0 = shape[1] * stride1;
+
+	  var _util$squeezeShape3 = squeezeShape(shape),
+	      newShape = _util$squeezeShape3.newShape,
+	      keptDims = _util$squeezeShape3.keptDims;
+
+	  if (newShape.length < shape.length) {
+	    var newInputInfo = squeezeInputInfo(inputInfo, newShape);
+	    var params = ['row', 'col', 'depth', 'depth2'];
+	    return "\n      " + getSamplerFromInInfo(newInputInfo, enableShapeUniforms) + "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n      }\n    ";
+	  }
+
+	  if (inputInfo.shapeInfo.isUniform) {
+	    // Uniform arrays will be less than 65505 (no risk of float16 overflow).
+	    return "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        int index = round(dot(vec4(row, col, depth, depth2),\n                          vec4(" + stride0 + ", " + stride1 + ", " + stride2 + ", 1)));\n        " + getUniformSampler(inputInfo) + "\n      }\n    ";
+	  }
+
+	  var flatOffset = inputInfo.shapeInfo.flatOffset;
+	  var texShape = inputInfo.shapeInfo.texShape;
+	  var texNumR = texShape[0];
+	  var texNumC = texShape[1];
+	  var stride2Str = "int stride2 = " + texName + "Shape[3];";
+	  var stride1Str = "int stride1 = " + texName + "Shape[2] * stride2;";
+	  var stride0Str = "int stride0 = " + texName + "Shape[1] * stride1;";
+
+	  if (texNumC === stride0 && flatOffset == null) {
+	    // texC is used directly as physical (no risk of float16 overflow).
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        " + stride2Str + "\n        " + stride1Str + "\n        float texR = float(row);\n        float texC =\n            dot(vec3(col, depth, depth2),\n                vec3(stride1, stride2, 1));\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                   vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
+	    return "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        float texR = float(row);\n        float texC =\n            dot(vec3(col, depth, depth2),\n                vec3(" + stride1 + ", " + stride2 + ", 1));\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                   vec2(" + texNumC + ".0, " + texNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	  }
+
+	  if (texNumC === stride2 && flatOffset == null) {
+	    // texR is used directly as physical (no risk of float16 overflow).
+	    if (enableShapeUniforms) {
+	      return "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        float texR = dot(vec3(row, col, depth),\n                         vec3(" + texName + "Shape[1] * " + texName + "Shape[2], " + texName + "Shape[2], 1));\n        float texC = float(depth2);\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                  vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	    }
+
+	    return "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        float texR = dot(vec3(row, col, depth),\n                         vec3(" + shape[1] * shape[2] + ", " + shape[2] + ", 1));\n        float texC = float(depth2);\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                  vec2(" + texNumC + ".0, " + texNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	  }
+
+	  var offset = getFlatOffsetUniformName(texName);
+
+	  if (enableShapeUniforms) {
+	    return "\n    float " + funcName + "(int row, int col, int depth, int depth2) {\n      // Explicitly use integer operations as dot() only works on floats.\n      " + stride2Str + "\n      " + stride1Str + "\n      " + stride0Str + "\n      int index = row * stride0 + col * stride1 +\n          depth * stride2 + depth2;\n      vec2 uv = uvFromFlat(" + texName + "TexShape[0], " + texName + "TexShape[1], index + " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
+	  }
+
+	  return "\n    float " + funcName + "(int row, int col, int depth, int depth2) {\n      // Explicitly use integer operations as dot() only works on floats.\n      int index = row * " + stride0 + " + col * " + stride1 + " +\n          depth * " + stride2 + " + depth2;\n      vec2 uv = uvFromFlat(" + texNumR + ", " + texNumC + ", index + " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
+	}
+
+	function getSampler5D(inputInfo) {
+	  var shape = inputInfo.shapeInfo.logicalShape;
+	  var texName = inputInfo.name;
+	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
+	  var stride3 = shape[4];
+	  var stride2 = shape[3] * stride3;
+	  var stride1 = shape[2] * stride2;
+	  var stride0 = shape[1] * stride1;
+
+	  var _util$squeezeShape4 = squeezeShape(shape),
+	      newShape = _util$squeezeShape4.newShape,
+	      keptDims = _util$squeezeShape4.keptDims;
+
+	  if (newShape.length < shape.length) {
+	    var newInputInfo = squeezeInputInfo(inputInfo, newShape);
+	    var params = ['row', 'col', 'depth', 'depth2', 'depth3'];
+	    return "\n      " + getSamplerFromInInfo(newInputInfo) + "\n      float " + funcName + "(int row, int col, int depth, int depth2, int depth3) {\n        return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n      }\n    ";
+	  }
+
+	  if (inputInfo.shapeInfo.isUniform) {
+	    // Uniform arrays will be less than 65505 (no risk of float16 overflow).
+	    return "\n      float " + funcName + "(int row, int col, int depth, int depth2, int depth3) {\n        float index = dot(\n          vec4(row, col, depth, depth2),\n          vec4(" + stride0 + ", " + stride1 + ", " + stride2 + ", " + stride3 + ")) +\n          depth3;\n        " + getUniformSampler(inputInfo) + "\n      }\n    ";
+	  }
+
+	  var flatOffset = inputInfo.shapeInfo.flatOffset;
+	  var texShape = inputInfo.shapeInfo.texShape;
+	  var texNumR = texShape[0];
+	  var texNumC = texShape[1];
+
+	  if (texNumC === stride0 && flatOffset == null) {
+	    // texC is used directly as physical (no risk of float16 overflow).
+	    return "\n      float " + funcName + "(int row, int col, int depth, int depth2, int depth3) {\n        int texR = row;\n        float texC = dot(vec4(col, depth, depth2, depth3),\n                         vec4(" + stride1 + ", " + stride2 + ", " + stride3 + ", 1));\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                   vec2(" + texNumC + ".0, " + texNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	  }
+
+	  if (texNumC === stride3 && flatOffset == null) {
+	    // texR is used directly as physical (no risk of float16 overflow).
+	    return "\n      float " + funcName + "(int row, int col, int depth, int depth2, int depth3) {\n        float texR = dot(\n          vec4(row, col, depth, depth2),\n          vec4(" + shape[1] * shape[2] * shape[3] + ",\n               " + shape[2] * shape[3] + ", " + shape[3] + ", 1));\n        int texC = depth3;\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                  vec2(" + texNumC + ".0, " + texNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	  }
+
+	  var offset = getFlatOffsetUniformName(texName);
+	  return "\n    float " + funcName + "(int row, int col, int depth, int depth2, int depth3) {\n      // Explicitly use integer operations as dot() only works on floats.\n      int index = row * " + stride0 + " + col * " + stride1 + " + depth * " + stride2 + " +\n          depth2 * " + stride3 + " + depth3 + " + offset + ";\n      vec2 uv = uvFromFlat(" + texNumR + ", " + texNumC + ", index);\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
+	}
+
+	function getSampler6D(inputInfo) {
+	  var shape = inputInfo.shapeInfo.logicalShape;
+	  var texName = inputInfo.name;
+	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
+
+	  var _util$squeezeShape5 = squeezeShape(shape),
+	      newShape = _util$squeezeShape5.newShape,
+	      keptDims = _util$squeezeShape5.keptDims;
+
+	  if (newShape.length < shape.length) {
+	    var newInputInfo = squeezeInputInfo(inputInfo, newShape);
+	    var params = ['row', 'col', 'depth', 'depth2', 'depth3', 'depth4'];
+	    return "\n      " + getSamplerFromInInfo(newInputInfo) + "\n      float " + funcName + "(int row, int col, int depth,\n                    int depth2, int depth3, int depth4) {\n        return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n      }\n    ";
+	  }
+
+	  var stride4 = shape[5];
+	  var stride3 = shape[4] * stride4;
+	  var stride2 = shape[3] * stride3;
+	  var stride1 = shape[2] * stride2;
+	  var stride0 = shape[1] * stride1;
+
+	  if (inputInfo.shapeInfo.isUniform) {
+	    // Uniform arrays will be less than 65505 (no risk of float16 overflow).
+	    return "\n      float " + funcName + "(int row, int col, int depth,\n                  int depth2, int depth3, int depth4) {\n        int index = round(dot(\n          vec4(row, col, depth, depth2),\n          vec4(" + stride0 + ", " + stride1 + ", " + stride2 + ", " + stride3 + ")) +\n          dot(\n            vec2(depth3, depth4),\n            vec2(" + stride4 + ", 1)));\n        " + getUniformSampler(inputInfo) + "\n      }\n    ";
+	  }
+
+	  var flatOffset = inputInfo.shapeInfo.flatOffset;
+	  var texShape = inputInfo.shapeInfo.texShape;
+	  var texNumR = texShape[0];
+	  var texNumC = texShape[1];
+
+	  if (texNumC === stride0 && flatOffset == null) {
+	    // texC is used directly as physical (no risk of float16 overflow).
+	    return "\n      float " + funcName + "(int row, int col, int depth,\n                    int depth2, int depth3, int depth4) {\n        int texR = row;\n        float texC = dot(vec4(col, depth, depth2, depth3),\n          vec4(" + stride1 + ", " + stride2 + ", " + stride3 + ", " + stride4 + ")) +\n               float(depth4);\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                   vec2(" + texNumC + ".0, " + texNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	  }
+
+	  if (texNumC === stride4 && flatOffset == null) {
+	    // texR is used directly as physical (no risk of float16 overflow).
+	    return "\n      float " + funcName + "(int row, int col, int depth,\n                    int depth2, int depth3, int depth4) {\n        float texR = dot(vec4(row, col, depth, depth2),\n          vec4(" + shape[1] * shape[2] * shape[3] * shape[4] + ",\n               " + shape[2] * shape[3] * shape[4] + ",\n               " + shape[3] * shape[4] + ",\n               " + shape[4] + ")) + float(depth3);\n        int texC = depth4;\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                  vec2(" + texNumC + ".0, " + texNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
+	  }
+
+	  var offset = getFlatOffsetUniformName(texName);
+	  return "\n    float " + funcName + "(int row, int col, int depth,\n                  int depth2, int depth3, int depth4) {\n      // Explicitly use integer operations as dot() only works on floats.\n      int index = row * " + stride0 + " + col * " + stride1 + " + depth * " + stride2 + " +\n          depth2 * " + stride3 + " + depth3 * " + stride4 + " + depth4 + " + offset + ";\n      vec2 uv = uvFromFlat(" + texNumR + ", " + texNumC + ", index);\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
+	}
+
+	function getUniformSampler(inputInfo) {
+	  var texName = inputInfo.name;
+	  var inSize = sizeFromShape(inputInfo.shapeInfo.logicalShape);
+
+	  if (inSize < 2) {
+	    return "return " + texName + ";";
+	  }
+
+	  return "\n    for (int i = 0; i < " + inSize + "; i++) {\n      if (i == index) {\n        return " + texName + "[i];\n      }\n    }\n  ";
+	}
+
+	function getPackedSamplerAtOutputCoords(inputInfo, outShapeInfo) {
+	  var texName = inputInfo.name;
+	  var texFuncSnippet = texName.charAt(0).toUpperCase() + texName.slice(1);
+	  var funcName = 'get' + texFuncSnippet + 'AtOutCoords';
+	  var inRank = inputInfo.shapeInfo.logicalShape.length;
+	  var outRank = outShapeInfo.logicalShape.length;
+	  var broadcastDims = getBroadcastDims$1(inputInfo.shapeInfo.logicalShape, outShapeInfo.logicalShape);
+	  var type = getCoordsDataType(outRank);
+	  var rankDiff = outRank - inRank;
+	  var coordsSnippet;
+	  var fields = ['x', 'y', 'z', 'w', 'u', 'v'];
+
+	  if (inRank === 0) {
+	    coordsSnippet = '';
+	  } else if (outRank < 2 && broadcastDims.length >= 1) {
+	    coordsSnippet = 'coords = 0;';
+	  } else {
+	    coordsSnippet = broadcastDims.map(function (d) {
+	      return "coords." + fields[d + rankDiff] + " = 0;";
+	    }).join('\n');
+	  }
+
+	  var unpackedCoordsSnippet = '';
+
+	  if (outRank < 2 && inRank > 0) {
+	    unpackedCoordsSnippet = 'coords';
+	  } else {
+	    unpackedCoordsSnippet = inputInfo.shapeInfo.logicalShape.map(function (s, i) {
+	      return "coords." + fields[i + rankDiff];
+	    }).join(', ');
+	  }
+
+	  var output = "return outputValue;";
+	  var inSize = sizeFromShape(inputInfo.shapeInfo.logicalShape);
+	  var isInputScalar = inSize === 1;
+	  var outSize = sizeFromShape(outShapeInfo.logicalShape);
+	  var isOutputScalar = outSize === 1;
+
+	  if (inRank === 1 && !isInputScalar && !isOutputScalar) {
+	    output = "\n      return vec4(outputValue.xy, outputValue.xy);\n    ";
+	  } else if (isInputScalar && !isOutputScalar) {
+	    if (outRank === 1) {
+	      output = "\n        return vec4(outputValue.x, outputValue.x, 0., 0.);\n      ";
+	    } else {
+	      output = "\n        return vec4(outputValue.x);\n      ";
+	    }
+	  } else if (broadcastDims.length) {
+	    var rows = inRank - 2;
+	    var cols = inRank - 1;
+
+	    if (broadcastDims.indexOf(rows) > -1 && broadcastDims.indexOf(cols) > -1) {
+	      output = "return vec4(outputValue.x);";
+	    } else if (broadcastDims.indexOf(rows) > -1) {
+	      output = "return vec4(outputValue.x, outputValue.y, " + "outputValue.x, outputValue.y);";
+	    } else if (broadcastDims.indexOf(cols) > -1) {
+	      output = "return vec4(outputValue.xx, outputValue.zz);";
+	    }
+	  }
+
+	  return "\n    vec4 " + funcName + "() {\n      " + type + " coords = getOutputCoords();\n      " + coordsSnippet + "\n      vec4 outputValue = get" + texFuncSnippet + "(" + unpackedCoordsSnippet + ");\n      " + output + "\n    }\n  ";
+	}
+
+	function getSamplerAtOutputCoords(inputInfo, outShapeInfo) {
+	  var texName = inputInfo.name;
+	  var texFuncSnippet = texName.charAt(0).toUpperCase() + texName.slice(1);
+	  var funcName = 'get' + texFuncSnippet + 'AtOutCoords';
+	  var outTexShape = outShapeInfo.texShape;
+	  var inTexShape = inputInfo.shapeInfo.texShape;
+	  var inRank = inputInfo.shapeInfo.logicalShape.length;
+	  var outRank = outShapeInfo.logicalShape.length;
+
+	  if (!inputInfo.shapeInfo.isUniform && inRank === outRank && inputInfo.shapeInfo.flatOffset == null && arraysEqual(inTexShape, outTexShape)) {
+	    return "\n      float " + funcName + "() {\n        return sampleTexture(" + texName + ", resultUV);\n      }\n    ";
+	  }
+
+	  var type = getCoordsDataType(outRank);
+	  var broadcastDims = getBroadcastDims$1(inputInfo.shapeInfo.logicalShape, outShapeInfo.logicalShape);
+	  var rankDiff = outRank - inRank;
+	  var coordsSnippet;
+	  var fields = ['x', 'y', 'z', 'w', 'u', 'v'];
+
+	  if (inRank === 0) {
+	    coordsSnippet = '';
+	  } else if (outRank < 2 && broadcastDims.length >= 1) {
+	    coordsSnippet = 'coords = 0;';
+	  } else {
+	    coordsSnippet = broadcastDims.map(function (d) {
+	      return "coords." + fields[d + rankDiff] + " = 0;";
+	    }).join('\n');
+	  }
+
+	  var unpackedCoordsSnippet = '';
+
+	  if (outRank < 2 && inRank > 0) {
+	    unpackedCoordsSnippet = 'coords';
+	  } else {
+	    unpackedCoordsSnippet = inputInfo.shapeInfo.logicalShape.map(function (s, i) {
+	      return "coords." + fields[i + rankDiff];
+	    }).join(', ');
+	  }
+
+	  return "\n    float " + funcName + "() {\n      " + type + " coords = getOutputCoords();\n      " + coordsSnippet + "\n      return get" + texFuncSnippet + "(" + unpackedCoordsSnippet + ");\n    }\n  ";
+	}
+
+	function getCoordsDataType(rank) {
+	  if (rank <= 1) {
+	    return 'int';
+	  } else if (rank === 2) {
+	    return 'ivec2';
+	  } else if (rank === 3) {
+	    return 'ivec3';
+	  } else if (rank === 4) {
+	    return 'ivec4';
+	  } else if (rank === 5) {
+	    return 'ivec5';
+	  } else if (rank === 6) {
+	    return 'ivec6';
+	  } else {
+	    throw Error("GPU for rank " + rank + " is not yet supported");
+	  }
+	}
+	function getUniformInfoFromShape(isPacked, shape, texShape) {
+	  var _util$squeezeShape6 = squeezeShape(shape),
+	      newShape = _util$squeezeShape6.newShape,
+	      keptDims = _util$squeezeShape6.keptDims;
+
+	  var rank = shape.length;
+	  var useSqueezePackedShape = isPacked && rank === 3 && shape[0] === 1;
+	  var squeezeShape$1 = useSqueezePackedShape ? shape.slice(1) : newShape;
+	  var useSqueezeShape = !isPacked && rank > 1 && !arraysEqual(shape, texShape) && newShape.length < rank || useSqueezePackedShape;
+	  var uniformShape = useSqueezeShape ? squeezeShape$1 : shape;
+	  return {
+	    useSqueezeShape: useSqueezeShape,
+	    uniformShape: uniformShape,
+	    keptDims: keptDims
+	  };
+	}
+	/** Returns a new input info (a copy) that has a squeezed logical shape. */
+
+	function squeezeInputInfo(inInfo, squeezedShape) {
+	  // Deep copy.
+	  var newInputInfo = JSON.parse(JSON.stringify(inInfo));
+	  newInputInfo.shapeInfo.logicalShape = squeezedShape;
+	  return newInputInfo;
+	}
+
+	function getSqueezedParams(params, keptDims) {
+	  return keptDims.map(function (d) {
+	    return params[d];
+	  }).join(', ');
+	}
+
+	/**
+	 * @license
+	 * Copyright 2017 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function compileProgram(gpgpu, program, inputs, output) {
+	  var inputInfos = inputs.map(function (input, i) {
+	    var shapeInfo = {
+	      logicalShape: input.shape,
+	      texShape: input.isUniform ? null : input.texData.texShape,
+	      isUniform: input.isUniform,
+	      isPacked: input.isUniform ? false : input.texData.isPacked,
+	      flatOffset: null
+	    };
+
+	    if (input.texData != null && input.texData.slice != null && input.texData.slice.flatOffset > 0) {
+	      shapeInfo.flatOffset = input.texData.slice.flatOffset;
+	    }
+
+	    return {
+	      name: program.variableNames[i],
+	      shapeInfo: shapeInfo
+	    };
+	  });
+	  var inShapeInfos = inputInfos.map(function (x) {
+	    return x.shapeInfo;
+	  });
+	  var outShapeInfo = {
+	    logicalShape: output.shape,
+	    texShape: output.texData.texShape,
+	    isUniform: false,
+	    isPacked: output.texData.isPacked,
+	    flatOffset: null
+	  };
+	  var source = makeShader(inputInfos, outShapeInfo, program);
+	  var webGLProgram = gpgpu.createProgram(source); // Add special uniforms (NAN, INFINITY)
+
+	  var infLoc = null;
+	  var nanLoc = gpgpu.getUniformLocation(webGLProgram, 'NAN', false);
+
+	  if (env().getNumber('WEBGL_VERSION') === 1) {
+	    infLoc = gpgpu.getUniformLocation(webGLProgram, 'INFINITY', false);
+	  } // Add user-defined uniforms
+
+
+	  var shouldThrow = false;
+	  var uniformLocations = {};
+	  var inShapesLocations = {};
+	  var inTexShapesLocations = {};
+
+	  for (var i = 0; i < program.variableNames.length; i++) {
+	    var varName = program.variableNames[i];
+	    uniformLocations[varName] = gpgpu.getUniformLocation(webGLProgram, varName, shouldThrow);
+	    uniformLocations["offset" + varName] = gpgpu.getUniformLocation(webGLProgram, "offset" + varName, shouldThrow);
+
+	    if (program.enableShapeUniforms) {
+	      inShapesLocations[varName + "Shape"] = gpgpu.getUniformLocation(webGLProgram, varName + "Shape", shouldThrow);
+	      inTexShapesLocations[varName + "TexShape"] = gpgpu.getUniformLocation(webGLProgram, varName + "TexShape", shouldThrow);
+	    }
+	  }
+
+	  var outShapeLocation;
+	  var outTexShapeLocation;
+	  var outShapeStridesLocation;
+
+	  if (program.enableShapeUniforms) {
+	    outShapeLocation = gpgpu.getUniformLocation(webGLProgram, 'outShape', shouldThrow);
+	    outShapeStridesLocation = gpgpu.getUniformLocation(webGLProgram, 'outShapeStrides', shouldThrow);
+	    outTexShapeLocation = gpgpu.getUniformLocation(webGLProgram, 'outTexShape', shouldThrow);
+	  }
+
+	  var customUniformLocations = [];
+
+	  if (program.customUniforms) {
+	    program.customUniforms.forEach(function (d, i) {
+	      customUniformLocations[i] = gpgpu.getUniformLocation(webGLProgram, d.name, shouldThrow);
+	    });
+	  }
+
+	  return {
+	    program: program,
+	    source: source,
+	    webGLProgram: webGLProgram,
+	    uniformLocations: uniformLocations,
+	    customUniformLocations: customUniformLocations,
+	    inShapeInfos: inShapeInfos,
+	    outShapeInfo: outShapeInfo,
+	    infLoc: infLoc,
+	    nanLoc: nanLoc,
+	    inShapesLocations: inShapesLocations,
+	    inTexShapesLocations: inTexShapesLocations,
+	    outShapeLocation: outShapeLocation,
+	    outShapeStridesLocation: outShapeStridesLocation,
+	    outTexShapeLocation: outTexShapeLocation
+	  };
+	}
+
+	function validateBinaryAndProgram(shapeInfos, inputs) {
+	  if (shapeInfos.length !== inputs.length) {
+	    throw Error("Binary was compiled with " + shapeInfos.length + " inputs, but " + ("was executed with " + inputs.length + " inputs"));
+	  }
+
+	  shapeInfos.forEach(function (s, i) {
+	    var shapeA = s.logicalShape;
+	    var input = inputs[i];
+	    var shapeB = input.shape;
+
+	    if (!arraysEqual(shapeA, shapeB)) {
+	      throw Error("Binary was compiled with different shapes than " + ("the current args. Shapes " + shapeA + " and " + shapeB + " must match"));
+	    } // The input is uploaded as uniform.
+
+
+	    if (s.isUniform && input.isUniform) {
+	      return;
+	    }
+
+	    var texShapeA = s.texShape;
+	    var texShapeB = input.isUniform ? null : input.texData.texShape;
+
+	    if (!arraysEqual(texShapeA, texShapeB)) {
+	      throw Error("Binary was compiled with different texture shapes than the" + (" current args. Shape " + texShapeA + " and " + texShapeB + " must match"));
+	    }
+	  });
+	}
+
+	function runProgram(gpgpu, binary, inputs, output, customUniformValues) {
+	  if (!binary.program.enableShapeUniforms) {
+	    validateBinaryAndProgram(binary.inShapeInfos, inputs);
+	    validateBinaryAndProgram([binary.outShapeInfo], [output]);
+	  }
+
+	  var outTex = output.texData.texture;
+	  var outTexShape = output.texData.texShape;
+
+	  if (output.texData.isPacked) {
+	    gpgpu.setOutputPackedMatrixTexture(outTex, outTexShape[0], outTexShape[1]);
+	  } else {
+	    gpgpu.setOutputMatrixTexture(outTex, outTexShape[0], outTexShape[1]);
+	  }
+
+	  gpgpu.setProgram(binary.webGLProgram); // Set special uniforms (NAN, INFINITY)
+
+	  if (env().getNumber('WEBGL_VERSION') === 1) {
+	    if (binary.infLoc !== null) {
+	      gpgpu.gl.uniform1f(binary.infLoc, Infinity);
+	    }
+	  }
+
+	  if (binary.nanLoc !== null) {
+	    gpgpu.gl.uniform1f(binary.nanLoc, NaN);
+	  } // Set user-defined inputs
+
+
+	  inputs.forEach(function (input, i) {
+	    var varName = binary.program.variableNames[i];
+	    var varLoc = binary.uniformLocations[varName];
+	    var varOffsetLoc = binary.uniformLocations["offset" + varName];
+	    var varShapeLoc = binary.inShapesLocations[varName + "Shape"];
+	    var varTexShapeLoc = binary.inTexShapesLocations[varName + "TexShape"];
+
+	    if (varShapeLoc) {
+	      var _shader_compiler$getU = getUniformInfoFromShape(binary.program.packedInputs, input.shape, input.texData.texShape),
+	          uniformShape = _shader_compiler$getU.uniformShape;
+
+	      switch (uniformShape.length) {
+	        case 1:
+	          gpgpu.gl.uniform1iv(varShapeLoc, new Int32Array(uniformShape));
+	          break;
+
+	        case 2:
+	          gpgpu.gl.uniform2iv(varShapeLoc, new Int32Array(uniformShape));
+	          break;
+
+	        case 3:
+	          gpgpu.gl.uniform3iv(varShapeLoc, new Int32Array(uniformShape));
+	          break;
+
+	        case 4:
+	          gpgpu.gl.uniform4iv(varShapeLoc, new Int32Array(uniformShape));
+	          break;
+
+	        default:
+	          break;
+	      }
+	    }
+
+	    if (varTexShapeLoc) {
+	      gpgpu.gl.uniform2i(varTexShapeLoc, input.texData.texShape[0], input.texData.texShape[1]);
+	    }
+
+	    if (varLoc == null) {
+	      // The compiler inferred that this variable is not used in this shader.
+	      return;
+	    }
+
+	    if (input.isUniform) {
+	      // Upload the values of the tensor as uniform.
+	      if (sizeFromShape(input.shape) < 2) {
+	        gpgpu.gl.uniform1f(varLoc, input.uniformValues[0]);
+	      } else {
+	        var vals = input.uniformValues;
+
+	        if (!(vals instanceof Float32Array)) {
+	          vals = new Float32Array(vals);
+	        }
+
+	        gpgpu.gl.uniform1fv(varLoc, vals);
+	      }
+
+	      return;
+	    } // If the input was sliced, upload the flat offset index.
+
+
+	    if (input.texData.slice != null && varOffsetLoc != null) {
+	      gpgpu.gl.uniform1i(varOffsetLoc, input.texData.slice.flatOffset);
+	    }
+
+	    gpgpu.setInputMatrixTexture(input.texData.texture, varLoc, i);
+	  });
+	  var outShapeLoc = binary.outShapeLocation;
+
+	  if (outShapeLoc) {
+	    switch (output.shape.length) {
+	      case 1:
+	        gpgpu.gl.uniform1iv(outShapeLoc, new Int32Array(output.shape));
+	        break;
+
+	      case 2:
+	        gpgpu.gl.uniform2iv(outShapeLoc, new Int32Array(output.shape));
+	        break;
+
+	      case 3:
+	        gpgpu.gl.uniform3iv(outShapeLoc, new Int32Array(output.shape));
+	        break;
+
+	      case 4:
+	        gpgpu.gl.uniform4iv(outShapeLoc, new Int32Array(output.shape));
+	        break;
+
+	      default:
+	        break;
+	    }
+	  }
+
+	  if (binary.outShapeStridesLocation) {
+	    var strides = computeStrides(output.shape);
+
+	    switch (output.shape.length) {
+	      case 2:
+	        gpgpu.gl.uniform1iv(binary.outShapeStridesLocation, new Int32Array(strides));
+	        break;
+
+	      case 3:
+	        gpgpu.gl.uniform2iv(binary.outShapeStridesLocation, new Int32Array(strides));
+	        break;
+
+	      case 4:
+	        gpgpu.gl.uniform3iv(binary.outShapeStridesLocation, new Int32Array(strides));
+	        break;
+
+	      default:
+	        break;
+	    }
+	  }
+
+	  if (binary.outTexShapeLocation) {
+	    gpgpu.gl.uniform2i(binary.outTexShapeLocation, output.texData.texShape[0], output.texData.texShape[1]);
+	  }
+
+	  if (binary.program.customUniforms && customUniformValues) {
+	    binary.program.customUniforms.forEach(function (d, i) {
+	      var customLoc = binary.customUniformLocations[i];
+	      var customValue = customUniformValues[i];
+
+	      if (d.type === 'float') {
+	        gpgpu.gl.uniform1fv(customLoc, customValue);
+	      } else if (d.type === 'vec2') {
+	        gpgpu.gl.uniform2fv(customLoc, customValue);
+	      } else if (d.type === 'vec3') {
+	        gpgpu.gl.uniform3fv(customLoc, customValue);
+	      } else if (d.type === 'vec4') {
+	        gpgpu.gl.uniform4fv(customLoc, customValue);
+	      } else if (d.type === 'int') {
+	        gpgpu.gl.uniform1iv(customLoc, customValue);
+	      } else if (d.type === 'ivec2') {
+	        gpgpu.gl.uniform2iv(customLoc, customValue);
+	      } else if (d.type === 'ivec3') {
+	        gpgpu.gl.uniform3iv(customLoc, customValue);
+	      } else if (d.type === 'ivec4') {
+	        gpgpu.gl.uniform4iv(customLoc, customValue);
+	      } else {
+	        throw Error("uniform type " + d.type + " is not supported yet.");
+	      }
+	    });
+	  }
+
+	  gpgpu.executeProgram();
+	}
+	function makeShaderKey(program, inputs, output) {
+	  var keyInputs = '';
+	  inputs.concat(output).forEach(function (x) {
+	    var hasOffset = x.texData != null && x.texData.slice != null && x.texData.slice.flatOffset > 0; // TODO: Remove the condition of !x.isUniform.
+
+	    if (program.enableShapeUniforms && !x.isUniform) {
+	      var xTexShape = x.texData.texShape;
+
+	      var _shader_compiler$getU2 = getUniformInfoFromShape(program.packedInputs, x.shape, xTexShape),
+	          useSqueezeShape = _shader_compiler$getU2.useSqueezeShape,
+	          uniformShape = _shader_compiler$getU2.uniformShape,
+	          keptDims = _shader_compiler$getU2.keptDims;
+
+	      var rank1 = '',
+	          rank2 = '',
+	          rank34 = '';
+
+	      if (uniformShape.length === 1 && program.packedInputs) {
+	        var packedTexShape = [Math.ceil(xTexShape[0] / 2), Math.ceil(xTexShape[1] / 2)];
+	        rank1 = (packedTexShape[0] > 1) + "_" + (packedTexShape[1] > 1);
+	      } else if (uniformShape.length === 2 && !program.packedInputs) {
+	        rank2 = (uniformShape[0] > 1) + "_" + (uniformShape[1] > 1);
+	      } else if (uniformShape.length > 2 && !program.packedInputs) {
+	        var strides = computeStrides(uniformShape);
+	        rank34 = (strides[0] === xTexShape[1]) + "_" + (strides[strides.length - 1] === xTexShape[1]);
+	      }
+
+	      var xRank = x.shape.length;
+	      var isLogicalShapTexShapeEqual = uniformShape.length === 2 && arraysEqual(x.shape, xTexShape);
+	      var isScalar = sizeFromShape(x.shape) === 1;
+	      var broadcastDims = getBroadcastDims(x.shape, output.shape);
+	      var isInOutTexShapeEqual = !program.packedInputs && xRank === output.shape.length && arraysEqual(xTexShape, output.texData.texShape);
+	      var isTexShapeGreaterThanOne = program.packedInputs || uniformShape.length > 2 ? '' : (xTexShape[0] > 1) + "_" + (xTexShape[1] > 1); // These key components are needed due to shader_compiler is embedding
+	      // them in the shader.
+	      // |xRank| is used to determine the coords length. See
+	      // get[Packed]SamplerAtOutputCoords.
+	      // |isInOutTexShapeEqual| is used to determine whether going to an
+	      // optimization path in getSamplerAtOutputCoords.
+	      // |useSqueezeShape| is extracted from squeezeInputInfo of
+	      // getSampler[2|3|4]D/getPackedSampler3D.
+	      // |isScalar| is extracted from isInputScalar/isOutputScalar in
+	      // getPackedSamplerAtOutputCoords.
+	      // |broadcastDims| is extracted from get[Packed]SamplerAtOutputCoords.
+	      // |isLogicalShapTexShapeEqual| is used in
+	      // getOutput[Packed]2DCoords/get[Packed]Sampler2D.
+	      // |rank1| is used in getOutputPacked1DCoords.
+	      // |rank2| is used in getOutput2DCoords.
+	      // |rank34| is used in getSampler3D/getSampler4D.
+	      // |isTexShapeGreaterThanOne| are used in
+	      // getSampler[Scalar|1D|2D]/getOutput1DCoords.
+
+	      keyInputs += xRank + "_" + isInOutTexShapeEqual + "_" + (useSqueezeShape ? keptDims : '') + "_" + uniformShape.length + "_" + isScalar + "_" + broadcastDims + "_" + isLogicalShapTexShapeEqual + "_" + rank1 + "_" + rank2 + "_" + rank34 + "_" + isTexShapeGreaterThanOne + "_" + hasOffset;
+	    } else {
+	      var texShape = x.isUniform ? 'uniform' : x.texData.texShape;
+	      keyInputs += x.shape + "_" + texShape + "_" + hasOffset;
+	    }
+	  });
+	  var keyUserCode = program.userCode;
+	  var key = program.constructor.name; // Fast string concat. See https://jsperf.com/string-concatenation/14.
+
+	  key += '_' + keyInputs + '_' + keyUserCode + ("" + env().getNumber('WEBGL_VERSION'));
+	  return key;
+	}
+	function useShapeUniforms(rank) {
+	  // TODO: Remove the limitaion of rank <= 4.
+	  return env().getBool('WEBGL_USE_SHAPES_UNIFORMS') && rank <= 4;
+	}
 
 	/**
 	 * @license
@@ -110232,10 +111871,14 @@
 	  this.packedInputs = false;
 	  this.packedOutput = true;
 	  this.outPackingScheme = PackingScheme.DENSE;
-	  var texShape = getDenseTexShape(outputShape);
+	  this.customUniforms = [{
+	    name: 'texShape',
+	    type: 'ivec2'
+	  }];
 	  var glsl = getGlslDifferences();
 	  this.outputShape = outputShape;
-	  this.userCode = "\n      ivec3 outCoordsFromFlatIndex(int index) {\n        " + getLogicalCoordinatesFromFlatIndex(['r', 'c', 'd'], outputShape) + "\n        return ivec3(r, c, d);\n      }\n\n      void main() {\n        ivec2 resTexRC = ivec2(resultUV.yx *\n          vec2(" + texShape[0] + ", " + texShape[1] + "));\n        int index = 4 * (resTexRC.x * " + texShape[1] + " + resTexRC.y);\n\n        vec4 result = vec4(0.);\n\n        for (int i=0; i<4; i++) {\n          int flatIndex = index + i;\n          ivec3 rc = outCoordsFromFlatIndex(flatIndex);\n          result[i] = getA(rc.x, rc.y, rc.z);\n        }\n\n        " + glsl.output + " = result;\n      }\n    ";
+	  this.enableShapeUniforms = useShapeUniforms(this.outputShape.length);
+	  this.userCode = "\n      ivec3 outCoordsFromFlatIndex(int index) {\n        " + (this.enableShapeUniforms ? getOutputLogicalCoordinatesFromFlatIndexByUniform(['r', 'c', 'd'], outputShape) : getLogicalCoordinatesFromFlatIndex(['r', 'c', 'd'], outputShape)) + "\n        return ivec3(r, c, d);\n      }\n\n      void main() {\n        ivec2 resTexRC = ivec2(resultUV.yx * vec2(texShape[0], texShape[1]));\n        int index = 4 * (resTexRC.x * texShape[1] + resTexRC.y);\n\n        vec4 result = vec4(0.);\n\n        for (int i=0; i<4; i++) {\n          int flatIndex = index + i;\n          ivec3 rc = outCoordsFromFlatIndex(flatIndex);\n          result[i] = getA(rc.x, rc.y, rc.z);\n        }\n\n        " + glsl.output + " = result;\n      }\n    ";
 	};
 
 	/**
@@ -110259,10 +111902,14 @@
 	  this.packedInputs = true;
 	  this.packedOutput = true;
 	  this.outPackingScheme = PackingScheme.DENSE;
-	  var texShape = getDenseTexShape(outputShape);
+	  this.customUniforms = [{
+	    name: 'texShape',
+	    type: 'ivec2'
+	  }];
 	  var glsl = getGlslDifferences();
 	  this.outputShape = outputShape;
-	  this.userCode = "\n      ivec3 outCoordsFromFlatIndex(int index) {\n        " + getLogicalCoordinatesFromFlatIndex(['r', 'c', 'd'], outputShape) + "\n        return ivec3(r, c, d);\n      }\n\n      void main() {\n        ivec2 resTexRC = ivec2(resultUV.yx *\n          vec2(" + texShape[0] + ", " + texShape[1] + "));\n        int index = 4 * (resTexRC.x * " + texShape[1] + " + resTexRC.y);\n\n        vec4 result = vec4(0.);\n\n        for (int i=0; i<4; i++) {\n          int flatIndex = index + i;\n          ivec3 rc = outCoordsFromFlatIndex(flatIndex);\n          result[i] = getChannel(getA(rc.x, rc.y, rc.z), vec2(rc.y, rc.z));\n        }\n\n        " + glsl.output + " = result;\n      }\n    ";
+	  this.enableShapeUniforms = useShapeUniforms(this.outputShape.length);
+	  this.userCode = "\n      ivec3 outCoordsFromFlatIndex(int index) {\n        " + (this.enableShapeUniforms ? getOutputLogicalCoordinatesFromFlatIndexByUniform(['r', 'c', 'd'], outputShape) : getLogicalCoordinatesFromFlatIndex(['r', 'c', 'd'], outputShape)) + "\n        return ivec3(r, c, d);\n      }\n\n      void main() {\n        ivec2 resTexRC = ivec2(resultUV.yx * vec2(texShape[0], texShape[1]));\n        int index = 4 * (resTexRC.x * texShape[1] + resTexRC.y);\n\n        vec4 result = vec4(0.);\n\n        for (int i=0; i<4; i++) {\n          int flatIndex = index + i;\n          ivec3 rc = outCoordsFromFlatIndex(flatIndex);\n          result[i] = getChannel(getA(rc.x, rc.y, rc.z), vec2(rc.y, rc.z));\n        }\n\n        " + glsl.output + " = result;\n      }\n    ";
 	};
 
 	/**
@@ -110331,23 +111978,26 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var EncodeMatrixProgram = function EncodeMatrixProgram(outputShape, texShape, inputIsUnsignedByte) {
+	var EncodeMatrixProgram = function EncodeMatrixProgram(outputShape, inputIsUnsignedByte) {
 	  if (inputIsUnsignedByte === void 0) {
 	    inputIsUnsignedByte = false;
 	  }
 
 	  this.variableNames = ['A'];
+	  this.customUniforms = [{
+	    name: 'texShape',
+	    type: 'ivec2'
+	  }];
 	  var glsl = getGlslDifferences();
-	  var height = texShape[0],
-	      width = texShape[1];
 	  this.outputShape = outputShape;
+	  this.enableShapeUniforms = useShapeUniforms(this.outputShape.length);
 	  var output = "result";
 
 	  if (inputIsUnsignedByte) {
 	    output = "floor(result * 255. + 0.5)";
 	  }
 
-	  this.userCode = "\n      " + getFlatIndexFrom3D(outputShape) + "\n\n      void main() {\n        ivec3 coords = getOutputCoords();\n\n        int flatIndex = getFlatIndex(coords);\n        int offset = imod(flatIndex, 4);\n\n        flatIndex = idiv(flatIndex, 4, 1.);\n\n        int r = flatIndex / " + width + ";\n        int c = imod(flatIndex, " + width + ");\n        vec2 uv = (vec2(c, r) + halfCR) / vec2(" + width + ".0, " + height + ".0);\n        vec4 values = " + glsl.texture2D + "(A, uv);\n\n        float result;\n\n        if(offset == 0) {\n          result = values[0];\n        } else if(offset == 1) {\n          result = values[1];\n        } else if(offset == 2) {\n          result = values[2];\n        } else {\n          result = values[3];\n        }\n\n        " + glsl.output + " = vec4(" + output + ", 0., 0., 0.);\n      }\n    ";
+	  this.userCode = "\n      " + (this.enableShapeUniforms ? getFlatIndexFrom3DOutput() : getFlatIndexFrom3D(outputShape)) + "\n\n      void main() {\n        ivec3 coords = getOutputCoords();\n\n        int flatIndex = getFlatIndex(coords);\n        int offset = imod(flatIndex, 4);\n\n        flatIndex = idiv(flatIndex, 4, 1.);\n\n        int r = flatIndex / texShape[1];\n        int c = imod(flatIndex, texShape[1]);\n        vec2 uv = (vec2(c, r) + halfCR) / vec2(texShape[1], texShape[0]);\n        vec4 values = " + glsl.texture2D + "(A, uv);\n\n        float result;\n\n        if(offset == 0) {\n          result = values[0];\n        } else if(offset == 1) {\n          result = values[1];\n        } else if(offset == 2) {\n          result = values[2];\n        } else {\n          result = values[3];\n        }\n\n        " + glsl.output + " = vec4(" + output + ", 0., 0., 0.);\n      }\n    ";
 	};
 
 	/**
@@ -110382,7 +112032,7 @@
 	and columns.
 	 */
 
-	var EncodeMatrixPackedProgram = function EncodeMatrixPackedProgram(outputShape, texShape, inputIsUnsignedByte) {
+	var EncodeMatrixPackedProgram = function EncodeMatrixPackedProgram(outputShape, inputIsUnsignedByte) {
 	  if (inputIsUnsignedByte === void 0) {
 	    inputIsUnsignedByte = false;
 	  }
@@ -110390,10 +112040,13 @@
 	  this.variableNames = ['A'];
 	  this.packedInputs = false;
 	  this.packedOutput = true;
+	  this.customUniforms = [{
+	    name: 'texShape',
+	    type: 'ivec2'
+	  }];
 	  var glsl = getGlslDifferences();
-	  var height = texShape[0],
-	      width = texShape[1];
 	  this.outputShape = outputShape;
+	  this.enableShapeUniforms = useShapeUniforms(this.outputShape.length);
 	  var mainLoop = '';
 	  var output = 'result';
 
@@ -110404,11 +112057,11 @@
 	  for (var row = 0; row <= 1; row++) {
 	    for (var col = 0; col <= 1; col++) {
 	      var channel = row * 2 + col;
-	      mainLoop += "\n          localCoords = coords;\n          if(localCoords[2] + " + col + " < " + outputShape[2] + ") {\n            localCoords[2] += " + col + ";\n            if(localCoords[1] + " + row + " < " + outputShape[1] + ") {\n              localCoords[1] += " + row + ";\n\n              flatIndex = getFlatIndex(localCoords);\n              offset = imod(flatIndex, 4);\n\n              flatIndex = idiv(flatIndex, 4, 1.);\n\n              r = flatIndex / " + width + ";\n              c = imod(flatIndex, " + width + ");\n              uv = (vec2(c, r) + halfCR) / vec2(" + width + ".0, " + height + ".0);\n              values = " + glsl.texture2D + "(A, uv);\n\n              if(offset == 0) {\n                result[" + channel + "] = values[0];\n              } else if(offset == 1) {\n                result[" + channel + "] = values[1];\n              } else if(offset == 2) {\n                result[" + channel + "] = values[2];\n              } else {\n                result[" + channel + "] = values[3];\n              }\n            }\n          }\n        ";
+	      mainLoop += "\n          localCoords = coords;\n          if(localCoords[2] + " + col + " < " + (this.enableShapeUniforms ? 'outShape[2]' : "" + outputShape[2]) + ") {\n          localCoords[2] += " + col + ";\n          if (localCoords[1] + " + row + " < " + (this.enableShapeUniforms ? 'outShape[1]' : "" + outputShape[1]) + ") {\n            localCoords[1] += " + row + ";\n\n            flatIndex = getFlatIndex(localCoords);\n            offset = imod(flatIndex, 4);\n\n            flatIndex = idiv(flatIndex, 4, 1.);\n\n            int r = flatIndex / texShape[1];\n            int c = imod(flatIndex, texShape[1]);\n            vec2 uv = (vec2(c, r) + halfCR) / vec2(texShape[1], texShape[0]);\n            values = " + glsl.texture2D + "(A, uv);\n\n            if (offset == 0) {\n              result[" + channel + "] = values[0];\n            } else if (offset == 1) {\n              result[" + channel + "] = values[1];\n            } else if (offset == 2) {\n              result[" + channel + "] = values[2];\n            } else {\n              result[" + channel + "] = values[3];\n            }\n          }\n        }\n        ";
 	    }
 	  }
 
-	  this.userCode = "\n      " + getFlatIndexFrom3D(outputShape) + "\n\n      void main() {\n        ivec3 coords = getOutputCoords();\n\n        vec4 result = vec4(0.);\n        int flatIndex, r, c, offset;\n        ivec3 localCoords;\n        vec2 uv;\n        vec4 values;\n\n        " + mainLoop + "\n\n        " + glsl.output + " = " + output + ";\n      }\n    ";
+	  this.userCode = "\n        " + (this.enableShapeUniforms ? getFlatIndexFrom3DOutput() : getFlatIndexFrom3D(outputShape)) + "\n\n        void main() {\n          ivec3 coords = getOutputCoords();\n\n          vec4 result = vec4(0.);\n          int flatIndex, r, c, offset;\n          ivec3 localCoords;\n          vec2 uv;\n          vec4 values;\n\n          " + mainLoop + "\n\n          " + glsl.output + " = " + output + ";\n        }\n    ";
 	};
 
 	/**
@@ -111286,1437 +112939,6 @@
 
 	/**
 	 * @license
-	 * Copyright 2017 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	var getBroadcastDims$1 = getBroadcastDims;
-	function makeShader(inputsInfo, outputShape, program) {
-	  var prefixSnippets = [];
-	  inputsInfo.forEach(function (x) {
-	    var size = sizeFromShape(x.shapeInfo.logicalShape); // Snippet when we decided to upload the values as uniform.
-
-	    if (x.shapeInfo.isUniform) {
-	      prefixSnippets.push("uniform float " + x.name + (size > 1 ? "[" + size + "]" : '') + ";");
-	    } else {
-	      prefixSnippets.push("uniform sampler2D " + x.name + ";");
-	      prefixSnippets.push("uniform int offset" + x.name + ";");
-	    }
-
-	    if (program.enableShapeUniforms) {
-	      var _getUniformInfoFromSh = getUniformInfoFromShape(program.packedInputs, x.shapeInfo.logicalShape, x.shapeInfo.texShape),
-	          uniformShape = _getUniformInfoFromSh.uniformShape;
-
-	      switch (uniformShape.length) {
-	        case 1:
-	          prefixSnippets.push("uniform int " + x.name + "Shape;");
-	          break;
-
-	        case 2:
-	          prefixSnippets.push("uniform ivec2 " + x.name + "Shape;");
-	          break;
-
-	        case 3:
-	          prefixSnippets.push("uniform ivec3 " + x.name + "Shape;");
-	          break;
-
-	        case 4:
-	          prefixSnippets.push("uniform ivec4 " + x.name + "Shape;");
-	          break;
-
-	        default:
-	          break;
-	      }
-
-	      prefixSnippets.push("uniform ivec2 " + x.name + "TexShape;");
-	    }
-	  });
-
-	  if (program.enableShapeUniforms) {
-	    switch (outputShape.logicalShape.length) {
-	      case 1:
-	        prefixSnippets.push("uniform int outShape;");
-	        break;
-
-	      case 2:
-	        prefixSnippets.push("uniform ivec2 outShape;");
-	        prefixSnippets.push("uniform int outShapeStrides;");
-	        break;
-
-	      case 3:
-	        prefixSnippets.push("uniform ivec3 outShape;");
-	        prefixSnippets.push("uniform ivec2 outShapeStrides;");
-	        break;
-
-	      case 4:
-	        prefixSnippets.push("uniform ivec4 outShape;");
-	        prefixSnippets.push("uniform ivec3 outShapeStrides;");
-	        break;
-
-	      default:
-	        break;
-	    }
-
-	    prefixSnippets.push("uniform ivec2 outTexShape;");
-	  }
-
-	  if (program.customUniforms) {
-	    program.customUniforms.forEach(function (d) {
-	      prefixSnippets.push("uniform " + d.type + " " + d.name + (d.arrayIndex ? "[" + d.arrayIndex + "]" : '') + ";");
-	    });
-	  }
-
-	  var inputPrefixSnippet = prefixSnippets.join('\n');
-	  var inputSamplingSnippet = inputsInfo.map(function (x) {
-	    return getInputSamplingSnippet(x, outputShape, program.packedInputs, program.enableShapeUniforms);
-	  }).join('\n');
-	  var outTexShape = outputShape.texShape;
-	  var glsl = getGlslDifferences();
-	  var floatTextureSampleSnippet = getFloatTextureSampleSnippet(glsl);
-	  var outputSamplingSnippet;
-	  var floatTextureSetOutputSnippet;
-	  var shaderPrefix = getShaderPrefix(glsl);
-
-	  if (outputShape.isPacked) {
-	    outputSamplingSnippet = getPackedOutputSamplingSnippet(outputShape.logicalShape, outTexShape, program.enableShapeUniforms);
-	    floatTextureSetOutputSnippet = getFloatTextureSetRGBASnippet(glsl);
-	  } else {
-	    outputSamplingSnippet = getOutputSamplingSnippet(outputShape.logicalShape, outTexShape, program.enableShapeUniforms);
-	    floatTextureSetOutputSnippet = getFloatTextureSetRSnippet(glsl);
-	  }
-
-	  if (program.packedInputs) {
-	    shaderPrefix += SHADER_PACKED_PREFIX;
-	  }
-
-	  var source = [shaderPrefix, floatTextureSampleSnippet, floatTextureSetOutputSnippet, inputPrefixSnippet, outputSamplingSnippet, inputSamplingSnippet, program.userCode].join('\n');
-	  return source;
-	}
-
-	function getSamplerFromInInfo(inInfo, enableShapeUniforms) {
-	  if (enableShapeUniforms === void 0) {
-	    enableShapeUniforms = false;
-	  }
-
-	  var shape = inInfo.shapeInfo.logicalShape;
-
-	  switch (shape.length) {
-	    case 0:
-	      return getSamplerScalar(inInfo, enableShapeUniforms);
-
-	    case 1:
-	      return getSampler1D(inInfo, enableShapeUniforms);
-
-	    case 2:
-	      return getSampler2D(inInfo, enableShapeUniforms);
-
-	    case 3:
-	      return getSampler3D(inInfo, enableShapeUniforms);
-
-	    case 4:
-	      return getSampler4D(inInfo, enableShapeUniforms);
-
-	    case 5:
-	      return getSampler5D(inInfo);
-
-	    case 6:
-	      return getSampler6D(inInfo);
-
-	    default:
-	      throw new Error(shape.length + "-D input sampling" + " is not yet supported");
-	  }
-	}
-
-	function getPackedSamplerFromInInfo(inInfo, enableShapeUniforms) {
-	  var shape = inInfo.shapeInfo.logicalShape;
-
-	  switch (shape.length) {
-	    case 0:
-	      return getPackedSamplerScalar(inInfo);
-
-	    case 1:
-	      return getPackedSampler1D(inInfo, enableShapeUniforms);
-
-	    case 2:
-	      return getPackedSampler2D(inInfo, enableShapeUniforms);
-
-	    case 3:
-	      return getPackedSampler3D(inInfo, enableShapeUniforms);
-
-	    default:
-	      return getPackedSamplerND(inInfo, enableShapeUniforms);
-	  }
-	}
-
-	function getInputSamplingSnippet(inInfo, outShapeInfo, usesPackedTextures, enableShapeUniforms) {
-	  if (usesPackedTextures === void 0) {
-	    usesPackedTextures = false;
-	  }
-
-	  var res = '';
-
-	  if (usesPackedTextures) {
-	    res += getPackedSamplerFromInInfo(inInfo, enableShapeUniforms);
-	  } else {
-	    res += getSamplerFromInInfo(inInfo, enableShapeUniforms);
-	  }
-
-	  var inShape = inInfo.shapeInfo.logicalShape;
-	  var outShape = outShapeInfo.logicalShape;
-
-	  if (inShape.length <= outShape.length) {
-	    if (usesPackedTextures) {
-	      res += getPackedSamplerAtOutputCoords(inInfo, outShapeInfo);
-	    } else {
-	      res += getSamplerAtOutputCoords(inInfo, outShapeInfo);
-	    }
-	  }
-
-	  return res;
-	}
-
-	function getPackedOutputSamplingSnippet(outShape, outTexShape, enableShapeUniforms) {
-	  switch (outShape.length) {
-	    case 0:
-	      return getOutputScalarCoords();
-
-	    case 1:
-	      return getOutputPacked1DCoords(outShape, outTexShape, enableShapeUniforms);
-
-	    case 2:
-	      return getOutputPacked2DCoords(outShape, outTexShape, enableShapeUniforms);
-
-	    case 3:
-	      return getOutputPacked3DCoords(outShape, outTexShape, enableShapeUniforms);
-
-	    default:
-	      return getOutputPackedNDCoords(outShape, outTexShape, enableShapeUniforms);
-	  }
-	}
-
-	function getOutputSamplingSnippet(outShape, outTexShape, enableShapeUniforms) {
-	  switch (outShape.length) {
-	    case 0:
-	      return getOutputScalarCoords();
-
-	    case 1:
-	      return getOutput1DCoords(outShape, outTexShape, enableShapeUniforms);
-
-	    case 2:
-	      return getOutput2DCoords(outShape, outTexShape, enableShapeUniforms);
-
-	    case 3:
-	      return getOutput3DCoords(outShape, outTexShape, enableShapeUniforms);
-
-	    case 4:
-	      return getOutput4DCoords(outShape, outTexShape, enableShapeUniforms);
-
-	    case 5:
-	      return getOutput5DCoords(outShape, outTexShape);
-
-	    case 6:
-	      return getOutput6DCoords(outShape, outTexShape);
-
-	    default:
-	      throw new Error(outShape.length + "-D output sampling is not yet supported");
-	  }
-	}
-
-	function getFloatTextureSampleSnippet(glsl) {
-	  return "\n    float sampleTexture(sampler2D textureSampler, vec2 uv) {\n      return " + glsl.texture2D + "(textureSampler, uv).r;\n    }\n  ";
-	}
-
-	function getFloatTextureSetRSnippet(glsl) {
-	  return "\n    void setOutput(float val) {\n      " + glsl.output + " = vec4(val, 0, 0, 0);\n    }\n  ";
-	}
-
-	function getFloatTextureSetRGBASnippet(glsl) {
-	  return "\n    void setOutput(vec4 val) {\n      " + glsl.output + " = val;\n    }\n  ";
-	}
-
-	function getShaderPrefix(glsl) {
-	  var SHADER_PREFIX = glsl.version + "\n    precision highp float;\n    precision highp int;\n    precision highp sampler2D;\n    " + glsl.varyingFs + " vec2 resultUV;\n    " + glsl.defineOutput + "\n    const vec2 halfCR = vec2(0.5, 0.5);\n\n    struct ivec5\n    {\n      int x;\n      int y;\n      int z;\n      int w;\n      int u;\n    };\n\n    struct ivec6\n    {\n      int x;\n      int y;\n      int z;\n      int w;\n      int u;\n      int v;\n    };\n\n    uniform float NAN;\n    " + glsl.defineSpecialNaN + "\n    " + glsl.defineSpecialInf + "\n    " + glsl.defineRound + "\n\n    int imod(int x, int y) {\n      return x - y * (x / y);\n    }\n\n    int idiv(int a, int b, float sign) {\n      int res = a / b;\n      int mod = imod(a, b);\n      if (sign < 0. && mod != 0) {\n        res -= 1;\n      }\n      return res;\n    }\n\n    //Based on the work of Dave Hoskins\n    //https://www.shadertoy.com/view/4djSRW\n    #define HASHSCALE1 443.8975\n    float random(float seed){\n      vec2 p = resultUV * seed;\n      vec3 p3  = fract(vec3(p.xyx) * HASHSCALE1);\n      p3 += dot(p3, p3.yzx + 19.19);\n      return fract((p3.x + p3.y) * p3.z);\n    }\n\n    " + SAMPLE_1D_SNIPPET + "\n    " + SAMPLE_2D_SNIPPET + "\n    " + SAMPLE_3D_SNIPPET + "\n  ";
-	  return SHADER_PREFIX;
-	}
-
-	var SAMPLE_1D_SNIPPET = "\nvec2 uvFromFlat(int texNumR, int texNumC, int index) {\n  int texR = index / texNumC;\n  int texC = index - texR * texNumC;\n  return (vec2(texC, texR) + halfCR) / vec2(texNumC, texNumR);\n}\nvec2 packedUVfrom1D(int texNumR, int texNumC, int index) {\n  int texelIndex = index / 2;\n  int texR = texelIndex / texNumC;\n  int texC = texelIndex - texR * texNumC;\n  return (vec2(texC, texR) + halfCR) / vec2(texNumC, texNumR);\n}\n";
-	var SAMPLE_2D_SNIPPET = "\nvec2 packedUVfrom2D(int texelsInLogicalRow, int texNumR,\n  int texNumC, int row, int col) {\n  int texelIndex = (row / 2) * texelsInLogicalRow + (col / 2);\n  int texR = texelIndex / texNumC;\n  int texC = texelIndex - texR * texNumC;\n  return (vec2(texC, texR) + halfCR) / vec2(texNumC, texNumR);\n}\n";
-	var SAMPLE_3D_SNIPPET = "\nvec2 packedUVfrom3D(int texNumR, int texNumC,\n    int texelsInBatch, int texelsInLogicalRow, int b,\n    int row, int col) {\n  int index = b * texelsInBatch + (row / 2) * texelsInLogicalRow + (col / 2);\n  int texR = index / texNumC;\n  int texC = index - texR * texNumC;\n  return (vec2(texC, texR) + halfCR) / vec2(texNumC, texNumR);\n}\n";
-	var SHADER_PACKED_PREFIX = "\n  float getChannel(vec4 frag, vec2 innerDims) {\n    vec2 modCoord = mod(innerDims, 2.);\n    return modCoord.x == 0. ?\n      (modCoord.y == 0. ? frag.r : frag.g) :\n      (modCoord.y == 0. ? frag.b : frag.a);\n  }\n  float getChannel(vec4 frag, int dim) {\n    float modCoord = mod(float(dim), 2.);\n    return modCoord == 0. ? frag.r : frag.g;\n  }\n";
-
-	function getOutputScalarCoords() {
-	  return "\n    int getOutputCoords() {\n      return 0;\n    }\n  ";
-	}
-
-	function getOutputPacked1DCoords(shape, texShape, enableShapeUniforms) {
-	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
-
-	  if (packedTexShape[0] === 1) {
-	    if (enableShapeUniforms) {
-	      return "\n      int getOutputCoords() {\n        return 2 * int(resultUV.x * ceil(float(outTexShape[1]) / 2.0));\n      }\n    ";
-	    }
-
-	    return "\n      int getOutputCoords() {\n        return 2 * int(resultUV.x * " + packedTexShape[1] + ".0);\n      }\n    ";
-	  }
-
-	  if (packedTexShape[1] === 1) {
-	    if (enableShapeUniforms) {
-	      return "\n      int getOutputCoords() {\n        return 2 * int(resultUV.y * ceil(float(outTexShape[0]) / 2.0));\n      }\n    ";
-	    }
-
-	    return "\n      int getOutputCoords() {\n        return 2 * int(resultUV.y * " + packedTexShape[0] + ".0);\n      }\n    ";
-	  }
-
-	  if (enableShapeUniforms) {
-	    return "\n    int getOutputCoords() {\n      ivec2 packedTexShape = ivec2(ceil(float(outTexShape[0]) / 2.0), ceil(float(outTexShape[1]) / 2.0));\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(packedTexShape[0], packedTexShape[1]));\n      return 2 * (resTexRC.x * packedTexShape[1] + resTexRC.y);\n    }\n  ";
-	  }
-
-	  return "\n    int getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + packedTexShape[0] + ", " + packedTexShape[1] + "));\n      return 2 * (resTexRC.x * " + packedTexShape[1] + " + resTexRC.y);\n    }\n  ";
-	}
-
-	function getOutput1DCoords(shape, texShape, enableShapeUniforms) {
-	  if (texShape[0] === 1) {
-	    if (enableShapeUniforms) {
-	      return "\n      int getOutputCoords() {\n        return int(resultUV.x * float(outTexShape[1]));\n      }\n    ";
-	    }
-
-	    return "\n      int getOutputCoords() {\n        return int(resultUV.x * " + texShape[1] + ".0);\n      }\n    ";
-	  }
-
-	  if (texShape[1] === 1) {
-	    if (enableShapeUniforms) {
-	      return "\n      int getOutputCoords() {\n        return int(resultUV.y * float(outTexShape[0]));\n      }\n    ";
-	    }
-
-	    return "\n      int getOutputCoords() {\n        return int(resultUV.y * " + texShape[0] + ".0);\n      }\n    ";
-	  }
-
-	  if (enableShapeUniforms) {
-	    return "\n    int getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(outTexShape[0], outTexShape[1]));\n      return resTexRC.x * outTexShape[1] + resTexRC.y;\n    }\n  ";
-	  }
-
-	  return "\n    int getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + texShape[0] + ", " + texShape[1] + "));\n      return resTexRC.x * " + texShape[1] + " + resTexRC.y;\n    }\n  ";
-	}
-
-	function getOutputPacked3DCoords(shape, texShape, enableShapeUniforms) {
-	  if (enableShapeUniforms) {
-	    return "\n    ivec3 getOutputCoords() {\n      ivec2 packedTexShape = ivec2(ceil(float(outTexShape[0]) / 2.0), ceil(float(outTexShape[1]) / 2.0));\n      int texelsInLogicalRow = int(ceil(float(outShape[2]) / 2.0));\n      int texelsInBatch = texelsInLogicalRow * int(ceil(float(outShape[1]) / 2.0));\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(packedTexShape[0], packedTexShape[1]));\n      int index = resTexRC.x * packedTexShape[1] + resTexRC.y;\n\n      int b = index / texelsInBatch;\n      index -= b * texelsInBatch;\n\n      int r = 2 * (index / texelsInLogicalRow);\n      int c = imod(index, texelsInLogicalRow) * 2;\n\n      return ivec3(b, r, c);\n    }\n  ";
-	  }
-
-	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
-	  var texelsInLogicalRow = Math.ceil(shape[2] / 2);
-	  var texelsInBatch = texelsInLogicalRow * Math.ceil(shape[1] / 2);
-	  return "\n    ivec3 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + packedTexShape[0] + ", " + packedTexShape[1] + "));\n      int index = resTexRC.x * " + packedTexShape[1] + " + resTexRC.y;\n\n      int b = index / " + texelsInBatch + ";\n      index -= b * " + texelsInBatch + ";\n\n      int r = 2 * (index / " + texelsInLogicalRow + ");\n      int c = imod(index, " + texelsInLogicalRow + ") * 2;\n\n      return ivec3(b, r, c);\n    }\n  ";
-	}
-
-	function getOutput3DCoords(shape, texShape, enableShapeUniforms) {
-	  if (enableShapeUniforms) {
-	    var _coordsFromIndexSnippet = getLogicalCoordinatesFromFlatIndexByUniform(['r', 'c', 'd'], shape);
-
-	    return "\n  ivec3 getOutputCoords() {\n    ivec2 resTexRC = ivec2(resultUV.yx *\n                           vec2(outTexShape[0], outTexShape[1]));\n    int index = resTexRC.x * outTexShape[1] + resTexRC.y;\n    " + _coordsFromIndexSnippet + "\n    return ivec3(r, c, d);\n  }\n";
-	  }
-
-	  var coordsFromIndexSnippet = getLogicalCoordinatesFromFlatIndex(['r', 'c', 'd'], shape);
-	  return "\n    ivec3 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + texShape[0] + ", " + texShape[1] + "));\n      int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n      " + coordsFromIndexSnippet + "\n      return ivec3(r, c, d);\n    }\n  ";
-	}
-
-	function getOutputPackedNDCoords(shape, texShape, enableShapeUniforms) {
-	  if (enableShapeUniforms) {
-	    // TODO: support 5d and 6d
-	    return "\n    ivec4 getOutputCoords() {\n      ivec2 packedTexShape = ivec2(ceil(float(outTexShape[0]) / 2.0), ceil(float(outTexShape[1]) / 2.0));\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(packedTexShape[0], packedTexShape[1]));\n      int index = resTexRC.x * packedTexShape[1] + resTexRC.y;\n\n      int texelsInLogicalRow = int(ceil(float(outShape[3]) / 2.0));\n      int texelsInBatch = texelsInLogicalRow * int(ceil(float(outShape[2]) / 2.0));\n      int texelsInBatchN = texelsInBatch * outShape[1];\n\n      int b2 = index / texelsInBatchN;\n      index -= b2 * texelsInBatchN;\n\n      int b = index / texelsInBatch;\n      index -= b * texelsInBatch;\n\n      int r = 2 * (index / texelsInLogicalRow);\n      int c = imod(index, texelsInLogicalRow) * 2;\n\n      return ivec4(b2, b, r, c);\n    }\n  ";
-	  }
-
-	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
-	  var texelsInLogicalRow = Math.ceil(shape[shape.length - 1] / 2);
-	  var texelsInBatch = texelsInLogicalRow * Math.ceil(shape[shape.length - 2] / 2);
-	  var texelsInBatchN = texelsInBatch;
-	  var batches = "";
-	  var coords = 'b, r, c';
-
-	  for (var b = 2; b < shape.length - 1; b++) {
-	    texelsInBatchN *= shape[shape.length - b - 1];
-	    batches = "\n      int b" + b + " = index / " + texelsInBatchN + ";\n      index -= b" + b + " * " + texelsInBatchN + ";\n    " + batches;
-	    coords = "b" + b + ", " + coords;
-	  }
-
-	  return "\n    ivec" + shape.length + " getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + packedTexShape[0] + ", " + packedTexShape[1] + "));\n      int index = resTexRC.x * " + packedTexShape[1] + " + resTexRC.y;\n\n      " + batches + "\n\n      int b = index / " + texelsInBatch + ";\n      index -= b * " + texelsInBatch + ";\n\n      int r = 2 * (index / " + texelsInLogicalRow + ");\n      int c = imod(index, " + texelsInLogicalRow + ") * 2;\n\n      return ivec" + shape.length + "(" + coords + ");\n    }\n  ";
-	}
-
-	function getOutput4DCoords(shape, texShape, enableShapeUniforms) {
-	  if (enableShapeUniforms) {
-	    var _coordsFromIndexSnippet2 = getLogicalCoordinatesFromFlatIndexByUniform(['r', 'c', 'd', 'd2'], shape);
-
-	    return "\n    ivec4 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n        vec2(outTexShape[0], outTexShape[1]));\n      int index = resTexRC.x * outTexShape[1] + resTexRC.y;\n      " + _coordsFromIndexSnippet2 + "\n      return ivec4(r, c, d, d2);\n    }\n  ";
-	  }
-
-	  var coordsFromIndexSnippet = getLogicalCoordinatesFromFlatIndex(['r', 'c', 'd', 'd2'], shape);
-	  return "\n    ivec4 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n        vec2(" + texShape[0] + ", " + texShape[1] + "));\n      int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n      " + coordsFromIndexSnippet + "\n      return ivec4(r, c, d, d2);\n    }\n  ";
-	}
-
-	function getOutput5DCoords(shape, texShape) {
-	  var coordsFromIndexSnippet = getLogicalCoordinatesFromFlatIndex(['r', 'c', 'd', 'd2', 'd3'], shape);
-	  return "\n    ivec5 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx * vec2(" + texShape[0] + ",\n                             " + texShape[1] + "));\n\n      int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n\n      " + coordsFromIndexSnippet + "\n\n      ivec5 outShape = ivec5(r, c, d, d2, d3);\n      return outShape;\n    }\n  ";
-	}
-
-	function getOutput6DCoords(shape, texShape) {
-	  var coordsFromIndexSnippet = getLogicalCoordinatesFromFlatIndex(['r', 'c', 'd', 'd2', 'd3', 'd4'], shape);
-	  return "\n    ivec6 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n        vec2(" + texShape[0] + ", " + texShape[1] + "));\n      int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n\n      " + coordsFromIndexSnippet + "\n\n      ivec6 result = ivec6(r, c, d, d2, d3, d4);\n      return result;\n    }\n  ";
-	}
-
-	function getOutputPacked2DCoords(shape, texShape, enableShapeUniforms) {
-	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
-
-	  if (arraysEqual(shape, texShape)) {
-	    if (enableShapeUniforms) {
-	      return "\n      ivec2 getOutputCoords() {\n        ivec2 packedTexShape = ivec2(ceil(float(outTexShape[0]) / 2.0), ceil(float(outTexShape[1]) / 2.0));\n        return 2 * ivec2(resultUV.yx * vec2(packedTexShape[0], packedTexShape[1]));\n      }\n    ";
-	    }
-
-	    return "\n      ivec2 getOutputCoords() {\n        return 2 * ivec2(resultUV.yx * vec2(" + packedTexShape[0] + ", " + packedTexShape[1] + "));\n      }\n    ";
-	  } // texels needed to accommodate a logical row
-
-
-	  var texelsInLogicalRow = Math.ceil(shape[1] / 2);
-	  /**
-	   * getOutputCoords
-	   *
-	   * resTexRC: The rows and columns of the texels. If you move over one
-	   * texel to the right in the packed texture, you are moving over one column
-	   * (not two).
-	   *
-	   * index: The texel index
-	   */
-
-	  if (enableShapeUniforms) {
-	    return "\n    ivec2 getOutputCoords() {\n      ivec2 packedTexShape = ivec2(ceil(float(outTexShape[0]) / 2.0), ceil(float(outTexShape[1]) / 2.0));\n      int texelsInLogicalRow = int(ceil(float(outShape[1]) / 2.0));\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(packedTexShape[0], packedTexShape[1]));\n\n      int index = resTexRC.x * packedTexShape[1] + resTexRC.y;\n      int r = 2 * (index / texelsInLogicalRow);\n      int c = imod(index, texelsInLogicalRow) * 2;\n\n      return ivec2(r, c);\n    }\n  ";
-	  }
-
-	  return "\n    ivec2 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + packedTexShape[0] + ", " + packedTexShape[1] + "));\n\n      int index = resTexRC.x * " + packedTexShape[1] + " + resTexRC.y;\n      int r = 2 * (index / " + texelsInLogicalRow + ");\n      int c = imod(index, " + texelsInLogicalRow + ") * 2;\n\n      return ivec2(r, c);\n    }\n  ";
-	}
-
-	function getOutput2DCoords(shape, texShape, enableShapeUniforms) {
-	  if (arraysEqual(shape, texShape)) {
-	    if (enableShapeUniforms) {
-	      return "\n      ivec2 getOutputCoords() {\n        return ivec2(resultUV.yx * vec2(outTexShape[0], outTexShape[1]));\n      }\n    ";
-	    }
-
-	    return "\n      ivec2 getOutputCoords() {\n        return ivec2(resultUV.yx * vec2(" + texShape[0] + ", " + texShape[1] + "));\n      }\n    ";
-	  }
-
-	  if (shape[1] === 1) {
-	    if (enableShapeUniforms) {
-	      return "\n      ivec2 getOutputCoords() {\n        ivec2 resTexRC = ivec2(resultUV.yx *\n                               vec2(outTexShape[0], outTexShape[1]));\n        int index = resTexRC.x * outTexShape[1] + resTexRC.y;\n        return ivec2(index, 0);\n      }\n    ";
-	    }
-
-	    return "\n      ivec2 getOutputCoords() {\n        ivec2 resTexRC = ivec2(resultUV.yx *\n                               vec2(" + texShape[0] + ", " + texShape[1] + "));\n        int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n        return ivec2(index, 0);\n      }\n    ";
-	  }
-
-	  if (shape[0] === 1) {
-	    if (enableShapeUniforms) {
-	      return "\n      ivec2 getOutputCoords() {\n        ivec2 resTexRC = ivec2(resultUV.yx *\n                               vec2(outTexShape[0], outTexShape[1]));\n        int index = resTexRC.x * outTexShape[1] + resTexRC.y;\n        return ivec2(0, index);\n      }\n    ";
-	    }
-
-	    return "\n      ivec2 getOutputCoords() {\n        ivec2 resTexRC = ivec2(resultUV.yx *\n                               vec2(" + texShape[0] + ", " + texShape[1] + "));\n        int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n        return ivec2(0, index);\n      }\n    ";
-	  }
-
-	  if (enableShapeUniforms) {
-	    return "\n    ivec2 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(outTexShape[0], outTexShape[1]));\n      int index = resTexRC.x * outTexShape[1] + resTexRC.y;\n      int r = index / outShape[1];\n      int c = index - r * outShape[1];\n      return ivec2(r, c);\n    }\n  ";
-	  }
-
-	  return "\n    ivec2 getOutputCoords() {\n      ivec2 resTexRC = ivec2(resultUV.yx *\n                             vec2(" + texShape[0] + ", " + texShape[1] + "));\n      int index = resTexRC.x * " + texShape[1] + " + resTexRC.y;\n      int r = index / " + shape[1] + ";\n      int c = index - r * " + shape[1] + ";\n      return ivec2(r, c);\n    }\n  ";
-	}
-
-	function getFlatOffsetUniformName(texName) {
-	  return "offset" + texName;
-	}
-
-	function getPackedSamplerScalar(inputInfo) {
-	  var texName = inputInfo.name;
-	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
-	  var glsl = getGlslDifferences();
-	  return "\n    vec4 " + funcName + "() {\n      return " + glsl.texture2D + "(" + texName + ", halfCR);\n    }\n  ";
-	}
-
-	function getSamplerScalar(inputInfo, enableShapeUniforms) {
-	  var texName = inputInfo.name;
-	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
-
-	  if (inputInfo.shapeInfo.isUniform) {
-	    return "float " + funcName + "() {return " + texName + ";}";
-	  }
-
-	  var _inputInfo$shapeInfo$ = inputInfo.shapeInfo.texShape,
-	      texNumR = _inputInfo$shapeInfo$[0],
-	      texNumC = _inputInfo$shapeInfo$[1];
-
-	  if (texNumR === 1 && texNumC === 1) {
-	    return "\n      float " + funcName + "() {\n        return sampleTexture(" + texName + ", halfCR);\n      }\n    ";
-	  }
-
-	  var offset = getFlatOffsetUniformName(texName);
-
-	  if (enableShapeUniforms) {
-	    return "\n    float " + funcName + "() {\n      vec2 uv = uvFromFlat(" + texName + "TexShape[0], " + texName + "TexShape[1], " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
-	  }
-
-	  var _inputInfo$shapeInfo$2 = inputInfo.shapeInfo.texShape,
-	      tNumR = _inputInfo$shapeInfo$2[0],
-	      tNumC = _inputInfo$shapeInfo$2[1];
-	  return "\n    float " + funcName + "() {\n      vec2 uv = uvFromFlat(" + tNumR + ", " + tNumC + ", " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
-	}
-
-	function getPackedSampler1D(inputInfo, enableShapeUniforms) {
-	  var texName = inputInfo.name;
-	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
-	  var texShape = inputInfo.shapeInfo.texShape;
-	  var glsl = getGlslDifferences();
-
-	  if (enableShapeUniforms) {
-	    return "\n    vec4 " + funcName + "(int index) {\n      ivec2 packedTexShape = ivec2(ceil(float(" + texName + "TexShape[0]) / 2.0), ceil(float(" + texName + "TexShape[1]) / 2.0));\n      vec2 uv = packedUVfrom1D(\n        packedTexShape[0], packedTexShape[1], index);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
-	  }
-
-	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
-	  return "\n    vec4 " + funcName + "(int index) {\n      vec2 uv = packedUVfrom1D(\n        " + packedTexShape[0] + ", " + packedTexShape[1] + ", index);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
-	}
-
-	function getSampler1D(inputInfo, enableShapeUniforms) {
-	  var texName = inputInfo.name;
-	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
-
-	  if (inputInfo.shapeInfo.isUniform) {
-	    // Uniform arrays will be less than 65505 (no risk of float16 overflow).
-	    return "\n      float " + funcName + "(int index) {\n        " + getUniformSampler(inputInfo) + "\n      }\n    ";
-	  }
-
-	  var texShape = inputInfo.shapeInfo.texShape;
-	  var tNumR = texShape[0];
-	  var tNumC = texShape[1];
-
-	  if (tNumC === 1 && tNumR === 1) {
-	    return "\n      float " + funcName + "(int index) {\n        return sampleTexture(" + texName + ", halfCR);\n      }\n    ";
-	  }
-
-	  var offset = getFlatOffsetUniformName(texName);
-
-	  if (tNumC === 1) {
-	    if (enableShapeUniforms) {
-	      return "\n      float " + funcName + "(int index) {\n        vec2 uv = vec2(0.5, (float(index + " + offset + ") + 0.5) / float(" + texName + "TexShape[0]));\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	    }
-
-	    return "\n      float " + funcName + "(int index) {\n        vec2 uv = vec2(0.5, (float(index + " + offset + ") + 0.5) / " + tNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	  }
-
-	  if (tNumR === 1) {
-	    if (enableShapeUniforms) {
-	      return "\n      float " + funcName + "(int index) {\n        vec2 uv = vec2((float(index + " + offset + ") + 0.5) / float(" + texName + "TexShape[1]), 0.5);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	    }
-
-	    return "\n      float " + funcName + "(int index) {\n        vec2 uv = vec2((float(index + " + offset + ") + 0.5) / " + tNumC + ".0, 0.5);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	  }
-
-	  if (enableShapeUniforms) {
-	    return "\n    float " + funcName + "(int index) {\n      vec2 uv = uvFromFlat(" + texName + "TexShape[0], " + texName + "TexShape[1], index + " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
-	  }
-
-	  return "\n    float " + funcName + "(int index) {\n      vec2 uv = uvFromFlat(" + tNumR + ", " + tNumC + ", index + " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
-	}
-
-	function getPackedSampler2D(inputInfo, enableShapeUniforms) {
-	  var shape = inputInfo.shapeInfo.logicalShape;
-	  var texName = inputInfo.name;
-	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
-	  var texShape = inputInfo.shapeInfo.texShape;
-	  var texNumR = texShape[0];
-	  var texNumC = texShape[1];
-	  var glsl = getGlslDifferences();
-
-	  if (texShape != null && arraysEqual(shape, texShape)) {
-	    if (enableShapeUniforms) {
-	      return "\n      vec4 " + funcName + "(int row, int col) {\n        vec2 uv = (vec2(col, row) + halfCR) / vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n\n        return " + glsl.texture2D + "(" + texName + ", uv);\n      }\n    ";
-	    }
-
-	    return "\n      vec4 " + funcName + "(int row, int col) {\n        vec2 uv = (vec2(col, row) + halfCR) / vec2(" + texNumC + ".0, " + texNumR + ".0);\n\n        return " + glsl.texture2D + "(" + texName + ", uv);\n      }\n    ";
-	  }
-
-	  if (enableShapeUniforms) {
-	    return "\n    vec4 " + funcName + "(int row, int col) {\n      ivec2 packedTexShape = ivec2(ceil(float(" + texName + "TexShape[0]) / 2.0), ceil(float(" + texName + "TexShape[1]) / 2.0));\n      int valuesPerRow = int(ceil(float(" + texName + "Shape[1]) / 2.0));\n      vec2 uv = packedUVfrom2D(valuesPerRow, packedTexShape[0], packedTexShape[1], row, col);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
-	  }
-
-	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
-	  var valuesPerRow = Math.ceil(shape[1] / 2);
-	  return "\n    vec4 " + funcName + "(int row, int col) {\n      vec2 uv = packedUVfrom2D(" + valuesPerRow + ", " + packedTexShape[0] + ", " + packedTexShape[1] + ", row, col);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
-	}
-
-	function getSampler2D(inputInfo, enableShapeUniforms) {
-	  var shape = inputInfo.shapeInfo.logicalShape;
-	  var texName = inputInfo.name;
-	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
-	  var texShape = inputInfo.shapeInfo.texShape;
-
-	  if (texShape != null && arraysEqual(shape, texShape)) {
-	    if (enableShapeUniforms) {
-	      return "\n      float " + funcName + "(int row, int col) {\n        vec2 uv = (vec2(col, row) + halfCR) / vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	    }
-
-	    var _texNumR = texShape[0];
-	    var _texNumC = texShape[1];
-	    return "\n    float " + funcName + "(int row, int col) {\n      vec2 uv = (vec2(col, row) + halfCR) / vec2(" + _texNumC + ".0, " + _texNumR + ".0);\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
-	  }
-
-	  var _util$squeezeShape = squeezeShape(shape),
-	      newShape = _util$squeezeShape.newShape,
-	      keptDims = _util$squeezeShape.keptDims;
-
-	  var squeezedShape = newShape;
-
-	  if (squeezedShape.length < shape.length) {
-	    var newInputInfo = squeezeInputInfo(inputInfo, squeezedShape);
-	    var params = ['row', 'col'];
-	    return "\n      " + getSamplerFromInInfo(newInputInfo, enableShapeUniforms) + "\n      float " + funcName + "(int row, int col) {\n        return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n      }\n    ";
-	  }
-
-	  if (inputInfo.shapeInfo.isUniform) {
-	    // Uniform arrays will be less than 65505 (no risk of float16 overflow).
-	    return "\n      float " + funcName + "(int row, int col) {\n        int index = round(dot(vec2(row, col), vec2(" + shape[1] + ", 1)));\n        " + getUniformSampler(inputInfo) + "\n      }\n    ";
-	  }
-
-	  var texNumR = texShape[0];
-	  var texNumC = texShape[1];
-	  var offset = getFlatOffsetUniformName(texName);
-
-	  if (texNumC === 1) {
-	    // index is used directly as physical (no risk of float16 overflow).
-	    if (enableShapeUniforms) {
-	      return "\n      float " + funcName + "(int row, int col) {\n        float index = dot(vec3(row, col, " + offset + "), vec3(" + texName + "Shape[1], 1, 1));\n        vec2 uv = vec2(0.5, (index + 0.5) / float(" + texName + "TexShape[0]));\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	    }
-
-	    return "\n    float " + funcName + "(int row, int col) {\n      float index = dot(vec3(row, col, " + offset + "), vec3(" + shape[1] + ", 1, 1));\n      vec2 uv = vec2(0.5, (index + 0.5) / " + texNumR + ".0);\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
-	  }
-
-	  if (texNumR === 1) {
-	    // index is used directly as physical (no risk of float16 overflow).
-	    if (enableShapeUniforms) {
-	      return "\n      float " + funcName + "(int row, int col) {\n        float index = dot(vec3(row, col, " + offset + "), vec3(" + texName + "Shape[1], 1, 1));\n        vec2 uv = vec2((index + 0.5) / float(" + texName + "TexShape[1]), 0.5);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	    }
-
-	    return "\n    float " + funcName + "(int row, int col) {\n      float index = dot(vec3(row, col, " + offset + "), vec3(" + shape[1] + ", 1, 1));\n      vec2 uv = vec2((index + 0.5) / " + texNumC + ".0, 0.5);\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
-	  }
-
-	  if (enableShapeUniforms) {
-	    return "\n      float " + funcName + "(int row, int col) {\n        // Explicitly use integer operations as dot() only works on floats.\n        int index = row * " + texName + "Shape[1] + col + " + offset + ";\n        vec2 uv = uvFromFlat(" + texName + "TexShape[0], " + texName + "TexShape[1], index);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	  }
-
-	  return "\n  float " + funcName + "(int row, int col) {\n    // Explicitly use integer operations as dot() only works on floats.\n    int index = row * " + shape[1] + " + col + " + offset + ";\n    vec2 uv = uvFromFlat(" + texNumR + ", " + texNumC + ", index);\n    return sampleTexture(" + texName + ", uv);\n  }\n";
-	}
-
-	function getPackedSampler3D(inputInfo, enableShapeUniforms) {
-	  var shape = inputInfo.shapeInfo.logicalShape;
-	  var texName = inputInfo.name;
-	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
-	  var texShape = inputInfo.shapeInfo.texShape;
-	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
-
-	  if (shape[0] === 1) {
-	    var squeezedShape = shape.slice(1);
-	    var keptDims = [1, 2];
-	    var newInputInfo = squeezeInputInfo(inputInfo, squeezedShape);
-	    var params = ['b', 'row', 'col'];
-	    return "\n        " + getPackedSamplerFromInInfo(newInputInfo, enableShapeUniforms) + "\n        vec4 " + funcName + "(int b, int row, int col) {\n          return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n        }\n      ";
-	  }
-
-	  var glsl = getGlslDifferences();
-
-	  if (enableShapeUniforms) {
-	    return "\n    vec4 " + funcName + "(int b, int row, int col) {\n      ivec2 packedTexShape = ivec2(ceil(float(" + texName + "TexShape[0]) / 2.0), ceil(float(" + texName + "TexShape[1]) / 2.0));\n      int valuesPerRow = int(ceil(float(" + texName + "Shape[2]) / 2.0));\n      int texelsInBatch = valuesPerRow * int(ceil(float(" + texName + "Shape[1]) / 2.0));\n      vec2 uv = packedUVfrom3D(\n        packedTexShape[0], packedTexShape[1], texelsInBatch, valuesPerRow, b, row, col);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
-	  }
-
-	  var texNumR = packedTexShape[0];
-	  var texNumC = packedTexShape[1];
-	  var valuesPerRow = Math.ceil(shape[2] / 2);
-	  var texelsInBatch = valuesPerRow * Math.ceil(shape[1] / 2);
-	  return "\n    vec4 " + funcName + "(int b, int row, int col) {\n      vec2 uv = packedUVfrom3D(\n        " + texNumR + ", " + texNumC + ", " + texelsInBatch + ", " + valuesPerRow + ", b, row, col);\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
-	}
-
-	function getSampler3D(inputInfo, enableShapeUniforms) {
-	  var shape = inputInfo.shapeInfo.logicalShape;
-	  var texName = inputInfo.name;
-	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
-	  var stride0 = shape[1] * shape[2];
-	  var stride1 = shape[2];
-
-	  var _util$squeezeShape2 = squeezeShape(shape),
-	      newShape = _util$squeezeShape2.newShape,
-	      keptDims = _util$squeezeShape2.keptDims;
-
-	  var squeezedShape = newShape;
-
-	  if (squeezedShape.length < shape.length) {
-	    var newInputInfo = squeezeInputInfo(inputInfo, squeezedShape);
-	    var params = ['row', 'col', 'depth'];
-	    return "\n        " + getSamplerFromInInfo(newInputInfo, enableShapeUniforms) + "\n        float " + funcName + "(int row, int col, int depth) {\n          return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n        }\n      ";
-	  }
-
-	  if (inputInfo.shapeInfo.isUniform) {
-	    // Uniform arrays will be less than 65505 (no risk of float16 overflow).
-	    return "\n      float " + funcName + "(int row, int col, int depth) {\n        int index = round(dot(vec3(row, col, depth),\n                          vec3(" + stride0 + ", " + stride1 + ", 1)));\n        " + getUniformSampler(inputInfo) + "\n      }\n    ";
-	  }
-
-	  var texShape = inputInfo.shapeInfo.texShape;
-	  var texNumR = texShape[0];
-	  var texNumC = texShape[1];
-	  var flatOffset = inputInfo.shapeInfo.flatOffset;
-
-	  if (texNumC === stride0 && flatOffset == null) {
-	    // texC is used directly as physical (no risk of float16 overflow).
-	    if (enableShapeUniforms) {
-	      return "\n      float " + funcName + "(int row, int col, int depth) {\n        int stride1 = " + texName + "Shape[2];\n        float texR = float(row);\n        float texC = dot(vec2(col, depth), vec2(stride1, 1));\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                   vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	    }
-
-	    return "\n        float " + funcName + "(int row, int col, int depth) {\n          float texR = float(row);\n          float texC = dot(vec2(col, depth), vec2(" + stride1 + ", 1));\n          vec2 uv = (vec2(texC, texR) + halfCR) /\n                     vec2(" + texNumC + ".0, " + texNumR + ".0);\n          return sampleTexture(" + texName + ", uv);\n        }\n      ";
-	  }
-
-	  if (texNumC === stride1 && flatOffset == null) {
-	    // texR is used directly as physical (no risk of float16 overflow).
-	    if (enableShapeUniforms) {
-	      return "\n      float " + funcName + "(int row, int col, int depth) {\n        float texR = dot(vec2(row, col), vec2(" + texName + "Shape[1], 1));\n        float texC = float(depth);\n        vec2 uv = (vec2(texC, texR) + halfCR) / vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	    }
-
-	    return "\n    float " + funcName + "(int row, int col, int depth) {\n      float texR = dot(vec2(row, col), vec2(" + shape[1] + ", 1));\n      float texC = float(depth);\n      vec2 uv = (vec2(texC, texR) + halfCR) / vec2(" + texNumC + ".0, " + texNumR + ".0);\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
-	  }
-
-	  var offset = getFlatOffsetUniformName(texName);
-
-	  if (enableShapeUniforms) {
-	    return "\n    float " + funcName + "(int row, int col, int depth) {\n      // Explicitly use integer operations as dot() only works on floats.\n      int stride0 = " + texName + "Shape[1] * " + texName + "Shape[2];\n      int stride1 = " + texName + "Shape[2];\n      int index = row * " + stride0 + " + col * " + stride1 + " + depth + " + offset + ";\n      vec2 uv = uvFromFlat(" + texName + "TexShape[0], " + texName + "TexShape[1], index);\n      return sampleTexture(" + texName + ", uv);\n    }\n    ";
-	  }
-
-	  return "\n      float " + funcName + "(int row, int col, int depth) {\n        // Explicitly use integer operations as dot() only works on floats.\n        int index = row * " + stride0 + " + col * " + stride1 + " + depth + " + offset + ";\n        vec2 uv = uvFromFlat(" + texNumR + ", " + texNumC + ", index);\n        return sampleTexture(" + texName + ", uv);\n      }\n  ";
-	}
-
-	function getPackedSamplerND(inputInfo, enableShapeUniforms) {
-	  var texName = inputInfo.name;
-	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
-	  var glsl = getGlslDifferences();
-
-	  if (enableShapeUniforms) {
-	    // TODO: support 5d and 6d
-	    return "\n    vec4 " + funcName + "(int b2, int b, int row, int col) {\n      int valuesPerRow = int(ceil(float(" + texName + "Shape[3]) / 2.0));\n      int texelsInBatch = valuesPerRow * int(ceil(float(" + texName + "Shape[2]) / 2.0));\n      int index = b * texelsInBatch + (row / 2) * valuesPerRow + (col / 2);\n      texelsInBatch *= " + texName + "Shape[1];\n      index = b2 * texelsInBatch + index;\n      ivec2 packedTexShape = ivec2(ceil(float(" + texName + "TexShape[0]) / 2.0), ceil(float(" + texName + "TexShape[1]) / 2.0));\n      int texR = index / packedTexShape[1];\n      int texC = index - texR * packedTexShape[1];\n      vec2 uv = (vec2(texC, texR) + halfCR) / vec2(packedTexShape[1], packedTexShape[0]); return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
-	  }
-
-	  var shape = inputInfo.shapeInfo.logicalShape;
-	  var rank = shape.length;
-	  var texShape = inputInfo.shapeInfo.texShape;
-	  var packedTexShape = [Math.ceil(texShape[0] / 2), Math.ceil(texShape[1] / 2)];
-	  var texNumR = packedTexShape[0];
-	  var texNumC = packedTexShape[1];
-	  var valuesPerRow = Math.ceil(shape[rank - 1] / 2);
-	  var texelsInBatch = valuesPerRow * Math.ceil(shape[rank - 2] / 2);
-	  var params = "int b, int row, int col";
-	  var index = "b * " + texelsInBatch + " + (row / 2) * " + valuesPerRow + " + (col / 2)";
-
-	  for (var b = 2; b < rank - 1; b++) {
-	    params = "int b" + b + ", " + params;
-	    texelsInBatch *= shape[rank - b - 1];
-	    index = "b" + b + " * " + texelsInBatch + " + " + index;
-	  }
-
-	  return "\n    vec4 " + funcName + "(" + params + ") {\n      int index = " + index + ";\n      int texR = index / " + texNumC + ";\n      int texC = index - texR * " + texNumC + ";\n      vec2 uv = (vec2(texC, texR) + halfCR) / vec2(" + texNumC + ", " + texNumR + ");\n      return " + glsl.texture2D + "(" + texName + ", uv);\n    }\n  ";
-	}
-
-	function getSampler4D(inputInfo, enableShapeUniforms) {
-	  var shape = inputInfo.shapeInfo.logicalShape;
-	  var texName = inputInfo.name;
-	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
-	  var stride2 = shape[3];
-	  var stride1 = shape[2] * stride2;
-	  var stride0 = shape[1] * stride1;
-
-	  var _util$squeezeShape3 = squeezeShape(shape),
-	      newShape = _util$squeezeShape3.newShape,
-	      keptDims = _util$squeezeShape3.keptDims;
-
-	  if (newShape.length < shape.length) {
-	    var newInputInfo = squeezeInputInfo(inputInfo, newShape);
-	    var params = ['row', 'col', 'depth', 'depth2'];
-	    return "\n      " + getSamplerFromInInfo(newInputInfo, enableShapeUniforms) + "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n      }\n    ";
-	  }
-
-	  if (inputInfo.shapeInfo.isUniform) {
-	    // Uniform arrays will be less than 65505 (no risk of float16 overflow).
-	    return "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        int index = round(dot(vec4(row, col, depth, depth2),\n                          vec4(" + stride0 + ", " + stride1 + ", " + stride2 + ", 1)));\n        " + getUniformSampler(inputInfo) + "\n      }\n    ";
-	  }
-
-	  var flatOffset = inputInfo.shapeInfo.flatOffset;
-	  var texShape = inputInfo.shapeInfo.texShape;
-	  var texNumR = texShape[0];
-	  var texNumC = texShape[1];
-	  var stride2Str = "int stride2 = " + texName + "Shape[3];";
-	  var stride1Str = "int stride1 = " + texName + "Shape[2] * stride2;";
-	  var stride0Str = "int stride0 = " + texName + "Shape[1] * stride1;";
-
-	  if (texNumC === stride0 && flatOffset == null) {
-	    // texC is used directly as physical (no risk of float16 overflow).
-	    if (enableShapeUniforms) {
-	      return "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        " + stride2Str + "\n        " + stride1Str + "\n        float texR = float(row);\n        float texC =\n            dot(vec3(col, depth, depth2),\n                vec3(stride1, stride2, 1));\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                   vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	    }
-
-	    return "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        float texR = float(row);\n        float texC =\n            dot(vec3(col, depth, depth2),\n                vec3(" + stride1 + ", " + stride2 + ", 1));\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                   vec2(" + texNumC + ".0, " + texNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	  }
-
-	  if (texNumC === stride2 && flatOffset == null) {
-	    // texR is used directly as physical (no risk of float16 overflow).
-	    if (enableShapeUniforms) {
-	      return "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        float texR = dot(vec3(row, col, depth),\n                         vec3(" + texName + "Shape[1] * " + texName + "Shape[2], " + texName + "Shape[2], 1));\n        float texC = float(depth2);\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                  vec2(" + texName + "TexShape[1], " + texName + "TexShape[0]);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	    }
-
-	    return "\n      float " + funcName + "(int row, int col, int depth, int depth2) {\n        float texR = dot(vec3(row, col, depth),\n                         vec3(" + shape[1] * shape[2] + ", " + shape[2] + ", 1));\n        float texC = float(depth2);\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                  vec2(" + texNumC + ".0, " + texNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	  }
-
-	  var offset = getFlatOffsetUniformName(texName);
-
-	  if (enableShapeUniforms) {
-	    return "\n    float " + funcName + "(int row, int col, int depth, int depth2) {\n      // Explicitly use integer operations as dot() only works on floats.\n      " + stride2Str + "\n      " + stride1Str + "\n      " + stride0Str + "\n      int index = row * stride0 + col * stride1 +\n          depth * stride2 + depth2;\n      vec2 uv = uvFromFlat(" + texName + "TexShape[0], " + texName + "TexShape[1], index + " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
-	  }
-
-	  return "\n    float " + funcName + "(int row, int col, int depth, int depth2) {\n      // Explicitly use integer operations as dot() only works on floats.\n      int index = row * " + stride0 + " + col * " + stride1 + " +\n          depth * " + stride2 + " + depth2;\n      vec2 uv = uvFromFlat(" + texNumR + ", " + texNumC + ", index + " + offset + ");\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
-	}
-
-	function getSampler5D(inputInfo) {
-	  var shape = inputInfo.shapeInfo.logicalShape;
-	  var texName = inputInfo.name;
-	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
-	  var stride3 = shape[4];
-	  var stride2 = shape[3] * stride3;
-	  var stride1 = shape[2] * stride2;
-	  var stride0 = shape[1] * stride1;
-
-	  var _util$squeezeShape4 = squeezeShape(shape),
-	      newShape = _util$squeezeShape4.newShape,
-	      keptDims = _util$squeezeShape4.keptDims;
-
-	  if (newShape.length < shape.length) {
-	    var newInputInfo = squeezeInputInfo(inputInfo, newShape);
-	    var params = ['row', 'col', 'depth', 'depth2', 'depth3'];
-	    return "\n      " + getSamplerFromInInfo(newInputInfo) + "\n      float " + funcName + "(int row, int col, int depth, int depth2, int depth3) {\n        return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n      }\n    ";
-	  }
-
-	  if (inputInfo.shapeInfo.isUniform) {
-	    // Uniform arrays will be less than 65505 (no risk of float16 overflow).
-	    return "\n      float " + funcName + "(int row, int col, int depth, int depth2, int depth3) {\n        float index = dot(\n          vec4(row, col, depth, depth2),\n          vec4(" + stride0 + ", " + stride1 + ", " + stride2 + ", " + stride3 + ")) +\n          depth3;\n        " + getUniformSampler(inputInfo) + "\n      }\n    ";
-	  }
-
-	  var flatOffset = inputInfo.shapeInfo.flatOffset;
-	  var texShape = inputInfo.shapeInfo.texShape;
-	  var texNumR = texShape[0];
-	  var texNumC = texShape[1];
-
-	  if (texNumC === stride0 && flatOffset == null) {
-	    // texC is used directly as physical (no risk of float16 overflow).
-	    return "\n      float " + funcName + "(int row, int col, int depth, int depth2, int depth3) {\n        int texR = row;\n        float texC = dot(vec4(col, depth, depth2, depth3),\n                         vec4(" + stride1 + ", " + stride2 + ", " + stride3 + ", 1));\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                   vec2(" + texNumC + ".0, " + texNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	  }
-
-	  if (texNumC === stride3 && flatOffset == null) {
-	    // texR is used directly as physical (no risk of float16 overflow).
-	    return "\n      float " + funcName + "(int row, int col, int depth, int depth2, int depth3) {\n        float texR = dot(\n          vec4(row, col, depth, depth2),\n          vec4(" + shape[1] * shape[2] * shape[3] + ",\n               " + shape[2] * shape[3] + ", " + shape[3] + ", 1));\n        int texC = depth3;\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                  vec2(" + texNumC + ".0, " + texNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	  }
-
-	  var offset = getFlatOffsetUniformName(texName);
-	  return "\n    float " + funcName + "(int row, int col, int depth, int depth2, int depth3) {\n      // Explicitly use integer operations as dot() only works on floats.\n      int index = row * " + stride0 + " + col * " + stride1 + " + depth * " + stride2 + " +\n          depth2 * " + stride3 + " + depth3 + " + offset + ";\n      vec2 uv = uvFromFlat(" + texNumR + ", " + texNumC + ", index);\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
-	}
-
-	function getSampler6D(inputInfo) {
-	  var shape = inputInfo.shapeInfo.logicalShape;
-	  var texName = inputInfo.name;
-	  var funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
-
-	  var _util$squeezeShape5 = squeezeShape(shape),
-	      newShape = _util$squeezeShape5.newShape,
-	      keptDims = _util$squeezeShape5.keptDims;
-
-	  if (newShape.length < shape.length) {
-	    var newInputInfo = squeezeInputInfo(inputInfo, newShape);
-	    var params = ['row', 'col', 'depth', 'depth2', 'depth3', 'depth4'];
-	    return "\n      " + getSamplerFromInInfo(newInputInfo) + "\n      float " + funcName + "(int row, int col, int depth,\n                    int depth2, int depth3, int depth4) {\n        return " + funcName + "(" + getSqueezedParams(params, keptDims) + ");\n      }\n    ";
-	  }
-
-	  var stride4 = shape[5];
-	  var stride3 = shape[4] * stride4;
-	  var stride2 = shape[3] * stride3;
-	  var stride1 = shape[2] * stride2;
-	  var stride0 = shape[1] * stride1;
-
-	  if (inputInfo.shapeInfo.isUniform) {
-	    // Uniform arrays will be less than 65505 (no risk of float16 overflow).
-	    return "\n      float " + funcName + "(int row, int col, int depth,\n                  int depth2, int depth3, int depth4) {\n        int index = round(dot(\n          vec4(row, col, depth, depth2),\n          vec4(" + stride0 + ", " + stride1 + ", " + stride2 + ", " + stride3 + ")) +\n          dot(\n            vec2(depth3, depth4),\n            vec2(" + stride4 + ", 1)));\n        " + getUniformSampler(inputInfo) + "\n      }\n    ";
-	  }
-
-	  var flatOffset = inputInfo.shapeInfo.flatOffset;
-	  var texShape = inputInfo.shapeInfo.texShape;
-	  var texNumR = texShape[0];
-	  var texNumC = texShape[1];
-
-	  if (texNumC === stride0 && flatOffset == null) {
-	    // texC is used directly as physical (no risk of float16 overflow).
-	    return "\n      float " + funcName + "(int row, int col, int depth,\n                    int depth2, int depth3, int depth4) {\n        int texR = row;\n        float texC = dot(vec4(col, depth, depth2, depth3),\n          vec4(" + stride1 + ", " + stride2 + ", " + stride3 + ", " + stride4 + ")) +\n               float(depth4);\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                   vec2(" + texNumC + ".0, " + texNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	  }
-
-	  if (texNumC === stride4 && flatOffset == null) {
-	    // texR is used directly as physical (no risk of float16 overflow).
-	    return "\n      float " + funcName + "(int row, int col, int depth,\n                    int depth2, int depth3, int depth4) {\n        float texR = dot(vec4(row, col, depth, depth2),\n          vec4(" + shape[1] * shape[2] * shape[3] * shape[4] + ",\n               " + shape[2] * shape[3] * shape[4] + ",\n               " + shape[3] * shape[4] + ",\n               " + shape[4] + ")) + float(depth3);\n        int texC = depth4;\n        vec2 uv = (vec2(texC, texR) + halfCR) /\n                  vec2(" + texNumC + ".0, " + texNumR + ".0);\n        return sampleTexture(" + texName + ", uv);\n      }\n    ";
-	  }
-
-	  var offset = getFlatOffsetUniformName(texName);
-	  return "\n    float " + funcName + "(int row, int col, int depth,\n                  int depth2, int depth3, int depth4) {\n      // Explicitly use integer operations as dot() only works on floats.\n      int index = row * " + stride0 + " + col * " + stride1 + " + depth * " + stride2 + " +\n          depth2 * " + stride3 + " + depth3 * " + stride4 + " + depth4 + " + offset + ";\n      vec2 uv = uvFromFlat(" + texNumR + ", " + texNumC + ", index);\n      return sampleTexture(" + texName + ", uv);\n    }\n  ";
-	}
-
-	function getUniformSampler(inputInfo) {
-	  var texName = inputInfo.name;
-	  var inSize = sizeFromShape(inputInfo.shapeInfo.logicalShape);
-
-	  if (inSize < 2) {
-	    return "return " + texName + ";";
-	  }
-
-	  return "\n    for (int i = 0; i < " + inSize + "; i++) {\n      if (i == index) {\n        return " + texName + "[i];\n      }\n    }\n  ";
-	}
-
-	function getPackedSamplerAtOutputCoords(inputInfo, outShapeInfo) {
-	  var texName = inputInfo.name;
-	  var texFuncSnippet = texName.charAt(0).toUpperCase() + texName.slice(1);
-	  var funcName = 'get' + texFuncSnippet + 'AtOutCoords';
-	  var inRank = inputInfo.shapeInfo.logicalShape.length;
-	  var outRank = outShapeInfo.logicalShape.length;
-	  var broadcastDims = getBroadcastDims$1(inputInfo.shapeInfo.logicalShape, outShapeInfo.logicalShape);
-	  var type = getCoordsDataType(outRank);
-	  var rankDiff = outRank - inRank;
-	  var coordsSnippet;
-	  var fields = ['x', 'y', 'z', 'w', 'u', 'v'];
-
-	  if (inRank === 0) {
-	    coordsSnippet = '';
-	  } else if (outRank < 2 && broadcastDims.length >= 1) {
-	    coordsSnippet = 'coords = 0;';
-	  } else {
-	    coordsSnippet = broadcastDims.map(function (d) {
-	      return "coords." + fields[d + rankDiff] + " = 0;";
-	    }).join('\n');
-	  }
-
-	  var unpackedCoordsSnippet = '';
-
-	  if (outRank < 2 && inRank > 0) {
-	    unpackedCoordsSnippet = 'coords';
-	  } else {
-	    unpackedCoordsSnippet = inputInfo.shapeInfo.logicalShape.map(function (s, i) {
-	      return "coords." + fields[i + rankDiff];
-	    }).join(', ');
-	  }
-
-	  var output = "return outputValue;";
-	  var inSize = sizeFromShape(inputInfo.shapeInfo.logicalShape);
-	  var isInputScalar = inSize === 1;
-	  var outSize = sizeFromShape(outShapeInfo.logicalShape);
-	  var isOutputScalar = outSize === 1;
-
-	  if (inRank === 1 && !isInputScalar && !isOutputScalar) {
-	    output = "\n      return vec4(outputValue.xy, outputValue.xy);\n    ";
-	  } else if (isInputScalar && !isOutputScalar) {
-	    if (outRank === 1) {
-	      output = "\n        return vec4(outputValue.x, outputValue.x, 0., 0.);\n      ";
-	    } else {
-	      output = "\n        return vec4(outputValue.x);\n      ";
-	    }
-	  } else if (broadcastDims.length) {
-	    var rows = inRank - 2;
-	    var cols = inRank - 1;
-
-	    if (broadcastDims.indexOf(rows) > -1 && broadcastDims.indexOf(cols) > -1) {
-	      output = "return vec4(outputValue.x);";
-	    } else if (broadcastDims.indexOf(rows) > -1) {
-	      output = "return vec4(outputValue.x, outputValue.y, " + "outputValue.x, outputValue.y);";
-	    } else if (broadcastDims.indexOf(cols) > -1) {
-	      output = "return vec4(outputValue.xx, outputValue.zz);";
-	    }
-	  }
-
-	  return "\n    vec4 " + funcName + "() {\n      " + type + " coords = getOutputCoords();\n      " + coordsSnippet + "\n      vec4 outputValue = get" + texFuncSnippet + "(" + unpackedCoordsSnippet + ");\n      " + output + "\n    }\n  ";
-	}
-
-	function getSamplerAtOutputCoords(inputInfo, outShapeInfo) {
-	  var texName = inputInfo.name;
-	  var texFuncSnippet = texName.charAt(0).toUpperCase() + texName.slice(1);
-	  var funcName = 'get' + texFuncSnippet + 'AtOutCoords';
-	  var outTexShape = outShapeInfo.texShape;
-	  var inTexShape = inputInfo.shapeInfo.texShape;
-	  var inRank = inputInfo.shapeInfo.logicalShape.length;
-	  var outRank = outShapeInfo.logicalShape.length;
-
-	  if (!inputInfo.shapeInfo.isUniform && inRank === outRank && inputInfo.shapeInfo.flatOffset == null && arraysEqual(inTexShape, outTexShape)) {
-	    return "\n      float " + funcName + "() {\n        return sampleTexture(" + texName + ", resultUV);\n      }\n    ";
-	  }
-
-	  var type = getCoordsDataType(outRank);
-	  var broadcastDims = getBroadcastDims$1(inputInfo.shapeInfo.logicalShape, outShapeInfo.logicalShape);
-	  var rankDiff = outRank - inRank;
-	  var coordsSnippet;
-	  var fields = ['x', 'y', 'z', 'w', 'u', 'v'];
-
-	  if (inRank === 0) {
-	    coordsSnippet = '';
-	  } else if (outRank < 2 && broadcastDims.length >= 1) {
-	    coordsSnippet = 'coords = 0;';
-	  } else {
-	    coordsSnippet = broadcastDims.map(function (d) {
-	      return "coords." + fields[d + rankDiff] + " = 0;";
-	    }).join('\n');
-	  }
-
-	  var unpackedCoordsSnippet = '';
-
-	  if (outRank < 2 && inRank > 0) {
-	    unpackedCoordsSnippet = 'coords';
-	  } else {
-	    unpackedCoordsSnippet = inputInfo.shapeInfo.logicalShape.map(function (s, i) {
-	      return "coords." + fields[i + rankDiff];
-	    }).join(', ');
-	  }
-
-	  return "\n    float " + funcName + "() {\n      " + type + " coords = getOutputCoords();\n      " + coordsSnippet + "\n      return get" + texFuncSnippet + "(" + unpackedCoordsSnippet + ");\n    }\n  ";
-	}
-
-	function getCoordsDataType(rank) {
-	  if (rank <= 1) {
-	    return 'int';
-	  } else if (rank === 2) {
-	    return 'ivec2';
-	  } else if (rank === 3) {
-	    return 'ivec3';
-	  } else if (rank === 4) {
-	    return 'ivec4';
-	  } else if (rank === 5) {
-	    return 'ivec5';
-	  } else if (rank === 6) {
-	    return 'ivec6';
-	  } else {
-	    throw Error("GPU for rank " + rank + " is not yet supported");
-	  }
-	}
-	function getUniformInfoFromShape(isPacked, shape, texShape) {
-	  var _util$squeezeShape6 = squeezeShape(shape),
-	      newShape = _util$squeezeShape6.newShape;
-
-	  var rank = shape.length;
-	  var useSqueezePackedShape = isPacked && rank === 3 && shape[0] === 1;
-	  var squeezeShape$1 = useSqueezePackedShape ? shape.slice(1) : newShape;
-	  var useSqueezeShape = !isPacked && rank > 1 && !arraysEqual(shape, texShape) && newShape.length < rank || useSqueezePackedShape;
-	  var uniformShape = useSqueezeShape ? squeezeShape$1 : shape;
-	  return {
-	    useSqueezeShape: useSqueezeShape,
-	    uniformShape: uniformShape
-	  };
-	}
-	/** Returns a new input info (a copy) that has a squeezed logical shape. */
-
-	function squeezeInputInfo(inInfo, squeezedShape) {
-	  // Deep copy.
-	  var newInputInfo = JSON.parse(JSON.stringify(inInfo));
-	  newInputInfo.shapeInfo.logicalShape = squeezedShape;
-	  return newInputInfo;
-	}
-
-	function getSqueezedParams(params, keptDims) {
-	  return keptDims.map(function (d) {
-	    return params[d];
-	  }).join(', ');
-	}
-
-	/**
-	 * @license
-	 * Copyright 2017 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	function compileProgram(gpgpu, program, inputs, output) {
-	  var inputInfos = inputs.map(function (input, i) {
-	    var shapeInfo = {
-	      logicalShape: input.shape,
-	      texShape: input.isUniform ? null : input.texData.texShape,
-	      isUniform: input.isUniform,
-	      isPacked: input.isUniform ? false : input.texData.isPacked,
-	      flatOffset: null
-	    };
-
-	    if (input.texData != null && input.texData.slice != null && input.texData.slice.flatOffset > 0) {
-	      shapeInfo.flatOffset = input.texData.slice.flatOffset;
-	    }
-
-	    return {
-	      name: program.variableNames[i],
-	      shapeInfo: shapeInfo
-	    };
-	  });
-	  var inShapeInfos = inputInfos.map(function (x) {
-	    return x.shapeInfo;
-	  });
-	  var outShapeInfo = {
-	    logicalShape: output.shape,
-	    texShape: output.texData.texShape,
-	    isUniform: false,
-	    isPacked: output.texData.isPacked,
-	    flatOffset: null
-	  };
-	  var source = makeShader(inputInfos, outShapeInfo, program);
-	  var webGLProgram = gpgpu.createProgram(source); // Add special uniforms (NAN, INFINITY)
-
-	  var infLoc = null;
-	  var nanLoc = gpgpu.getUniformLocation(webGLProgram, 'NAN', false);
-
-	  if (env().getNumber('WEBGL_VERSION') === 1) {
-	    infLoc = gpgpu.getUniformLocation(webGLProgram, 'INFINITY', false);
-	  } // Add user-defined uniforms
-
-
-	  var shouldThrow = false;
-	  var uniformLocations = {};
-	  var inShapesLocations = {};
-	  var inTexShapesLocations = {};
-
-	  for (var i = 0; i < program.variableNames.length; i++) {
-	    var varName = program.variableNames[i];
-	    uniformLocations[varName] = gpgpu.getUniformLocation(webGLProgram, varName, shouldThrow);
-	    uniformLocations["offset" + varName] = gpgpu.getUniformLocation(webGLProgram, "offset" + varName, shouldThrow);
-
-	    if (program.enableShapeUniforms) {
-	      inShapesLocations[varName + "Shape"] = gpgpu.getUniformLocation(webGLProgram, varName + "Shape", shouldThrow);
-	      inTexShapesLocations[varName + "TexShape"] = gpgpu.getUniformLocation(webGLProgram, varName + "TexShape", shouldThrow);
-	    }
-	  }
-
-	  var outShapeLocation;
-	  var outTexShapeLocation;
-	  var outShapeStridesLocation;
-
-	  if (program.enableShapeUniforms) {
-	    outShapeLocation = gpgpu.getUniformLocation(webGLProgram, 'outShape', shouldThrow);
-	    outShapeStridesLocation = gpgpu.getUniformLocation(webGLProgram, 'outShapeStrides', shouldThrow);
-	    outTexShapeLocation = gpgpu.getUniformLocation(webGLProgram, 'outTexShape', shouldThrow);
-	  }
-
-	  var customUniformLocations = [];
-
-	  if (program.customUniforms) {
-	    program.customUniforms.forEach(function (d, i) {
-	      customUniformLocations[i] = gpgpu.getUniformLocation(webGLProgram, d.name, shouldThrow);
-	    });
-	  }
-
-	  return {
-	    program: program,
-	    source: source,
-	    webGLProgram: webGLProgram,
-	    uniformLocations: uniformLocations,
-	    customUniformLocations: customUniformLocations,
-	    inShapeInfos: inShapeInfos,
-	    outShapeInfo: outShapeInfo,
-	    infLoc: infLoc,
-	    nanLoc: nanLoc,
-	    inShapesLocations: inShapesLocations,
-	    inTexShapesLocations: inTexShapesLocations,
-	    outShapeLocation: outShapeLocation,
-	    outShapeStridesLocation: outShapeStridesLocation,
-	    outTexShapeLocation: outTexShapeLocation
-	  };
-	}
-
-	function validateBinaryAndProgram(shapeInfos, inputs) {
-	  if (shapeInfos.length !== inputs.length) {
-	    throw Error("Binary was compiled with " + shapeInfos.length + " inputs, but " + ("was executed with " + inputs.length + " inputs"));
-	  }
-
-	  shapeInfos.forEach(function (s, i) {
-	    var shapeA = s.logicalShape;
-	    var input = inputs[i];
-	    var shapeB = input.shape;
-
-	    if (!arraysEqual(shapeA, shapeB)) {
-	      throw Error("Binary was compiled with different shapes than " + ("the current args. Shapes " + shapeA + " and " + shapeB + " must match"));
-	    } // The input is uploaded as uniform.
-
-
-	    if (s.isUniform && input.isUniform) {
-	      return;
-	    }
-
-	    var texShapeA = s.texShape;
-	    var texShapeB = input.isUniform ? null : input.texData.texShape;
-
-	    if (!arraysEqual(texShapeA, texShapeB)) {
-	      throw Error("Binary was compiled with different texture shapes than the" + (" current args. Shape " + texShapeA + " and " + texShapeB + " must match"));
-	    }
-	  });
-	}
-
-	function runProgram(gpgpu, binary, inputs, output, customUniformValues) {
-	  if (!binary.program.enableShapeUniforms) {
-	    validateBinaryAndProgram(binary.inShapeInfos, inputs);
-	    validateBinaryAndProgram([binary.outShapeInfo], [output]);
-	  }
-
-	  var outTex = output.texData.texture;
-	  var outTexShape = output.texData.texShape;
-
-	  if (output.texData.isPacked) {
-	    gpgpu.setOutputPackedMatrixTexture(outTex, outTexShape[0], outTexShape[1]);
-	  } else {
-	    gpgpu.setOutputMatrixTexture(outTex, outTexShape[0], outTexShape[1]);
-	  }
-
-	  gpgpu.setProgram(binary.webGLProgram); // Set special uniforms (NAN, INFINITY)
-
-	  if (env().getNumber('WEBGL_VERSION') === 1) {
-	    if (binary.infLoc !== null) {
-	      gpgpu.gl.uniform1f(binary.infLoc, Infinity);
-	    }
-	  }
-
-	  if (binary.nanLoc !== null) {
-	    gpgpu.gl.uniform1f(binary.nanLoc, NaN);
-	  } // Set user-defined inputs
-
-
-	  inputs.forEach(function (input, i) {
-	    var varName = binary.program.variableNames[i];
-	    var varLoc = binary.uniformLocations[varName];
-	    var varOffsetLoc = binary.uniformLocations["offset" + varName];
-	    var varShapeLoc = binary.inShapesLocations[varName + "Shape"];
-	    var varTexShapeLoc = binary.inTexShapesLocations[varName + "TexShape"];
-
-	    if (varShapeLoc) {
-	      var _shader_compiler$getU = getUniformInfoFromShape(binary.program.packedInputs, input.shape, input.texData.texShape),
-	          uniformShape = _shader_compiler$getU.uniformShape;
-
-	      switch (uniformShape.length) {
-	        case 1:
-	          gpgpu.gl.uniform1iv(varShapeLoc, new Int32Array(uniformShape));
-	          break;
-
-	        case 2:
-	          gpgpu.gl.uniform2iv(varShapeLoc, new Int32Array(uniformShape));
-	          break;
-
-	        case 3:
-	          gpgpu.gl.uniform3iv(varShapeLoc, new Int32Array(uniformShape));
-	          break;
-
-	        case 4:
-	          gpgpu.gl.uniform4iv(varShapeLoc, new Int32Array(uniformShape));
-	          break;
-
-	        default:
-	          break;
-	      }
-	    }
-
-	    if (varTexShapeLoc) {
-	      gpgpu.gl.uniform2i(varTexShapeLoc, input.texData.texShape[0], input.texData.texShape[1]);
-	    }
-
-	    if (varLoc == null) {
-	      // The compiler inferred that this variable is not used in this shader.
-	      return;
-	    }
-
-	    if (input.isUniform) {
-	      // Upload the values of the tensor as uniform.
-	      if (sizeFromShape(input.shape) < 2) {
-	        gpgpu.gl.uniform1f(varLoc, input.uniformValues[0]);
-	      } else {
-	        var vals = input.uniformValues;
-
-	        if (!(vals instanceof Float32Array)) {
-	          vals = new Float32Array(vals);
-	        }
-
-	        gpgpu.gl.uniform1fv(varLoc, vals);
-	      }
-
-	      return;
-	    } // If the input was sliced, upload the flat offset index.
-
-
-	    if (input.texData.slice != null && varOffsetLoc != null) {
-	      gpgpu.gl.uniform1i(varOffsetLoc, input.texData.slice.flatOffset);
-	    }
-
-	    gpgpu.setInputMatrixTexture(input.texData.texture, varLoc, i);
-	  });
-	  var outShapeLoc = binary.outShapeLocation;
-
-	  if (outShapeLoc) {
-	    switch (output.shape.length) {
-	      case 1:
-	        gpgpu.gl.uniform1iv(outShapeLoc, new Int32Array(output.shape));
-	        break;
-
-	      case 2:
-	        gpgpu.gl.uniform2iv(outShapeLoc, new Int32Array(output.shape));
-	        break;
-
-	      case 3:
-	        gpgpu.gl.uniform3iv(outShapeLoc, new Int32Array(output.shape));
-	        break;
-
-	      case 4:
-	        gpgpu.gl.uniform4iv(outShapeLoc, new Int32Array(output.shape));
-	        break;
-
-	      default:
-	        break;
-	    }
-	  }
-
-	  if (binary.outShapeStridesLocation) {
-	    var strides = computeStrides(output.shape);
-
-	    switch (output.shape.length) {
-	      case 2:
-	        gpgpu.gl.uniform1iv(binary.outShapeStridesLocation, new Int32Array(strides));
-	        break;
-
-	      case 3:
-	        gpgpu.gl.uniform2iv(binary.outShapeStridesLocation, new Int32Array(strides));
-	        break;
-
-	      case 4:
-	        gpgpu.gl.uniform3iv(binary.outShapeStridesLocation, new Int32Array(strides));
-	        break;
-
-	      default:
-	        break;
-	    }
-	  }
-
-	  if (binary.outTexShapeLocation) {
-	    gpgpu.gl.uniform2i(binary.outTexShapeLocation, output.texData.texShape[0], output.texData.texShape[1]);
-	  }
-
-	  if (binary.program.customUniforms && customUniformValues) {
-	    binary.program.customUniforms.forEach(function (d, i) {
-	      var customLoc = binary.customUniformLocations[i];
-	      var customValue = customUniformValues[i];
-
-	      if (d.type === 'float') {
-	        gpgpu.gl.uniform1fv(customLoc, customValue);
-	      } else if (d.type === 'vec2') {
-	        gpgpu.gl.uniform2fv(customLoc, customValue);
-	      } else if (d.type === 'vec3') {
-	        gpgpu.gl.uniform3fv(customLoc, customValue);
-	      } else if (d.type === 'vec4') {
-	        gpgpu.gl.uniform4fv(customLoc, customValue);
-	      } else if (d.type === 'int') {
-	        gpgpu.gl.uniform1iv(customLoc, customValue);
-	      } else if (d.type === 'ivec2') {
-	        gpgpu.gl.uniform2iv(customLoc, customValue);
-	      } else if (d.type === 'ivec3') {
-	        gpgpu.gl.uniform3iv(customLoc, customValue);
-	      } else if (d.type === 'ivec4') {
-	        gpgpu.gl.uniform4iv(customLoc, customValue);
-	      } else {
-	        throw Error("uniform type " + d.type + " is not supported yet.");
-	      }
-	    });
-	  }
-
-	  gpgpu.executeProgram();
-	}
-	function makeShaderKey(program, inputs, output) {
-	  var keyInputs = '';
-	  inputs.concat(output).forEach(function (x) {
-	    var hasOffset = x.texData != null && x.texData.slice != null && x.texData.slice.flatOffset > 0; // TODO: Remove the condition of !x.isUniform.
-
-	    if (program.enableShapeUniforms && !x.isUniform) {
-	      var xTexShape = x.texData.texShape;
-
-	      var _shader_compiler$getU2 = getUniformInfoFromShape(program.packedInputs, x.shape, xTexShape),
-	          useSqueezeShape = _shader_compiler$getU2.useSqueezeShape,
-	          uniformShape = _shader_compiler$getU2.uniformShape;
-
-	      var rank1 = '',
-	          rank2 = '',
-	          rank34 = '';
-
-	      if (uniformShape.length === 1 && program.packedInputs) {
-	        var packedTexShape = [Math.ceil(xTexShape[0] / 2), Math.ceil(xTexShape[1] / 2)];
-	        rank1 = (packedTexShape[0] > 1) + "_" + (packedTexShape[1] > 1);
-	      } else if (uniformShape.length === 2 && !program.packedInputs) {
-	        rank2 = (uniformShape[0] > 1) + "_" + (uniformShape[1] > 1);
-	      } else if (uniformShape.length > 2 && !program.packedInputs) {
-	        var strides = computeStrides(uniformShape);
-	        rank34 = (strides[0] === xTexShape[1]) + "_" + (strides[strides.length - 1] === xTexShape[1]);
-	      }
-
-	      var xRank = x.shape.length;
-	      var isLogicalShapTexShapeEqual = xRank === 2 && arraysEqual(x.shape, xTexShape);
-	      var isScalar = sizeFromShape(x.shape) === 1;
-	      var broadcastDims = getBroadcastDims(x.shape, output.shape);
-	      var isInOutTexShapeEqual = !program.packedInputs && xRank === output.shape.length && arraysEqual(xTexShape, output.texData.texShape);
-	      var isTexShapeGreaterThanOne = program.packedInputs || xRank > 2 ? '' : (xTexShape[0] > 1) + "_" + (xTexShape[1] > 1); // These key components are needed due to shader_compiler is embedding
-	      // them in the shader.
-	      // |xRank| is used to determine the coords length. See
-	      // get[Packed]SamplerAtOutputCoords.
-	      // |isInOutTexShapeEqual| is used to determine whether going to an
-	      // optimization path in getSamplerAtOutputCoords.
-	      // |useSqueezeShape| is extracted from squeezeInputInfo of
-	      // getSampler[2|3|4]D/getPackedSampler3D.
-	      // |isScalar| is extracted from isInputScalar/isOutputScalar in
-	      // getPackedSamplerAtOutputCoords.
-	      // |broadcastDims| is extracted from get[Packed]SamplerAtOutputCoords.
-	      // |isLogicalShapTexShapeEqual| is used in
-	      // getOutput[Packed]2DCoords/get[Packed]Sampler2D.
-	      // |rank1| is used in getOutputPacked1DCoords.
-	      // |rank2| is used in getOutput2DCoords.
-	      // |rank34| is used in getSampler3D/getSampler4D.
-	      // |isTexShapeGreaterThanOne| are used in
-	      // getSampler[Scalar|1D|2D]/getOutput1DCoords.
-
-	      keyInputs += xRank + "_" + isInOutTexShapeEqual + "_" + useSqueezeShape + "_" + uniformShape.length + "_" + isScalar + "_" + broadcastDims + "_" + isLogicalShapTexShapeEqual + "_" + rank1 + "_" + rank2 + "_" + rank34 + "_" + isTexShapeGreaterThanOne + "_" + hasOffset;
-	    } else {
-	      var texShape = x.isUniform ? 'uniform' : x.texData.texShape;
-	      keyInputs += x.shape + "_" + texShape + "_" + hasOffset;
-	    }
-	  });
-	  var keyUserCode = program.userCode;
-	  var key = program.constructor.name; // Fast string concat. See https://jsperf.com/string-concatenation/14.
-
-	  key += '_' + keyInputs + '_' + keyUserCode + ("" + env().getNumber('WEBGL_VERSION'));
-	  return key;
-	}
-	function useShapeUniforms(rank) {
-	  // TODO: Remove the limitaion of rank <= 4.
-	  return env().getBool('WEBGL_USE_SHAPES_UNIFORMS') && rank <= 4;
-	}
-
-	/**
-	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -112757,11 +112979,13 @@
 	    prodImplCPU = prodImpl,
 	    rangeImplCPU = rangeImpl,
 	    rsqrtImplCPU = rsqrtImpl,
+	    sigmoidImplCPU = sigmoidImpl,
 	    simpleAbsImplCPU = simpleAbsImpl,
 	    sliceImplCPU = sliceImpl,
 	    sparseFillEmptyRowsImplCPU = sparseFillEmptyRowsImpl,
 	    sparseReshapeImplCPU = sparseReshapeImpl,
 	    sparseSegmentReductionImplCPU = sparseSegmentReductionImpl,
+	    sqrtImplCPU = sqrtImpl,
 	    stridedSliceImplCPU = stridedSliceImpl,
 	    stringNGramsImplCPU = stringNGramsImpl,
 	    stringSplitImplCPU = stringSplitImpl,
@@ -112930,7 +113154,12 @@
 	  this.variableNames = ['A'];
 	  this.packedInputs = true;
 	  this.packedOutput = true;
+	  this.customUniforms = [{
+	    name: 'inputShape',
+	    type: 'ivec3'
+	  }];
 	  this.outputShape = outputShape;
+	  this.enableShapeUniforms = useShapeUniforms(this.outputShape.length);
 	  var mainLoop = "";
 
 	  for (var i = 0; i < 4; i++) {
@@ -112947,11 +113176,11 @@
 	    mainLoop += "\n        " + thisRC + "\n        " + (i > 0 ? "if(thisRC.y < rows && thisRC.z < cols){" : '') + "\n          int flatIndex = getFlatIndex(thisRC);\n\n          ivec3 inputRC = inputCoordsFromReshapedOutCoords(flatIndex);\n          vec2 inputRCInnerDims = vec2(float(inputRC.y),float(inputRC.z));\n\n          result[" + i + "] =\n            getChannel(getA(inputRC.x, inputRC.y, inputRC.z), inputRCInnerDims);\n        " + (i > 0 ? '}' : '') + "\n      ";
 	  }
 
-	  this.userCode = "\n      " + getReshapedInputCoords(inputShape) + "\n      " + getFlatIndexFrom3D(outputShape) + "\n\n      void main() {\n        ivec3 rc = getOutputCoords();\n\n        vec4 result = vec4(0.);\n\n        ivec3 thisRC;\n        int rows = " + outputShape[1] + ";\n        int cols = " + outputShape[2] + ";\n\n        " + mainLoop + "\n\n        setOutput(result);\n      }\n    ";
+	  this.userCode = "\n      " + getReshapedInputCoords(inputShape, this.enableShapeUniforms) + "\n      " + (this.enableShapeUniforms ? getFlatIndexFrom3DOutput() : getFlatIndexFrom3D(outputShape)) + "\n\n      void main() {\n        ivec3 rc = getOutputCoords();\n\n        vec4 result = vec4(0.);\n\n        ivec3 thisRC;\n        int rows = " + (this.enableShapeUniforms ? 'outShape[1]' : outputShape[1]) + ";\n        int cols = " + (this.enableShapeUniforms ? 'outShape[2]' : outputShape[2]) + ";\n\n        " + mainLoop + "\n\n        setOutput(result);\n      }\n    ";
 	};
 
-	function getReshapedInputCoords(shape) {
-	  var coordsFromIndexSnippet = getLogicalCoordinatesFromFlatIndex(['r', 'c', 'd'], shape);
+	function getReshapedInputCoords(shape, enableShapeUniforms) {
+	  var coordsFromIndexSnippet = enableShapeUniforms ? getLogicalCoordinatesFromFlatIndexByUniform(['r', 'c', 'd'], 'inputShape') : getLogicalCoordinatesFromFlatIndex(['r', 'c', 'd'], shape);
 	  return "\n    ivec3 inputCoordsFromReshapedOutCoords(int index) {\n      " + coordsFromIndexSnippet + "\n      return ivec3(r, c, d);\n    }\n  ";
 	}
 
@@ -114129,9 +114358,8 @@
 	    var afterShapeAs3D = [getBatchDim(afterShape)].concat(getRowsCols(afterShape));
 	    var program = new ReshapePackedProgram(afterShapeAs3D, input3DShape);
 	    var preventEagerUnpackingOfOutput = true;
-	    var output = this.runWebGLProgram(program, [input3D], input.dtype, null
-	    /* customUniformValues */
-	    , preventEagerUnpackingOfOutput);
+	    var customValues = [input3DShape];
+	    var output = this.runWebGLProgram(program, [input3D], input.dtype, customValues, preventEagerUnpackingOfOutput);
 	    return {
 	      dataId: output.dataId,
 	      shape: afterShape,
@@ -114146,6 +114374,7 @@
 	        dtype = texData.dtype;
 	    var shapeAs3D = getShapeAs3D(shape);
 	    var program;
+	    var denseTexShape = getDenseTexShape(shapeAs3D);
 
 	    if (isPacked) {
 	      program = new DecodeMatrixPackedProgram(shapeAs3D);
@@ -114154,13 +114383,12 @@
 	    }
 
 	    var preventEagerUnpackingOfOutput = true;
+	    var customValues = [denseTexShape];
 	    var out = this.runWebGLProgram(program, [{
 	      shape: shapeAs3D,
 	      dtype: dtype,
 	      dataId: dataId
-	    }], dtype, null
-	    /* customUniformValues */
-	    , preventEagerUnpackingOfOutput);
+	    }], dtype, customValues, preventEagerUnpackingOfOutput);
 	    return {
 	      dtype: dtype,
 	      shape: shape,
@@ -114440,9 +114668,9 @@
 
 	        width = _tex_util$getPackedMa[0];
 	        height = _tex_util$getPackedMa[1];
-	        program = new EncodeMatrixPackedProgram(shapeAs3D, [height, width], isByteArray);
+	        program = new EncodeMatrixPackedProgram(shapeAs3D, isByteArray);
 	      } else {
-	        program = new EncodeMatrixProgram(shapeAs3D, [height, width], isByteArray);
+	        program = new EncodeMatrixProgram(shapeAs3D, isByteArray);
 	      }
 
 	      var tempDenseInputHandle = this.makeTensorInfo([height, width], dtype);
@@ -114453,11 +114681,12 @@
 	        this.texData.get(tempDenseInputHandle.dataId).usage = TextureUsage.UPLOAD;
 	      }
 
-	      this.gpgpu.uploadDenseMatrixToTexture(this.getTexture(tempDenseInputHandle.dataId), width, height, values); // We want the output to remain packed regardless of the value of
+	      this.gpgpu.uploadDenseMatrixToTexture(this.getTexture(tempDenseInputHandle.dataId), width, height, values);
+	      var customValues = [[height, width]]; // We want the output to remain packed regardless of the value of
 	      // WEBGL_PACK.
 
 	      var preventEagerUnpacking = true;
-	      var encodedOutputTarget = this.runWebGLProgram(program, [tempDenseInputHandle], dtype, null, preventEagerUnpacking); // Have the original texture assume the identity of the encoded output.
+	      var encodedOutputTarget = this.runWebGLProgram(program, [tempDenseInputHandle], dtype, customValues, preventEagerUnpacking); // Have the original texture assume the identity of the encoded output.
 
 	      var outputTexData = this.texData.get(encodedOutputTarget.dataId);
 	      texData.texture = outputTexData.texture;
@@ -114528,7 +114757,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$6 = '3.8.0';
+	var version$6 = '3.9.0';
 
 	/**
 	 * @license
@@ -115078,6 +115307,7 @@
 	  this.packedInputs = true;
 	  this.packedOutput = true;
 	  this.outputShape = outputShape;
+	  this.enableShapeUniforms = useShapeUniforms(this.outputShape.length);
 	  var sharedDim = transposeA ? aShape[1] : aShape[2];
 	  var sharedDimensionPacked = Math.ceil(sharedDim / 2);
 	  var aSample = transposeA ? 'i * 2, rc.y' : 'rc.y, i * 2';
@@ -115122,7 +115352,7 @@
 	    batchBSnippet = "int(min(float(rc.x), " + (bShape[0] - 1) + ".))";
 	  }
 
-	  this.userCode = "\n      " + activationSnippet + "\n\n      const float sharedDimension = " + sharedDimensionPacked + ".0;\n\n      vec4 dot2x2ARowBCol(ivec3 rc) {\n        vec4 result = vec4(0);\n        for (int i = 0; i < " + sharedDimensionPacked + "; i++) {\n          int batchA = " + batchASnippet + ";\n          int batchB = " + batchBSnippet + ";\n          vec4 a = getMatrixA(batchA, " + aSample + ");\n          vec4 b = getMatrixB(batchB, " + bSample + ");\n\n          // These swizzled products need to be separately added.\n          // See: https://github.com/tensorflow/tfjs/issues/1735\n          result += (" + aSwizzle[0] + " * " + bSwizzle[0] + ");\n          result += (" + aSwizzle[1] + " * " + bSwizzle[1] + ");\n        }\n        return result;\n      }\n\n      void main() {\n        ivec3 rc = getOutputCoords();\n        vec4 result = dot2x2ARowBCol(rc);\n\n        " + addBiasSnippet + "\n\n        " + applyActivationSnippet + "\n\n        setOutput(result);\n      }\n    ";
+	  this.userCode = "\n      " + activationSnippet + "\n      // Don't use uniform for sharedDimensionPacked for performance.\n      const float sharedDimension = " + sharedDimensionPacked + ".0;\n\n      vec4 dot2x2ARowBCol(ivec3 rc) {\n        vec4 result = vec4(0);\n        for (int i = 0; i < " + sharedDimensionPacked + "; i++) {\n          int batchA = " + batchASnippet + ";\n          int batchB = " + batchBSnippet + ";\n          vec4 a = getMatrixA(batchA, " + aSample + ");\n          vec4 b = getMatrixB(batchB, " + bSample + ");\n\n          // These swizzled products need to be separately added.\n          // See: https://github.com/tensorflow/tfjs/issues/1735\n          result += (" + aSwizzle[0] + " * " + bSwizzle[0] + ");\n          result += (" + aSwizzle[1] + " * " + bSwizzle[1] + ");\n        }\n        return result;\n      }\n\n      void main() {\n        ivec3 rc = getOutputCoords();\n        vec4 result = dot2x2ARowBCol(rc);\n\n        " + addBiasSnippet + "\n\n        " + applyActivationSnippet + "\n\n        setOutput(result);\n      }\n    ";
 	};
 
 	/**
@@ -115273,9 +115503,8 @@
 	  var afterShapeAs3D = [getBatchDim(afterShape)].concat(getRowsCols(afterShape));
 	  var program = new ReshapePackedProgram(afterShapeAs3D, input3DShape);
 	  var preventEagerUnpackingOfOutput = true;
-	  var output = backend.runWebGLProgram(program, [input3D], input.dtype, null
-	  /* customSetup */
-	  , preventEagerUnpackingOfOutput);
+	  var customValues = [input3DShape];
+	  var output = backend.runWebGLProgram(program, [input3D], input.dtype, customValues, preventEagerUnpackingOfOutput);
 	  return {
 	    dataId: output.dataId,
 	    shape: afterShape,
@@ -116692,16 +116921,26 @@
 	  assertAxesAreInnerMostDims('arg' + reduceType.charAt(0).toUpperCase() + reduceType.slice(1), axes, x.shape.length);
 
 	  if (!env().getBool('WEBGL_PACK_REDUCE') || x.shape.length <= 2) {
-	    var intermediateTensorInfos = [];
+	    var intermediateTensorInfos = []; // Eagerly unpack x input since it is passed in to all the shaders which
+	    // require unpacked inputs.
 
-	    var _backend_util$compute = computeOutAndReduceShapes(x.shape, axes),
+	    var xtexData = backend.texData.get(x.dataId);
+	    var xIsPacked = xtexData !== null && xtexData.isPacked;
+	    var xUnPacked = x;
+
+	    if (xIsPacked) {
+	      xUnPacked = backend.unpackTensor(x);
+	      intermediateTensorInfos.push(xUnPacked);
+	    }
+
+	    var _backend_util$compute = computeOutAndReduceShapes(xUnPacked.shape, axes),
 	        outShape = _backend_util$compute[0],
 	        reduceShape = _backend_util$compute[1];
 
 	    var inSize = sizeFromShape(reduceShape);
 	    var a2D = reshape$3({
 	      inputs: {
-	        x: x
+	        x: xUnPacked
 	      },
 	      backend: backend,
 	      attrs: {
@@ -118731,32 +118970,45 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var Im2ColPackedProgram = function Im2ColPackedProgram(outputShape, inputShape, convInfo) {
+	var Im2ColPackedProgram = function Im2ColPackedProgram(outputShape, convInfo) {
 	  this.variableNames = ['A'];
 	  this.packedInputs = true;
 	  this.packedOutput = true;
+	  this.customUniforms = [{
+	    name: 'inputShape',
+	    type: 'ivec3'
+	  }, {
+	    name: 'pad',
+	    type: 'ivec2'
+	  }, {
+	    name: 'stride',
+	    type: 'ivec2'
+	  }, {
+	    name: 'dilation',
+	    type: 'ivec2'
+	  }, {
+	    name: 'inChannels',
+	    type: 'int'
+	  }, {
+	    name: 'itemsPerBlockRow',
+	    type: 'int'
+	  }, {
+	    name: 'outWidth',
+	    type: 'int'
+	  }];
 	  this.outputShape = outputShape;
-	  var filterWidth = convInfo.filterWidth,
-	      inChannels = convInfo.inChannels,
-	      strideWidth = convInfo.strideWidth,
-	      strideHeight = convInfo.strideHeight,
-	      padInfo = convInfo.padInfo,
-	      outWidth = convInfo.outWidth,
-	      dilationWidth = convInfo.dilationWidth,
-	      dilationHeight = convInfo.dilationHeight,
-	      dataFormat = convInfo.dataFormat;
-	  var left = padInfo.left,
-	      top = padInfo.top;
-	  var itemsPerBlockRow = inChannels * filterWidth;
+	  this.enableShapeUniforms = useShapeUniforms(this.outputShape.length);
+	  var dataFormat = convInfo.dataFormat;
 	  var glsl = getGlslDifferences();
 	  var isChannelsLast = dataFormat === 'channelsLast';
 	  var rowDim = isChannelsLast ? 0 : 1;
 	  var colDim = isChannelsLast ? 1 : 2;
+	  var boundsCheckingSnippet = this.enableShapeUniforms ? 'if(blockIndex < outShape[1] && pos < outShape[0]) {' : "if(blockIndex < " + outputShape[1] + " && pos < " + outputShape[0] + ") {";
 	  var unrolled = "";
 
 	  for (var row = 0; row <= 1; row++) {
 	    for (var col = 0; col <= 1; col++) {
-	      unrolled += "\n          blockIndex = rc.y + " + col + ";\n          pos = rc.x + " + row + ";\n\n          if(blockIndex < " + outputShape[1] + " && pos < " + outputShape[0] + ") {\n            offsetY = int(blockIndex / (" + outWidth + ")) * " + strideHeight + " - " + top + ";\n            d0 = offsetY + " + dilationHeight + " * (pos / " + itemsPerBlockRow + ");\n\n            if(d0 < " + inputShape[rowDim] + " && d0 >= 0) {\n\n              offsetX = int(mod(float(blockIndex), " + outWidth + ".) * " + strideWidth + ". - " + left + ".);\n              d1 = offsetX + " + dilationWidth + " * (int(mod(float(pos), " + itemsPerBlockRow + ".) / " + inChannels + ".));\n\n              if(d1 < " + inputShape[colDim] + " && d1 >= 0) {\n\n                ch = int(mod(float(pos), " + inChannels + ".));\n\n                if (" + isChannelsLast + ") {\n                  innerDims = vec2(d1, ch);\n                  result[" + (row * 2 + col) + "] = getChannel(\n                    getA(d0, int(innerDims.x),\n                    int(innerDims.y)), innerDims);\n                } else {\n                  innerDims = vec2(d0, d1);\n                  result[" + (row * 2 + col) + "] = getChannel(\n                    getA(ch, int(innerDims.x),\n                    int(innerDims.y)), innerDims);\n                }\n              }\n            }\n          }\n        ";
+	      unrolled += "\n          blockIndex = rc.y + " + col + ";\n          pos = rc.x + " + row + ";\n\n          " + boundsCheckingSnippet + "\n            offsetY = int(blockIndex / outWidth) * stride[0] - pad[0];\n            d0 = offsetY + dilation[0] * (pos / itemsPerBlockRow);\n\n            if(d0 < inputShape[" + rowDim + "] && d0 >= 0) {\n              // Use custom imod instead mod. On Intel GPU, mod may generate\n              // unexpected value.\n              // https://github.com/tensorflow/tfjs/issues/5447\n              offsetX = imod(blockIndex, outWidth) * stride[1] - pad[1];\n              d1 = offsetX + dilation[1] * (imod(pos, itemsPerBlockRow) /\n                  inChannels);\n\n              if(d1 < inputShape[" + colDim + "] && d1 >= 0) {\n\n                ch = imod(pos, inChannels);\n\n                if (" + isChannelsLast + ") {\n                  innerDims = vec2(d1, ch);\n                  result[" + (row * 2 + col) + "] = getChannel(\n                    getA(d0, int(innerDims.x),\n                    int(innerDims.y)), innerDims);\n                } else {\n                  innerDims = vec2(d0, d1);\n                  result[" + (row * 2 + col) + "] = getChannel(\n                    getA(ch, int(innerDims.x),\n                    int(innerDims.y)), innerDims);\n                }\n              }\n            }\n          }\n        ";
 	    }
 	  }
 
@@ -118809,19 +119061,39 @@
 	  var intermediates = []; // TODO: Once reduction ops are packed, batchMatMul will always be packed
 	  // and we can remove this condition.
 
-	  var batchMatMulWillBeUnpacked = (outerShapeX === 1 || outerShapeFilter === 1) && sharedMatMulDim > MATMUL_SHARED_DIM_THRESHOLD;
-	  var reshapeWillBeExpensive = xShape[2] % 2 !== 0 && !!xTexData.isPacked;
+	  var batchMatMulWillBeUnpacked = (outerShapeX === 1 || outerShapeFilter === 1) && sharedMatMulDim > MATMUL_SHARED_DIM_THRESHOLD; // The algorithm in the if condition assumes (1) the output will be packed,
+	  // (2) x is packed, (3) x isChannelsLast, (4)  x's packed texture is already
+	  // on GPU, (5) col is odd, (6) the width, height and inChannels are the same
+	  // for xTexData.shape and xShape.
 
-	  if (batchMatMulWillBeUnpacked || !env().getBool('WEBGL_LAZILY_UNPACK') || !env().getBool('WEBGL_PACK_BINARY_OPERATIONS') || !reshapeWillBeExpensive) {
-	    var targetShape = isChannelsLast ? xShape[0] * xShape[1] * xShape[2] : xShape[0] * xShape[2] * xShape[3];
-	    var xReshaped = reshape$3({
-	      inputs: {
-	        x: x
-	      },
-	      backend: backend,
-	      attrs: {
-	        shape: [1, targetShape, convInfo.inChannels]
-	      }
+	  var canOptimize = !batchMatMulWillBeUnpacked && xTexData.isPacked && isChannelsLast && xTexData.texture != null && xShape[2] % 2 !== 0 && arraysEqual(xTexData.shape.slice(-3), xShape.slice(-3));
+
+	  if (canOptimize) {
+	    // We avoid expensive packed 2x2 reshape by padding col count to next,
+	    // even number. When col is odd, the result of packed batchMatMul is
+	    // the same (has the same texture layout and and values in the texture) as
+	    // it is for next even col. We make the odd-cols tensor to look like
+	    // even-cols tensor before the operation and, after the batchMatMul,
+	    // fix the even-cols result to have odd number of cols.
+	    var targetShape = xShape[0] * xShape[1] * (xShape[2] + 1);
+	    var xReshaped = {
+	      dataId: x.dataId,
+	      shape: [1, targetShape, convInfo.inChannels],
+	      dtype: x.dtype
+	    }; // xTexData.shape gets referenced from GPGPUBinary.inShapeInfos.
+	    // Decrementing col count, after batchMatMul->...->compileProgram leads to
+	    // invalid col count within the reference in GPGPUBinary.inShapeInfos.
+	    // Alternative fix would be to provide a copy to GPGPUBinary.inShapeInfos
+	    // in compileProgram method, but that would affect compilation of all
+	    // programs - instead, provide a copy here, with even col count, before
+	    // calling batchMatMul->...->compileProgram and after that, the original
+	    // xTexData.shape is restored.
+
+	    var originalXTexDataShape = xTexData.shape;
+	    xTexData.shape = xTexData.shape.slice();
+	    xTexData.shape[xTexData.shape.length - 2]++;
+	    assert(isReshapeFree(xTexData.shape, xReshaped.shape), function () {
+	      return "packed reshape " + xTexData.shape + " to " + xReshaped.shape + " isn't free";
 	    });
 	    var filterReshaped = reshape$3({
 	      inputs: {
@@ -118832,74 +119104,10 @@
 	        shape: [1, convInfo.inChannels, convInfo.outChannels]
 	      }
 	    });
-	    var result = batchMatMulImpl({
+	    intermediates.push(filterReshaped);
+	    var pointwiseConv = batchMatMulImpl({
 	      a: xReshaped,
 	      b: filterReshaped,
-	      transposeA: transposeA,
-	      transposeB: transposeB,
-	      backend: backend,
-	      bias: bias,
-	      activation: activation,
-	      preluActivationWeights: preluActivationWeights,
-	      leakyreluAlpha: leakyreluAlpha
-	    });
-	    out = reshape$3({
-	      inputs: {
-	        x: result
-	      },
-	      backend: backend,
-	      attrs: {
-	        shape: convInfo.outShape
-	      }
-	    });
-	    intermediates.push(xReshaped);
-	    intermediates.push(filterReshaped);
-	    intermediates.push(result);
-	  } else {
-	    // Following optimization is specific to packed |x| with odd row count
-	    // (For example, in channelLast mode, 'row count' refers to x.shape[2]):
-	    // we avoid expensive packed 2x2 reshape by padding row count to next,
-	    // even number. When x.shape[2] is odd, the result of packed batchMatMul is
-	    // the same (has the same texture layout and and values in the texture) as
-	    // it is for even x.shape[2] + 1. We make the odd-rows tensor to look like
-	    // even-rows tensor before the operation and, after the batchMatMul,
-	    // fix the even-rows result to have odd number of rows.
-	    var _targetShape = isChannelsLast ? xShape[0] * xShape[1] * (xShape[2] + 1) : xShape[0] * xShape[2] * (xShape[3] + 1);
-
-	    var _xReshaped = {
-	      dataId: x.dataId,
-	      shape: [1, _targetShape, convInfo.inChannels],
-	      dtype: x.dtype
-	    }; // xTexData.shape gets referenced from GPGPUBinary.inShapeInfos.
-	    // Decrementing row count, after batchMatMul->...->compileProgram leads to
-	    // invalid row count within the reference in GPGPUBinary.inShapeInfos.
-	    // Alternative fix would be to provide a copy to GPGPUBinary.inShapeInfos
-	    // in compileProgram method, but that would affect compilation of all
-	    // programs - instead, provide a copy here, with even row count, before
-	    // calling batchMatMul->...->compileProgram and after that, the original
-	    // xTexData.shape is restored.
-
-	    var originalXTexDataShape = xTexData.shape;
-	    xTexData.shape = xTexData.shape.slice();
-	    xTexData.shape[xTexData.shape.length - 2]++;
-	    assert(isReshapeFree(xTexData.shape, _xReshaped.shape), function () {
-	      return "packed reshape " + xTexData.shape + " to " + _xReshaped.shape + " isn't free";
-	    });
-
-	    var _filterReshaped = reshape$3({
-	      inputs: {
-	        x: filter
-	      },
-	      backend: backend,
-	      attrs: {
-	        shape: [1, convInfo.inChannels, convInfo.outChannels]
-	      }
-	    });
-
-	    intermediates.push(_filterReshaped);
-	    var pointwiseConv = batchMatMulImpl({
-	      a: _xReshaped,
-	      b: _filterReshaped,
 	      backend: backend,
 	      transposeA: transposeA,
 	      transposeB: transposeB,
@@ -118925,6 +119133,52 @@
 	    });
 	    out.shape = convInfo.outShape;
 	    intermediates.push(pointwiseConv);
+	  } else {
+	    var _targetShape = isChannelsLast ? xShape[0] * xShape[1] * xShape[2] : xShape[0] * xShape[2] * xShape[3];
+
+	    var _xReshaped = reshape$3({
+	      inputs: {
+	        x: x
+	      },
+	      backend: backend,
+	      attrs: {
+	        shape: [1, _targetShape, convInfo.inChannels]
+	      }
+	    });
+
+	    var _filterReshaped = reshape$3({
+	      inputs: {
+	        x: filter
+	      },
+	      backend: backend,
+	      attrs: {
+	        shape: [1, convInfo.inChannels, convInfo.outChannels]
+	      }
+	    });
+
+	    var result = batchMatMulImpl({
+	      a: _xReshaped,
+	      b: _filterReshaped,
+	      transposeA: transposeA,
+	      transposeB: transposeB,
+	      backend: backend,
+	      bias: bias,
+	      activation: activation,
+	      preluActivationWeights: preluActivationWeights,
+	      leakyreluAlpha: leakyreluAlpha
+	    });
+	    out = reshape$3({
+	      inputs: {
+	        x: result
+	      },
+	      backend: backend,
+	      attrs: {
+	        shape: convInfo.outShape
+	      }
+	    });
+	    intermediates.push(_xReshaped);
+	    intermediates.push(_filterReshaped);
+	    intermediates.push(result);
 	  }
 
 	  for (var _i = 0, _intermediates = intermediates; _i < _intermediates.length; _i++) {
@@ -118988,8 +119242,9 @@
 	  });
 	  intermediates.push(xSqueezed);
 	  intermediates.push(w2Row);
-	  var im2ColProgram = new Im2ColPackedProgram(x2ColShape, xSqueezed.shape, convInfo);
-	  var im2Col = backend.runWebGLProgram(im2ColProgram, [xSqueezed], 'float32');
+	  var im2ColProgram = new Im2ColPackedProgram(x2ColShape, convInfo);
+	  var customValues = [xSqueezed.shape, [convInfo.padInfo.top, convInfo.padInfo.left], [convInfo.strideHeight, convInfo.strideWidth], [convInfo.dilationHeight, convInfo.dilationWidth], [convInfo.inChannels], [convInfo.filterWidth * convInfo.inChannels], [convInfo.outWidth]];
+	  var im2Col = backend.runWebGLProgram(im2ColProgram, [xSqueezed], 'float32', customValues);
 	  var im2ColReshaped = reshape$3({
 	    inputs: {
 	      x: im2Col
@@ -119849,15 +120104,21 @@
 	  }
 
 	  this.variableNames = ['x', 'W'];
+	  this.customUniforms = [{
+	    name: 'pads',
+	    type: 'ivec2'
+	  }, {
+	    name: 'strides',
+	    type: 'ivec2'
+	  }, {
+	    name: 'dilations',
+	    type: 'ivec2'
+	  }, {
+	    name: 'inDims',
+	    type: 'ivec2'
+	  }];
 	  this.outputShape = convInfo.outShape;
-	  var xNumRows = convInfo.inHeight;
-	  var xNumCols = convInfo.inWidth;
-	  var padTop = convInfo.padInfo.top;
-	  var padLeft = convInfo.padInfo.left;
-	  var strideHeight = convInfo.strideHeight;
-	  var strideWidth = convInfo.strideWidth;
-	  var dilationHeight = convInfo.dilationHeight;
-	  var dilationWidth = convInfo.dilationWidth;
+	  this.enableShapeUniforms = useShapeUniforms(this.outputShape.length);
 	  var filterHeight = convInfo.filterHeight;
 	  var filterWidth = convInfo.filterWidth;
 	  var channelMul = convInfo.outChannels / convInfo.inChannels;
@@ -119890,7 +120151,7 @@
 	    this.variableNames.push('leakyreluAlpha');
 	  }
 
-	  this.userCode = "\n      " + activationSnippet + "\n\n      const ivec2 strides = ivec2(" + strideHeight + ", " + strideWidth + ");\n      const ivec2 pads = ivec2(" + padTop + ", " + padLeft + ");\n\n      void main() {\n        ivec4 coords = getOutputCoords();\n        int batch = coords.x;\n        ivec2 xRCCorner = coords.yz * strides - pads;\n        int d2 = coords.w;\n        int d1 = d2 / " + channelMul + ";\n        int q = d2 - d1 * " + channelMul + ";\n\n        int xRCorner = xRCCorner.x;\n        int xCCorner = xRCCorner.y;\n\n        // Convolve x(?, ?, d1) with w(:, :, d1, q) to get y(yR, yC, d2).\n        // ? = to be determined. : = across all values in that axis.\n        float dotProd = 0.0;\n        // TO DO(dsmilkov): Flatten the two for loops and vec4 the operations.\n        for (int wR = 0; wR < " + filterHeight + "; wR++) {\n          int xR = xRCorner + wR * " + dilationHeight + ";\n\n          if (xR < 0 || xR >= " + xNumRows + ") {\n            continue;\n          }\n\n          for (int wC = 0; wC < " + filterWidth + "; wC++) {\n            int xC = xCCorner + wC * " + dilationWidth + ";\n\n            if (xC < 0 || xC >= " + xNumCols + ") {\n              continue;\n            }\n\n            float xVal = getX(batch, xR, xC, d1);\n            float wVal = getW(wR, wC, d1, q);\n            dotProd += xVal * wVal;\n          }\n        }\n\n        float result = dotProd;\n        " + addBiasSnippet + "\n        " + applyActivationSnippet + "\n        setOutput(result);\n      }\n    ";
+	  this.userCode = "\n      " + activationSnippet + "\n\n      void main() {\n        ivec4 coords = getOutputCoords();\n        int batch = coords.x;\n        ivec2 xRCCorner = coords.yz * strides - pads;\n        int d2 = coords.w;\n        int d1 = d2 / " + channelMul + ";\n        int q = d2 - d1 * " + channelMul + ";\n\n        int xRCorner = xRCCorner.x;\n        int xCCorner = xRCCorner.y;\n\n        // Convolve x(?, ?, d1) with w(:, :, d1, q) to get y(yR, yC, d2).\n        // ? = to be determined. : = across all values in that axis.\n        float dotProd = 0.0;\n        // TO DO(dsmilkov): Flatten the two for loops and vec4 the operations.\n        for (int wR = 0; wR < " + filterHeight + "; wR++) {\n          int xR = xRCorner + wR * dilations[0];\n\n          if (xR < 0 || xR >= inDims[0]) {\n            continue;\n          }\n\n          for (int wC = 0; wC < " + filterWidth + "; wC++) {\n            int xC = xCCorner + wC * dilations[1];\n\n            if (xC < 0 || xC >= inDims[1]) {\n              continue;\n            }\n\n            float xVal = getX(batch, xR, xC, d1);\n            float wVal = getW(wR, wC, d1, q);\n            dotProd += xVal * wVal;\n          }\n        }\n\n        float result = dotProd;\n        " + addBiasSnippet + "\n        " + applyActivationSnippet + "\n        setOutput(result);\n      }\n    ";
 	};
 
 	/**
@@ -119929,15 +120190,24 @@
 	  this.variableNames = ['x', 'W'];
 	  this.packedInputs = true;
 	  this.packedOutput = true;
+	  this.customUniforms = [{
+	    name: 'pads',
+	    type: 'ivec2'
+	  }, {
+	    name: 'strides',
+	    type: 'ivec2'
+	  }, {
+	    name: 'dilations',
+	    type: 'ivec2'
+	  }, {
+	    name: 'inDims',
+	    type: 'ivec2'
+	  }];
 	  this.outputShape = convInfo.outShape;
+	  this.enableShapeUniforms = useShapeUniforms(this.outputShape.length);
 	  var channelMul = convInfo.outChannels / convInfo.inChannels;
-	  var xNumRows = convInfo.inHeight;
-	  var xNumCols = convInfo.inWidth;
-	  var padTop = convInfo.padInfo.top;
 	  var padLeft = convInfo.padInfo.left;
-	  var strideHeight = convInfo.strideHeight;
 	  var strideWidth = convInfo.strideWidth;
-	  var dilationHeight = convInfo.dilationHeight;
 	  var dilationWidth = convInfo.dilationWidth;
 	  var filterHeight = convInfo.filterHeight;
 	  var filterWidth = convInfo.filterWidth;
@@ -119962,14 +120232,11 @@
 	      mainLoop += "\n          xTexelC" + _c * 2 + " = vec4(0.0);\n          xTexelC" + _c * 2 + "Ready = 0;\n          xTexelC" + (_c * 2 + 1) + " = vec4(0.0);\n          xTexelC" + (_c * 2 + 1) + "Ready = 0;\n          xC" + _c + " = vec4(0.0);";
 	    }
 
-	    mainLoop += "\n        xR = xRCorner + " + r * dilationHeight + ";\n        if (xR >=0 && xR < " + xNumRows + ") {\n      ";
+	    mainLoop += "\n        xR = xRCorner + " + r + " * dilations[0];\n        if (xR >=0 && xR < inDims[0]) {\n      ";
 
 	    for (var texelC = 0; texelC < (texelsAcross + 1) / 2; texelC++) {
 	      var colIndex = texelC * 2;
-
-	      var _c2 = colIndex * dilationWidth;
-
-	      mainLoop += "\n          xC = xCCorner + " + _c2 + ";\n          ";
+	      mainLoop += "\n          xC = xCCorner + " + colIndex * dilationWidth + ";\n          ";
 
 	      if (strideWidth === 1) {
 	        if (colIndex < filterWidth) {
@@ -119982,20 +120249,20 @@
 	            // - If padding is odd, we must add 1 to ensure we ask for an
 	            // even-numbered row.
 	            // - We subtract 2 to access the previous texel.
-	            mainLoop += "\n                xCOffset = xC + 1;\n                if (xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xCOffset + 1 >= " + xNumCols + ") {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n              "; // This texel has been read in previous iteration if the dilation
+	            mainLoop += "\n                xCOffset = xC + 1;\n                if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xCOffset + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n              "; // This texel has been read in previous iteration if the dilation
 	            // is 1.
 
-	            if (dilationWidth === 1 && _c2 > 0) {
+	            if (dilationWidth === 1 && colIndex > 0) {
 	              mainLoop += "\n                xC" + colIndex + " = vec4(xTexelC" + (colIndex - 2) + ".zw, xTexelC" + colIndex + ".xy);\n                ";
 	            } else {
-	              mainLoop += "\n                  xCOffset = xC + 1 - 2;\n\n                  if (xCOffset >= 0 && xCOffset < " + xNumCols + ") {\n                    previous = getX(batch, xR, xCOffset, d1);\n\n                    // Need to manually clear unused channels in case\n                    // we're reading from recycled texture.\n                    if (xCOffset + 1 >= " + xNumCols + ") {\n                      previous.zw = vec2(0.0);\n                    }\n\n                    xC" + colIndex + " = vec4(previous.zw, xTexelC" + colIndex + ".xy);\n                  } else {\n                    xC" + colIndex + " = vec4(0.0, 0.0, xTexelC" + colIndex + ".xy);\n                  }\n                  ";
+	              mainLoop += "\n                  xCOffset = xC + 1 - 2;\n\n                  if (xCOffset >= 0 && xCOffset < inDims[1]) {\n                    previous = getX(batch, xR, xCOffset, d1);\n\n                    // Need to manually clear unused channels in case\n                    // we're reading from recycled texture.\n                    if (xCOffset + 1 >= inDims[1]) {\n                      previous.zw = vec2(0.0);\n                    }\n\n                    xC" + colIndex + " = vec4(previous.zw, xTexelC" + colIndex + ".xy);\n                  } else {\n                    xC" + colIndex + " = vec4(0.0, 0.0, xTexelC" + colIndex + ".xy);\n                  }\n                  ";
 	            }
 	          } else {
 	            // Padding is even, so xRC corresponds to a single texel.
-	            mainLoop += "\n                if (xC >= 0 && xC < " + xNumCols + " && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xC, d1);\n                  if (xC + 1 >= " + xNumCols + ") {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                xC" + colIndex + " = xTexelC" + colIndex + ";\n                ";
+	            mainLoop += "\n                if (xC >= 0 && xC < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xC, d1);\n                  if (xC + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                xC" + colIndex + " = xTexelC" + colIndex + ";\n                ";
 	          }
 
-	          if (_c2 + 1 < filterWidth) {
+	          if (colIndex + 1 < filterWidth) {
 	            // If dilation is even, the second entry should match the first
 	            // (either both are composed or both are single samples). But if
 	            // dilation is odd, then the second entry should be the opposite
@@ -120004,11 +120271,11 @@
 	            var nextTexelOffset = padLeft % 2 === 0 ? nearestLargerEven(dilationWidth) : dilationWidth;
 
 	            if (dilationWidth % 2 === 0 && padLeft % 2 === 1 || dilationWidth % 2 !== 0 && padLeft % 2 !== 1) {
-	              mainLoop += "\n                  xCOffset = xC + " + padLeft % 2 + " + " + nextTexelOffset + ";\n\n                  if (xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                    xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n\n                    // Need to manually clear unused channels in case\n                    // we're reading from recycled texture.\n                    if (xCOffset + 1 >= " + xNumCols + ") {\n                      xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                    }\n                    xTexelC" + (colIndex + 1) + "Ready = 1;\n                  }\n                  "; // If dilation > 1 then the xRC's will not be able to share any
+	              mainLoop += "\n                  xCOffset = xC + imod(pads[1], 2) + " + nextTexelOffset + ";\n\n                  if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                    xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n\n                    // Need to manually clear unused channels in case\n                    // we're reading from recycled texture.\n                    if (xCOffset + 1 >= inDims[1]) {\n                      xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                    }\n                    xTexelC" + (colIndex + 1) + "Ready = 1;\n                  }\n                  "; // If dilation > 1 then the xRC's will not be able to share any
 	              // values, so each xRC will require two unique calls to getX.
 
 	              if (dilationWidth > 1) {
-	                mainLoop += "\n                    xCOffset -= 2;\n                    if (xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + colIndex + "Ready == 0) {\n                      xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n                      xTexelC" + colIndex + "Ready = 1;\n                    }\n                    ";
+	                mainLoop += "\n                    xCOffset -= 2;\n                    if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                      xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n                      xTexelC" + colIndex + "Ready = 1;\n                    }\n                    ";
 	              }
 
 	              mainLoop += "\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".xy);\n                  ";
@@ -120019,14 +120286,14 @@
 	              if (nextTexelOffset === 1) {
 	                mainLoop += "\n                    xC" + (colIndex + 1) + " = xTexelC" + colIndex + ";\n                    ";
 	              } else {
-	                mainLoop += "\n                    xCOffset = xC + " + nextTexelOffset + ";\n\n                    if (xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                      xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n                      if (xCOffset + 1 >= " + xNumCols + ") {\n                        xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                      }\n                      xTexelC" + (colIndex + 1) + "Ready = 1;\n                    }\n\n                    xC" + (colIndex + 1) + " = xTexelC" + (colIndex + 1) + ";\n                    ";
+	                mainLoop += "\n                    xCOffset = xC + " + nextTexelOffset + ";\n\n                    if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                      xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n                      if (xCOffset + 1 >= inDims[1]) {\n                        xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                      }\n                      xTexelC" + (colIndex + 1) + "Ready = 1;\n                    }\n\n                    xC" + (colIndex + 1) + " = xTexelC" + (colIndex + 1) + ";\n                    ";
 	              }
 	            }
 	          }
 	        }
 	      } else {
 	        // stride === 2
-	        if (_c2 < filterWidth) {
+	        if (colIndex < filterWidth) {
 	          // Depending on whether padLeft is even or odd, we want either the
 	          // xy or zw channels from X texels for xC${colIndex}. If padLeft is
 	          // even, xC${colIndex +1} is simply the zw channels of texels we've
@@ -120035,15 +120302,15 @@
 	          // vec4
 	          // final` initialized below.
 	          if (padLeft % 2 === 1) {
-	            mainLoop += "\n                xCOffset = xC + 1 - " + strideWidth + ";\n                if(xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xCOffset + 1 >= " + xNumCols + ") {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                if(xC + 1 >= 0 && xC + 1 < " + xNumCols + " && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                  xTexelC" + (colIndex + 1) + " = getX(batch, xR, xC + 1, d1);\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xC + 2 >= " + xNumCols + ") {\n                    xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + (colIndex + 1) + "Ready = 1;\n                }\n\n                xC" + colIndex + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".zw);\n              ";
+	            mainLoop += "\n                xCOffset = xC + 1 - strides[1];\n                if(xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xCOffset + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                if(xC + 1 >= 0 && xC + 1 < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                  xTexelC" + (colIndex + 1) + " = getX(batch, xR, xC + 1, d1);\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xC + 2 >= inDims[1]) {\n                    xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + (colIndex + 1) + "Ready = 1;\n                }\n\n                xC" + colIndex + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".zw);\n              ";
 
-	            if (_c2 + 1 < filterWidth) {
-	              mainLoop += "\n                  final = vec4(0.0);\n                  xCOffset = xC + 1 + " + strideWidth + ";\n                  if(xCOffset >= 0 && xCOffset < " + xNumCols + ") {\n                    final = getX(batch, xR, xCOffset, d1);\n                  }\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + (colIndex + 1) + ".xy, final.xy);\n                ";
+	            if (colIndex + 1 < filterWidth) {
+	              mainLoop += "\n                  final = vec4(0.0);\n                  xCOffset = xC + 1 + strides[1];\n                  if(xCOffset >= 0 && xCOffset < inDims[1]) {\n                    final = getX(batch, xR, xCOffset, d1);\n                  }\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + (colIndex + 1) + ".xy, final.xy);\n                ";
 	            }
 	          } else {
-	            mainLoop += "\n                if(xC >= 0 && xC < " + xNumCols + " && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xC, d1);\n                  if (xC + 1 >= " + xNumCols + ") {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                xCOffset = xC + " + strideWidth + ";\n                if(xCOffset >= 0 && xCOffset < " + xNumCols + " && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                  xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n                  if (xCOffset + 1 >= " + xNumCols + ") {\n                    xTexelC" + (colIndex + 1) + ".zw = vec2(0.);\n                  }\n                  xTexelC" + (colIndex + 1) + "Ready = 1;\n                }\n\n                xC" + colIndex + " = vec4(\n                  xTexelC" + colIndex + ".xy, xTexelC" + (colIndex + 1) + ".xy);\n              ";
+	            mainLoop += "\n                if(xC >= 0 && xC < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xC, d1);\n                  if (xC + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                xCOffset = xC + strides[1];\n                if(xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                  xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n                  if (xCOffset + 1 >= inDims[1]) {\n                    xTexelC" + (colIndex + 1) + ".zw = vec2(0.);\n                  }\n                  xTexelC" + (colIndex + 1) + "Ready = 1;\n                }\n\n                xC" + colIndex + " = vec4(\n                  xTexelC" + colIndex + ".xy, xTexelC" + (colIndex + 1) + ".xy);\n              ";
 
-	            if (_c2 + 1 < filterWidth) {
+	            if (colIndex + 1 < filterWidth) {
 	              mainLoop += "\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".zw);\n                ";
 	            }
 	          }
@@ -120055,10 +120322,10 @@
 
 
 	      if (colIndex < filterWidth) {
-	        mainLoop += "\n            wTexel = getW(" + r + ", " + _c2 + ", d1, q);\n            dotProd += xC" + colIndex + " * vec4(wTexel.xz, wTexel.xz);\n          ";
+	        mainLoop += "\n            wTexel = getW(" + r + ", " + colIndex + ", d1, q);\n            dotProd += xC" + colIndex + " * vec4(wTexel.xz, wTexel.xz);\n          ";
 
-	        if (_c2 + 1 < filterWidth) {
-	          mainLoop += "\n              wTexel = getW(" + r + ", " + (_c2 + 1) + ", d1, q);\n              dotProd += xC" + (colIndex + 1) + " * vec4(wTexel.xz, wTexel.xz);\n            ";
+	        if (colIndex + 1 < filterWidth) {
+	          mainLoop += "\n              wTexel = getW(" + r + ", " + (colIndex + 1) + ", d1, q);\n              dotProd += xC" + (colIndex + 1) + " * vec4(wTexel.xz, wTexel.xz);\n            ";
 	        }
 	      }
 	    }
@@ -120095,7 +120362,7 @@
 	    this.variableNames.push('leakyreluAlpha');
 	  }
 
-	  this.userCode = "\n      " + activationSnippet + "\n\n      const ivec2 strides = ivec2(" + strideHeight + ", " + strideWidth + ");\n      const ivec2 pads = ivec2(" + padTop + ", " + padLeft + ");\n\n      void main() {\n\n        ivec4 coords = getOutputCoords();\n        int batch = coords.x;\n        ivec2 xRCCorner = coords.yz * strides - pads;\n        int d2 = coords.w;\n        int d1 = d2 / " + channelMul + ";\n        int q = d2 - d1 * " + channelMul + ";\n        int xRCorner = xRCCorner.x;\n        int xCCorner = xRCCorner.y;\n\n        //intialize dotProd with a small epsilon seems to reduce GPU accuracy loss.\n        vec4 dotProd = vec4(0.000000000000001);\n\n        " + mainLoop + "\n\n        vec4 result = dotProd - vec4(0.000000000000001);\n        " + addBiasSnippet + "\n        " + applyActivationSnippet + "\n        setOutput(result);\n      }\n    ";
+	  this.userCode = "\n      " + activationSnippet + "\n\n      void main() {\n        ivec4 coords = getOutputCoords();\n        int batch = coords.x;\n        ivec2 xRCCorner = coords.yz * strides - pads;\n        int d2 = coords.w;\n        int d1 = d2 / " + channelMul + ";\n        int q = d2 - d1 * " + channelMul + ";\n        int xRCorner = xRCCorner.x;\n        int xCCorner = xRCCorner.y;\n\n        //intialize dotProd with a small epsilon seems to reduce GPU accuracy loss.\n        vec4 dotProd = vec4(0.000000000000001);\n\n        " + mainLoop + "\n\n        vec4 result = dotProd - vec4(0.000000000000001);\n        " + addBiasSnippet + "\n        " + applyActivationSnippet + "\n        setOutput(result);\n      }\n    ";
 	};
 
 	/**
@@ -120144,7 +120411,8 @@
 	    program = new DepthwiseConv2DProgram(convInfo);
 	  }
 
-	  return backend.runWebGLProgram(program, [x, filter], 'float32');
+	  var customValues = [[convInfo.padInfo.top, convInfo.padInfo.left], [convInfo.strideHeight, convInfo.strideWidth], [convInfo.dilationHeight, convInfo.dilationWidth], [convInfo.inHeight, convInfo.inWidth]];
+	  return backend.runWebGLProgram(program, [x, filter], 'float32', customValues);
 	}
 	var depthwiseConv2dNativeConfig$1 = {
 	  kernelName: DepthwiseConv2dNative,
@@ -121376,7 +121644,8 @@
 	    program = new DepthwiseConv2DProgram(convInfo, hasBias, fusedActivation, hasPreluActivationWeights, hasLeakyreluAlpha);
 	  }
 
-	  var result = backend.runWebGLProgram(program, programInputs, 'float32');
+	  var customValues = [[convInfo.padInfo.top, convInfo.padInfo.left], [convInfo.strideHeight, convInfo.strideWidth], [convInfo.dilationHeight, convInfo.dilationWidth], [convInfo.inHeight, convInfo.inWidth]];
+	  var result = backend.runWebGLProgram(program, programInputs, 'float32', customValues);
 	  intermediates.forEach(function (t) {
 	    return backend.disposeIntermediateTensorInfo(t);
 	  });
@@ -123944,6 +124213,27 @@
 	  var x = inputs.x;
 	  var paddings = attrs.paddings,
 	      constantValue = attrs.constantValue;
+
+	  if (sizeFromShape(x.shape) === 0) {
+	    // Short-circuit the computation, since x doesn't have value, only
+	    // the shape is used to compute output shape to pad.
+	    var outputShape = paddings.map(function (p, i) {
+	      return p[0]
+	      /* beforePad */
+	      + x.shape[i] + p[1];
+	    }
+	    /* afterPad */
+	    );
+	    return fill$2({
+	      backend: backend,
+	      attrs: {
+	        shape: outputShape,
+	        value: constantValue,
+	        dtype: x.dtype
+	      }
+	    });
+	  }
+
 	  var program = env().getBool('WEBGL_PACK_ARRAY_OPERATIONS') ? new PadPackedProgram(x.shape, paddings, constantValue) : new PadProgram(x.shape, paddings, constantValue);
 	  var customValues = [[constantValue]];
 	  return backend.runWebGLProgram(program, [x], x.dtype, customValues);
@@ -125124,7 +125414,9 @@
 	 */
 	var SIGMOID$2 = "return 1.0 / (1.0 + exp(-1.0 * x));";
 	var sigmoid$2 = unaryKernelFunc$1({
-	  opSnippet: SIGMOID$2
+	  opSnippet: SIGMOID$2,
+	  packedOpSnippet: SIGMOID$2,
+	  cpuKernelImpl: sigmoidImplCPU
 	});
 	var sigmoidConfig$1 = {
 	  kernelName: Sigmoid,
@@ -125665,7 +125957,9 @@
 	 */
 	var SQRT = "return sqrt(x);";
 	var sqrt$5 = unaryKernelFunc$1({
-	  opSnippet: SQRT
+	  opSnippet: SQRT,
+	  packedOpSnippet: SQRT,
+	  cpuKernelImpl: sqrtImplCPU
 	});
 	var sqrtConfig$1 = {
 	  kernelName: Sqrt,
@@ -126902,7 +127196,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$7 = '3.8.0';
+	var version$7 = '3.9.0';
 
 	/**
 	 * @license
@@ -126972,6 +127266,7 @@
 	exports.BatchMatMul = BatchMatMul;
 	exports.BatchToSpaceND = BatchToSpaceND;
 	exports.Bincount = Bincount;
+	exports.BroadcastArgs = BroadcastArgs;
 	exports.BroadcastTo = BroadcastTo;
 	exports.Callback = Callback;
 	exports.CallbackList = CallbackList;
@@ -127166,6 +127461,7 @@
 	exports.batchToSpaceND = batchToSpaceND;
 	exports.bincount = bincount;
 	exports.booleanMaskAsync = booleanMaskAsync;
+	exports.broadcastArgs = broadcastArgs;
 	exports.broadcastTo = broadcastTo;
 	exports.browser = browser;
 	exports.buffer = buffer;
@@ -127261,7 +127557,7 @@
 	exports.loadGraphModel = loadGraphModel;
 	exports.loadLayersModel = loadLayersModel;
 	exports.localResponseNormalization = localResponseNormalization;
-	exports.log = log$9;
+	exports.log = log$a;
 	exports.log1p = log1p;
 	exports.logSigmoid = logSigmoid;
 	exports.logSoftmax = logSoftmax;
