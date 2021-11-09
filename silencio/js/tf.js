@@ -14029,7 +14029,7 @@
 	  return true;
 	}
 	function isTypedArray$1(a) {
-	  return a instanceof Float32Array || a instanceof Int32Array || a instanceof Uint8Array;
+	  return a instanceof Float32Array || a instanceof Int32Array || a instanceof Uint8Array || a instanceof Uint8ClampedArray;
 	}
 	function bytesPerElement(dtype) {
 	  if (dtype === 'float32' || dtype === 'int32') {
@@ -14078,7 +14078,7 @@
 
 	  if (values instanceof Float32Array) {
 	    return 'float32';
-	  } else if (values instanceof Int32Array || values instanceof Uint8Array) {
+	  } else if (values instanceof Int32Array || values instanceof Uint8Array || values instanceof Uint8ClampedArray) {
 	    return 'int32';
 	  } else if (isNumber(values)) {
 	    return 'float32';
@@ -19409,7 +19409,15 @@
 	  return typeof navigator !== 'undefined' && navigator != null;
 	}
 
+	var isMobileMockValue;
+	function mockIsMobile(value) {
+	  isMobileMockValue = value;
+	}
 	function isMobile(nav) {
+	  if (isMobileMockValue !== undefined) {
+	    return isMobileMockValue;
+	  }
+
 	  if (nav || _isNavigatorDefined()) {
 	    if (!nav) {
 	      nav = navigator;
@@ -19442,6 +19450,7 @@
 
 	var device_util = {
 		__proto__: null,
+		mockIsMobile: mockIsMobile,
 		isMobile: isMobile,
 		isBrowser: isBrowser
 	};
@@ -24209,7 +24218,16 @@
 	    vals = pixels.data;
 	  } else if (isImage || isVideo || isImageBitmap) {
 	    if (fromPixels2DContext == null) {
-	      fromPixels2DContext = document.createElement('canvas').getContext('2d');
+	      if (typeof document === 'undefined') {
+	        if (typeof OffscreenCanvas !== 'undefined' && typeof OffscreenCanvasRenderingContext2D !== 'undefined') {
+	          // @ts-ignore
+	          fromPixels2DContext = new OffscreenCanvas(1, 1).getContext('2d');
+	        } else {
+	          throw new Error('Cannot parse input in current context. Reason: OffscreenCanvas Context2D rendering is not supported.');
+	        }
+	      } else {
+	        fromPixels2DContext = document.createElement('canvas').getContext('2d');
+	      }
 	    }
 
 	    fromPixels2DContext.canvas.width = width;
@@ -24721,7 +24739,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2017 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -24735,6 +24753,8 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
+	var NEW_AXIS = -2;
+	var SHRINK_AXIS = -1;
 	function assertParamsValid(input, begin, size) {
 	  var inputRank = input.shape.length;
 	  assert(inputRank === begin.length, function () {
@@ -25060,73 +25080,295 @@
 	    }
 	  });
 	  return [begin_, size_];
-	}
+	} // Convert the slicing specification from a sparse representation to a dense
+	// representation. This means that all ellipses and newaxis are expanded out.
+
 	function sliceInfo(xShape, begin, end, strides, beginMask, endMask, ellipsisMask, newAxisMask, shrinkAxisMask) {
-	  // make a copy because it may be modified further down.
-	  var $begin = begin.slice();
-	  var $end = end.slice();
-	  var $strides = strides;
+	  var stridesNonNull;
 
 	  if (strides == null) {
-	    $strides = new Array($begin.length);
-	  }
+	    stridesNonNull = new Array(begin.length);
+	    stridesNonNull.fill(1);
+	  } else {
+	    stridesNonNull = strides;
+	  } // Only one non-zero bit is allowed in ellipsisMask, which means ellipsisMask
+	  // is a power of 2. Use bit compares to ensure ellipsisMask is 0 or a power
+	  // of 2. When i is a power of 2, i & (i - 1) is always 0.
+	  // Also ref:
+	  // https://stackoverflow.com/questions/600293/how-to-check-if-a-number-is-a-power-of-2
 
-	  var ellipsisAxes = maskToAxes(ellipsisMask);
 
-	  if (ellipsisAxes.length > 1) {
+	  if (ellipsisMask != null && (ellipsisMask & ellipsisMask - 1) !== 0) {
 	    throw new Error('Multiple ellipses in slice is not allowed.');
+	  } // Step 1: Account for ellipsis and new axis.
+	  // Check for ellipsis and count how many non-newaxis there are after.
+
+
+	  var ellipsisSeen = false;
+	  var sparseSpec = {
+	    dims: stridesNonNull.length,
+	    numAddAxisAfterEllipsis: 0,
+	    begin: begin.slice(),
+	    end: end.slice(),
+	    strides: stridesNonNull.slice(),
+	    beginMask: beginMask,
+	    endMask: endMask,
+	    ellipsisMask: ellipsisMask,
+	    newAxisMask: newAxisMask,
+	    shrinkAxisMask: shrinkAxisMask
+	  };
+
+	  for (var i = 0; i < sparseSpec.dims; i++) {
+	    if (ellipsisSeen && (1 << i & newAxisMask) !== 0) {
+	      sparseSpec.numAddAxisAfterEllipsis++;
+	    }
+
+	    if (1 << i & ellipsisMask) {
+	      ellipsisSeen = true;
+	    }
+	  } // If no ellipsis insert one at the end.
+
+
+	  if (!ellipsisSeen) {
+	    sparseSpec.ellipsisMask |= 1 << sparseSpec.dims;
+	    sparseSpec.dims++; // this effects loop iteration below
+	  } // Step 2: Make a sparse spec into a full index spec.
+	  //
+	  // The sparse spec deos not correspond to the number of dimensions.
+	  // Make a dense spec that cooresponds to the number of dimensions.
+	  //
+	  // For example suppose foo[...,3:] on foo.shape = [2, 2, 3] then we need to
+	  // produce the missing beginMask for the first two dimensions i.e. from
+	  // beginMaskSpec = 0, endMaskSpec = 2, we achieve beginMask = 6 (110),
+	  // endMask = 7 (111).
+
+
+	  var denseSpec = {
+	    dims: xShape.length,
+	    beginMask: 0,
+	    endMask: 0,
+	    beginValid: false,
+	    endValid: false
+	  };
+	  buildDenseSpec(sparseSpec, denseSpec); // Step 3: Make implicit ranges (non-zero beginMasks and endMasks) explicit
+	  // and bounds check.
+
+	  var isIdentity = true;
+	  var sliceDim0 = true;
+	  var isSimpleSlice = true;
+	  var processingShape = [];
+	  var finalShape = [];
+
+	  for (var _i3 = 0; _i3 < xShape.length; ++_i3) {
+	    if (denseSpec.strides[_i3] === 0) {
+	      throw Error("strides[" + _i3 + "] must be non-zero");
+	    }
+
+	    var shrinkI = !!(denseSpec.shrinkAxisMask & 1 << _i3);
+	    var dimI = xShape[_i3];
+
+	    if (dimI === -1) {
+	      processingShape.push(shrinkI ? 1 : -1);
+	      continue;
+	    }
+
+	    var masks = [denseSpec.beginMask & 1 << _i3, denseSpec.endMask & 1 << _i3];
+	    var validRange = [denseSpec.strides[_i3] > 0 ? 0 : -1, denseSpec.strides[_i3] > 0 ? dimI : dimI - 1];
+
+	    if (shrinkI && denseSpec.strides[_i3] <= 0) {
+	      throw Error('only stride 1 allowed on non-range indexing.');
+	    }
+
+	    isSimpleSlice = isSimpleSlice && denseSpec.strides[_i3] === 1;
+	    var beginAndEndMasked = !!(denseSpec.beginMask & 1 << _i3 && denseSpec.endMask & 1 << _i3);
+
+	    if (denseSpec.beginValid && denseSpec.endValid) {
+	      if (shrinkI) {
+	        // If we are shrinking, the end index is now possibly incorrect. In
+	        // particular foo[-1] produces sparseBegin = -1, sparseEnd = 0.
+	        // and canonical puts these to n-1 and 0, which implies a degenerate
+	        // interval. Fortunately, it is now safe to re-create end as begin + 1.
+	        var xFwd = denseSpec.begin[_i3] < 0 ? dimI + denseSpec.begin[_i3] : denseSpec.begin[_i3];
+	        denseSpec.begin[_i3] = xFwd;
+	        denseSpec.end[_i3] = denseSpec.begin[_i3] + 1;
+
+	        if (xFwd < 0 || xFwd >= dimI) {
+	          throw Error("slice index " + denseSpec.begin[_i3] + " of dimension " + _i3 + " out of bounds.");
+	        }
+	      } else {
+	        denseSpec.begin[_i3] = canonical(denseSpec.begin[_i3], 0, denseSpec.strides[_i3], dimI, masks, validRange);
+	        denseSpec.end[_i3] = canonical(denseSpec.end[_i3], 1, denseSpec.strides[_i3], dimI, masks, validRange);
+	      } // Update optimization values
+
+
+	      var takeAllInDimension = denseSpec.strides[_i3] === 1 && denseSpec.begin[_i3] === 0 && denseSpec.end[_i3] === dimI;
+	      isIdentity = isIdentity && takeAllInDimension;
+	      sliceDim0 = sliceDim0 && (_i3 === 0 && denseSpec.strides[_i3] === 1 || takeAllInDimension);
+	    } else {
+	      isIdentity = isIdentity && denseSpec.strides[_i3] === 1 && beginAndEndMasked;
+	      sliceDim0 = sliceDim0 && (_i3 === 0 && denseSpec.strides[_i3] === 1 || beginAndEndMasked);
+	    } // Compute the processing shape (the intermediate Eigen will produce)
+
+
+	    var intervalLength = void 0;
+	    var knownInterval = false;
+
+	    if (denseSpec.beginValid && denseSpec.endValid) {
+	      intervalLength = denseSpec.end[_i3] - denseSpec.begin[_i3];
+	      knownInterval = true;
+	    } else if (shrinkI) {
+	      // The dimension is still known as 1 for the processingShape, but will be
+	      // discarded for the final shape.
+	      intervalLength = 1;
+	      knownInterval = true;
+	    } else if (beginAndEndMasked) {
+	      // Even if we don't have values for begin or end, we do know that this
+	      // dimension covers the whole interval. If we have shape information for
+	      // this dimension, that tells us the interval length.
+	      if (dimI >= 0) {
+	        if (denseSpec.strides[_i3] < 0) {
+	          intervalLength = -dimI;
+	        } else {
+	          intervalLength = dimI;
+	        }
+
+	        knownInterval = true;
+	      }
+	    }
+
+	    if (knownInterval) {
+	      var sizeI = void 0; // Hold zero if the interval is degenerate, otherwise account for
+	      // remainder
+
+	      if (intervalLength === 0 || intervalLength < 0 !== denseSpec.strides[_i3] < 0) {
+	        sizeI = 0;
+	      } else {
+	        sizeI = Math.trunc(intervalLength / denseSpec.strides[_i3]) + (intervalLength % denseSpec.strides[_i3] !== 0 ? 1 : 0);
+	      }
+
+	      processingShape.push(sizeI);
+	    } else {
+	      processingShape.push(-1);
+	    }
+	  } // Step 4: Compute the final shape
+	  //
+	  // newAxis will increase dimension by 1 (with a one-size dimension)
+	  // slices like foo[3, ...] will reduce dimension by 1.
+	  // This cannot be done earlier, because it depends on Step 3.
+
+
+	  for (var denseDim = 0; denseDim < denseSpec.finalShapeGatherIndices.length; ++denseDim) {
+	    var gatherIndex = denseSpec.finalShapeGatherIndices[denseDim];
+
+	    if (gatherIndex >= 0) {
+	      finalShape.push(processingShape[gatherIndex]);
+	    } else if (gatherIndex === NEW_AXIS) {
+	      finalShape.push(1);
+	    }
 	  }
 
-	  if (ellipsisMask !== 0 && newAxisMask !== 0) {
-	    throw new Error('Using both ellipsisMask and newAxisMask is not yet supported.');
-	  }
-
-	  if (ellipsisMask !== 0 && shrinkAxisMask !== 0) {
-	    throw new Error('Using both ellipsisMask and shrinkAxisMask is not yet supported.');
-	  }
-
-	  var numInterpolatedAxes = xShape.length - $begin.length; // Expand the dims of x based on the newAxisMask.
-
-	  var expandAxes = maskToAxes(newAxisMask);
-	  var newShape = xShape.slice();
-	  expandAxes.forEach(function (axis) {
-	    $begin[axis] = 0;
-	    $end[axis] = 1;
-	    newShape.splice(axis, 0, 1);
-	  });
-
-	  var _getNormalizedAxes = getNormalizedAxes(newShape, ellipsisAxes, numInterpolatedAxes, $begin, $end, $strides, beginMask, endMask, ellipsisMask),
-	      normalizedBegin = _getNormalizedAxes.begin,
-	      normalizedEnd = _getNormalizedAxes.end,
-	      normalizedStrides = _getNormalizedAxes.strides;
-
-	  $begin = normalizedBegin;
-	  $end = normalizedEnd;
-	  $strides = normalizedStrides;
-	  var shrinkAxes = maskToAxes(shrinkAxisMask); // Adjust the ends based on the shrink mask.
-
-	  shrinkAxes.forEach(function (axis) {
-	    $end[axis] = $begin[axis] + 1;
-	    $strides[axis] = 1;
-	  }); // Figure out the output shape.
-
-	  var size = computeOutShape($begin, $end, $strides); // Remove the axes based on shrinkMask.
-
-	  var outShape = size.filter(function (_, axis) {
-	    return shrinkAxes.indexOf(axis) === -1;
-	  });
-	  var nonStrided = $strides.every(function (v) {
-	    return v === 1;
+	  var finalShapeSparse = finalShape.filter(function (dim, i) {
+	    return denseSpec.finalShapeGatherIndices[i] !== NEW_AXIS;
 	  });
 	  return {
-	    nonStrided: nonStrided,
-	    $begin: $begin,
-	    $end: $end,
-	    $strides: $strides,
-	    size: size,
-	    newShape: newShape,
-	    outShape: outShape
+	    finalShapeSparse: finalShapeSparse,
+	    finalShape: finalShape,
+	    isIdentity: isIdentity,
+	    sliceDim0: sliceDim0,
+	    isSimpleSlice: isSimpleSlice,
+	    begin: denseSpec.begin,
+	    end: denseSpec.end,
+	    strides: denseSpec.strides
 	  };
+	}
+
+	function buildDenseSpec(sparse, dense) {
+	  dense.beginMask = 0;
+	  dense.endMask = 0;
+	  dense.shrinkAxisMask = 0;
+	  var fullIndex = 0;
+	  dense.beginValid = sparse.begin != null;
+	  dense.endValid = sparse.end != null;
+	  dense.begin = new Array(dense.dims);
+	  dense.end = new Array(dense.dims);
+	  dense.strides = new Array(dense.dims);
+	  dense.finalShapeGatherIndices = [];
+	  dense.finalShapeGatherIndicesSparse = [];
+	  dense.inputShapeGatherIndicesSparse = new Array(dense.dims);
+
+	  for (var i = 0; i < sparse.dims; i++) {
+	    if (1 << i & sparse.ellipsisMask) {
+	      // Only the bit that has ellipsis will fall in this condition.
+	      // Expand the ellipsis into the appropriate indices
+	      // Note: this only works because we guaranteed one ellipsis.
+	      var nextIndex = Math.min(dense.dims - (sparse.dims - i) + 1 + sparse.numAddAxisAfterEllipsis, dense.dims);
+
+	      for (; fullIndex < nextIndex; fullIndex++) {
+	        // newAxis aren't real axis so you have to skip.
+	        dense.begin[fullIndex] = 0;
+	        dense.end[fullIndex] = 0;
+	        dense.strides[fullIndex] = 1;
+	        dense.beginMask |= 1 << fullIndex;
+	        dense.endMask |= 1 << fullIndex;
+	        dense.finalShapeGatherIndices.push(fullIndex);
+	        dense.finalShapeGatherIndicesSparse.push(-1);
+	        dense.inputShapeGatherIndicesSparse[fullIndex] = i;
+	      }
+	    } else if (1 << i & sparse.newAxisMask) {
+	      // Only the bit that has newAxis will fall in this condition.
+	      dense.finalShapeGatherIndices.push(NEW_AXIS);
+	      dense.finalShapeGatherIndicesSparse.push(-1);
+	    } else {
+	      if (fullIndex === dense.begin.length) {
+	        throw Error("Index out of range using input dim " + fullIndex + "; input " + ("has only " + dense.dims + " dims, " + dense.begin.length + "."));
+	      } // Gather slicing spec into appropriate index.
+
+
+	      if (sparse.begin != null) {
+	        dense.begin[fullIndex] = sparse.begin[i];
+	      }
+
+	      if (sparse.end != null) {
+	        dense.end[fullIndex] = sparse.end[i];
+	      }
+
+	      dense.strides[fullIndex] = sparse.strides[i];
+
+	      if (sparse.beginMask & 1 << i) {
+	        dense.beginMask |= 1 << fullIndex;
+	      }
+
+	      if (sparse.endMask & 1 << i) {
+	        dense.endMask |= 1 << fullIndex;
+	      } // If shrink, record where to get the dimensionality from (i.e. newAxis)
+	      // creates a fake 1 size dimension. Also remember shrink axis (now in
+	      // dense form) so we can ignore dense.end below.
+
+
+	      if (sparse.shrinkAxisMask & 1 << i) {
+	        dense.finalShapeGatherIndices.push(SHRINK_AXIS);
+	        dense.finalShapeGatherIndicesSparse.push(-1);
+	        dense.shrinkAxisMask |= 1 << fullIndex;
+	      } else {
+	        dense.finalShapeGatherIndices.push(fullIndex); // Remember that where in the sparse shape the dense dim comes from.
+
+	        dense.finalShapeGatherIndicesSparse.push(i);
+	      }
+
+	      dense.inputShapeGatherIndicesSparse[fullIndex] = i;
+	      fullIndex++;
+	    }
+	  }
+	}
+
+	function canonical(x, c, strideI, dimI, masks, validRange) {
+	  if (masks[c]) {
+	    return strideI > 0 ? validRange[c] : validRange[c + 1 & 1];
+	  } else {
+	    var xFwd = x < 0 ? dimI + x : x; // make negative indices positive
+
+	    return xFwd < validRange[0] ? validRange[0] : xFwd > validRange[1] ? validRange[1] : xFwd;
+	  }
 	}
 
 	var slice_util = {
@@ -25450,7 +25692,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$1 = '3.9.0';
+	var version$1 = '3.11.0';
 
 	/**
 	 * @license
@@ -27677,7 +27919,7 @@
 	 */
 
 	function sigmoid_(x) {
-	  var $x = convertToTensor(x, 'x', 'sigmoid');
+	  var $x = convertToTensor(x, 'x', 'sigmoid', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -27790,7 +28032,7 @@
 	 */
 
 	function tanh_(x) {
-	  var $x = convertToTensor(x, 'x', 'tanh');
+	  var $x = convertToTensor(x, 'x', 'tanh', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -28467,7 +28709,7 @@
 	 */
 
 	function ceil_(x) {
-	  var $x = convertToTensor(x, 'x', 'ceil');
+	  var $x = convertToTensor(x, 'x', 'ceil', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -28701,8 +28943,8 @@
 	    dilations = [1, 1];
 	  }
 
-	  var $x = convertToTensor(x, 'x', 'conv2d');
-	  var $filter = convertToTensor(filter, 'filter', 'conv2d');
+	  var $x = convertToTensor(x, 'x', 'conv2d', 'float32');
+	  var $filter = convertToTensor(filter, 'filter', 'conv2d', 'float32');
 	  var x4D = $x;
 	  var reshapedTo4D = false;
 
@@ -29233,13 +29475,13 @@
 	 *
 	 * x.cos().print();  // or tf.cos(x)
 	 * ```
-	 * @param x The input tensor.
+	 * @param x The input tensor. Must be float32 type.
 	 *
 	 * @doc {heading: 'Operations', subheading: 'Basic math'}
 	 */
 
 	function cos_(x) {
-	  var $x = convertToTensor(x, 'x', 'cos');
+	  var $x = convertToTensor(x, 'x', 'cos', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -29274,13 +29516,13 @@
 	 *
 	 * x.cosh().print();  // or tf.cosh(x)
 	 * ```
-	 * @param x The input tensor.
+	 * @param x The input tensor. Must be float32 type.
 	 *
 	 * @doc {heading: 'Operations', subheading: 'Basic math'}
 	 */
 
 	function cosh_(x) {
-	  var $x = convertToTensor(x, 'x', 'cosh');
+	  var $x = convertToTensor(x, 'x', 'cosh', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -29489,10 +29731,13 @@
 	    dataFormat = 'NHWC';
 	  }
 
-	  var $x = convertToTensor(x, 'x', 'depthToSpace');
+	  var $x = convertToTensor(x, 'x', 'depthToSpace', 'float32');
 	  var inputHeight = dataFormat === 'NHWC' ? $x.shape[1] : $x.shape[2];
 	  var inputWidth = dataFormat === 'NHWC' ? $x.shape[2] : $x.shape[3];
 	  var inputDepth = dataFormat === 'NHWC' ? $x.shape[3] : $x.shape[1];
+	  assert(blockSize > 1, function () {
+	    return "blockSize should be > 1 for depthToSpace, but was: " + blockSize;
+	  });
 	  assert(inputHeight * blockSize >= 0, function () {
 	    return "Negative dimension size caused by overflow when multiplying\n    " + inputHeight + " and " + blockSize + "  for depthToSpace with input shape\n    " + $x.shape;
 	  });
@@ -29587,8 +29832,8 @@
 	    dilations = [1, 1];
 	  }
 
-	  var $x = convertToTensor(x, 'x', 'depthwiseConv2d');
-	  var $filter = convertToTensor(filter, 'filter', 'depthwiseConv2d');
+	  var $x = convertToTensor(x, 'x', 'depthwiseConv2d', 'float32');
+	  var $filter = convertToTensor(filter, 'filter', 'depthwiseConv2d', 'float32');
 	  var x4D = $x;
 	  var reshapedTo4D = false;
 
@@ -29669,7 +29914,7 @@
 	 * tf.diag(x).print()
 	 * ```
 	 * ```js
-	 * const x = tf.tensor1d([1, 2, 3, 4, 5, 6, 6, 8], [4, 2])
+	 * const x = tf.tensor2d([1, 2, 3, 4, 5, 6, 6, 8], [4, 2])
 	 *
 	 * tf.diag(x).print()
 	 * ```
@@ -30324,7 +30569,7 @@
 	 */
 
 	function elu_(x) {
-	  var $x = convertToTensor(x, 'x', 'elu');
+	  var $x = convertToTensor(x, 'x', 'elu', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -30724,7 +30969,7 @@
 	 */
 
 	function floor_(x) {
-	  var $x = convertToTensor(x, 'x', 'floor');
+	  var $x = convertToTensor(x, 'x', 'floor', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -31389,7 +31634,7 @@
 	 */
 
 	function log_(x) {
-	  var $x = convertToTensor(x, 'x', 'log');
+	  var $x = convertToTensor(x, 'x', 'log', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -36574,7 +36819,7 @@
 	 */
 
 	function rsqrt_(x) {
-	  var $x = convertToTensor(x, 'x', 'rsqrt');
+	  var $x = convertToTensor(x, 'x', 'rsqrt', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -36947,7 +37192,7 @@
 	 */
 
 	function sin_(x) {
-	  var $x = convertToTensor(x, 'x', 'sin');
+	  var $x = convertToTensor(x, 'x', 'sin', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -37551,7 +37796,7 @@
 	 */
 
 	function sqrt_(x) {
-	  var $x = convertToTensor(x, 'x', 'sqrt');
+	  var $x = convertToTensor(x, 'x', 'sqrt', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -37895,7 +38140,7 @@
 	 */
 
 	function tan_(x) {
-	  var $x = convertToTensor(x, 'x', 'tan');
+	  var $x = convertToTensor(x, 'x', 'tan', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -39773,8 +40018,8 @@
 	    return applyActivation(result, activation, preluActivationWeights, leakyreluAlpha);
 	  }
 
-	  var $x = convertToTensor(x, 'x', 'conv2d');
-	  var $filter = convertToTensor(filter, 'filter', 'conv2d');
+	  var $x = convertToTensor(x, 'x', 'conv2d', 'float32');
+	  var $filter = convertToTensor(filter, 'filter', 'conv2d', 'float32');
 	  var x4D = $x;
 	  var reshapedTo4D = false;
 
@@ -40103,8 +40348,8 @@
 	    return applyActivation(result, activation, preluActivationWeights, leakyreluAlpha);
 	  }
 
-	  var $x = convertToTensor(x, 'x', 'depthwiseConv2d');
-	  var $filter = convertToTensor(filter, 'filter', 'depthwiseConv2d');
+	  var $x = convertToTensor(x, 'x', 'depthwiseConv2d', 'float32');
+	  var $filter = convertToTensor(filter, 'filter', 'depthwiseConv2d', 'float32');
 	  var x4D = $x;
 	  var reshapedTo4D = false;
 
@@ -40975,8 +41220,8 @@
 	    scoreThreshold = Number.NEGATIVE_INFINITY;
 	  }
 
-	  var $boxes = convertToTensor(boxes, 'boxes', 'nonMaxSuppression');
-	  var $scores = convertToTensor(scores, 'scores', 'nonMaxSuppression');
+	  var $boxes = convertToTensor(boxes, 'boxes', 'nonMaxSuppression', 'float32');
+	  var $scores = convertToTensor(scores, 'scores', 'nonMaxSuppression', 'float32');
 	  var inputs = nonMaxSuppSanityCheck($boxes, $scores, maxOutputSize, iouThreshold, scoreThreshold);
 	  maxOutputSize = inputs.maxOutputSize;
 	  iouThreshold = inputs.iouThreshold;
@@ -54576,12 +54821,12 @@
 	 * @param waitMs The time between two consecutive calls to `f` in ms.
 	 */
 
-	function debounce(f, waitMs) {
-	  var lastTime = now();
+	function debounce(f, waitMs, nowFunc) {
+	  var lastTime = nowFunc != null ? nowFunc() : now();
 	  var lastResult;
 
 	  var f2 = function f2() {
-	    var now$1 = now();
+	    var now$1 = nowFunc != null ? nowFunc() : now();
 
 	    if (now$1 - lastTime < waitMs) {
 	      return lastResult;
@@ -58288,7 +58533,7 @@
 	   */
 	  ;
 
-	  _proto2.addWeight = function addWeight(name, shape, dtype, initializer, regularizer, trainable, constraint) {
+	  _proto2.addWeight = function addWeight(name, shape, dtype, initializer, regularizer, trainable, constraint, getInitializerFunc) {
 	    // Reject duplicate weight names.
 	    if (this._addedWeightNames.indexOf(name) !== -1) {
 	      throw new ValueError("Duplicate weight name " + name + " for layer " + this.name);
@@ -58301,7 +58546,7 @@
 	    }
 
 	    if (this.fastWeightInitDuringBuild) {
-	      initializer = getInitializer('zeros');
+	      initializer = getInitializerFunc != null ? getInitializerFunc() : getInitializer('zeros');
 	    }
 
 	    var initValue = initializer.apply(shape, dtype);
@@ -59897,6 +60142,8 @@
 
 	    _this3 = _BaseCallback3.call(this) || this;
 	    _this3.currentEpoch = 0;
+	    _this3.nowFunc = args.nowFunc;
+	    _this3.nextFrameFunc = args.nextFrameFunc || nextFrame;
 	    _this3.yieldEvery = yieldEvery || 'auto';
 
 	    if (_this3.yieldEvery === 'auto') {
@@ -59910,7 +60157,7 @@
 	    if (isNumber(_this3.yieldEvery)) {
 	      // Decorate `maybeWait` so it will be called at most once every
 	      // `yieldEvery` ms.
-	      _this3.maybeWait = debounce(_this3.maybeWait.bind(_assertThisInitialized(_this3)), _this3.yieldEvery);
+	      _this3.maybeWait = debounce(_this3.maybeWait.bind(_assertThisInitialized(_this3)), _this3.yieldEvery, _this3.nowFunc);
 	    }
 
 	    _this3.trainBegin = args.onTrainBegin;
@@ -59946,7 +60193,7 @@
 	              ps.push(this.yield(epoch, batch, logs));
 
 	            case 5:
-	              ps.push(nextFrame());
+	              ps.push(this.nextFrameFunc());
 	              _context19.next = 8;
 	              return Promise.all(ps);
 
@@ -60022,7 +60269,7 @@
 
 	            case 5:
 	              if (this.yieldEvery === 'epoch') {
-	                ps.push(nextFrame());
+	                ps.push(this.nextFrameFunc());
 	              }
 
 	              _context21.next = 8;
@@ -60098,7 +60345,7 @@
 
 	            case 5:
 	              if (this.yieldEvery === 'batch') {
-	                ps.push(nextFrame());
+	                ps.push(this.nextFrameFunc());
 	              } else if (isNumber(this.yieldEvery)) {
 	                ps.push(this.maybeWait(this.currentEpoch, batch, logs));
 	              }
@@ -61281,7 +61528,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$2 = '3.9.0';
+	var version$2 = '3.11.0';
 
 	/**
 	 * Helper function to check the dtype and shape compatibility of a feed value.
@@ -71372,6 +71619,7 @@
 	    _this6.biasConstraint = getConstraint(args.biasConstraint);
 	    _this6.dropout = min$a([1, max$6([0, args.dropout == null ? 0 : args.dropout])]);
 	    _this6.recurrentDropout = min$a([1, max$6([0, args.recurrentDropout == null ? 0 : args.recurrentDropout])]);
+	    _this6.dropoutFunc = args.dropoutFunc;
 	    _this6.stateSize = _this6.units;
 	    _this6.dropoutMask = null;
 	    _this6.recurrentDropoutMask = null;
@@ -71421,7 +71669,8 @@
 	            return onesLike(inputs);
 	          },
 	          rate: _this7.dropout,
-	          training: training
+	          training: training,
+	          dropoutFunc: _this7.dropoutFunc
 	        });
 	      }
 
@@ -71431,7 +71680,8 @@
 	            return onesLike(prevOutput);
 	          },
 	          rate: _this7.recurrentDropout,
-	          training: training
+	          training: training,
+	          dropoutFunc: _this7.dropoutFunc
 	        });
 	      }
 
@@ -71573,6 +71823,7 @@
 	    _this9.biasConstraint = getConstraint(args.biasConstraint);
 	    _this9.dropout = min$a([1, max$6([0, args.dropout == null ? 0 : args.dropout])]);
 	    _this9.recurrentDropout = min$a([1, max$6([0, args.recurrentDropout == null ? 0 : args.recurrentDropout])]);
+	    _this9.dropoutFunc = args.dropoutFunc;
 	    _this9.implementation = args.implementation;
 	    _this9.stateSize = _this9.units;
 	    _this9.dropoutMask = null;
@@ -71623,7 +71874,8 @@
 	          },
 	          rate: _this10.dropout,
 	          training: training,
-	          count: 3
+	          count: 3,
+	          dropoutFunc: _this10.dropoutFunc
 	        });
 	      }
 
@@ -71634,7 +71886,8 @@
 	          },
 	          rate: _this10.recurrentDropout,
 	          training: training,
-	          count: 3
+	          count: 3,
+	          dropoutFunc: _this10.dropoutFunc
 	        });
 	      }
 
@@ -71801,6 +72054,7 @@
 	    _this12.biasConstraint = getConstraint(args.biasConstraint);
 	    _this12.dropout = min$a([1, max$6([0, args.dropout == null ? 0 : args.dropout])]);
 	    _this12.recurrentDropout = min$a([1, max$6([0, args.recurrentDropout == null ? 0 : args.recurrentDropout])]);
+	    _this12.dropoutFunc = args.dropoutFunc;
 	    _this12.implementation = args.implementation;
 	    _this12.stateSize = [_this12.units, _this12.units];
 	    _this12.dropoutMask = null;
@@ -71882,7 +72136,8 @@
 	          },
 	          rate: _this13.dropout,
 	          training: training,
-	          count: 4
+	          count: 4,
+	          dropoutFunc: _this13.dropoutFunc
 	        });
 	      }
 
@@ -71893,7 +72148,8 @@
 	          },
 	          rate: _this13.recurrentDropout,
 	          training: training,
-	          count: 4
+	          count: 4,
+	          dropoutFunc: _this13.dropoutFunc
 	        });
 	      }
 
@@ -72267,10 +72523,11 @@
 	      _args$training = args.training,
 	      training = _args$training === void 0 ? false : _args$training,
 	      _args$count = args.count,
-	      count = _args$count === void 0 ? 1 : _args$count;
+	      count = _args$count === void 0 ? 1 : _args$count,
+	      dropoutFunc = args.dropoutFunc;
 
 	  var droppedInputs = function droppedInputs() {
-	    return dropout$1(ones(), rate);
+	    return dropoutFunc != null ? dropoutFunc(ones(), rate) : dropout$1(ones(), rate);
 	  };
 
 	  var createMask = function createMask() {
@@ -72639,7 +72896,8 @@
 	          },
 	          rate: _this6.dropout,
 	          training: training,
-	          count: numOfKernels
+	          count: numOfKernels,
+	          dropoutFunc: _this6.dropoutFunc
 	        });
 	      }
 
@@ -72665,7 +72923,8 @@
 	          },
 	          rate: _this6.recurrentDropout,
 	          training: training,
-	          count: numOfKernels
+	          count: numOfKernels,
+	          dropoutFunc: _this6.dropoutFunc
 	        });
 	      }
 
@@ -75332,7 +75591,7 @@
 	      }
 
 	      var broadcast = function broadcast(v) {
-	        if (v != null && v.shape.length !== nDims && _this4.axis !== [nDims - 1]) {
+	        if (v != null && v.shape.length !== nDims) {
 	          return reshape(v, broadcastShape);
 	        } else {
 	          return v;
@@ -79558,7 +79817,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -79573,288 +79832,288 @@
 	 * =============================================================================
 	 */
 	var json = [{
-	  'tfOpName': 'Add',
-	  'category': 'arithmetic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "Add",
+	  "category": "arithmetic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'AddV2',
-	  'category': 'arithmetic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "AddV2",
+	  "category": "arithmetic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'AddN',
-	  'category': 'arithmetic',
-	  'inputs': [{
-	    'start': 0,
-	    'end': 0,
-	    'name': 'tensors',
-	    'type': 'tensors'
+	  "tfOpName": "AddN",
+	  "category": "arithmetic",
+	  "inputs": [{
+	    "start": 0,
+	    "end": 0,
+	    "name": "tensors",
+	    "type": "tensors"
 	  }]
 	}, {
-	  'tfOpName': 'BiasAdd',
-	  'category': 'arithmetic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "BiasAdd",
+	  "category": "arithmetic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string',
-	    'notSupported': true
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Sub',
-	  'category': 'arithmetic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "Sub",
+	  "category": "arithmetic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'RealDiv',
-	  'category': 'arithmetic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "RealDiv",
+	  "category": "arithmetic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Div',
-	  'category': 'arithmetic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "Div",
+	  "category": "arithmetic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'DivNoNan',
-	  'category': 'arithmetic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "DivNoNan",
+	  "category": "arithmetic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'FloorDiv',
-	  'category': 'arithmetic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "FloorDiv",
+	  "category": "arithmetic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Mul',
-	  'category': 'arithmetic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "Mul",
+	  "category": "arithmetic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Maximum',
-	  'category': 'arithmetic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "Maximum",
+	  "category": "arithmetic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Minimum',
-	  'category': 'arithmetic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "Minimum",
+	  "category": "arithmetic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Pow',
-	  'category': 'arithmetic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "Pow",
+	  "category": "arithmetic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'SquaredDifference',
-	  'category': 'arithmetic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "SquaredDifference",
+	  "category": "arithmetic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Mod',
-	  'category': 'arithmetic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "Mod",
+	  "category": "arithmetic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'FloorMod',
-	  'category': 'arithmetic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "FloorMod",
+	  "category": "arithmetic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}];
 
@@ -79865,7 +80124,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -79880,650 +80139,650 @@
 	 * =============================================================================
 	 */
 	var json$1 = [{
-	  'tfOpName': 'Abs',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Abs",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Acos',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Acos",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Asin',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Asin",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Atan',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Atan",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Atan2',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Atan2",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'y',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "y",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Ceil',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Ceil",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'ClipByValue',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "ClipByValue",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'clipValueMin',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "clipValueMin",
+	    "type": "number"
 	  }, {
-	    'start': 2,
-	    'name': 'clipValueMax',
-	    'type': 'number'
+	    "start": 2,
+	    "name": "clipValueMax",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Complex',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'real',
-	    'type': 'tensor'
+	  "tfOpName": "Complex",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "real",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'imag',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "imag",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'ComplexAbs',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "ComplexAbs",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Cos',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Cos",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Cosh',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Cosh",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Elu',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Elu",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Exp',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Exp",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Floor',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Floor",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Log',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Log",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Imag',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Imag",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'Tout',
-	    'name': 'outputType',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "Tout",
+	    "name": "outputType",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Neg',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Neg",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Real',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Real",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'Tout',
-	    'name': 'outputType',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "Tout",
+	    "name": "outputType",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Prelu',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Prelu",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'alpha',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "alpha",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Relu',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Relu",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Relu6',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Relu6",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Selu',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Selu",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Sigmoid',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Sigmoid",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Sin',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Sin",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Sinh',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Sinh",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Sqrt',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Sqrt",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Rsqrt',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Rsqrt",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Square',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Square",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Tan',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Tan",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Tanh',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Tanh",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Sign',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Sign",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Round',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Round",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Expm1',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Expm1",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Log1p',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Log1p",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Reciprocal',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Reciprocal",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Softplus',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Softplus",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Asinh',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Asinh",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Acosh',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Acosh",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Atanh',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Atanh",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Erf',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Erf",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Prod',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Prod",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'axes',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "axes",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'keep_dims',
-	    'name': 'keepDims',
-	    'type': 'bool',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "keep_dims",
+	    "name": "keepDims",
+	    "type": "bool",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'LeakyRelu',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "LeakyRelu",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'alpha',
-	    'name': 'alpha',
-	    'type': 'number',
-	    'defaultValue': 0.2
+	  "attrs": [{
+	    "tfName": "alpha",
+	    "name": "alpha",
+	    "type": "number",
+	    "defaultValue": 0.2
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'IsNan',
-	  'category': 'basic_math',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "IsNan",
+	  "category": "basic_math",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}];
 
@@ -80532,615 +80791,631 @@
 		json: json$1
 	};
 
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
 	var json$2 = [{
-	  'tfOpName': 'EmptyTensorList',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'elementShape',
-	    'type': 'shape'
+	  "tfOpName": "EmptyTensorList",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "elementShape",
+	    "type": "shape"
 	  }, {
-	    'start': 1,
-	    'name': 'maxNumElements',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "maxNumElements",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'element_dtype',
-	    'name': 'elementDType',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "element_dtype",
+	    "name": "elementDType",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'LoopCond',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'pred',
-	    'type': 'tensor'
+	  "tfOpName": "LoopCond",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "pred",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'Switch',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'data',
-	    'type': 'tensor'
+	  "tfOpName": "Switch",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "data",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'pred',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "pred",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'Merge',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'end': 0,
-	    'name': 'tensors',
-	    'type': 'tensors'
+	  "tfOpName": "Merge",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "end": 0,
+	    "name": "tensors",
+	    "type": "tensors"
 	  }]
 	}, {
-	  'tfOpName': 'Enter',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensor',
-	    'type': 'tensor'
+	  "tfOpName": "Enter",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensor",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'frame_name',
-	    'name': 'frameName',
-	    'type': 'string'
+	    "tfName": "frame_name",
+	    "name": "frameName",
+	    "type": "string"
 	  }, {
-	    'tfName': 'is_constant',
-	    'name': 'isConstant',
-	    'type': 'bool'
+	    "tfName": "is_constant",
+	    "name": "isConstant",
+	    "type": "bool"
 	  }]
 	}, {
-	  'tfOpName': 'Exit',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensor',
-	    'type': 'tensor'
+	  "tfOpName": "Exit",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensor",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'NextIteration',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensor',
-	    'type': 'tensor'
+	  "tfOpName": "NextIteration",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensor",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'TensorArrayV3',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'size',
-	    'type': 'number'
+	  "tfOpName": "TensorArrayV3",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "size",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'dtype',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "dtype",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }, {
-	    'tfName': 'element_shape',
-	    'name': 'elementShape',
-	    'type': 'shape'
+	    "tfName": "element_shape",
+	    "name": "elementShape",
+	    "type": "shape"
 	  }, {
-	    'tfName': 'dynamic_size',
-	    'name': 'dynamicSize',
-	    'type': 'bool'
+	    "tfName": "dynamic_size",
+	    "name": "dynamicSize",
+	    "type": "bool"
 	  }, {
-	    'tfName': 'clear_after_read',
-	    'name': 'clearAfterRead',
-	    'type': 'bool'
+	    "tfName": "clear_after_read",
+	    "name": "clearAfterRead",
+	    "type": "bool"
 	  }, {
-	    'tfName': 'identical_element_shapes',
-	    'name': 'identicalElementShapes',
-	    'type': 'bool'
+	    "tfName": "identical_element_shapes",
+	    "name": "identicalElementShapes",
+	    "type": "bool"
 	  }, {
-	    'tfName': 'tensor_array_name',
-	    'name': 'name',
-	    'type': 'string'
+	    "tfName": "tensor_array_name",
+	    "name": "name",
+	    "type": "string"
 	  }]
 	}, {
-	  'tfOpName': 'TensorArrayWriteV3',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensorArrayId',
-	    'type': 'tensor'
+	  "tfOpName": "TensorArrayWriteV3",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensorArrayId",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'index',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "index",
+	    "type": "number"
 	  }, {
-	    'start': 2,
-	    'name': 'tensor',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "tensor",
+	    "type": "tensor"
 	  }, {
-	    'start': 3,
-	    'name': 'flowIn',
-	    'type': 'number'
+	    "start": 3,
+	    "name": "flowIn",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'TensorArrayReadV3',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensorArrayId',
-	    'type': 'tensor'
+	  "tfOpName": "TensorArrayReadV3",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensorArrayId",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'index',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "index",
+	    "type": "number"
 	  }, {
-	    'start': 2,
-	    'name': 'flowIn',
-	    'type': 'number'
+	    "start": 2,
+	    "name": "flowIn",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'dtype',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "dtype",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'TensorArrayGatherV3',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensorArrayId',
-	    'type': 'tensor'
+	  "tfOpName": "TensorArrayGatherV3",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensorArrayId",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'indices',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "indices",
+	    "type": "number[]"
 	  }, {
-	    'start': 2,
-	    'name': 'flowIn',
-	    'type': 'number'
+	    "start": 2,
+	    "name": "flowIn",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'dtype',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "dtype",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }, {
-	    'tfName': 'element_shape',
-	    'name': 'elementShape',
-	    'type': 'shape'
+	    "tfName": "element_shape",
+	    "name": "elementShape",
+	    "type": "shape"
 	  }]
 	}, {
-	  'tfOpName': 'TensorArrayScatterV3',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensorArrayId',
-	    'type': 'tensor'
+	  "tfOpName": "TensorArrayScatterV3",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensorArrayId",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'indices',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "indices",
+	    "type": "number[]"
 	  }, {
-	    'start': 2,
-	    'name': 'tensor',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "tensor",
+	    "type": "tensor"
 	  }, {
-	    'start': 3,
-	    'name': 'flowIn',
-	    'type': 'number'
+	    "start": 3,
+	    "name": "flowIn",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'TensorArrayConcatV3',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensorArrayId',
-	    'type': 'tensor'
+	  "tfOpName": "TensorArrayConcatV3",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensorArrayId",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'flowIn',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "flowIn",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'dtype',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "dtype",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }, {
-	    'tfName': 'element_shape_except0',
-	    'name': 'elementShapeExcept0',
-	    'type': 'shape',
-	    'notSupported': true
+	    "tfName": "element_shape_except0",
+	    "name": "elementShapeExcept0",
+	    "type": "shape",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'TensorArraySplitV3',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensorArrayId',
-	    'type': 'tensor'
+	  "tfOpName": "TensorArraySplitV3",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensorArrayId",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'tensor',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "tensor",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'lengths',
-	    'type': 'number[]'
+	    "start": 2,
+	    "name": "lengths",
+	    "type": "number[]"
 	  }, {
-	    'start': 3,
-	    'name': 'flowIn',
-	    'type': 'number'
+	    "start": 3,
+	    "name": "flowIn",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'TensorArraySizeV3',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensorArrayId',
-	    'type': 'tensor'
+	  "tfOpName": "TensorArraySizeV3",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensorArrayId",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'flowIn',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "flowIn",
+	    "type": "number"
 	  }]
 	}, {
-	  'tfOpName': 'TensorArrayCloseV3',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensorArrayId',
-	    'type': 'tensor'
+	  "tfOpName": "TensorArrayCloseV3",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensorArrayId",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'StatelessIf',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'cond',
-	    'type': 'tensor'
+	  "tfOpName": "StatelessIf",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "cond",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'end': 0,
-	    'name': 'args',
-	    'type': 'tensors'
+	    "start": 1,
+	    "end": 0,
+	    "name": "args",
+	    "type": "tensors"
 	  }],
-	  'attrs': [{
-	    'tfName': 'then_branch',
-	    'name': 'thenBranch',
-	    'type': 'func'
+	  "attrs": [{
+	    "tfName": "then_branch",
+	    "name": "thenBranch",
+	    "type": "func"
 	  }, {
-	    'tfName': 'else_branch',
-	    'name': 'elseBranch',
-	    'type': 'func'
+	    "tfName": "else_branch",
+	    "name": "elseBranch",
+	    "type": "func"
 	  }]
 	}, {
-	  'tfOpName': 'If',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'cond',
-	    'type': 'tensor'
+	  "tfOpName": "If",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "cond",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'end': 0,
-	    'name': 'args',
-	    'type': 'tensors'
+	    "start": 1,
+	    "end": 0,
+	    "name": "args",
+	    "type": "tensors"
 	  }],
-	  'attrs': [{
-	    'tfName': 'then_branch',
-	    'name': 'thenBranch',
-	    'type': 'func'
+	  "attrs": [{
+	    "tfName": "then_branch",
+	    "name": "thenBranch",
+	    "type": "func"
 	  }, {
-	    'tfName': 'else_branch',
-	    'name': 'elseBranch',
-	    'type': 'func'
+	    "tfName": "else_branch",
+	    "name": "elseBranch",
+	    "type": "func"
 	  }]
 	}, {
-	  'tfOpName': 'StatelessWhile',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'end': 0,
-	    'name': 'args',
-	    'type': 'tensors'
+	  "tfOpName": "StatelessWhile",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "end": 0,
+	    "name": "args",
+	    "type": "tensors"
 	  }],
-	  'attrs': [{
-	    'tfName': 'cond',
-	    'name': 'cond',
-	    'type': 'func'
+	  "attrs": [{
+	    "tfName": "cond",
+	    "name": "cond",
+	    "type": "func"
 	  }, {
-	    'tfName': 'body',
-	    'name': 'body',
-	    'type': 'func'
+	    "tfName": "body",
+	    "name": "body",
+	    "type": "func"
 	  }]
 	}, {
-	  'tfOpName': 'While',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'end': 0,
-	    'name': 'args',
-	    'type': 'tensors'
+	  "tfOpName": "While",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "end": 0,
+	    "name": "args",
+	    "type": "tensors"
 	  }],
-	  'attrs': [{
-	    'tfName': 'cond',
-	    'name': 'cond',
-	    'type': 'func'
+	  "attrs": [{
+	    "tfName": "cond",
+	    "name": "cond",
+	    "type": "func"
 	  }, {
-	    'tfName': 'body',
-	    'name': 'body',
-	    'type': 'func'
+	    "tfName": "body",
+	    "name": "body",
+	    "type": "func"
 	  }]
 	}, {
-	  'tfOpName': 'TensorListScatter',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensor',
-	    'type': 'tensor'
+	  "tfOpName": "TensorListScatter",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensor",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'indices',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "indices",
+	    "type": "number[]"
 	  }, {
-	    'start': 2,
-	    'name': 'elementShape',
-	    'type': 'shape'
+	    "start": 2,
+	    "name": "elementShape",
+	    "type": "shape"
 	  }],
-	  'attrs': [{
-	    'tfName': 'element_dtype',
-	    'name': 'elementDType',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "element_dtype",
+	    "name": "elementDType",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'TensorListScatterV2',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensor',
-	    'type': 'tensor'
+	  "tfOpName": "TensorListScatterV2",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensor",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'indices',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "indices",
+	    "type": "number[]"
 	  }, {
-	    'start': 2,
-	    'name': 'elementShape',
-	    'type': 'shape'
+	    "start": 2,
+	    "name": "elementShape",
+	    "type": "shape"
 	  }, {
-	    'start': 3,
-	    'name': 'numElements',
-	    'type': 'number'
+	    "start": 3,
+	    "name": "numElements",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'element_dtype',
-	    'name': 'elementDType',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "element_dtype",
+	    "name": "elementDType",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'TensorListGather',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensorListId',
-	    'type': 'tensor'
+	  "tfOpName": "TensorListGather",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensorListId",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'indices',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "indices",
+	    "type": "number[]"
 	  }, {
-	    'start': 2,
-	    'name': 'elementShape',
-	    'type': 'shape'
+	    "start": 2,
+	    "name": "elementShape",
+	    "type": "shape"
 	  }],
-	  'attrs': [{
-	    'tfName': 'element_dtype',
-	    'name': 'elementDType',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "element_dtype",
+	    "name": "elementDType",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'TensorListGetItem',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensorListId',
-	    'type': 'tensor'
+	  "tfOpName": "TensorListGetItem",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensorListId",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'index',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "index",
+	    "type": "number"
 	  }, {
-	    'start': 2,
-	    'name': 'elementShape',
-	    'type': 'shape'
+	    "start": 2,
+	    "name": "elementShape",
+	    "type": "shape"
 	  }],
-	  'attrs': [{
-	    'tfName': 'element_dtype',
-	    'name': 'elementDType',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "element_dtype",
+	    "name": "elementDType",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'TensorListSetItem',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensorListId',
-	    'type': 'tensor'
+	  "tfOpName": "TensorListSetItem",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensorListId",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'index',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "index",
+	    "type": "number"
 	  }, {
-	    'start': 2,
-	    'name': 'tensor',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "tensor",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'element_dtype',
-	    'name': 'elementDType',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "element_dtype",
+	    "name": "elementDType",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'TensorListReserve',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'elementShape',
-	    'type': 'shape'
+	  "tfOpName": "TensorListReserve",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "elementShape",
+	    "type": "shape"
 	  }, {
-	    'start': 1,
-	    'name': 'numElements',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "numElements",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'element_dtype',
-	    'name': 'elementDType',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "element_dtype",
+	    "name": "elementDType",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'TensorListFromTensor',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensor',
-	    'type': 'tensor'
+	  "tfOpName": "TensorListFromTensor",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensor",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'elementShape',
-	    'type': 'shape'
+	    "start": 1,
+	    "name": "elementShape",
+	    "type": "shape"
 	  }],
-	  'attrs': [{
-	    'tfName': 'element_dtype',
-	    'name': 'elementDType',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "element_dtype",
+	    "name": "elementDType",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'TensorListStack',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensorListId',
-	    'type': 'tensor'
+	  "tfOpName": "TensorListStack",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensorListId",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'elementShape',
-	    'type': 'shape'
+	    "start": 1,
+	    "name": "elementShape",
+	    "type": "shape"
 	  }],
-	  'attrs': [{
-	    'tfName': 'element_dtype',
-	    'name': 'elementDType',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "element_dtype",
+	    "name": "elementDType",
+	    "type": "dtype"
 	  }, {
-	    'tfName': 'num_elements',
-	    'name': 'numElements',
-	    'type': 'dtype'
+	    "tfName": "num_elements",
+	    "name": "numElements",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'TensorListSplit',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensor',
-	    'type': 'tensor'
+	  "tfOpName": "TensorListSplit",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensor",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'elementShape',
-	    'type': 'shape'
+	    "start": 1,
+	    "name": "elementShape",
+	    "type": "shape"
 	  }, {
-	    'start': 2,
-	    'name': 'lengths',
-	    'type': 'number[]'
+	    "start": 2,
+	    "name": "lengths",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'element_dtype',
-	    'name': 'elementDType',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "element_dtype",
+	    "name": "elementDType",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'TensorListConcat',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensorListId',
-	    'type': 'tensor'
+	  "tfOpName": "TensorListConcat",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensorListId",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'element_shape',
-	    'name': 'elementShape',
-	    'type': 'shape'
+	  "attrs": [{
+	    "tfName": "element_shape",
+	    "name": "elementShape",
+	    "type": "shape"
 	  }, {
-	    'tfName': 'element_dtype',
-	    'name': 'elementDType',
-	    'type': 'dtype'
+	    "tfName": "element_dtype",
+	    "name": "elementDType",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'TensorListPopBack',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensorListId',
-	    'type': 'tensor'
+	  "tfOpName": "TensorListPopBack",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensorListId",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'elementShape',
-	    'type': 'shape'
+	    "start": 1,
+	    "name": "elementShape",
+	    "type": "shape"
 	  }],
-	  'attrs': [{
-	    'tfName': 'element_dtype',
-	    'name': 'elementDType',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "element_dtype",
+	    "name": "elementDType",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'TensorListPushBack',
-	  'category': 'control',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensorListId',
-	    'type': 'tensor'
+	  "tfOpName": "TensorListPushBack",
+	  "category": "control",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensorListId",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'tensor',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "tensor",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'element_dtype',
-	    'name': 'elementDType',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "element_dtype",
+	    "name": "elementDType",
+	    "type": "dtype"
 	  }]
 	}];
 
@@ -81151,7 +81426,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2020 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -81166,533 +81441,533 @@
 	 * =============================================================================
 	 */
 	var json$3 = [{
-	  'tfOpName': 'AvgPool',
-	  'category': 'convolution',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "AvgPool",
+	  "category": "convolution",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'strides',
-	    'name': 'strides',
-	    'type': 'number[]'
+	  "attrs": [{
+	    "tfName": "strides",
+	    "name": "strides",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'padding',
-	    'name': 'pad',
-	    'type': 'string'
+	    "tfName": "padding",
+	    "name": "pad",
+	    "type": "string"
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string',
-	    'notSupported': true
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'ksize',
-	    'name': 'kernelSize',
-	    'type': 'number[]'
+	    "tfName": "ksize",
+	    "name": "kernelSize",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'MaxPool',
-	  'category': 'convolution',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "MaxPool",
+	  "category": "convolution",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'strides',
-	    'name': 'strides',
-	    'type': 'number[]'
+	  "attrs": [{
+	    "tfName": "strides",
+	    "name": "strides",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'padding',
-	    'name': 'pad',
-	    'type': 'string'
+	    "tfName": "padding",
+	    "name": "pad",
+	    "type": "string"
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string',
-	    'notSupported': true
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'ksize',
-	    'name': 'kernelSize',
-	    'type': 'number[]'
+	    "tfName": "ksize",
+	    "name": "kernelSize",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'explicit_paddings',
-	    'name': 'explicitPaddings',
-	    'type': 'number[]',
-	    'defaultValue': [],
-	    'notSupported': true
+	    "tfName": "explicit_paddings",
+	    "name": "explicitPaddings",
+	    "type": "number[]",
+	    "defaultValue": [],
+	    "notSupported": true
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'MaxPoolWithArgmax',
-	  'category': 'convolution',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "MaxPoolWithArgmax",
+	  "category": "convolution",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'strides',
-	    'name': 'strides',
-	    'type': 'number[]'
+	  "attrs": [{
+	    "tfName": "strides",
+	    "name": "strides",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'padding',
-	    'name': 'pad',
-	    'type': 'string'
+	    "tfName": "padding",
+	    "name": "pad",
+	    "type": "string"
 	  }, {
-	    'tfName': 'ksize',
-	    'name': 'kernelSize',
-	    'type': 'number[]'
+	    "tfName": "ksize",
+	    "name": "kernelSize",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'include_batch_in_index',
-	    'name': 'includeBatchInIndex',
-	    'type': 'bool'
+	    "tfName": "include_batch_in_index",
+	    "name": "includeBatchInIndex",
+	    "type": "bool"
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'AvgPool3D',
-	  'category': 'convolution',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "AvgPool3D",
+	  "category": "convolution",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'strides',
-	    'name': 'strides',
-	    'type': 'number[]'
+	  "attrs": [{
+	    "tfName": "strides",
+	    "name": "strides",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'padding',
-	    'name': 'pad',
-	    'type': 'string'
+	    "tfName": "padding",
+	    "name": "pad",
+	    "type": "string"
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string',
-	    'notSupported': true
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'ksize',
-	    'name': 'kernelSize',
-	    'type': 'number[]'
+	    "tfName": "ksize",
+	    "name": "kernelSize",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'MaxPool3D',
-	  'category': 'convolution',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "MaxPool3D",
+	  "category": "convolution",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'strides',
-	    'name': 'strides',
-	    'type': 'number[]'
+	  "attrs": [{
+	    "tfName": "strides",
+	    "name": "strides",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'padding',
-	    'name': 'pad',
-	    'type': 'string'
+	    "tfName": "padding",
+	    "name": "pad",
+	    "type": "string"
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string',
-	    'notSupported': true
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'ksize',
-	    'name': 'kernelSize',
-	    'type': 'number[]'
+	    "tfName": "ksize",
+	    "name": "kernelSize",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Conv1D',
-	  'category': 'convolution',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Conv1D",
+	  "category": "convolution",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'filter',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "filter",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'stride',
-	    'name': 'stride',
-	    'type': 'number'
+	  "attrs": [{
+	    "tfName": "stride",
+	    "name": "stride",
+	    "type": "number"
 	  }, {
-	    'tfName': 'padding',
-	    'name': 'pad',
-	    'type': 'string'
+	    "tfName": "padding",
+	    "name": "pad",
+	    "type": "string"
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string',
-	    'defaultValue': 'NWC'
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string",
+	    "defaultValue": "NWC"
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'dilation',
-	    'name': 'dilation',
-	    'type': 'number',
-	    'defaultValue': 1
+	    "tfName": "dilation",
+	    "name": "dilation",
+	    "type": "number",
+	    "defaultValue": 1
 	  }]
 	}, {
-	  'tfOpName': 'Conv2D',
-	  'category': 'convolution',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Conv2D",
+	  "category": "convolution",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'filter',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "filter",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'strides',
-	    'name': 'strides',
-	    'type': 'number[]'
+	    "tfName": "strides",
+	    "name": "strides",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'padding',
-	    'name': 'pad',
-	    'type': 'string'
+	    "tfName": "padding",
+	    "name": "pad",
+	    "type": "string"
 	  }, {
-	    'tfName': 'useCudnnOnGpu',
-	    'name': 'useCudnnOnGpu',
-	    'type': 'bool'
+	    "tfName": "useCudnnOnGpu",
+	    "name": "useCudnnOnGpu",
+	    "type": "bool"
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string',
-	    'defaultValue': 'NHWC'
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string",
+	    "defaultValue": "NHWC"
 	  }, {
-	    'tfName': 'explicit_paddings',
-	    'name': 'explicitPaddings',
-	    'type': 'number[]',
-	    'defaultValue': []
+	    "tfName": "explicit_paddings",
+	    "name": "explicitPaddings",
+	    "type": "number[]",
+	    "defaultValue": []
 	  }, {
-	    'tfName': 'dilations',
-	    'name': 'dilations',
-	    'type': 'number[]'
+	    "tfName": "dilations",
+	    "name": "dilations",
+	    "type": "number[]"
 	  }]
 	}, {
-	  'tfOpName': '_FusedConv2D',
-	  'category': 'convolution',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "_FusedConv2D",
+	  "category": "convolution",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'filter',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "filter",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    end: 0,
-	    'name': 'args',
-	    'type': 'tensors'
+	    "start": 2,
+	    "end": 0,
+	    "name": "args",
+	    "type": "tensors"
 	  }],
-	  'attrs': [{
-	    'tfName': 'num_args',
-	    'name': 'numArgs',
-	    'type': 'number'
+	  "attrs": [{
+	    "tfName": "num_args",
+	    "name": "numArgs",
+	    "type": "number"
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'strides',
-	    'name': 'strides',
-	    'type': 'number[]'
+	    "tfName": "strides",
+	    "name": "strides",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'padding',
-	    'name': 'pad',
-	    'type': 'string'
+	    "tfName": "padding",
+	    "name": "pad",
+	    "type": "string"
 	  }, {
-	    'tfName': 'explicit_paddings',
-	    'name': 'explicitPaddings',
-	    'type': 'number[]',
-	    'defaultValue': []
+	    "tfName": "explicit_paddings",
+	    "name": "explicitPaddings",
+	    "type": "number[]",
+	    "defaultValue": []
 	  }, {
-	    'tfName': 'use_cudnn_on_gpu',
-	    'name': 'useCudnnOnGpu',
-	    'type': 'bool',
-	    'defaultValue': true
+	    "tfName": "use_cudnn_on_gpu",
+	    "name": "useCudnnOnGpu",
+	    "type": "bool",
+	    "defaultValue": true
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string',
-	    'defaultValue': 'NHWC'
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string",
+	    "defaultValue": "NHWC"
 	  }, {
-	    'tfName': 'dilations',
-	    'name': 'dilations',
-	    'type': 'number[]',
-	    'defaultValue': [1, 1, 1, 1]
+	    "tfName": "dilations",
+	    "name": "dilations",
+	    "type": "number[]",
+	    "defaultValue": [1, 1, 1, 1]
 	  }, {
-	    'tfName': 'fused_ops',
-	    'name': 'fusedOps',
-	    'type': 'string[]',
-	    'defaultValue': []
+	    "tfName": "fused_ops",
+	    "name": "fusedOps",
+	    "type": "string[]",
+	    "defaultValue": []
 	  }, {
-	    'tfName': 'epsilon',
-	    'name': 'epsilon',
-	    'type': 'number',
-	    'defaultValue': 0.0001
+	    "tfName": "epsilon",
+	    "name": "epsilon",
+	    "type": "number",
+	    "defaultValue": 0.0001
 	  }, {
-	    'tfName': 'leakyrelu_alpha',
-	    'name': 'leakyreluAlpha',
-	    'type': 'number'
+	    "tfName": "leakyrelu_alpha",
+	    "name": "leakyreluAlpha",
+	    "type": "number"
 	  }]
 	}, {
-	  'tfOpName': 'Conv2DBackpropInput',
-	  'category': 'convolution',
-	  'inputs': [{
-	    'start': 2,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Conv2DBackpropInput",
+	  "category": "convolution",
+	  "inputs": [{
+	    "start": 2,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'filter',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "filter",
+	    "type": "tensor"
 	  }, {
-	    'start': 0,
-	    'name': 'outputShape',
-	    'type': 'number[]'
+	    "start": 0,
+	    "name": "outputShape",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'strides',
-	    'name': 'strides',
-	    'type': 'number[]'
+	  "attrs": [{
+	    "tfName": "strides",
+	    "name": "strides",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'padding',
-	    'name': 'pad',
-	    'type': 'string'
+	    "tfName": "padding",
+	    "name": "pad",
+	    "type": "string"
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string',
-	    'notSupported': true
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'explicit_paddings',
-	    'name': 'explicitPaddings',
-	    'type': 'number[]',
-	    'defaultValue': []
+	    "tfName": "explicit_paddings",
+	    "name": "explicitPaddings",
+	    "type": "number[]",
+	    "defaultValue": []
 	  }, {
-	    'tfName': 'dilations',
-	    'name': 'dilations',
-	    'type': 'number[]',
-	    'notSupported': true
+	    "tfName": "dilations",
+	    "name": "dilations",
+	    "type": "number[]",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'DepthwiseConv2d',
-	  'category': 'convolution',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'input',
-	    'type': 'tensor'
+	  "tfOpName": "DepthwiseConv2d",
+	  "category": "convolution",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "input",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'filter',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "filter",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'strides',
-	    'name': 'strides',
-	    'type': 'number[]'
+	  "attrs": [{
+	    "tfName": "strides",
+	    "name": "strides",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'padding',
-	    'name': 'pad',
-	    'type': 'string'
+	    "tfName": "padding",
+	    "name": "pad",
+	    "type": "string"
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string',
-	    'defaultValue': 'NHWC'
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string",
+	    "defaultValue": "NHWC"
 	  }, {
-	    'tfName': 'explicit_paddings',
-	    'name': 'explicitPaddings',
-	    'type': 'number[]',
-	    'defaultValue': []
+	    "tfName": "explicit_paddings",
+	    "name": "explicitPaddings",
+	    "type": "number[]",
+	    "defaultValue": []
 	  }, {
-	    'tfName': 'dilations',
-	    'name': 'dilations',
-	    'type': 'number[]'
+	    "tfName": "dilations",
+	    "name": "dilations",
+	    "type": "number[]"
 	  }]
 	}, {
-	  'tfOpName': 'DepthwiseConv2dNative',
-	  'category': 'convolution',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'input',
-	    'type': 'tensor'
+	  "tfOpName": "DepthwiseConv2dNative",
+	  "category": "convolution",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "input",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'filter',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "filter",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'strides',
-	    'name': 'strides',
-	    'type': 'number[]'
+	  "attrs": [{
+	    "tfName": "strides",
+	    "name": "strides",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'padding',
-	    'name': 'pad',
-	    'type': 'string'
+	    "tfName": "padding",
+	    "name": "pad",
+	    "type": "string"
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string',
-	    'defaultValue': 'NHWC'
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string",
+	    "defaultValue": "NHWC"
 	  }, {
-	    'tfName': 'explicit_paddings',
-	    'name': 'explicitPaddings',
-	    'type': 'number[]',
-	    'defaultValue': []
+	    "tfName": "explicit_paddings",
+	    "name": "explicitPaddings",
+	    "type": "number[]",
+	    "defaultValue": []
 	  }, {
-	    'tfName': 'dilations',
-	    'name': 'dilations',
-	    'type': 'number[]'
+	    "tfName": "dilations",
+	    "name": "dilations",
+	    "type": "number[]"
 	  }]
 	}, {
-	  'tfOpName': 'FusedDepthwiseConv2dNative',
-	  'category': 'convolution',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "FusedDepthwiseConv2dNative",
+	  "category": "convolution",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'filter',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "filter",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    end: 0,
-	    'name': 'args',
-	    'type': 'tensors'
+	    "start": 2,
+	    "end": 0,
+	    "name": "args",
+	    "type": "tensors"
 	  }],
-	  'attrs': [{
-	    'tfName': 'num_args',
-	    'name': 'numArgs',
-	    'type': 'number'
+	  "attrs": [{
+	    "tfName": "num_args",
+	    "name": "numArgs",
+	    "type": "number"
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'strides',
-	    'name': 'strides',
-	    'type': 'number[]'
+	    "tfName": "strides",
+	    "name": "strides",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'padding',
-	    'name': 'pad',
-	    'type': 'string'
+	    "tfName": "padding",
+	    "name": "pad",
+	    "type": "string"
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string',
-	    'defaultValue': 'NHWC'
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string",
+	    "defaultValue": "NHWC"
 	  }, {
-	    'tfName': 'dilations',
-	    'name': 'dilations',
-	    'type': 'number[]',
-	    'defaultValue': [1, 1, 1, 1]
+	    "tfName": "dilations",
+	    "name": "dilations",
+	    "type": "number[]",
+	    "defaultValue": [1, 1, 1, 1]
 	  }, {
-	    'tfName': 'fused_ops',
-	    'name': 'fusedOps',
-	    'type': 'string[]',
-	    'defaultValue': []
+	    "tfName": "fused_ops",
+	    "name": "fusedOps",
+	    "type": "string[]",
+	    "defaultValue": []
 	  }, {
-	    'tfName': 'explicit_paddings',
-	    'name': 'explicitPaddings',
-	    'type': 'number[]',
-	    'defaultValue': []
+	    "tfName": "explicit_paddings",
+	    "name": "explicitPaddings",
+	    "type": "number[]",
+	    "defaultValue": []
 	  }]
 	}, {
-	  'tfOpName': 'Conv3D',
-	  'category': 'convolution',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Conv3D",
+	  "category": "convolution",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'filter',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "filter",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'strides',
-	    'name': 'strides',
-	    'type': 'number[]'
+	  "attrs": [{
+	    "tfName": "strides",
+	    "name": "strides",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'padding',
-	    'name': 'pad',
-	    'type': 'string'
+	    "tfName": "padding",
+	    "name": "pad",
+	    "type": "string"
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string',
-	    'defaultValue': 'NHWC'
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string",
+	    "defaultValue": "NHWC"
 	  }, {
-	    'tfName': 'dilations',
-	    'name': 'dilations',
-	    'type': 'number[]'
+	    "tfName": "dilations",
+	    "name": "dilations",
+	    "type": "number[]"
 	  }]
 	}, {
-	  'tfOpName': 'Dilation2D',
-	  'category': 'convolution',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Dilation2D",
+	  "category": "convolution",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'filter',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "filter",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'strides',
-	    'name': 'strides',
-	    'type': 'number[]'
+	  "attrs": [{
+	    "tfName": "strides",
+	    "name": "strides",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'rates',
-	    'name': 'dilations',
-	    'type': 'number[]'
+	    "tfName": "rates",
+	    "name": "dilations",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'padding',
-	    'name': 'pad',
-	    'type': 'string'
+	    "tfName": "padding",
+	    "name": "pad",
+	    "type": "string"
 	  }]
 	}];
 
@@ -81703,7 +81978,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -81718,256 +81993,256 @@
 	 * =============================================================================
 	 */
 	var json$4 = [{
-	  'tfOpName': 'Fill',
-	  'category': 'creation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'shape',
-	    'type': 'number[]'
+	  "tfOpName": "Fill",
+	  "category": "creation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "shape",
+	    "type": "number[]"
 	  }, {
-	    'start': 1,
-	    'name': 'value',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "value",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'LinSpace',
-	  'category': 'creation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'start',
-	    'type': 'number'
+	  "tfOpName": "LinSpace",
+	  "category": "creation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "start",
+	    "type": "number"
 	  }, {
-	    'start': 1,
-	    'name': 'stop',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "stop",
+	    "type": "number"
 	  }, {
-	    'start': 2,
-	    'name': 'num',
-	    'type': 'number'
+	    "start": 2,
+	    "name": "num",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'OneHot',
-	  'category': 'creation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'indices',
-	    'type': 'tensor'
+	  "tfOpName": "OneHot",
+	  "category": "creation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "indices",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'depth',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "depth",
+	    "type": "number"
 	  }, {
-	    'start': 2,
-	    'name': 'onValue',
-	    'type': 'number',
-	    'defaultValue': 1
+	    "start": 2,
+	    "name": "onValue",
+	    "type": "number",
+	    "defaultValue": 1
 	  }, {
-	    'start': 3,
-	    'name': 'offValue',
-	    'type': 'number',
-	    'defaultValue': 0
+	    "start": 3,
+	    "name": "offValue",
+	    "type": "number",
+	    "defaultValue": 0
 	  }],
-	  'attrs': [{
-	    'tfName': 'axis',
-	    'name': 'axis',
-	    'type': 'number',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "axis",
+	    "name": "axis",
+	    "type": "number",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Ones',
-	  'category': 'creation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'shape',
-	    'type': 'number[]'
+	  "tfOpName": "Ones",
+	  "category": "creation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "shape",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'OnesLike',
-	  'category': 'creation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "OnesLike",
+	  "category": "creation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'dtype',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "dtype",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'RandomUniform',
-	  'category': 'creation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'shape',
-	    'type': 'number[]'
+	  "tfOpName": "RandomUniform",
+	  "category": "creation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "shape",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'minval',
-	    'name': 'minval',
-	    'type': 'number',
-	    'defaultValue': 0
+	  "attrs": [{
+	    "tfName": "minval",
+	    "name": "minval",
+	    "type": "number",
+	    "defaultValue": 0
 	  }, {
-	    'tfName': 'maxval',
-	    'name': 'maxval',
-	    'type': 'number',
-	    'defaultValue': 1
+	    "tfName": "maxval",
+	    "name": "maxval",
+	    "type": "number",
+	    "defaultValue": 1
 	  }, {
-	    'tfName': 'dtype',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	    "tfName": "dtype",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }, {
-	    'tfName': 'seed',
-	    'name': 'seed',
-	    'type': 'number',
-	    'defaultValue': 0
+	    "tfName": "seed",
+	    "name": "seed",
+	    "type": "number",
+	    "defaultValue": 0
 	  }, {
-	    'tfName': 'seed2',
-	    'name': 'seed2',
-	    'type': 'number',
-	    'defaultValue': 0,
-	    'notSupported': true
+	    "tfName": "seed2",
+	    "name": "seed2",
+	    "type": "number",
+	    "defaultValue": 0,
+	    "notSupported": true
 	  }, {
-	    'tfName': 'T',
-	    'name': 'T',
-	    'type': 'number',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "T",
+	    "type": "number",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Range',
-	  'category': 'creation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'start',
-	    'type': 'number'
+	  "tfOpName": "Range",
+	  "category": "creation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "start",
+	    "type": "number"
 	  }, {
-	    'start': 1,
-	    'name': 'stop',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "stop",
+	    "type": "number"
 	  }, {
-	    'start': 2,
-	    'name': 'step',
-	    'type': 'number',
-	    'defaultValue': 0
+	    "start": 2,
+	    "name": "step",
+	    "type": "number",
+	    "defaultValue": 0
 	  }],
-	  'attrs': [{
-	    'tfName': 'Tidx',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "Tidx",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'TruncatedNormal',
-	  'category': 'creation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'shape',
-	    'type': 'number[]'
+	  "tfOpName": "TruncatedNormal",
+	  "category": "creation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "shape",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'means',
-	    'name': 'mean',
-	    'type': 'number',
-	    'defaultValue': 0.0
+	  "attrs": [{
+	    "tfName": "means",
+	    "name": "mean",
+	    "type": "number",
+	    "defaultValue": 0
 	  }, {
-	    'tfName': 'stddev',
-	    'name': 'stdDev',
-	    'type': 'number',
-	    'defaultValue': 1.0
+	    "tfName": "stddev",
+	    "name": "stdDev",
+	    "type": "number",
+	    "defaultValue": 1
 	  }, {
-	    'tfName': 'seed',
-	    'name': 'seed',
-	    'type': 'number'
+	    "tfName": "seed",
+	    "name": "seed",
+	    "type": "number"
 	  }, {
-	    'tfName': 'seed2',
-	    'name': 'seed2',
-	    'type': 'number',
-	    'defaultValue': 0,
-	    'notSupported': true
+	    "tfName": "seed2",
+	    "name": "seed2",
+	    "type": "number",
+	    "defaultValue": 0,
+	    "notSupported": true
 	  }, {
-	    'tfName': 'dtype',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	    "tfName": "dtype",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }, {
-	    'tfName': 'T',
-	    'name': 'T',
-	    'type': 'number',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "T",
+	    "type": "number",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Zeros',
-	  'category': 'creation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'shape',
-	    'type': 'number[]'
+	  "tfOpName": "Zeros",
+	  "category": "creation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "shape",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'ZerosLike',
-	  'category': 'creation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "ZerosLike",
+	  "category": "creation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'Multinomial',
-	  'category': 'creation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'logits',
-	    'type': 'tensor'
+	  "tfOpName": "Multinomial",
+	  "category": "creation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "logits",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'numSamples',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "numSamples",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'seed',
-	    'name': 'seed',
-	    'type': 'number'
+	  "attrs": [{
+	    "tfName": "seed",
+	    "name": "seed",
+	    "type": "number"
 	  }, {
-	    'tfName': 'seed2',
-	    'name': 'seed2',
-	    'type': 'number'
+	    "tfName": "seed2",
+	    "name": "seed2",
+	    "type": "number"
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }, {
-	    'tfName': 'output_dtype',
-	    'name': 'output_dtype',
-	    'type': 'dtype'
+	    "tfName": "output_dtype",
+	    "name": "output_dtype",
+	    "type": "dtype"
 	  }]
 	}];
 
@@ -81978,7 +82253,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -81993,147 +82268,147 @@
 	 * =============================================================================
 	 */
 	var json$5 = [{
-	  'tfOpName': 'NonMaxSuppressionV2',
-	  'category': 'dynamic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'boxes',
-	    'type': 'tensor'
+	  "tfOpName": "NonMaxSuppressionV2",
+	  "category": "dynamic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "boxes",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'scores',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "scores",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'maxOutputSize',
-	    'type': 'number'
+	    "start": 2,
+	    "name": "maxOutputSize",
+	    "type": "number"
 	  }, {
-	    'start': 3,
-	    'name': 'iouThreshold',
-	    'type': 'number'
+	    "start": 3,
+	    "name": "iouThreshold",
+	    "type": "number"
 	  }]
 	}, {
-	  'tfOpName': 'NonMaxSuppressionV3',
-	  'category': 'dynamic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'boxes',
-	    'type': 'tensor'
+	  "tfOpName": "NonMaxSuppressionV3",
+	  "category": "dynamic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "boxes",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'scores',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "scores",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'maxOutputSize',
-	    'type': 'number'
+	    "start": 2,
+	    "name": "maxOutputSize",
+	    "type": "number"
 	  }, {
-	    'start': 3,
-	    'name': 'iouThreshold',
-	    'type': 'number'
+	    "start": 3,
+	    "name": "iouThreshold",
+	    "type": "number"
 	  }, {
-	    'start': 4,
-	    'name': 'scoreThreshold',
-	    'type': 'number'
+	    "start": 4,
+	    "name": "scoreThreshold",
+	    "type": "number"
 	  }]
 	}, {
-	  'tfOpName': 'NonMaxSuppressionV4',
-	  'category': 'dynamic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'boxes',
-	    'type': 'tensor'
+	  "tfOpName": "NonMaxSuppressionV4",
+	  "category": "dynamic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "boxes",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'scores',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "scores",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'maxOutputSize',
-	    'type': 'number'
+	    "start": 2,
+	    "name": "maxOutputSize",
+	    "type": "number"
 	  }, {
-	    'start': 3,
-	    'name': 'iouThreshold',
-	    'type': 'number'
+	    "start": 3,
+	    "name": "iouThreshold",
+	    "type": "number"
 	  }, {
-	    'start': 4,
-	    'name': 'scoreThreshold',
-	    'type': 'number'
+	    "start": 4,
+	    "name": "scoreThreshold",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'T_threshold',
-	    'name': 'threshold',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T_threshold",
+	    "name": "threshold",
+	    "type": "dtype",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'pad_to_max_output_size',
-	    'name': 'padToMaxOutputSize',
-	    'type': 'bool'
+	    "tfName": "pad_to_max_output_size",
+	    "name": "padToMaxOutputSize",
+	    "type": "bool"
 	  }]
 	}, {
-	  'tfOpName': 'NonMaxSuppressionV5',
-	  'category': 'dynamic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'boxes',
-	    'type': 'tensor'
+	  "tfOpName": "NonMaxSuppressionV5",
+	  "category": "dynamic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "boxes",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'scores',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "scores",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'maxOutputSize',
-	    'type': 'number'
+	    "start": 2,
+	    "name": "maxOutputSize",
+	    "type": "number"
 	  }, {
-	    'start': 3,
-	    'name': 'iouThreshold',
-	    'type': 'number'
+	    "start": 3,
+	    "name": "iouThreshold",
+	    "type": "number"
 	  }, {
-	    'start': 4,
-	    'name': 'scoreThreshold',
-	    'type': 'number'
+	    "start": 4,
+	    "name": "scoreThreshold",
+	    "type": "number"
 	  }, {
-	    'start': 5,
-	    'name': 'softNmsSigma',
-	    'type': 'number'
+	    "start": 5,
+	    "name": "softNmsSigma",
+	    "type": "number"
 	  }]
 	}, {
-	  'tfOpName': 'Where',
-	  'category': 'dynamic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'condition',
-	    'type': 'tensor'
+	  "tfOpName": "Where",
+	  "category": "dynamic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "condition",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'ListDiff',
-	  'category': 'dynamic',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "ListDiff",
+	  "category": "dynamic",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'y',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "y",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}];
 
@@ -82144,7 +82419,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -82159,41 +82434,41 @@
 	 * =============================================================================
 	 */
 	var json$6 = [{
-	  'tfOpName': 'TopKV2',
-	  'category': 'evaluation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "TopKV2",
+	  "category": "evaluation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'k',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "k",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'sorted',
-	    'name': 'sorted',
-	    'type': 'bool'
+	  "attrs": [{
+	    "tfName": "sorted",
+	    "name": "sorted",
+	    "type": "bool"
 	  }]
 	}, {
-	  'tfOpName': 'Unique',
-	  'category': 'evaluation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Unique",
+	  "category": "evaluation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'UniqueV2',
-	  'category': 'evaluation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "UniqueV2",
+	  "category": "evaluation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'axis',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "axis",
+	    "type": "number"
 	  }]
 	}];
 
@@ -82204,7 +82479,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -82219,150 +82494,150 @@
 	 * =============================================================================
 	 */
 	var json$7 = [{
-	  'tfOpName': 'PlaceholderWithDefault',
-	  'category': 'graph',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'default',
-	    'type': 'tensor'
+	  "tfOpName": "PlaceholderWithDefault",
+	  "category": "graph",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "default",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'shape',
-	    'name': 'shape',
-	    'type': 'shape'
+	  "attrs": [{
+	    "tfName": "shape",
+	    "name": "shape",
+	    "type": "shape"
 	  }, {
-	    'tfName': 'dtype',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	    "tfName": "dtype",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'Placeholder',
-	  'category': 'graph',
-	  'attrs': [{
-	    'tfName': 'shape',
-	    'name': 'shape',
-	    'type': 'shape'
+	  "tfOpName": "Placeholder",
+	  "category": "graph",
+	  "attrs": [{
+	    "tfName": "shape",
+	    "name": "shape",
+	    "type": "shape"
 	  }, {
-	    'tfName': 'dtype',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	    "tfName": "dtype",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'Const',
-	  'category': 'graph'
+	  "tfOpName": "Const",
+	  "category": "graph"
 	}, {
-	  'tfOpName': 'Identity',
-	  'category': 'graph',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Identity",
+	  "category": "graph",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'IdentityN',
-	  'category': 'graph',
-	  'inputs': [{
-	    'start': 0,
-	    'end': 0,
-	    'name': 'x',
-	    'type': 'tensors'
+	  "tfOpName": "IdentityN",
+	  "category": "graph",
+	  "inputs": [{
+	    "start": 0,
+	    "end": 0,
+	    "name": "x",
+	    "type": "tensors"
 	  }]
 	}, {
-	  'tfOpName': 'Snapshot',
-	  'category': 'graph',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Snapshot",
+	  "category": "graph",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'Rank',
-	  'category': 'graph',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Rank",
+	  "category": "graph",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'Size',
-	  'category': 'graph',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Size",
+	  "category": "graph",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'Shape',
-	  'category': 'graph',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Shape",
+	  "category": "graph",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'ShapeN',
-	  'category': 'graph',
-	  'inputs': [{
-	    'start': 0,
-	    'end': 0,
-	    'name': 'x',
-	    'type': 'tensors'
+	  "tfOpName": "ShapeN",
+	  "category": "graph",
+	  "inputs": [{
+	    "start": 0,
+	    "end": 0,
+	    "name": "x",
+	    "type": "tensors"
 	  }]
 	}, {
-	  'tfOpName': 'Print',
-	  'category': 'graph',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Print",
+	  "category": "graph",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'data',
-	    'type': 'tensors'
+	    "start": 1,
+	    "name": "data",
+	    "type": "tensors"
 	  }],
-	  'attrs': [{
-	    'tfName': 'message',
-	    'name': 'message',
-	    'type': 'string'
+	  "attrs": [{
+	    "tfName": "message",
+	    "name": "message",
+	    "type": "string"
 	  }, {
-	    'tfName': 'first_n',
-	    'name': 'firstN',
-	    'type': 'number',
-	    'notSupported': true
+	    "tfName": "first_n",
+	    "name": "firstN",
+	    "type": "number",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'summarize',
-	    'name': 'summarize',
-	    'type': 'number',
-	    'defaultValue': 3
+	    "tfName": "summarize",
+	    "name": "summarize",
+	    "type": "number",
+	    "defaultValue": 3
 	  }]
 	}, {
-	  'tfOpName': 'NoOp',
-	  'category': 'graph',
-	  'inputs': []
+	  "tfOpName": "NoOp",
+	  "category": "graph",
+	  "inputs": []
 	}, {
-	  'tfOpName': 'StopGradient',
-	  'category': 'graph',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "StopGradient",
+	  "category": "graph",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'FakeQuantWithMinMaxVars',
-	  'category': 'graph',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "FakeQuantWithMinMaxVars",
+	  "category": "graph",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'min',
-	    'name': 'min',
-	    'type': 'number'
+	  "attrs": [{
+	    "tfName": "min",
+	    "name": "min",
+	    "type": "number"
 	  }, {
-	    'tfName': 'max',
-	    'name': 'max',
-	    'type': 'number'
+	    "tfName": "max",
+	    "name": "max",
+	    "type": "number"
 	  }]
 	}];
 
@@ -82371,171 +82646,187 @@
 		json: json$7
 	};
 
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
 	var json$8 = [{
-	  'tfOpName': 'HashTable',
-	  'category': 'hash_table',
-	  'inputs': [],
-	  'attrs': [{
-	    'tfName': 'shared_name',
-	    'name': 'sharedName',
-	    'type': 'string'
+	  "tfOpName": "HashTable",
+	  "category": "hash_table",
+	  "inputs": [],
+	  "attrs": [{
+	    "tfName": "shared_name",
+	    "name": "sharedName",
+	    "type": "string"
 	  }, {
-	    'tfName': 'use_node_name_sharing',
-	    'name': 'useNodeNameSharing',
-	    'type': 'bool'
+	    "tfName": "use_node_name_sharing",
+	    "name": "useNodeNameSharing",
+	    "type": "bool"
 	  }, {
-	    'tfName': 'key_dtype',
-	    'name': 'keyDType',
-	    'type': 'dtype'
+	    "tfName": "key_dtype",
+	    "name": "keyDType",
+	    "type": "dtype"
 	  }, {
-	    'tfName': 'value_dtype',
-	    'name': 'valueDType',
-	    'type': 'dtype'
+	    "tfName": "value_dtype",
+	    "name": "valueDType",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'HashTableV2',
-	  'category': 'hash_table',
-	  'inputs': [],
-	  'attrs': [{
-	    'tfName': 'shared_name',
-	    'name': 'sharedName',
-	    'type': 'string'
+	  "tfOpName": "HashTableV2",
+	  "category": "hash_table",
+	  "inputs": [],
+	  "attrs": [{
+	    "tfName": "shared_name",
+	    "name": "sharedName",
+	    "type": "string"
 	  }, {
-	    'tfName': 'use_node_name_sharing',
-	    'name': 'useNodeNameSharing',
-	    'type': 'bool'
+	    "tfName": "use_node_name_sharing",
+	    "name": "useNodeNameSharing",
+	    "type": "bool"
 	  }, {
-	    'tfName': 'key_dtype',
-	    'name': 'keyDType',
-	    'type': 'dtype'
+	    "tfName": "key_dtype",
+	    "name": "keyDType",
+	    "type": "dtype"
 	  }, {
-	    'tfName': 'value_dtype',
-	    'name': 'valueDType',
-	    'type': 'dtype'
+	    "tfName": "value_dtype",
+	    "name": "valueDType",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'LookupTableImport',
-	  'category': 'hash_table',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tableHandle',
-	    'type': 'tensor'
+	  "tfOpName": "LookupTableImport",
+	  "category": "hash_table",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tableHandle",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'keys',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "keys",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'values',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "values",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'Tin',
-	    'name': 'tIn',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "Tin",
+	    "name": "tIn",
+	    "type": "dtype",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'Tout',
-	    'name': 'tOut',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "Tout",
+	    "name": "tOut",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'LookupTableImportV2',
-	  'category': 'hash_table',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tableHandle',
-	    'type': 'tensor'
+	  "tfOpName": "LookupTableImportV2",
+	  "category": "hash_table",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tableHandle",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'keys',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "keys",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'values',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "values",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'Tin',
-	    'name': 'tIn',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "Tin",
+	    "name": "tIn",
+	    "type": "dtype",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'Tout',
-	    'name': 'tOut',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "Tout",
+	    "name": "tOut",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'LookupTableFind',
-	  'category': 'hash_table',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tableHandle',
-	    'type': 'tensor'
+	  "tfOpName": "LookupTableFind",
+	  "category": "hash_table",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tableHandle",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'keys',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "keys",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'defaultValue',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "defaultValue",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'Tin',
-	    'name': 'tIn',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "Tin",
+	    "name": "tIn",
+	    "type": "dtype",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'Tout',
-	    'name': 'tOut',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "Tout",
+	    "name": "tOut",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'LookupTableFindV2',
-	  'category': 'hash_table',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tableHandle',
-	    'type': 'tensor'
+	  "tfOpName": "LookupTableFindV2",
+	  "category": "hash_table",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tableHandle",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'keys',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "keys",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'defaultValue',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "defaultValue",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'Tin',
-	    'name': 'tIn',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "Tin",
+	    "name": "tIn",
+	    "type": "dtype",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'Tout',
-	    'name': 'tOut',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "Tout",
+	    "name": "tOut",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'LookupTableSize',
-	  'category': 'hash_table',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tableHandle',
-	    'type': 'tensor'
+	  "tfOpName": "LookupTableSize",
+	  "category": "hash_table",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tableHandle",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'LookupTableSizeV2',
-	  'category': 'hash_table',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tableHandle',
-	    'type': 'tensor'
+	  "tfOpName": "LookupTableSizeV2",
+	  "category": "hash_table",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tableHandle",
+	    "type": "tensor"
 	  }]
 	}];
 
@@ -82546,7 +82837,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -82561,85 +82852,85 @@
 	 * =============================================================================
 	 */
 	var json$9 = [{
-	  'tfOpName': 'ResizeBilinear',
-	  'category': 'image',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'images',
-	    'type': 'tensor'
+	  "tfOpName": "ResizeBilinear",
+	  "category": "image",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "images",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'size',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "size",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'align_corners',
-	    'name': 'alignCorners',
-	    'type': 'bool'
+	  "attrs": [{
+	    "tfName": "align_corners",
+	    "name": "alignCorners",
+	    "type": "bool"
 	  }, {
-	    'tfName': 'half_pixel_centers',
-	    'name': 'halfPixelCenters',
-	    'type': 'bool'
+	    "tfName": "half_pixel_centers",
+	    "name": "halfPixelCenters",
+	    "type": "bool"
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'ResizeNearestNeighbor',
-	  'category': 'image',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'images',
-	    'type': 'tensor'
+	  "tfOpName": "ResizeNearestNeighbor",
+	  "category": "image",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "images",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'size',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "size",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'align_corners',
-	    'name': 'alignCorners',
-	    'type': 'bool'
+	  "attrs": [{
+	    "tfName": "align_corners",
+	    "name": "alignCorners",
+	    "type": "bool"
 	  }, {
-	    'tfName': 'half_pixel_centers',
-	    'name': 'halfPixelCenters',
-	    'type': 'bool'
+	    "tfName": "half_pixel_centers",
+	    "name": "halfPixelCenters",
+	    "type": "bool"
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'CropAndResize',
-	  'category': 'image',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'image',
-	    'type': 'tensor'
+	  "tfOpName": "CropAndResize",
+	  "category": "image",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "image",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'boxes',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "boxes",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'boxInd',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "boxInd",
+	    "type": "tensor"
 	  }, {
-	    'start': 3,
-	    'name': 'cropSize',
-	    'type': 'number[]'
+	    "start": 3,
+	    "name": "cropSize",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'method',
-	    'name': 'method',
-	    'type': 'string'
+	  "attrs": [{
+	    "tfName": "method",
+	    "name": "method",
+	    "type": "string"
 	  }, {
-	    'tfName': 'extrapolation_value',
-	    'name': 'extrapolationValue',
-	    'type': 'number'
+	    "tfName": "extrapolation_value",
+	    "name": "extrapolationValue",
+	    "type": "number"
 	  }]
 	}];
 
@@ -82650,7 +82941,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -82665,206 +82956,206 @@
 	 * =============================================================================
 	 */
 	var json$a = [{
-	  'tfOpName': 'Equal',
-	  'category': 'logical',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "Equal",
+	  "category": "logical",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'NotEqual',
-	  'category': 'logical',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "NotEqual",
+	  "category": "logical",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Greater',
-	  'category': 'logical',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "Greater",
+	  "category": "logical",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'GreaterEqual',
-	  'category': 'logical',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "GreaterEqual",
+	  "category": "logical",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Less',
-	  'category': 'logical',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "Less",
+	  "category": "logical",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'LessEqual',
-	  'category': 'logical',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "LessEqual",
+	  "category": "logical",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'LogicalAnd',
-	  'category': 'logical',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "LogicalAnd",
+	  "category": "logical",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'LogicalNot',
-	  'category': 'logical',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "LogicalNot",
+	  "category": "logical",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'LogicalOr',
-	  'category': 'logical',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "LogicalOr",
+	  "category": "logical",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Select',
-	  'category': 'logical',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'condition',
-	    'type': 'tensor'
+	  "tfOpName": "Select",
+	  "category": "logical",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "condition",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'a',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'SelectV2',
-	  'category': 'logical',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'condition',
-	    'type': 'tensor'
+	  "tfOpName": "SelectV2",
+	  "category": "logical",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "condition",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'a',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}];
 
@@ -82875,7 +83166,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -82890,176 +83181,176 @@
 	 * =============================================================================
 	 */
 	var json$b = [{
-	  'tfOpName': '_FusedMatMul',
-	  'category': 'matrices',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "_FusedMatMul",
+	  "category": "matrices",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    end: 0,
-	    'name': 'args',
-	    'type': 'tensors'
+	    "start": 2,
+	    "end": 0,
+	    "name": "args",
+	    "type": "tensors"
 	  }],
-	  'attrs': [{
-	    'tfName': 'num_args',
-	    'name': 'numArgs',
-	    'type': 'number'
+	  "attrs": [{
+	    "tfName": "num_args",
+	    "name": "numArgs",
+	    "type": "number"
 	  }, {
-	    'tfName': 'fused_ops',
-	    'name': 'fusedOps',
-	    'type': 'string[]',
-	    'defaultValue': []
+	    "tfName": "fused_ops",
+	    "name": "fusedOps",
+	    "type": "string[]",
+	    "defaultValue": []
 	  }, {
-	    'tfName': 'epsilon',
-	    'name': 'epsilon',
-	    'type': 'number',
-	    'defaultValue': 0.0001
+	    "tfName": "epsilon",
+	    "name": "epsilon",
+	    "type": "number",
+	    "defaultValue": 0.0001
 	  }, {
-	    'tfName': 'transpose_a',
-	    'name': 'transposeA',
-	    'type': 'bool',
-	    'defaultValue': false
+	    "tfName": "transpose_a",
+	    "name": "transposeA",
+	    "type": "bool",
+	    "defaultValue": false
 	  }, {
-	    'tfName': 'transpose_b',
-	    'name': 'transposeB',
-	    'type': 'bool',
-	    'defaultValue': false
+	    "tfName": "transpose_b",
+	    "name": "transposeB",
+	    "type": "bool",
+	    "defaultValue": false
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'MatMul',
-	  'category': 'matrices',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "MatMul",
+	  "category": "matrices",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'transpose_a',
-	    'name': 'transposeA',
-	    'type': 'bool',
-	    'defaultValue': false
+	  "attrs": [{
+	    "tfName": "transpose_a",
+	    "name": "transposeA",
+	    "type": "bool",
+	    "defaultValue": false
 	  }, {
-	    'tfName': 'transpose_b',
-	    'name': 'transposeB',
-	    'type': 'bool',
-	    'defaultValue': false
+	    "tfName": "transpose_b",
+	    "name": "transposeB",
+	    "type": "bool",
+	    "defaultValue": false
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'BatchMatMul',
-	  'category': 'matrices',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "BatchMatMul",
+	  "category": "matrices",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'adj_x',
-	    'name': 'transposeA',
-	    'type': 'bool',
-	    'defaultValue': false
+	  "attrs": [{
+	    "tfName": "adj_x",
+	    "name": "transposeA",
+	    "type": "bool",
+	    "defaultValue": false
 	  }, {
-	    'tfName': 'adj_y',
-	    'name': 'transposeB',
-	    'type': 'bool',
-	    'defaultValue': false
+	    "tfName": "adj_y",
+	    "name": "transposeB",
+	    "type": "bool",
+	    "defaultValue": false
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'BatchMatMulV2',
-	  'category': 'matrices',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'a',
-	    'type': 'tensor'
+	  "tfOpName": "BatchMatMulV2",
+	  "category": "matrices",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "a",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'b',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "b",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'adj_x',
-	    'name': 'transposeA',
-	    'type': 'bool',
-	    'defaultValue': false
+	  "attrs": [{
+	    "tfName": "adj_x",
+	    "name": "transposeA",
+	    "type": "bool",
+	    "defaultValue": false
 	  }, {
-	    'tfName': 'adj_y',
-	    'name': 'transposeB',
-	    'type': 'bool',
-	    'defaultValue': false
+	    "tfName": "adj_y",
+	    "name": "transposeB",
+	    "type": "bool",
+	    "defaultValue": false
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Transpose',
-	  'category': 'matrices',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Transpose",
+	  "category": "matrices",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'perm',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "perm",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Einsum',
-	  'category': 'matrices',
-	  'inputs': [{
-	    'start': 0,
-	    'end': 0,
-	    'name': 'tensors',
-	    'type': 'tensors'
+	  "tfOpName": "Einsum",
+	  "category": "matrices",
+	  "inputs": [{
+	    "start": 0,
+	    "end": 0,
+	    "name": "tensors",
+	    "type": "tensors"
 	  }],
-	  'attrs': [{
-	    'tfName': 'equation',
-	    'name': 'equation',
-	    'type': 'string'
+	  "attrs": [{
+	    "tfName": "equation",
+	    "name": "equation",
+	    "type": "string"
 	  }, {
-	    'tfName': 'N',
-	    'name': 'n',
-	    'type': 'number',
-	    'defaultValue': 2
+	    "tfName": "N",
+	    "name": "n",
+	    "type": "number",
+	    "defaultValue": 2
 	  }, {
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }]
 	}];
 
@@ -83070,7 +83361,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -83085,181 +83376,181 @@
 	 * =============================================================================
 	 */
 	var json$c = [{
-	  'tfOpName': 'FusedBatchNorm',
-	  'category': 'normalization',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "FusedBatchNorm",
+	  "category": "normalization",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'scale',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "scale",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'offset',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "offset",
+	    "type": "tensor"
 	  }, {
-	    'start': 3,
-	    'name': 'mean',
-	    'type': 'tensor'
+	    "start": 3,
+	    "name": "mean",
+	    "type": "tensor"
 	  }, {
-	    'start': 4,
-	    'name': 'variance',
-	    'type': 'tensor'
+	    "start": 4,
+	    "name": "variance",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'epsilon',
-	    'name': 'epsilon',
-	    'type': 'number',
-	    'defaultValue': 0.001
+	  "attrs": [{
+	    "tfName": "epsilon",
+	    "name": "epsilon",
+	    "type": "number",
+	    "defaultValue": 0.001
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string',
-	    'notSupported': true
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'FusedBatchNormV2',
-	  'category': 'normalization',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "FusedBatchNormV2",
+	  "category": "normalization",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'scale',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "scale",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'offset',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "offset",
+	    "type": "tensor"
 	  }, {
-	    'start': 3,
-	    'name': 'mean',
-	    'type': 'tensor'
+	    "start": 3,
+	    "name": "mean",
+	    "type": "tensor"
 	  }, {
-	    'start': 4,
-	    'name': 'variance',
-	    'type': 'tensor'
+	    "start": 4,
+	    "name": "variance",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'epsilon',
-	    'name': 'epsilon',
-	    'type': 'number',
-	    'defaultValue': 0.001
+	  "attrs": [{
+	    "tfName": "epsilon",
+	    "name": "epsilon",
+	    "type": "number",
+	    "defaultValue": 0.001
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string',
-	    'notSupported': true
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'FusedBatchNormV3',
-	  'category': 'normalization',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "FusedBatchNormV3",
+	  "category": "normalization",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'scale',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "scale",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'offset',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "offset",
+	    "type": "tensor"
 	  }, {
-	    'start': 3,
-	    'name': 'mean',
-	    'type': 'tensor'
+	    "start": 3,
+	    "name": "mean",
+	    "type": "tensor"
 	  }, {
-	    'start': 4,
-	    'name': 'variance',
-	    'type': 'tensor'
+	    "start": 4,
+	    "name": "variance",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'epsilon',
-	    'name': 'epsilon',
-	    'type': 'number',
-	    'defaultValue': 0.001
+	  "attrs": [{
+	    "tfName": "epsilon",
+	    "name": "epsilon",
+	    "type": "number",
+	    "defaultValue": 0.001
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string',
-	    'notSupported': true
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'LRN',
-	  'category': 'normalization',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "LRN",
+	  "category": "normalization",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'depth_radius',
-	    'name': 'radius',
-	    'type': 'number',
-	    'defaultValue': 5
+	  "attrs": [{
+	    "tfName": "depth_radius",
+	    "name": "radius",
+	    "type": "number",
+	    "defaultValue": 5
 	  }, {
-	    'tfName': 'bias',
-	    'name': 'bias',
-	    'type': 'number',
-	    'defaultValue': 1.0
+	    "tfName": "bias",
+	    "name": "bias",
+	    "type": "number",
+	    "defaultValue": 1
 	  }, {
-	    'tfName': 'alpha',
-	    'name': 'alpha',
-	    'type': 'number',
-	    'defaultValue': 1.0
+	    "tfName": "alpha",
+	    "name": "alpha",
+	    "type": "number",
+	    "defaultValue": 1
 	  }, {
-	    'tfName': 'beta',
-	    'name': 'beta',
-	    'type': 'number',
-	    'defaultValue': 0.5
+	    "tfName": "beta",
+	    "name": "beta",
+	    "type": "number",
+	    "defaultValue": 0.5
 	  }]
 	}, {
-	  'tfOpName': 'Softmax',
-	  'category': 'normalization',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Softmax",
+	  "category": "normalization",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'LogSoftmax',
-	  'category': 'normalization',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "LogSoftmax",
+	  "category": "normalization",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'SparseToDense',
-	  'category': 'normalization',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'sparseIndices',
-	    'type': 'tensor'
+	  "tfOpName": "SparseToDense",
+	  "category": "normalization",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "sparseIndices",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'outputShape',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "outputShape",
+	    "type": "number[]"
 	  }, {
-	    'start': 2,
-	    'name': 'sparseValues',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "sparseValues",
+	    "type": "tensor"
 	  }, {
-	    'start': 3,
-	    'name': 'defaultValue',
-	    'type': 'tensor'
+	    "start": 3,
+	    "name": "defaultValue",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'validate_indices',
-	    'name': 'validateIndices',
-	    'type': 'bool',
-	    'defaultValue': true,
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "validate_indices",
+	    "name": "validateIndices",
+	    "type": "bool",
+	    "defaultValue": true,
+	    "notSupported": true
 	  }]
 	}];
 
@@ -83270,7 +83561,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -83285,205 +83576,205 @@
 	 * =============================================================================
 	 */
 	var json$d = [{
-	  'tfOpName': 'Bincount',
-	  'category': 'reduction',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Bincount",
+	  "category": "reduction",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'size',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "size",
+	    "type": "number"
 	  }, {
-	    'start': 2,
-	    'name': 'weights',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "weights",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'DenseBincount',
-	  'category': 'reduction',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "DenseBincount",
+	  "category": "reduction",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'size',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "size",
+	    "type": "number"
 	  }, {
-	    'start': 2,
-	    'name': 'weights',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "weights",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'binary_output',
-	    'name': 'binaryOutput',
-	    'type': 'bool'
+	  "attrs": [{
+	    "tfName": "binary_output",
+	    "name": "binaryOutput",
+	    "type": "bool"
 	  }]
 	}, {
-	  'tfOpName': 'Max',
-	  'category': 'reduction',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Max",
+	  "category": "reduction",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'axis',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "axis",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'keep_dims',
-	    'name': 'keepDims',
-	    'type': 'bool'
+	  "attrs": [{
+	    "tfName": "keep_dims",
+	    "name": "keepDims",
+	    "type": "bool"
 	  }]
 	}, {
-	  'tfOpName': 'Mean',
-	  'category': 'reduction',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Mean",
+	  "category": "reduction",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'axis',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "axis",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'keep_dims',
-	    'name': 'keepDims',
-	    'type': 'bool'
+	  "attrs": [{
+	    "tfName": "keep_dims",
+	    "name": "keepDims",
+	    "type": "bool"
 	  }]
 	}, {
-	  'tfOpName': 'Min',
-	  'category': 'reduction',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Min",
+	  "category": "reduction",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'axis',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "axis",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'keep_dims',
-	    'name': 'keepDims',
-	    'type': 'bool'
+	  "attrs": [{
+	    "tfName": "keep_dims",
+	    "name": "keepDims",
+	    "type": "bool"
 	  }]
 	}, {
-	  'tfOpName': 'Sum',
-	  'category': 'reduction',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Sum",
+	  "category": "reduction",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'axis',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "axis",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'keep_dims',
-	    'name': 'keepDims',
-	    'type': 'bool'
+	  "attrs": [{
+	    "tfName": "keep_dims",
+	    "name": "keepDims",
+	    "type": "bool"
 	  }]
 	}, {
-	  'tfOpName': 'All',
-	  'category': 'reduction',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "All",
+	  "category": "reduction",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'axis',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "axis",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'keep_dims',
-	    'name': 'keepDims',
-	    'type': 'bool'
+	  "attrs": [{
+	    "tfName": "keep_dims",
+	    "name": "keepDims",
+	    "type": "bool"
 	  }]
 	}, {
-	  'tfOpName': 'Any',
-	  'category': 'reduction',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Any",
+	  "category": "reduction",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'axis',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "axis",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'keep_dims',
-	    'name': 'keepDims',
-	    'type': 'bool'
+	  "attrs": [{
+	    "tfName": "keep_dims",
+	    "name": "keepDims",
+	    "type": "bool"
 	  }]
 	}, {
-	  'tfOpName': 'ArgMax',
-	  'category': 'reduction',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "ArgMax",
+	  "category": "reduction",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'axis',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "axis",
+	    "type": "number"
 	  }]
 	}, {
-	  'tfOpName': 'ArgMin',
-	  'category': 'reduction',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "ArgMin",
+	  "category": "reduction",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'axis',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "axis",
+	    "type": "number"
 	  }]
 	}, {
-	  'tfOpName': 'Prod',
-	  'category': 'reduction',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Prod",
+	  "category": "reduction",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'axis',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "axis",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'keep_dims',
-	    'name': 'keepDims',
-	    'type': 'bool'
+	  "attrs": [{
+	    "tfName": "keep_dims",
+	    "name": "keepDims",
+	    "type": "bool"
 	  }]
 	}, {
-	  'tfOpName': 'Cumsum',
-	  'category': 'reduction',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Cumsum",
+	  "category": "reduction",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'axis',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "axis",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'exclusive',
-	    'name': 'exclusive',
-	    'type': 'bool'
+	  "attrs": [{
+	    "tfName": "exclusive",
+	    "name": "exclusive",
+	    "type": "bool"
 	  }, {
-	    'tfName': 'reverse',
-	    'name': 'reverse',
-	    'type': 'bool'
+	    "tfName": "reverse",
+	    "name": "reverse",
+	    "type": "bool"
 	  }]
 	}];
 
@@ -83494,7 +83785,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -83509,307 +83800,307 @@
 	 * =============================================================================
 	 */
 	var json$e = [{
-	  'tfOpName': 'ConcatV2',
-	  'category': 'slice_join',
-	  'inputs': [{
-	    'start': 0,
-	    'end': -1,
-	    'name': 'tensors',
-	    'type': 'tensors'
+	  "tfOpName": "ConcatV2",
+	  "category": "slice_join",
+	  "inputs": [{
+	    "start": 0,
+	    "end": -1,
+	    "name": "tensors",
+	    "type": "tensors"
 	  }, {
-	    'start': -1,
-	    'name': 'axis',
-	    'type': 'number'
+	    "start": -1,
+	    "name": "axis",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'N',
-	    'name': 'n',
-	    'type': 'number',
-	    'defaultValue': 2
+	  "attrs": [{
+	    "tfName": "N",
+	    "name": "n",
+	    "type": "number",
+	    "defaultValue": 2
 	  }]
 	}, {
-	  'tfOpName': 'Concat',
-	  'category': 'slice_join',
-	  'inputs': [{
-	    'start': 1,
-	    'end': 0,
-	    'name': 'tensors',
-	    'type': 'tensors'
+	  "tfOpName": "Concat",
+	  "category": "slice_join",
+	  "inputs": [{
+	    "start": 1,
+	    "end": 0,
+	    "name": "tensors",
+	    "type": "tensors"
 	  }, {
-	    'start': 0,
-	    'name': 'axis',
-	    'type': 'number'
+	    "start": 0,
+	    "name": "axis",
+	    "type": "number"
 	  }],
-	  'attrs': [{
-	    'tfName': 'N',
-	    'name': 'n',
-	    'type': 'number',
-	    'defaultValue': 2
+	  "attrs": [{
+	    "tfName": "N",
+	    "name": "n",
+	    "type": "number",
+	    "defaultValue": 2
 	  }]
 	}, {
-	  'tfOpName': 'GatherV2',
-	  'category': 'slice_join',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "GatherV2",
+	  "category": "slice_join",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'indices',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "indices",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'axis',
-	    'type': 'number',
-	    'defaultValue': 0
+	    "start": 2,
+	    "name": "axis",
+	    "type": "number",
+	    "defaultValue": 0
 	  }],
-	  'attrs': [{
-	    'tfName': 'batch_dims',
-	    'name': 'batchDims',
-	    'type': 'number',
-	    'defaultValue': 0
+	  "attrs": [{
+	    "tfName": "batch_dims",
+	    "name": "batchDims",
+	    "type": "number",
+	    "defaultValue": 0
 	  }]
 	}, {
-	  'tfOpName': 'Gather',
-	  'category': 'slice_join',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Gather",
+	  "category": "slice_join",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'indices',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "indices",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'validate_indices',
-	    'name': 'validateIndices',
-	    'type': 'bool',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "validate_indices",
+	    "name": "validateIndices",
+	    "type": "bool",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Reverse',
-	  'category': 'slice_join',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Reverse",
+	  "category": "slice_join",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'dims',
-	    'type': 'bool[]'
+	    "start": 1,
+	    "name": "dims",
+	    "type": "bool[]"
 	  }]
 	}, {
-	  'tfOpName': 'ReverseV2',
-	  'category': 'slice_join',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "ReverseV2",
+	  "category": "slice_join",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'axis',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "axis",
+	    "type": "number[]"
 	  }]
 	}, {
-	  'tfOpName': 'Slice',
-	  'category': 'slice_join',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Slice",
+	  "category": "slice_join",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'begin',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "begin",
+	    "type": "number[]"
 	  }, {
-	    'start': 2,
-	    'name': 'size',
-	    'type': 'number[]'
+	    "start": 2,
+	    "name": "size",
+	    "type": "number[]"
 	  }]
 	}, {
-	  'tfOpName': 'StridedSlice',
-	  'category': 'slice_join',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "StridedSlice",
+	  "category": "slice_join",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'begin',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "begin",
+	    "type": "number[]"
 	  }, {
-	    'start': 2,
-	    'name': 'end',
-	    'type': 'number[]'
+	    "start": 2,
+	    "name": "end",
+	    "type": "number[]"
 	  }, {
-	    'start': 3,
-	    'name': 'strides',
-	    'type': 'number[]'
+	    "start": 3,
+	    "name": "strides",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'begin_mask',
-	    'name': 'beginMask',
-	    'type': 'number',
-	    'defaultValue': 0
+	  "attrs": [{
+	    "tfName": "begin_mask",
+	    "name": "beginMask",
+	    "type": "number",
+	    "defaultValue": 0
 	  }, {
-	    'tfName': 'end_mask',
-	    'name': 'endMask',
-	    'type': 'number',
-	    'defaultValue': 0
+	    "tfName": "end_mask",
+	    "name": "endMask",
+	    "type": "number",
+	    "defaultValue": 0
 	  }, {
-	    'tfName': 'new_axis_mask',
-	    'name': 'newAxisMask',
-	    'type': 'number',
-	    'defaultValue': 0
+	    "tfName": "new_axis_mask",
+	    "name": "newAxisMask",
+	    "type": "number",
+	    "defaultValue": 0
 	  }, {
-	    'tfName': 'ellipsis_mask',
-	    'name': 'ellipsisMask',
-	    'type': 'number',
-	    'defaultValue': 0
+	    "tfName": "ellipsis_mask",
+	    "name": "ellipsisMask",
+	    "type": "number",
+	    "defaultValue": 0
 	  }, {
-	    'tfName': 'shrink_axis_mask',
-	    'name': 'shrinkAxisMask',
-	    'type': 'number',
-	    'defaultValue': 0
+	    "tfName": "shrink_axis_mask",
+	    "name": "shrinkAxisMask",
+	    "type": "number",
+	    "defaultValue": 0
 	  }]
 	}, {
-	  'tfOpName': 'Pack',
-	  'category': 'slice_join',
-	  'inputs': [{
-	    'start': 0,
-	    'end': 0,
-	    'name': 'tensors',
-	    'type': 'tensors'
+	  "tfOpName": "Pack",
+	  "category": "slice_join",
+	  "inputs": [{
+	    "start": 0,
+	    "end": 0,
+	    "name": "tensors",
+	    "type": "tensors"
 	  }],
-	  'attrs': [{
-	    'tfName': 'axis',
-	    'name': 'axis',
-	    'type': 'number',
-	    'defaultValue': 0
+	  "attrs": [{
+	    "tfName": "axis",
+	    "name": "axis",
+	    "type": "number",
+	    "defaultValue": 0
 	  }]
 	}, {
-	  'tfOpName': 'Unpack',
-	  'category': 'slice_join',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'tensor',
-	    'type': 'tensor'
+	  "tfOpName": "Unpack",
+	  "category": "slice_join",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "tensor",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'axis',
-	    'name': 'axis',
-	    'type': 'number',
-	    'defaultValue': 0
+	  "attrs": [{
+	    "tfName": "axis",
+	    "name": "axis",
+	    "type": "number",
+	    "defaultValue": 0
 	  }, {
-	    'tfName': 'num',
-	    'name': 'num',
-	    'type': 'number',
-	    'defaultValue': 0,
-	    'notSupported': true
+	    "tfName": "num",
+	    "name": "num",
+	    "type": "number",
+	    "defaultValue": 0,
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'Tile',
-	  'category': 'slice_join',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Tile",
+	  "category": "slice_join",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'reps',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "reps",
+	    "type": "number[]"
 	  }]
 	}, {
-	  'tfOpName': 'Split',
-	  'category': 'slice_join',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'axis',
-	    'type': 'number',
-	    'defaultValue': 0
+	  "tfOpName": "Split",
+	  "category": "slice_join",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "axis",
+	    "type": "number",
+	    "defaultValue": 0
 	  }, {
-	    'start': 1,
-	    'name': 'x',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'num_split',
-	    'name': 'numOrSizeSplits',
-	    'type': 'number',
-	    'defaultValue': 1
+	  "attrs": [{
+	    "tfName": "num_split",
+	    "name": "numOrSizeSplits",
+	    "type": "number",
+	    "defaultValue": 1
 	  }]
 	}, {
-	  'tfOpName': 'SplitV',
-	  'category': 'slice_join',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "SplitV",
+	  "category": "slice_join",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'numOrSizeSplits',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "numOrSizeSplits",
+	    "type": "number[]"
 	  }, {
-	    'start': 2,
-	    'name': 'axis',
-	    'type': 'number',
-	    'defaultValue': 0
+	    "start": 2,
+	    "name": "axis",
+	    "type": "number",
+	    "defaultValue": 0
 	  }]
 	}, {
-	  'tfOpName': 'ScatterNd',
-	  'category': 'slice_join',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'indices',
-	    'type': 'tensor'
+	  "tfOpName": "ScatterNd",
+	  "category": "slice_join",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "indices",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'values',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "values",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'shape',
-	    'type': 'number[]'
+	    "start": 2,
+	    "name": "shape",
+	    "type": "number[]"
 	  }]
 	}, {
-	  'tfOpName': 'GatherNd',
-	  'category': 'slice_join',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "GatherNd",
+	  "category": "slice_join",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'indices',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "indices",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'SparseToDense',
-	  'category': 'slice_join',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'sparseIndices',
-	    'type': 'tensor'
+	  "tfOpName": "SparseToDense",
+	  "category": "slice_join",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "sparseIndices",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'outputShape',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "outputShape",
+	    "type": "number[]"
 	  }, {
-	    'start': 2,
-	    'name': 'sparseValues',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "sparseValues",
+	    "type": "tensor"
 	  }, {
-	    'start': 3,
-	    'name': 'defaultValue',
-	    'type': 'tensor'
+	    "start": 3,
+	    "name": "defaultValue",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'validate_indices',
-	    'name': 'validateIndices',
-	    'type': 'bool',
-	    'defaultValue': false,
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "validate_indices",
+	    "name": "validateIndices",
+	    "type": "bool",
+	    "defaultValue": false,
+	    "notSupported": true
 	  }]
 	}];
 
@@ -83835,78 +84126,78 @@
 	 * =============================================================================
 	 */
 	var json$f = [{
-	  'tfOpName': 'SparseFillEmptyRows',
-	  'category': 'sparse',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'indices',
-	    'type': 'tensor'
+	  "tfOpName": "SparseFillEmptyRows",
+	  "category": "sparse",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "indices",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'values',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "values",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'denseShape',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "denseShape",
+	    "type": "tensor"
 	  }, {
-	    'start': 3,
-	    'name': 'defaultValue',
-	    'type': 'tensor'
+	    "start": 3,
+	    "name": "defaultValue",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'SparseReshape',
-	  'category': 'sparse',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'inputIndices',
-	    'type': 'tensor'
+	  "tfOpName": "SparseReshape",
+	  "category": "sparse",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "inputIndices",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'inputShape',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "inputShape",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'newShape',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "newShape",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'T',
-	    'name': 'dtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "T",
+	    "name": "dtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'SparseSegmentMean',
-	  'category': 'sparse',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'data',
-	    'type': 'tensor'
+	  "tfOpName": "SparseSegmentMean",
+	  "category": "sparse",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "data",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'indices',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "indices",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'segmentIds',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "segmentIds",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'SparseSegmentSum',
-	  'category': 'sparse',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'data',
-	    'type': 'tensor'
+	  "tfOpName": "SparseSegmentSum",
+	  "category": "sparse",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "data",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'indices',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "indices",
+	    "type": "tensor"
 	  }, {
-	    'start': 2,
-	    'name': 'segmentIds',
-	    'type': 'tensor'
+	    "start": 2,
+	    "name": "segmentIds",
+	    "type": "tensor"
 	  }]
 	}];
 
@@ -83917,7 +84208,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -83932,46 +84223,46 @@
 	 * =============================================================================
 	 */
 	var json$g = [{
-	  'tfOpName': 'FFT',
-	  'category': 'spectral',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "FFT",
+	  "category": "spectral",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'IFFT',
-	  'category': 'spectral',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "IFFT",
+	  "category": "spectral",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }]
 	}, {
-	  'tfOpName': 'RFFT',
-	  'category': 'spectral',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "RFFT",
+	  "category": "spectral",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'fft_length',
-	    'type': 'number',
-	    'notSupported': true
+	    "start": 1,
+	    "name": "fft_length",
+	    "type": "number",
+	    "notSupported": true
 	  }]
 	}, {
-	  'tfOpName': 'IRFFT',
-	  'category': 'spectral',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "IRFFT",
+	  "category": "spectral",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'fft_length',
-	    'type': 'number',
-	    'notSupported': true
+	    "start": 1,
+	    "name": "fft_length",
+	    "type": "number",
+	    "notSupported": true
 	  }]
 	}];
 
@@ -83997,73 +84288,73 @@
 	 * =============================================================================
 	 */
 	var json$h = [{
-	  'tfOpName': 'StringNGrams',
-	  'category': 'string',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'data',
-	    'type': 'tensor'
+	  "tfOpName": "StringNGrams",
+	  "category": "string",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "data",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'dataSplits',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "dataSplits",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'separator',
-	    'name': 'separator',
-	    'type': 'string'
+	  "attrs": [{
+	    "tfName": "separator",
+	    "name": "separator",
+	    "type": "string"
 	  }, {
-	    'tfName': 'ngram_widths',
-	    'name': 'nGramWidths',
-	    'type': 'number[]'
+	    "tfName": "ngram_widths",
+	    "name": "nGramWidths",
+	    "type": "number[]"
 	  }, {
-	    'tfName': 'left_pad',
-	    'name': 'leftPad',
-	    'type': 'string'
+	    "tfName": "left_pad",
+	    "name": "leftPad",
+	    "type": "string"
 	  }, {
-	    'tfName': 'right_pad',
-	    'name': 'rightPad',
-	    'type': 'string'
+	    "tfName": "right_pad",
+	    "name": "rightPad",
+	    "type": "string"
 	  }, {
-	    'tfName': 'pad_width',
-	    'name': 'padWidth',
-	    'type': 'number'
+	    "tfName": "pad_width",
+	    "name": "padWidth",
+	    "type": "number"
 	  }, {
-	    'tfName': 'preserve_short_sequences',
-	    'name': 'preserveShortSequences',
-	    'type': 'bool'
+	    "tfName": "preserve_short_sequences",
+	    "name": "preserveShortSequences",
+	    "type": "bool"
 	  }],
-	  'outputs': ['ngrams', 'ngrams_splits']
+	  "outputs": ["ngrams", "ngrams_splits"]
 	}, {
-	  'tfOpName': 'StringSplit',
-	  'category': 'string',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'input',
-	    'type': 'tensor'
+	  "tfOpName": "StringSplit",
+	  "category": "string",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "input",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'delimiter',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "delimiter",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'skip_empty',
-	    'name': 'skipEmpty',
-	    'type': 'bool'
+	  "attrs": [{
+	    "tfName": "skip_empty",
+	    "name": "skipEmpty",
+	    "type": "bool"
 	  }],
-	  'outputs': ['indices', 'values', 'shape']
+	  "outputs": ["indices", "values", "shape"]
 	}, {
-	  'tfOpName': 'StringToHashBucketFast',
-	  'category': 'string',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'input',
-	    'type': 'tensor'
+	  "tfOpName": "StringToHashBucketFast",
+	  "category": "string",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "input",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'num_buckets',
-	    'name': 'numBuckets',
-	    'type': 'number'
+	  "attrs": [{
+	    "tfName": "num_buckets",
+	    "name": "numBuckets",
+	    "type": "number"
 	  }]
 	}];
 
@@ -84074,7 +84365,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -84089,188 +84380,188 @@
 	 * =============================================================================
 	 */
 	var json$i = [{
-	  'tfOpName': 'Cast',
-	  'category': 'transformation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Cast",
+	  "category": "transformation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'SrcT',
-	    'name': 'sdtype',
-	    'type': 'dtype',
-	    'notSupported': true
+	  "attrs": [{
+	    "tfName": "SrcT",
+	    "name": "sdtype",
+	    "type": "dtype",
+	    "notSupported": true
 	  }, {
-	    'tfName': 'DstT',
-	    'name': 'dtype',
-	    'type': 'dtype'
+	    "tfName": "DstT",
+	    "name": "dtype",
+	    "type": "dtype"
 	  }]
 	}, {
-	  'tfOpName': 'ExpandDims',
-	  'category': 'transformation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "ExpandDims",
+	  "category": "transformation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'axis',
-	    'type': 'number'
+	    "start": 1,
+	    "name": "axis",
+	    "type": "number"
 	  }]
 	}, {
-	  'tfOpName': 'MirrorPad',
-	  'category': 'transformation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "MirrorPad",
+	  "category": "transformation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'padding',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "padding",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'mode',
-	    'name': 'mode',
-	    'type': 'string'
+	  "attrs": [{
+	    "tfName": "mode",
+	    "name": "mode",
+	    "type": "string"
 	  }]
 	}, {
-	  'tfOpName': 'Pad',
-	  'category': 'transformation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Pad",
+	  "category": "transformation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'padding',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "padding",
+	    "type": "number[]"
 	  }],
-	  'attrs': [{
-	    'tfName': 'constant_value',
-	    'name': 'constantValue',
-	    'type': 'number',
-	    'defaultValue': 0
+	  "attrs": [{
+	    "tfName": "constant_value",
+	    "name": "constantValue",
+	    "type": "number",
+	    "defaultValue": 0
 	  }]
 	}, {
-	  'tfOpName': 'PadV2',
-	  'category': 'transformation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "PadV2",
+	  "category": "transformation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'padding',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "padding",
+	    "type": "number[]"
 	  }, {
-	    'start': 2,
-	    'name': 'constantValue',
-	    'type': 'number',
-	    'defaultValue': 0
+	    "start": 2,
+	    "name": "constantValue",
+	    "type": "number",
+	    "defaultValue": 0
 	  }]
 	}, {
-	  'tfOpName': 'Reshape',
-	  'category': 'transformation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Reshape",
+	  "category": "transformation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'shape',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "shape",
+	    "type": "number[]"
 	  }]
 	}, {
-	  'tfOpName': 'Squeeze',
-	  'category': 'transformation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "Squeeze",
+	  "category": "transformation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'axis',
-	    'tfDeprecatedName': 'squeeze_dims',
-	    'name': 'axis',
-	    'type': 'number[]'
+	  "attrs": [{
+	    "tfName": "axis",
+	    "tfDeprecatedName": "squeeze_dims",
+	    "name": "axis",
+	    "type": "number[]"
 	  }]
 	}, {
-	  'tfOpName': 'SpaceToBatchND',
-	  'category': 'transformation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "SpaceToBatchND",
+	  "category": "transformation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'blockShape',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "blockShape",
+	    "type": "number[]"
 	  }, {
-	    'start': 2,
-	    'name': 'paddings',
-	    'type': 'number[]'
+	    "start": 2,
+	    "name": "paddings",
+	    "type": "number[]"
 	  }]
 	}, {
-	  'tfOpName': 'BatchToSpaceND',
-	  'category': 'transformation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "BatchToSpaceND",
+	  "category": "transformation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'blockShape',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "blockShape",
+	    "type": "number[]"
 	  }, {
-	    'start': 2,
-	    'name': 'crops',
-	    'type': 'number[]'
+	    "start": 2,
+	    "name": "crops",
+	    "type": "number[]"
 	  }]
 	}, {
-	  'tfOpName': 'DepthToSpace',
-	  'category': 'transformation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "DepthToSpace",
+	  "category": "transformation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }],
-	  'attrs': [{
-	    'tfName': 'block_size',
-	    'name': 'blockSize',
-	    'type': 'number'
+	  "attrs": [{
+	    "tfName": "block_size",
+	    "name": "blockSize",
+	    "type": "number"
 	  }, {
-	    'tfName': 'data_format',
-	    'name': 'dataFormat',
-	    'type': 'string'
+	    "tfName": "data_format",
+	    "name": "dataFormat",
+	    "type": "string"
 	  }]
 	}, {
-	  'tfOpName': 'BroadcastTo',
-	  'category': 'transformation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 'x',
-	    'type': 'tensor'
+	  "tfOpName": "BroadcastTo",
+	  "category": "transformation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "x",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 'shape',
-	    'type': 'number[]'
+	    "start": 1,
+	    "name": "shape",
+	    "type": "number[]"
 	  }],
-	  'attrs': []
+	  "attrs": []
 	}, {
-	  'tfOpName': 'BroadcastArgs',
-	  'category': 'transformation',
-	  'inputs': [{
-	    'start': 0,
-	    'name': 's0',
-	    'type': 'tensor'
+	  "tfOpName": "BroadcastArgs",
+	  "category": "transformation",
+	  "inputs": [{
+	    "start": 0,
+	    "name": "s0",
+	    "type": "tensor"
 	  }, {
-	    'start': 1,
-	    'name': 's1',
-	    'type': 'tensor'
+	    "start": 1,
+	    "name": "s1",
+	    "type": "tensor"
 	  }],
-	  'attrs': []
+	  "attrs": []
 	}];
 
 	var transformation = {
@@ -90222,7 +90513,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$3 = '3.9.0';
+	var version$3 = '3.11.0';
 
 	/**
 	 * @license
@@ -90282,6 +90573,10 @@
 	    return null;
 	  }
 
+	  if (typeof Blob === 'function' && input instanceof Blob) {
+	    return input.slice();
+	  }
+
 	  if (containedIn.has(input)) {
 	    throw new Error('Circular references are not supported.');
 	  }
@@ -90311,6 +90606,11 @@
 	    }
 
 	    containedIn.delete(input);
+
+	    if (input.__proto__) {
+	      mappedIterable.__proto__ = input.__proto__;
+	    }
+
 	    return mappedIterable;
 	  } else {
 	    throw new Error("Can't recurse into non-iterable type: " + input);
@@ -95979,12 +96279,12 @@
 	 * yet reliably provide a reader stream for the response body.
 	 */
 
-	function urlChunkIterator(_x, _x2) {
+	function urlChunkIterator(_x, _x2, _x3) {
 	  return _urlChunkIterator.apply(this, arguments);
 	} // Generate RequestInit from Request to match tf.util.fetch signature.
 
 	function _urlChunkIterator() {
-	  _urlChunkIterator = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(url, options) {
+	  _urlChunkIterator = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(url, options, fetchFunc) {
 	    var urlString, requestInit, response, uint8Array;
 	    return regeneratorRuntime.wrap(function _callee$(_context) {
 	      while (1) {
@@ -96002,7 +96302,7 @@
 	            }
 
 	            _context.next = 4;
-	            return fetch$2(urlString, requestInit);
+	            return (fetchFunc || fetch$2)(urlString, requestInit);
 
 	          case 4:
 	            response = _context.sent;
@@ -96532,7 +96832,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$4 = '3.9.0';
+	var version$4 = '3.11.0';
 
 	/**
 	 * @license
@@ -96892,7 +97192,7 @@
 	  var resultValues = new Float32Array(sizeFromShape(x.shape));
 	  var values = cpuBackend.data.get(x.dataId).values;
 	  resultValues = simpleAbsImpl(values);
-	  return cpuBackend.makeOutput(resultValues, x.shape, 'float32');
+	  return cpuBackend.makeOutput(resultValues, x.shape, x.dtype);
 	};
 	var absConfig = {
 	  kernelName: Abs,
@@ -97758,7 +98058,7 @@
 	var expImpl = createSimpleUnaryImpl(function (xi) {
 	  return Math.exp(xi);
 	});
-	var exp$4 = unaryKernelFuncFromImpl(Exp, expImpl);
+	var exp$4 = unaryKernelFuncFromImpl(Exp, expImpl, 'float32');
 	var expConfig = {
 	  kernelName: Exp,
 	  backendName: 'cpu',
@@ -99838,7 +100138,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$5 = '3.9.0';
+	var version$5 = '3.11.0';
 
 	/**
 	 * @license
@@ -99955,11 +100255,11 @@
 	  var aVals = backend.data.get(x.dataId).values;
 	  var bVals = backend.data.get(alpha.dataId).values;
 
-	  var _preluImpl = preluImpl(x.shape, alpha.shape, aVals, bVals, x.dtype),
+	  var _preluImpl = preluImpl(x.shape, alpha.shape, aVals, bVals, 'float32'),
 	      resultData = _preluImpl[0],
 	      resultShape = _preluImpl[1];
 
-	  return backend.makeTensorInfo(resultShape, x.dtype, resultData);
+	  return backend.makeTensorInfo(resultShape, 'float32', resultData);
 	}
 	var preluConfig = {
 	  kernelName: Prelu,
@@ -103045,9 +103345,6 @@
 	  assert(dataFormat === 'NHWC', function () {
 	    return "Only NHWC dataFormat supported on CPU for depthToSpace. Got " + dataFormat;
 	  });
-	  assert(blockSize > 1, function () {
-	    return "blockSize should be > 1 for depthToSpace, but was: " + blockSize;
-	  });
 	  var batchSize = x.shape[0];
 	  var inputHeight = x.shape[1];
 	  var inputWidth = x.shape[2];
@@ -104891,7 +105188,23 @@
 	      indices = inputs.indices;
 	  var axis = attrs.axis,
 	      batchDims = attrs.batchDims;
-	  assertNotComplex([x, indices], 'gatherV2');
+	  assertNotComplex([x, indices], 'gatherV2'); // Throw error when any index is out of bound.
+
+	  var parsedAxis = parseAxisParam(axis, x.shape)[0];
+	  var indicesVals = backend.data.get(indices.dataId).values;
+	  var axisDim = x.shape[parsedAxis];
+
+	  var _loop = function _loop(i) {
+	    var index = indicesVals[i];
+	    assert(index <= axisDim - 1 && index >= 0, function () {
+	      return "GatherV2: the index value " + index + " is not in [0, " + (axisDim - 1) + "]";
+	    });
+	  };
+
+	  for (var i = 0; i < indicesVals.length; ++i) {
+	    _loop(i);
+	  }
+
 	  var $batchDims = batchDims;
 
 	  if (batchDims == null) {
@@ -104899,7 +105212,6 @@
 	  }
 
 	  var indicesSize = sizeFromShape(indices.shape);
-	  var parsedAxis = parseAxisParam(axis, x.shape)[0];
 	  var shapeInfo = collectGatherOpShapeInfo(x, indices, parsedAxis, $batchDims);
 	  var flattenX = reshape$2({
 	    inputs: {
@@ -108187,28 +108499,39 @@
 	  assertNotComplex(x, 'stridedSlice');
 
 	  var _slice_util$sliceInfo = sliceInfo(x.shape, begin, end, strides, beginMask, endMask, ellipsisMask, newAxisMask, shrinkAxisMask),
-	      nonStrided = _slice_util$sliceInfo.nonStrided,
-	      $begin = _slice_util$sliceInfo.$begin,
-	      $strides = _slice_util$sliceInfo.$strides,
-	      size = _slice_util$sliceInfo.size,
-	      newShape = _slice_util$sliceInfo.newShape,
-	      outShape = _slice_util$sliceInfo.outShape;
+	      finalShapeSparse = _slice_util$sliceInfo.finalShapeSparse,
+	      finalShape = _slice_util$sliceInfo.finalShape,
+	      isIdentity = _slice_util$sliceInfo.isIdentity,
+	      sliceDim0 = _slice_util$sliceInfo.sliceDim0,
+	      isSimpleSlice = _slice_util$sliceInfo.isSimpleSlice,
+	      $begin = _slice_util$sliceInfo.begin,
+	      $end = _slice_util$sliceInfo.end,
+	      $strides = _slice_util$sliceInfo.strides;
 
-	  var $x = reshape$2({
-	    inputs: {
-	      x: x
-	    },
-	    backend: backend,
-	    attrs: {
-	      shape: newShape
-	    }
-	  });
-	  var result;
+	  var result; // ref:
+	  // https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/kernels/strided_slice_op.cc
 
-	  if (nonStrided) {
+	  if (isIdentity) {
+	    // Optimization #1, slice is a no-op plus reshape
+	    result = reshape$2({
+	      inputs: {
+	        x: x
+	      },
+	      backend: backend,
+	      attrs: {
+	        shape: finalShape
+	      }
+	    });
+	  } else if (sliceDim0 || isSimpleSlice) {
+	    // Optimization #2, slice is memory contiguous (only occurs in dim 0)
+	    assert(x.shape.length >= 1, function () {
+	      return "Input must have rank at least 1, got: " + x.shape.length;
+	    });
+	    var size = computeOutShape($begin, $end, $strides); // To tolerate begin[0] > end[0] (a 0-output slice), we min(begin, end).
+
 	    var sliced = slice$3({
 	      inputs: {
-	        x: $x
+	        x: x
 	      },
 	      backend: backend,
 	      attrs: {
@@ -108222,32 +108545,17 @@
 	      },
 	      backend: backend,
 	      attrs: {
-	        shape: outShape
+	        shape: finalShape
 	      }
 	    });
 	    backend.disposeIntermediateTensorInfo(sliced);
-	  } else if (outShape.some(function (axis) {
-	    return axis === 0;
-	  })) {
-	    result = backend.makeTensorInfo(outShape, x.dtype, []);
 	  } else {
-	    var xBuf = backend.bufferSync($x);
-	    var outBuf = stridedSliceImpl(outShape, xBuf, $strides, $begin);
-	    result = backend.makeTensorInfo(outBuf.shape, outBuf.dtype, outBuf.values);
+	    var xBuf = backend.bufferSync(x);
+	    var outBuf = stridedSliceImpl(finalShapeSparse, xBuf, $strides, $begin);
+	    result = backend.makeTensorInfo(finalShape, outBuf.dtype, outBuf.values);
 	  }
 
-	  var resultReshaped = reshape$2({
-	    inputs: {
-	      x: result
-	    },
-	    backend: backend,
-	    attrs: {
-	      shape: outShape
-	    }
-	  });
-	  backend.disposeIntermediateTensorInfo($x);
-	  backend.disposeIntermediateTensorInfo(result);
-	  return resultReshaped;
+	  return result;
 	}
 	var stridedSliceConfig = {
 	  kernelName: StridedSlice,
@@ -110157,7 +110465,7 @@
 	 */
 
 	ENV$1.registerFlag('WEBGL_FLUSH_THRESHOLD', function () {
-	  return isMobile() && ENV$1.getBool('IS_CHROME') ? 1 : -1;
+	  return isMobile() ? 1 : -1;
 	}, function (threshold) {
 	  if (threshold < 0 && threshold !== -1) {
 	    throw new Error("WEBGL_FLUSH_THRESHOLD must be -1 (indicating never " + ("manual flush) or at least 0, but got " + threshold + "."));
@@ -114661,7 +114969,7 @@
 	      var program;
 	      var width = texShape[1],
 	          height = texShape[0];
-	      var isByteArray = values instanceof Uint8Array;
+	      var isByteArray = values instanceof Uint8Array || values instanceof Uint8ClampedArray;
 
 	      if (isPacked) {
 	        var _tex_util$getPackedMa = getPackedMatrixTextureShapeWidthHeight(texShape[0], texShape[1]);
@@ -114757,7 +115065,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$6 = '3.9.0';
+	var version$6 = '3.11.0';
 
 	/**
 	 * @license
@@ -115015,7 +115323,7 @@
 	  var alpha = attrs.alpha;
 	  var $alpha = backend.makeTensorInfo([], 'float32', createScalarValue(alpha, 'float32'));
 	  var program = env().getBool('WEBGL_PACK_BINARY_OPERATIONS') ? new BinaryOpPackedProgram(LEAKYRELU_PACKED, x.shape, $alpha.shape) : new BinaryOpProgram(LEAKYRELU, x.shape, $alpha.shape);
-	  var result = backend.runWebGLProgram(program, [x, $alpha], x.dtype);
+	  var result = backend.runWebGLProgram(program, [x, $alpha], 'float32');
 	  backend.disposeIntermediateTensorInfo($alpha);
 	  return result;
 	}
@@ -115049,7 +115357,7 @@
 	  var x = inputs.x,
 	      alpha = inputs.alpha;
 	  var program = env().getBool('WEBGL_PACK_BINARY_OPERATIONS') ? new BinaryOpPackedProgram(PRELU_PACKED, x.shape, alpha.shape) : new BinaryOpProgram(PRELU, x.shape, alpha.shape);
-	  return backend.runWebGLProgram(program, [x, alpha], x.dtype);
+	  return backend.runWebGLProgram(program, [x, alpha], 'float32');
 	}
 	var preluConfig$1 = {
 	  kernelName: Prelu,
@@ -118044,6 +118352,38 @@
 
 	/**
 	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function broadcastArgs$2(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend;
+	  var s0 = inputs.s0,
+	      s1 = inputs.s1;
+	  var s0Vals = backend.readSync(s0.dataId);
+	  var s1Vals = backend.readSync(s1.dataId);
+	  var broadcastShape = assertAndGetBroadcastShape(Array.from(s0Vals), Array.from(s1Vals));
+	  return backend.makeTensorInfo([broadcastShape.length], 'int32', Int32Array.from(broadcastShape));
+	}
+	var broadcastArgsConfig$1 = {
+	  kernelName: BroadcastArgs,
+	  backendName: 'webgl',
+	  kernelFunc: broadcastArgs$2
+	};
+
+	/**
+	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -120050,9 +120390,6 @@
 	  var x = inputs.x;
 	  var blockSize = attrs.blockSize,
 	      dataFormat = attrs.dataFormat;
-	  assert(blockSize > 1, function () {
-	    return "blockSize should be > 1 for depthToSpace, but was: " + blockSize;
-	  });
 	  var batchSize = x.shape[0];
 	  var inputHeight = dataFormat === 'NHWC' ? x.shape[1] : x.shape[2];
 	  var inputWidth = dataFormat === 'NHWC' ? x.shape[2] : x.shape[3];
@@ -120227,112 +120564,112 @@
 	   */
 
 
-	  for (var r = 0; r < filterHeight; r++) {
-	    for (var _c = 0; _c < filterWidth; _c++) {
-	      mainLoop += "\n          xTexelC" + _c * 2 + " = vec4(0.0);\n          xTexelC" + _c * 2 + "Ready = 0;\n          xTexelC" + (_c * 2 + 1) + " = vec4(0.0);\n          xTexelC" + (_c * 2 + 1) + "Ready = 0;\n          xC" + _c + " = vec4(0.0);";
-	    }
+	  mainLoop += "\n    for (int r = 0; r < " + filterHeight + "; r++) {\n      ";
 
-	    mainLoop += "\n        xR = xRCorner + " + r + " * dilations[0];\n        if (xR >=0 && xR < inDims[0]) {\n      ";
-
-	    for (var texelC = 0; texelC < (texelsAcross + 1) / 2; texelC++) {
-	      var colIndex = texelC * 2;
-	      mainLoop += "\n          xC = xCCorner + " + colIndex * dilationWidth + ";\n          ";
-
-	      if (strideWidth === 1) {
-	        if (colIndex < filterWidth) {
-	          // If padding is odd, the outer texels have to be composed.
-	          if (padLeft % 2 === 1) {
-	            // TODO: Ensure vec4 previous does not result in redundant sample,
-	            // and avoid setting xTexelRC's that exceed the boundary in the
-	            // first place rather than resetting them to vec4(0)).
-	            // To compute xCOffset:
-	            // - If padding is odd, we must add 1 to ensure we ask for an
-	            // even-numbered row.
-	            // - We subtract 2 to access the previous texel.
-	            mainLoop += "\n                xCOffset = xC + 1;\n                if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xCOffset + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n              "; // This texel has been read in previous iteration if the dilation
-	            // is 1.
-
-	            if (dilationWidth === 1 && colIndex > 0) {
-	              mainLoop += "\n                xC" + colIndex + " = vec4(xTexelC" + (colIndex - 2) + ".zw, xTexelC" + colIndex + ".xy);\n                ";
-	            } else {
-	              mainLoop += "\n                  xCOffset = xC + 1 - 2;\n\n                  if (xCOffset >= 0 && xCOffset < inDims[1]) {\n                    previous = getX(batch, xR, xCOffset, d1);\n\n                    // Need to manually clear unused channels in case\n                    // we're reading from recycled texture.\n                    if (xCOffset + 1 >= inDims[1]) {\n                      previous.zw = vec2(0.0);\n                    }\n\n                    xC" + colIndex + " = vec4(previous.zw, xTexelC" + colIndex + ".xy);\n                  } else {\n                    xC" + colIndex + " = vec4(0.0, 0.0, xTexelC" + colIndex + ".xy);\n                  }\n                  ";
-	            }
-	          } else {
-	            // Padding is even, so xRC corresponds to a single texel.
-	            mainLoop += "\n                if (xC >= 0 && xC < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xC, d1);\n                  if (xC + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                xC" + colIndex + " = xTexelC" + colIndex + ";\n                ";
-	          }
-
-	          if (colIndex + 1 < filterWidth) {
-	            // If dilation is even, the second entry should match the first
-	            // (either both are composed or both are single samples). But if
-	            // dilation is odd, then the second entry should be the opposite
-	            // of the first (if the first is composed, the second is a single
-	            // sample, and vice versa.)
-	            var nextTexelOffset = padLeft % 2 === 0 ? nearestLargerEven(dilationWidth) : dilationWidth;
-
-	            if (dilationWidth % 2 === 0 && padLeft % 2 === 1 || dilationWidth % 2 !== 0 && padLeft % 2 !== 1) {
-	              mainLoop += "\n                  xCOffset = xC + imod(pads[1], 2) + " + nextTexelOffset + ";\n\n                  if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                    xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n\n                    // Need to manually clear unused channels in case\n                    // we're reading from recycled texture.\n                    if (xCOffset + 1 >= inDims[1]) {\n                      xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                    }\n                    xTexelC" + (colIndex + 1) + "Ready = 1;\n                  }\n                  "; // If dilation > 1 then the xRC's will not be able to share any
-	              // values, so each xRC will require two unique calls to getX.
-
-	              if (dilationWidth > 1) {
-	                mainLoop += "\n                    xCOffset -= 2;\n                    if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                      xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n                      xTexelC" + colIndex + "Ready = 1;\n                    }\n                    ";
-	              }
-
-	              mainLoop += "\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".xy);\n                  ";
-	            } else {
-	              // If dilation is 1 and padding is odd, we have already read the
-	              // texel when constructing the previous x value. Here we can
-	              // simply skip the texture read.
-	              if (nextTexelOffset === 1) {
-	                mainLoop += "\n                    xC" + (colIndex + 1) + " = xTexelC" + colIndex + ";\n                    ";
-	              } else {
-	                mainLoop += "\n                    xCOffset = xC + " + nextTexelOffset + ";\n\n                    if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                      xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n                      if (xCOffset + 1 >= inDims[1]) {\n                        xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                      }\n                      xTexelC" + (colIndex + 1) + "Ready = 1;\n                    }\n\n                    xC" + (colIndex + 1) + " = xTexelC" + (colIndex + 1) + ";\n                    ";
-	              }
-	            }
-	          }
-	        }
-	      } else {
-	        // stride === 2
-	        if (colIndex < filterWidth) {
-	          // Depending on whether padLeft is even or odd, we want either the
-	          // xy or zw channels from X texels for xC${colIndex}. If padLeft is
-	          // even, xC${colIndex +1} is simply the zw channels of texels we've
-	          // already sampled. But if padLeft is odd, xC{$c + 1}.zw will
-	          // need to come from the xy channels of a new texel, hence the `
-	          // vec4
-	          // final` initialized below.
-	          if (padLeft % 2 === 1) {
-	            mainLoop += "\n                xCOffset = xC + 1 - strides[1];\n                if(xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xCOffset + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                if(xC + 1 >= 0 && xC + 1 < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                  xTexelC" + (colIndex + 1) + " = getX(batch, xR, xC + 1, d1);\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xC + 2 >= inDims[1]) {\n                    xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + (colIndex + 1) + "Ready = 1;\n                }\n\n                xC" + colIndex + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".zw);\n              ";
-
-	            if (colIndex + 1 < filterWidth) {
-	              mainLoop += "\n                  final = vec4(0.0);\n                  xCOffset = xC + 1 + strides[1];\n                  if(xCOffset >= 0 && xCOffset < inDims[1]) {\n                    final = getX(batch, xR, xCOffset, d1);\n                  }\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + (colIndex + 1) + ".xy, final.xy);\n                ";
-	            }
-	          } else {
-	            mainLoop += "\n                if(xC >= 0 && xC < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xC, d1);\n                  if (xC + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                xCOffset = xC + strides[1];\n                if(xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                  xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n                  if (xCOffset + 1 >= inDims[1]) {\n                    xTexelC" + (colIndex + 1) + ".zw = vec2(0.);\n                  }\n                  xTexelC" + (colIndex + 1) + "Ready = 1;\n                }\n\n                xC" + colIndex + " = vec4(\n                  xTexelC" + colIndex + ".xy, xTexelC" + (colIndex + 1) + ".xy);\n              ";
-
-	            if (colIndex + 1 < filterWidth) {
-	              mainLoop += "\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".zw);\n                ";
-	            }
-	          }
-	        }
-	      } // localize the dotProd accumulation within the loop, the theory is for
-	      // GPU with limited cache, accumulate sum across large amount of
-	      // veriables will cause lots of cache misses. (i.e. 5x5 filter will have
-	      // 50 variables)
-
-
-	      if (colIndex < filterWidth) {
-	        mainLoop += "\n            wTexel = getW(" + r + ", " + colIndex + ", d1, q);\n            dotProd += xC" + colIndex + " * vec4(wTexel.xz, wTexel.xz);\n          ";
-
-	        if (colIndex + 1 < filterWidth) {
-	          mainLoop += "\n              wTexel = getW(" + r + ", " + (colIndex + 1) + ", d1, q);\n              dotProd += xC" + (colIndex + 1) + " * vec4(wTexel.xz, wTexel.xz);\n            ";
-	        }
-	      }
-	    }
-
-	    mainLoop += "\n        }\n      ";
+	  for (var _c = 0; _c < filterWidth; _c++) {
+	    mainLoop += "\n          xTexelC" + _c * 2 + " = vec4(0.0);\n          xTexelC" + _c * 2 + "Ready = 0;\n          xTexelC" + (_c * 2 + 1) + " = vec4(0.0);\n          xTexelC" + (_c * 2 + 1) + "Ready = 0;\n          xC" + _c + " = vec4(0.0);";
 	  }
 
+	  mainLoop += "\n        xR = xRCorner + r * dilations[0];\n        if (xR >=0 && xR < inDims[0]) {\n      ";
+
+	  for (var texelC = 0; texelC < (texelsAcross + 1) / 2; texelC++) {
+	    var colIndex = texelC * 2;
+	    mainLoop += "\n          xC = xCCorner + " + colIndex * dilationWidth + ";\n          ";
+
+	    if (strideWidth === 1) {
+	      if (colIndex < filterWidth) {
+	        // If padding is odd, the outer texels have to be composed.
+	        if (padLeft % 2 === 1) {
+	          // TODO: Ensure vec4 previous does not result in redundant sample,
+	          // and avoid setting xTexelRC's that exceed the boundary in the
+	          // first place rather than resetting them to vec4(0)).
+	          // To compute xCOffset:
+	          // - If padding is odd, we must add 1 to ensure we ask for an
+	          // even-numbered row.
+	          // - We subtract 2 to access the previous texel.
+	          mainLoop += "\n                xCOffset = xC + 1;\n                if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xCOffset + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n              "; // This texel has been read in previous iteration if the dilation
+	          // is 1.
+
+	          if (dilationWidth === 1 && colIndex > 0) {
+	            mainLoop += "\n                xC" + colIndex + " = vec4(xTexelC" + (colIndex - 2) + ".zw, xTexelC" + colIndex + ".xy);\n                ";
+	          } else {
+	            mainLoop += "\n                  xCOffset = xC + 1 - 2;\n\n                  if (xCOffset >= 0 && xCOffset < inDims[1]) {\n                    previous = getX(batch, xR, xCOffset, d1);\n\n                    // Need to manually clear unused channels in case\n                    // we're reading from recycled texture.\n                    if (xCOffset + 1 >= inDims[1]) {\n                      previous.zw = vec2(0.0);\n                    }\n\n                    xC" + colIndex + " = vec4(previous.zw, xTexelC" + colIndex + ".xy);\n                  } else {\n                    xC" + colIndex + " = vec4(0.0, 0.0, xTexelC" + colIndex + ".xy);\n                  }\n                  ";
+	          }
+	        } else {
+	          // Padding is even, so xRC corresponds to a single texel.
+	          mainLoop += "\n                if (xC >= 0 && xC < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xC, d1);\n                  if (xC + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                xC" + colIndex + " = xTexelC" + colIndex + ";\n                ";
+	        }
+
+	        if (colIndex + 1 < filterWidth) {
+	          // If dilation is even, the second entry should match the first
+	          // (either both are composed or both are single samples). But if
+	          // dilation is odd, then the second entry should be the opposite
+	          // of the first (if the first is composed, the second is a single
+	          // sample, and vice versa.)
+	          var nextTexelOffset = padLeft % 2 === 0 ? nearestLargerEven(dilationWidth) : dilationWidth;
+
+	          if (dilationWidth % 2 === 0 && padLeft % 2 === 1 || dilationWidth % 2 !== 0 && padLeft % 2 !== 1) {
+	            mainLoop += "\n                  xCOffset = xC + imod(pads[1], 2) + " + nextTexelOffset + ";\n\n                  if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                    xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n\n                    // Need to manually clear unused channels in case\n                    // we're reading from recycled texture.\n                    if (xCOffset + 1 >= inDims[1]) {\n                      xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                    }\n                    xTexelC" + (colIndex + 1) + "Ready = 1;\n                  }\n                  "; // If dilation > 1 then the xRC's will not be able to share any
+	            // values, so each xRC will require two unique calls to getX.
+
+	            if (dilationWidth > 1) {
+	              mainLoop += "\n                    xCOffset -= 2;\n                    if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                      xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n                      xTexelC" + colIndex + "Ready = 1;\n                    }\n                    ";
+	            }
+
+	            mainLoop += "\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".xy);\n                  ";
+	          } else {
+	            // If dilation is 1 and padding is odd, we have already read the
+	            // texel when constructing the previous x value. Here we can
+	            // simply skip the texture read.
+	            if (nextTexelOffset === 1) {
+	              mainLoop += "\n                    xC" + (colIndex + 1) + " = xTexelC" + colIndex + ";\n                    ";
+	            } else {
+	              mainLoop += "\n                    xCOffset = xC + " + nextTexelOffset + ";\n\n                    if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                      xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n                      if (xCOffset + 1 >= inDims[1]) {\n                        xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                      }\n                      xTexelC" + (colIndex + 1) + "Ready = 1;\n                    }\n\n                    xC" + (colIndex + 1) + " = xTexelC" + (colIndex + 1) + ";\n                    ";
+	            }
+	          }
+	        }
+	      }
+	    } else {
+	      // stride === 2
+	      if (colIndex < filterWidth) {
+	        // Depending on whether padLeft is even or odd, we want either the
+	        // xy or zw channels from X texels for xC${colIndex}. If padLeft is
+	        // even, xC${colIndex +1} is simply the zw channels of texels we've
+	        // already sampled. But if padLeft is odd, xC{$c + 1}.zw will
+	        // need to come from the xy channels of a new texel, hence the `
+	        // vec4
+	        // final` initialized below.
+	        if (padLeft % 2 === 1) {
+	          mainLoop += "\n                xCOffset = xC + 1 - strides[1];\n                if(xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xCOffset + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                if(xC + 1 >= 0 && xC + 1 < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                  xTexelC" + (colIndex + 1) + " = getX(batch, xR, xC + 1, d1);\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xC + 2 >= inDims[1]) {\n                    xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + (colIndex + 1) + "Ready = 1;\n                }\n\n                xC" + colIndex + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".zw);\n              ";
+
+	          if (colIndex + 1 < filterWidth) {
+	            mainLoop += "\n                  final = vec4(0.0);\n                  xCOffset = xC + 1 + strides[1];\n                  if(xCOffset >= 0 && xCOffset < inDims[1]) {\n                    final = getX(batch, xR, xCOffset, d1);\n                  }\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + (colIndex + 1) + ".xy, final.xy);\n                ";
+	          }
+	        } else {
+	          mainLoop += "\n                if(xC >= 0 && xC < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xC, d1);\n                  if (xC + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                xCOffset = xC + strides[1];\n                if(xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                  xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n                  if (xCOffset + 1 >= inDims[1]) {\n                    xTexelC" + (colIndex + 1) + ".zw = vec2(0.);\n                  }\n                  xTexelC" + (colIndex + 1) + "Ready = 1;\n                }\n\n                xC" + colIndex + " = vec4(\n                  xTexelC" + colIndex + ".xy, xTexelC" + (colIndex + 1) + ".xy);\n              ";
+
+	          if (colIndex + 1 < filterWidth) {
+	            mainLoop += "\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".zw);\n                ";
+	          }
+	        }
+	      }
+	    } // localize the dotProd accumulation within the loop, the theory is for
+	    // GPU with limited cache, accumulate sum across large amount of
+	    // veriables will cause lots of cache misses. (i.e. 5x5 filter will have
+	    // 50 variables)
+
+
+	    if (colIndex < filterWidth) {
+	      mainLoop += "\n            wTexel = getW(r, " + colIndex + ", d1, q);\n            dotProd += xC" + colIndex + " * vec4(wTexel.xz, wTexel.xz);\n          ";
+
+	      if (colIndex + 1 < filterWidth) {
+	        mainLoop += "\n              wTexel = getW(r, " + (colIndex + 1) + ", d1, q);\n              dotProd += xC" + (colIndex + 1) + " * vec4(wTexel.xz, wTexel.xz);\n            ";
+	      }
+	    }
+	  }
+
+	  mainLoop += "\n    }\n  ";
+	  mainLoop += "\n      }\n    ";
 	  var activationSnippet = '',
 	      applyActivationSnippet = '';
 
@@ -120949,7 +121286,8 @@
 	var exp$5 = unaryKernelFunc$1({
 	  opSnippet: EXP,
 	  packedOpSnippet: EXP,
-	  cpuKernelImpl: expImplCPU
+	  cpuKernelImpl: expImplCPU,
+	  dtype: 'float32'
 	});
 	var expConfig$1 = {
 	  kernelName: Exp,
@@ -121810,8 +122148,23 @@
 	  var x = inputs.x,
 	      indices = inputs.indices;
 	  var axis = attrs.axis,
-	      batchDims = attrs.batchDims;
+	      batchDims = attrs.batchDims; // Throw error when any index is out of bound.
+
 	  var parsedAxis = parseAxisParam(axis, x.shape)[0];
+	  var indicesVals = backend.readSync(indices.dataId);
+	  var axisDim = x.shape[parsedAxis];
+
+	  var _loop = function _loop(i) {
+	    var index = indicesVals[i];
+	    assert(index <= axisDim - 1 && index >= 0, function () {
+	      return "GatherV2: the index value " + index + " is not in [0, " + (axisDim - 1) + "]";
+	    });
+	  };
+
+	  for (var i = 0; i < indicesVals.length; ++i) {
+	    _loop(i);
+	  }
+
 	  var shapeInfo = collectGatherOpShapeInfo(x, indices, parsedAxis, batchDims);
 	  var indicesSize = sizeFromShape(indices.shape);
 	  var toDispose = [];
@@ -126119,28 +126472,38 @@
 	      shrinkAxisMask = attrs.shrinkAxisMask;
 
 	  var _slice_util$sliceInfo = sliceInfo(x.shape, begin, end, strides, beginMask, endMask, ellipsisMask, newAxisMask, shrinkAxisMask),
-	      nonStrided = _slice_util$sliceInfo.nonStrided,
-	      $begin = _slice_util$sliceInfo.$begin,
-	      $strides = _slice_util$sliceInfo.$strides,
-	      size = _slice_util$sliceInfo.size,
-	      newShape = _slice_util$sliceInfo.newShape,
-	      outShape = _slice_util$sliceInfo.outShape;
+	      finalShapeSparse = _slice_util$sliceInfo.finalShapeSparse,
+	      finalShape = _slice_util$sliceInfo.finalShape,
+	      isIdentity = _slice_util$sliceInfo.isIdentity,
+	      sliceDim0 = _slice_util$sliceInfo.sliceDim0,
+	      isSimpleSlice = _slice_util$sliceInfo.isSimpleSlice,
+	      $begin = _slice_util$sliceInfo.begin,
+	      $end = _slice_util$sliceInfo.end,
+	      $strides = _slice_util$sliceInfo.strides;
 
-	  var $x = reshape$3({
-	    inputs: {
-	      x: x
-	    },
-	    backend: backend,
-	    attrs: {
-	      shape: newShape
-	    }
-	  });
 	  var result;
 
-	  if (nonStrided) {
+	  if (isIdentity) {
+	    // Optimization #1, slice is a no-op plus reshape
+	    result = reshape$3({
+	      inputs: {
+	        x: x
+	      },
+	      backend: backend,
+	      attrs: {
+	        shape: finalShape
+	      }
+	    });
+	  } else if (sliceDim0 || isSimpleSlice) {
+	    // Optimization #2, slice is memory contiguous (only occurs in dim 0)
+	    assert(x.shape.length >= 1, function () {
+	      return "Input must have rank at least 1, got: " + x.shape.length;
+	    });
+	    var size = computeOutShape($begin, $end, $strides); // To tolerate begin[0] > end[0] (a 0-output slice), we min(begin, end).
+
 	    var sliced = slice$4({
 	      inputs: {
-	        x: $x
+	        x: x
 	      },
 	      backend: backend,
 	      attrs: {
@@ -126154,26 +126517,23 @@
 	      },
 	      backend: backend,
 	      attrs: {
-	        shape: outShape
+	        shape: finalShape
 	      }
 	    });
 	    backend.disposeIntermediateTensorInfo(sliced);
-	  } else if (outShape.some(function (axis) {
-	    return axis === 0;
-	  })) {
-	    result = backend.makeTensorInfo(outShape, x.dtype, []);
 	  } else {
-	    var shouldExecuteOnCPU = backend.shouldExecuteOnCPU([$x]);
+	    var shouldExecuteOnCPU = backend.shouldExecuteOnCPU([x]);
 
 	    if (shouldExecuteOnCPU) {
-	      var xTexData = backend.texData.get($x.dataId);
-	      var values = xTexData.values;
-	      var xBuf = buffer($x.shape, $x.dtype, values);
-	      var resultValues = stridedSliceImplCPU(outShape, xBuf, $strides, $begin);
-	      result = backend.makeTensorInfo(outShape, $x.dtype, resultValues.values);
+	      // tslint:disable-next-line: no-unnecessary-type-assertion
+	      var values = backend.readSync(x.dataId); // tslint:disable-next-line: no-unnecessary-type-assertion
+
+	      var xBuf = buffer(x.shape, x.dtype, values);
+	      var resultValues = stridedSliceImplCPU(finalShapeSparse, xBuf, $strides, $begin);
+	      result = backend.makeTensorInfo(finalShape, x.dtype, resultValues.values);
 	    } else {
-	      var program = new StridedSliceProgram($begin, $strides, outShape);
-	      result = backend.runWebGLProgram(program, [$x], $x.dtype);
+	      var program = new StridedSliceProgram($begin, $strides, finalShapeSparse);
+	      result = backend.runWebGLProgram(program, [x], x.dtype);
 	    }
 	  }
 
@@ -126183,10 +126543,9 @@
 	    },
 	    backend: backend,
 	    attrs: {
-	      shape: outShape
+	      shape: finalShape
 	    }
 	  });
-	  backend.disposeIntermediateTensorInfo($x);
 	  backend.disposeIntermediateTensorInfo(result);
 	  return resultReshaped;
 	}
@@ -127170,7 +127529,7 @@
 	 * =============================================================================
 	 */
 
-	var kernelConfigs$1 = [LRNConfig, LRNGradConfig, _fusedMatMulConfig$1, absConfig$1, acosConfig$1, acoshConfig$1, addConfig$1, addNConfig$1, allConfig$1, anyConfig$1, argMaxConfig$1, argMinConfig$1, asinConfig$1, asinhConfig$1, atan2Config$1, atanConfig$1, atanhConfig$1, avgPool3DConfig$1, avgPoolConfig$1, avgPoolGrad3DConfig, avgPoolGradConfig$2, batchMatMulConfig$1, batchNormConfig$1, batchToSpaceNDConfig$1, bincountConfig$1, castConfig$1, ceilConfig$1, clipByValueConfig, complexAbsConfig$1, complexConfig$1, concatConfig$1, conv2DBackpropFilterConfig$1, conv2DBackpropInputConfig$1, conv2DConfig$1, conv3DBackpropFilterV2Config$1, conv3DBackpropInputConfig, conv3DConfig$1, cosConfig$1, coshConfig$1, cropAndResizeConfig$1, cumsumConfig$1, denseBincountConfig$1, depthToSpaceConfig$1, depthwiseConv2dNativeBackpropFilterConfig$1, depthwiseConv2dNativeBackpropInputConfig$1, depthwiseConv2dNativeConfig$1, diagConfig$1, dilation2DConfig, einsumConfig$1, eluConfig$1, eluGradConfig$2, equalConfig$1, erfConfig$1, expConfig$1, expandDimsConfig$1, expm1Config$1, fftConfig$1, fillConfig$1, flipLeftRightConfig$1, floorConfig$1, floorDivConfig$1, fromPixelsConfig, fusedConv2DConfig$1, fusedDepthwiseConv2DConfig$1, gatherNdConfig$1, gatherV2Config$1, greaterConfig$1, greaterEqualConfig$1, identityConfig$1, ifftConfig$1, imagConfig$1, isFiniteConfig$1, isInfConfig$1, isNaNConfig$1, leakyReluConfig$1, lessConfig$1, lessEqualConfig$1, linSpaceConfig$1, log1pConfig$1, logConfig$1, logicalAndConfig$1, logicalNotConfig$1, logicalOrConfig$1, maxConfig$1, maxPool3DConfig$1, maxPoolConfig$1, maxPoolGrad3DConfig, maxPoolGradConfig$2, maxPoolWithArgmaxConfig$1, maximumConfig$1, meanConfig$1, minConfig$1, minimumConfig$1, mirrorPadConfig$1, modConfig$1, multinomialConfig$1, multiplyConfig$1, negConfig$1, nonMaxSuppressionV3Config$1, nonMaxSuppressionV4Config$1, nonMaxSuppressionV5Config$1, notEqualConfig$1, oneHotConfig$1, onesLikeConfig$1, packConfig$1, padV2Config$1, powConfig$1, preluConfig$1, prodConfig$1, rangeConfig$1, realConfig$1, realDivConfig$1, reciprocalConfig$1, relu6Config$1, reluConfig$1, reshapeConfig$1, resizeBilinearConfig$1, resizeBilinearGradConfig$2, resizeNearestNeighborConfig$1, resizeNearestNeighborGradConfig$2, reverseConfig$1, rotateWithOffsetConfig$1, roundConfig$1, rsqrtConfig$1, scatterNdConfig$1, selectConfig$1, seluConfig$1, sigmoidConfig$1, signConfig$1, sinConfig$1, sinhConfig$1, sliceConfig$1, softmaxConfig$1, softplusConfig$1, spaceToBatchNDConfig$1, sparseFillEmptyRowsConfig$1, sparseReshapeConfig$1, sparseSegmentMeanConfig$1, sparseSegmentSumConfig$1, sparseToDenseConfig$1, splitVConfig$1, sqrtConfig$1, squareConfig$1, squaredDifferenceConfig$1, stepConfig$1, stridedSliceConfig$1, stringNGramsConfig$1, stringSplitConfig$1, stringToHashBucketFastConfig$1, subConfig$1, sumConfig$1, tanConfig$1, tanhConfig$1, tileConfig$1, topKConfig$1, transformConfig$1, transposeConfig$1, uniqueConfig$1, unpackConfig$1, unsortedSegmentSumConfig$1, zerosLikeConfig$1];
+	var kernelConfigs$1 = [LRNConfig, LRNGradConfig, _fusedMatMulConfig$1, absConfig$1, acosConfig$1, acoshConfig$1, addConfig$1, addNConfig$1, allConfig$1, anyConfig$1, argMaxConfig$1, argMinConfig$1, asinConfig$1, asinhConfig$1, atan2Config$1, atanConfig$1, atanhConfig$1, avgPool3DConfig$1, avgPoolConfig$1, avgPoolGrad3DConfig, avgPoolGradConfig$2, batchMatMulConfig$1, batchNormConfig$1, batchToSpaceNDConfig$1, bincountConfig$1, broadcastArgsConfig$1, castConfig$1, ceilConfig$1, clipByValueConfig, complexAbsConfig$1, complexConfig$1, concatConfig$1, conv2DBackpropFilterConfig$1, conv2DBackpropInputConfig$1, conv2DConfig$1, conv3DBackpropFilterV2Config$1, conv3DBackpropInputConfig, conv3DConfig$1, cosConfig$1, coshConfig$1, cropAndResizeConfig$1, cumsumConfig$1, denseBincountConfig$1, depthToSpaceConfig$1, depthwiseConv2dNativeBackpropFilterConfig$1, depthwiseConv2dNativeBackpropInputConfig$1, depthwiseConv2dNativeConfig$1, diagConfig$1, dilation2DConfig, einsumConfig$1, eluConfig$1, eluGradConfig$2, equalConfig$1, erfConfig$1, expConfig$1, expandDimsConfig$1, expm1Config$1, fftConfig$1, fillConfig$1, flipLeftRightConfig$1, floorConfig$1, floorDivConfig$1, fromPixelsConfig, fusedConv2DConfig$1, fusedDepthwiseConv2DConfig$1, gatherNdConfig$1, gatherV2Config$1, greaterConfig$1, greaterEqualConfig$1, identityConfig$1, ifftConfig$1, imagConfig$1, isFiniteConfig$1, isInfConfig$1, isNaNConfig$1, leakyReluConfig$1, lessConfig$1, lessEqualConfig$1, linSpaceConfig$1, log1pConfig$1, logConfig$1, logicalAndConfig$1, logicalNotConfig$1, logicalOrConfig$1, maxConfig$1, maxPool3DConfig$1, maxPoolConfig$1, maxPoolGrad3DConfig, maxPoolGradConfig$2, maxPoolWithArgmaxConfig$1, maximumConfig$1, meanConfig$1, minConfig$1, minimumConfig$1, mirrorPadConfig$1, modConfig$1, multinomialConfig$1, multiplyConfig$1, negConfig$1, nonMaxSuppressionV3Config$1, nonMaxSuppressionV4Config$1, nonMaxSuppressionV5Config$1, notEqualConfig$1, oneHotConfig$1, onesLikeConfig$1, packConfig$1, padV2Config$1, powConfig$1, preluConfig$1, prodConfig$1, rangeConfig$1, realConfig$1, realDivConfig$1, reciprocalConfig$1, relu6Config$1, reluConfig$1, reshapeConfig$1, resizeBilinearConfig$1, resizeBilinearGradConfig$2, resizeNearestNeighborConfig$1, resizeNearestNeighborGradConfig$2, reverseConfig$1, rotateWithOffsetConfig$1, roundConfig$1, rsqrtConfig$1, scatterNdConfig$1, selectConfig$1, seluConfig$1, sigmoidConfig$1, signConfig$1, sinConfig$1, sinhConfig$1, sliceConfig$1, softmaxConfig$1, softplusConfig$1, spaceToBatchNDConfig$1, sparseFillEmptyRowsConfig$1, sparseReshapeConfig$1, sparseSegmentMeanConfig$1, sparseSegmentSumConfig$1, sparseToDenseConfig$1, splitVConfig$1, sqrtConfig$1, squareConfig$1, squaredDifferenceConfig$1, stepConfig$1, stridedSliceConfig$1, stringNGramsConfig$1, stringSplitConfig$1, stringToHashBucketFastConfig$1, subConfig$1, sumConfig$1, tanConfig$1, tanhConfig$1, tileConfig$1, topKConfig$1, transformConfig$1, transposeConfig$1, uniqueConfig$1, unpackConfig$1, unsortedSegmentSumConfig$1, zerosLikeConfig$1];
 
 	for (var _i$2 = 0, _kernelConfigs$1 = kernelConfigs$1; _i$2 < _kernelConfigs$1.length; _i$2++) {
 	  var kernelConfig$1 = _kernelConfigs$1[_i$2];
@@ -127196,7 +127555,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$7 = '3.9.0';
+	var version$7 = '3.11.0';
 
 	/**
 	 * @license
@@ -127368,6 +127727,7 @@
 	exports.OneHot = OneHot;
 	exports.OnesLike = OnesLike;
 	exports.Optimizer = Optimizer;
+	exports.OptimizerConstructors = OptimizerConstructors;
 	exports.Pack = Pack;
 	exports.PadV2 = PadV2;
 	exports.Pool = Pool;
