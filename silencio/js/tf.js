@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2021 Google LLC. All Rights Reserved.
+ * Copyright 2022 Google LLC. All Rights Reserved.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13470,6 +13470,10 @@
 	    return notYetImplemented('readSync');
 	  };
 
+	  _proto2.readToGPU = function readToGPU(dataId, options) {
+	    return notYetImplemented('readToGPU');
+	  };
+
 	  _proto2.numDataIds = function numDataIds() {
 	    return notYetImplemented('numDataIds');
 	  };
@@ -14029,7 +14033,7 @@
 	  return true;
 	}
 	function isTypedArray$1(a) {
-	  return a instanceof Float32Array || a instanceof Int32Array || a instanceof Uint8Array;
+	  return a instanceof Float32Array || a instanceof Int32Array || a instanceof Uint8Array || a instanceof Uint8ClampedArray;
 	}
 	function bytesPerElement(dtype) {
 	  if (dtype === 'float32' || dtype === 'int32') {
@@ -14078,7 +14082,7 @@
 
 	  if (values instanceof Float32Array) {
 	    return 'float32';
-	  } else if (values instanceof Int32Array || values instanceof Uint8Array) {
+	  } else if (values instanceof Int32Array || values instanceof Uint8Array || values instanceof Uint8ClampedArray) {
 	    return 'int32';
 	  } else if (isNumber(values)) {
 	    return 'float32';
@@ -14289,37 +14293,6 @@
 	  return object && object.then && typeof object.then === 'function';
 	}
 
-	/**
-	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	function warn() {
-	  if (!(env().getBool('IS_TEST') || env().getBool('PROD'))) {
-	    var _console;
-
-	    (_console = console).warn.apply(_console, arguments);
-	  }
-	}
-	function log$9() {
-	  if (!(env().getBool('IS_TEST') || env().getBool('PROD'))) {
-	    var _console2;
-
-	    (_console2 = console).log.apply(_console2, arguments);
-	  }
-	}
-
 	var TENSORFLOWJS_FLAGS_PREFIX = 'tfjsflags';
 	/**
 	 * The environment contains evaluated flags as well as the registered platform.
@@ -14345,7 +14318,9 @@
 
 	  _proto.setPlatform = function setPlatform(platformName, platform) {
 	    if (this.platform != null) {
-	      warn("Platform " + this.platformName + " has already been set. " + ("Overwriting the platform with " + platform + "."));
+	      if (!(env().getBool('IS_TEST') || env().getBool('PROD'))) {
+	        console.warn("Platform " + this.platformName + " has already been set. " + ("Overwriting the platform with " + platformName + "."));
+	      }
 	    }
 
 	    this.platformName = platformName;
@@ -14356,12 +14331,16 @@
 	    this.flagRegistry[flagName] = {
 	      evaluationFn: evaluationFn,
 	      setHook: setHook
-	    }; // Override the flag value from the URL. This has to happen here because the
-	    // environment is initialized before flags get registered.
+	    }; // Override the flag value from the URL. This has to happen here because
+	    // the environment is initialized before flags get registered.
 
 	    if (this.urlFlags[flagName] != null) {
 	      var flagValue = this.urlFlags[flagName];
-	      warn("Setting feature override from URL " + flagName + ": " + flagValue + ".");
+
+	      if (!(env().getBool('IS_TEST') || env().getBool('PROD'))) {
+	        console.warn("Setting feature override from URL " + flagName + ": " + flagValue + ".");
+	      }
+
 	      this.set(flagName, flagValue);
 	    }
 	  };
@@ -14648,6 +14627,7 @@
 	var Conv3DBackpropInputV2 = 'Conv3DBackpropInputV2';
 	var Cos = 'Cos';
 	var Cosh = 'Cosh';
+	var Cumprod = 'Cumprod';
 	var Cumsum = 'Cumsum';
 	var CropAndResize = 'CropAndResize';
 	var DenseBincount = 'DenseBincount';
@@ -14782,6 +14762,37 @@
 	var _FusedMatMul = '_FusedMatMul';
 	var FusedConv2D = 'FusedConv2D';
 	var FusedDepthwiseConv2D = 'FusedDepthwiseConv2D';
+
+	/**
+	 * @license
+	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function warn() {
+	  if (!(env().getBool('IS_TEST') || env().getBool('PROD'))) {
+	    var _console;
+
+	    (_console = console).warn.apply(_console, arguments);
+	  }
+	}
+	function log$9() {
+	  if (!(env().getBool('IS_TEST') || env().getBool('PROD'))) {
+	    var _console2;
+
+	    (_console2 = console).log.apply(_console2, arguments);
+	  }
+	}
 
 	/**
 	 * @license
@@ -17492,6 +17503,36 @@
 	    return data;
 	  }()
 	  /**
+	   * Copy the tensor's data to a new GPU resource. Comparing to the `dataSync()`
+	   * and `data()`, this method prevents data from being downloaded to CPU.
+	   *
+	   * For WebGL backend, the data will be stored on a densely packed texture.
+	   * This means that the texture will use the RGBA channels to store value.
+	   *
+	   * @param options:
+	   *     For WebGL,
+	   *         - customTexShape: Optional. If set, will use the user defined
+	   *     texture shape to create the texture.
+	   *
+	   * @returns For WebGL backend, a GPUData contains the new texture and
+	   *     its information.
+	   *     {
+	   *        tensorRef: The tensor that is associated with this texture,
+	   *        texture: WebGLTexture,
+	   *        texShape: [number, number] // [height, width]
+	   *     }
+	   *     Remember to dispose the GPUData after it is used by
+	   *     `res.tensorRef.dispose()`.
+	   *
+	   * @doc {heading: 'Tensors', subheading: 'Classes'}
+	   */
+	  ;
+
+	  _proto2.dataToGPU = function dataToGPU(options) {
+	    this.throwIfDisposed();
+	    return trackerFn().readToGPU(this.dataId, options);
+	  }
+	  /**
 	   * Synchronously downloads the values from the `tf.Tensor`. This blocks the
 	   * UI thread until the values are ready, which can cause performance issues.
 	   *
@@ -19248,6 +19289,12 @@
 	    return info.backend.read(dataId);
 	  };
 
+	  _proto2.readToGPU = function readToGPU(dataId, options) {
+	    // Route the read to the correct backend.
+	    var info = this.state.tensorInfo.get(dataId);
+	    return info.backend.readToGPU(dataId, options);
+	  };
+
 	  _proto2.time = /*#__PURE__*/function () {
 	    var _time = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee4(query) {
 	      var start, timingInfo;
@@ -19409,7 +19456,15 @@
 	  return typeof navigator !== 'undefined' && navigator != null;
 	}
 
+	var isMobileMockValue;
+	function mockIsMobile(value) {
+	  isMobileMockValue = value;
+	}
 	function isMobile(nav) {
+	  if (isMobileMockValue !== undefined) {
+	    return isMobileMockValue;
+	  }
+
 	  if (nav || _isNavigatorDefined()) {
 	    if (!nav) {
 	      nav = navigator;
@@ -19417,10 +19472,10 @@
 
 	    if (nav.product === 'ReactNative') {
 	      return true;
-	    } // tslint:disable-next-line:no-any
+	    }
 
-
-	    var a = nav.userAgent || nav.vendor || (typeof window !== 'undefined' ? window.opera : ''); // Use `navigator.userAgentData.mobile` as fallback.
+	    var a = nav.userAgent || nav.vendor || ( // tslint:disable-next-line:no-any
+	    typeof window !== 'undefined' ? window.opera : ''); // Use `navigator.userAgentData.mobile` as fallback.
 
 	    if (!a) {
 	      // tslint:disable-next-line:no-any
@@ -19442,6 +19497,7 @@
 
 	var device_util = {
 		__proto__: null,
+		mockIsMobile: mockIsMobile,
 		isMobile: isMobile,
 		isBrowser: isBrowser
 	};
@@ -19525,6 +19581,11 @@
 	/** Whether the backend needs to wrap input to imageBitmap. */
 
 	ENV.registerFlag('WRAP_TO_IMAGEBITMAP', function () {
+	  return false;
+	});
+	/** Experimental flag, whether enter compile only phase. */
+
+	ENV.registerFlag('ENGINE_COMPILE_ONLY', function () {
 	  return false;
 	});
 
@@ -22177,7 +22238,7 @@
 	  return PlatformNode;
 	}();
 
-	if (env().get('IS_NODE')) {
+	if (env().get('IS_NODE') && !env().get('IS_BROWSER')) {
 	  env().setPlatform('node', new PlatformNode());
 	}
 
@@ -23837,12 +23898,16 @@
 	 * value `onValue` (defaults to 1), while all other locations take value
 	 * `offValue` (defaults to 0). If `indices` is rank `R`, the output has rank
 	 * `R+1` with the last axis of size `depth`.
+	 * `indices` used to encode prediction class must start from 0. For example,
+	 *  if you have 3 classes of data, class 1 should be encoded as 0, class 2
+	 *  should be 1, and class 3 should be 2.
 	 *
 	 * ```js
 	 * tf.oneHot(tf.tensor1d([0, 1], 'int32'), 3).print();
 	 * ```
 	 *
-	 * @param indices `tf.Tensor` of indices with dtype `int32`.
+	 * @param indices `tf.Tensor` of indices with dtype `int32`. Indices must
+	 * start from 0.
 	 * @param depth The depth of the one hot dimension.
 	 * @param onValue A number used to fill in the output when the index matches
 	 * the location.
@@ -24052,6 +24117,107 @@
 
 	/**
 	 * @license
+	 * Copyright 2017 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+
+	/**
+	 * Returns the dimensions in the input shape that are broadcasted to
+	 * produce the provided output shape.
+	 *
+	 * The returned dimensions are 0-indexed and sorted. An example:
+	 * inShape = [4, 1, 3]
+	 * outShape = [5, 4, 3, 3]
+	 * result = [1]. Dimension 1 (2nd dimension of input) gets broadcasted 1 => 3.
+	 */
+	function getBroadcastDims(inShape, outShape) {
+	  var inRank = inShape.length;
+	  var dims = [];
+
+	  for (var i = 0; i < inRank; i++) {
+	    var dim = inRank - 1 - i;
+	    var a = inShape[dim] || 1;
+	    var b = outShape[outShape.length - 1 - i] || 1;
+
+	    if (b > 1 && a === 1) {
+	      dims.unshift(dim);
+	    }
+	  }
+
+	  return dims;
+	}
+	/**
+	 * Returns the axes in the output space that should be reduced to produce
+	 * the input space.
+	 */
+
+	function getReductionAxes(inShape, outShape) {
+	  var result = [];
+
+	  for (var i = 0; i < outShape.length; i++) {
+	    var inDim = inShape[inShape.length - i - 1];
+	    var outAxis = outShape.length - i - 1;
+	    var outDim = outShape[outAxis];
+
+	    if (inDim == null || inDim === 1 && outDim > 1) {
+	      result.unshift(outAxis);
+	    }
+	  }
+
+	  return result;
+	}
+	function assertAndGetBroadcastShape(shapeA, shapeB) {
+	  var result = [];
+	  var l = Math.max(shapeA.length, shapeB.length);
+
+	  for (var i = 0; i < l; i++) {
+	    var a = shapeA[shapeA.length - i - 1];
+
+	    if (a == null) {
+	      a = 1;
+	    }
+
+	    var b = shapeB[shapeB.length - i - 1];
+
+	    if (b == null) {
+	      b = 1;
+	    }
+
+	    if (a === 1) {
+	      result.unshift(b);
+	    } else if (b === 1) {
+	      result.unshift(a);
+	    } else if (a !== b) {
+	      var errMsg = "Operands could not be broadcast together with shapes " + (shapeA + " and " + shapeB + ".");
+	      throw Error(errMsg);
+	    } else {
+	      result.unshift(a);
+	    }
+	  }
+
+	  return result;
+	}
+
+	var broadcast_util = {
+		__proto__: null,
+		getBroadcastDims: getBroadcastDims,
+		getReductionAxes: getReductionAxes,
+		assertAndGetBroadcastShape: assertAndGetBroadcastShape
+	};
+
+	/**
+	 * @license
 	 * Copyright 2018 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -24134,6 +24300,13 @@
 	 *
 	 * @returns A Tensor3D with the shape `[height, width, numChannels]`.
 	 *
+	 * Note: fromPixels can be lossy in some cases, same image may result in
+	 * slightly different tensor values, if rendered by different rendering
+	 * engines. This means that results from different browsers, or even same
+	 * browser with CPU and GPU rendering engines can be different. See discussion
+	 * in details:
+	 * https://github.com/tensorflow/tfjs/issues/5482
+	 *
 	 * @doc {heading: 'Browser', namespace: 'browser', ignoreCI: true}
 	 */
 
@@ -24209,7 +24382,16 @@
 	    vals = pixels.data;
 	  } else if (isImage || isVideo || isImageBitmap) {
 	    if (fromPixels2DContext == null) {
-	      fromPixels2DContext = document.createElement('canvas').getContext('2d');
+	      if (typeof document === 'undefined') {
+	        if (typeof OffscreenCanvas !== 'undefined' && typeof OffscreenCanvasRenderingContext2D !== 'undefined') {
+	          // @ts-ignore
+	          fromPixels2DContext = new OffscreenCanvas(1, 1).getContext('2d');
+	        } else {
+	          throw new Error('Cannot parse input in current context. ' + 'Reason: OffscreenCanvas Context2D rendering is not supported.');
+	        }
+	      } else {
+	        fromPixels2DContext = document.createElement('canvas').getContext('2d');
+	      }
 	    }
 
 	    fromPixels2DContext.canvas.width = width;
@@ -24721,7 +24903,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2017 Google LLC. All Rights Reserved.
+	 * Copyright 2021 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -24735,6 +24917,8 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
+	var NEW_AXIS = -2;
+	var SHRINK_AXIS = -1;
 	function assertParamsValid(input, begin, size) {
 	  var inputRank = input.shape.length;
 	  assert(inputRank === begin.length, function () {
@@ -25060,73 +25244,295 @@
 	    }
 	  });
 	  return [begin_, size_];
-	}
+	} // Convert the slicing specification from a sparse representation to a dense
+	// representation. This means that all ellipses and newaxis are expanded out.
+
 	function sliceInfo(xShape, begin, end, strides, beginMask, endMask, ellipsisMask, newAxisMask, shrinkAxisMask) {
-	  // make a copy because it may be modified further down.
-	  var $begin = begin.slice();
-	  var $end = end.slice();
-	  var $strides = strides;
+	  var stridesNonNull;
 
 	  if (strides == null) {
-	    $strides = new Array($begin.length);
-	  }
+	    stridesNonNull = new Array(begin.length);
+	    stridesNonNull.fill(1);
+	  } else {
+	    stridesNonNull = strides;
+	  } // Only one non-zero bit is allowed in ellipsisMask, which means ellipsisMask
+	  // is a power of 2. Use bit compares to ensure ellipsisMask is 0 or a power
+	  // of 2. When i is a power of 2, i & (i - 1) is always 0.
+	  // Also ref:
+	  // https://stackoverflow.com/questions/600293/how-to-check-if-a-number-is-a-power-of-2
 
-	  var ellipsisAxes = maskToAxes(ellipsisMask);
 
-	  if (ellipsisAxes.length > 1) {
+	  if (ellipsisMask != null && (ellipsisMask & ellipsisMask - 1) !== 0) {
 	    throw new Error('Multiple ellipses in slice is not allowed.');
+	  } // Step 1: Account for ellipsis and new axis.
+	  // Check for ellipsis and count how many non-newaxis there are after.
+
+
+	  var ellipsisSeen = false;
+	  var sparseSpec = {
+	    dims: stridesNonNull.length,
+	    numAddAxisAfterEllipsis: 0,
+	    begin: begin.slice(),
+	    end: end.slice(),
+	    strides: stridesNonNull.slice(),
+	    beginMask: beginMask,
+	    endMask: endMask,
+	    ellipsisMask: ellipsisMask,
+	    newAxisMask: newAxisMask,
+	    shrinkAxisMask: shrinkAxisMask
+	  };
+
+	  for (var i = 0; i < sparseSpec.dims; i++) {
+	    if (ellipsisSeen && (1 << i & newAxisMask) !== 0) {
+	      sparseSpec.numAddAxisAfterEllipsis++;
+	    }
+
+	    if (1 << i & ellipsisMask) {
+	      ellipsisSeen = true;
+	    }
+	  } // If no ellipsis insert one at the end.
+
+
+	  if (!ellipsisSeen) {
+	    sparseSpec.ellipsisMask |= 1 << sparseSpec.dims;
+	    sparseSpec.dims++; // this effects loop iteration below
+	  } // Step 2: Make a sparse spec into a full index spec.
+	  //
+	  // The sparse spec deos not correspond to the number of dimensions.
+	  // Make a dense spec that cooresponds to the number of dimensions.
+	  //
+	  // For example suppose foo[...,3:] on foo.shape = [2, 2, 3] then we need to
+	  // produce the missing beginMask for the first two dimensions i.e. from
+	  // beginMaskSpec = 0, endMaskSpec = 2, we achieve beginMask = 6 (110),
+	  // endMask = 7 (111).
+
+
+	  var denseSpec = {
+	    dims: xShape.length,
+	    beginMask: 0,
+	    endMask: 0,
+	    beginValid: false,
+	    endValid: false
+	  };
+	  buildDenseSpec(sparseSpec, denseSpec); // Step 3: Make implicit ranges (non-zero beginMasks and endMasks) explicit
+	  // and bounds check.
+
+	  var isIdentity = true;
+	  var sliceDim0 = true;
+	  var isSimpleSlice = true;
+	  var processingShape = [];
+	  var finalShape = [];
+
+	  for (var _i3 = 0; _i3 < xShape.length; ++_i3) {
+	    if (denseSpec.strides[_i3] === 0) {
+	      throw Error("strides[" + _i3 + "] must be non-zero");
+	    }
+
+	    var shrinkI = !!(denseSpec.shrinkAxisMask & 1 << _i3);
+	    var dimI = xShape[_i3];
+
+	    if (dimI === -1) {
+	      processingShape.push(shrinkI ? 1 : -1);
+	      continue;
+	    }
+
+	    var masks = [denseSpec.beginMask & 1 << _i3, denseSpec.endMask & 1 << _i3];
+	    var validRange = [denseSpec.strides[_i3] > 0 ? 0 : -1, denseSpec.strides[_i3] > 0 ? dimI : dimI - 1];
+
+	    if (shrinkI && denseSpec.strides[_i3] <= 0) {
+	      throw Error('only stride 1 allowed on non-range indexing.');
+	    }
+
+	    isSimpleSlice = isSimpleSlice && denseSpec.strides[_i3] === 1;
+	    var beginAndEndMasked = !!(denseSpec.beginMask & 1 << _i3 && denseSpec.endMask & 1 << _i3);
+
+	    if (denseSpec.beginValid && denseSpec.endValid) {
+	      if (shrinkI) {
+	        // If we are shrinking, the end index is now possibly incorrect. In
+	        // particular foo[-1] produces sparseBegin = -1, sparseEnd = 0.
+	        // and canonical puts these to n-1 and 0, which implies a degenerate
+	        // interval. Fortunately, it is now safe to re-create end as begin + 1.
+	        var xFwd = denseSpec.begin[_i3] < 0 ? dimI + denseSpec.begin[_i3] : denseSpec.begin[_i3];
+	        denseSpec.begin[_i3] = xFwd;
+	        denseSpec.end[_i3] = denseSpec.begin[_i3] + 1;
+
+	        if (xFwd < 0 || xFwd >= dimI) {
+	          throw Error("slice index " + denseSpec.begin[_i3] + " of dimension " + _i3 + " out of bounds.");
+	        }
+	      } else {
+	        denseSpec.begin[_i3] = canonical(denseSpec.begin[_i3], 0, denseSpec.strides[_i3], dimI, masks, validRange);
+	        denseSpec.end[_i3] = canonical(denseSpec.end[_i3], 1, denseSpec.strides[_i3], dimI, masks, validRange);
+	      } // Update optimization values
+
+
+	      var takeAllInDimension = denseSpec.strides[_i3] === 1 && denseSpec.begin[_i3] === 0 && denseSpec.end[_i3] === dimI;
+	      isIdentity = isIdentity && takeAllInDimension;
+	      sliceDim0 = sliceDim0 && (_i3 === 0 && denseSpec.strides[_i3] === 1 || takeAllInDimension);
+	    } else {
+	      isIdentity = isIdentity && denseSpec.strides[_i3] === 1 && beginAndEndMasked;
+	      sliceDim0 = sliceDim0 && (_i3 === 0 && denseSpec.strides[_i3] === 1 || beginAndEndMasked);
+	    } // Compute the processing shape (the intermediate Eigen will produce)
+
+
+	    var intervalLength = void 0;
+	    var knownInterval = false;
+
+	    if (denseSpec.beginValid && denseSpec.endValid) {
+	      intervalLength = denseSpec.end[_i3] - denseSpec.begin[_i3];
+	      knownInterval = true;
+	    } else if (shrinkI) {
+	      // The dimension is still known as 1 for the processingShape, but will be
+	      // discarded for the final shape.
+	      intervalLength = 1;
+	      knownInterval = true;
+	    } else if (beginAndEndMasked) {
+	      // Even if we don't have values for begin or end, we do know that this
+	      // dimension covers the whole interval. If we have shape information for
+	      // this dimension, that tells us the interval length.
+	      if (dimI >= 0) {
+	        if (denseSpec.strides[_i3] < 0) {
+	          intervalLength = -dimI;
+	        } else {
+	          intervalLength = dimI;
+	        }
+
+	        knownInterval = true;
+	      }
+	    }
+
+	    if (knownInterval) {
+	      var sizeI = void 0; // Hold zero if the interval is degenerate, otherwise account for
+	      // remainder
+
+	      if (intervalLength === 0 || intervalLength < 0 !== denseSpec.strides[_i3] < 0) {
+	        sizeI = 0;
+	      } else {
+	        sizeI = Math.trunc(intervalLength / denseSpec.strides[_i3]) + (intervalLength % denseSpec.strides[_i3] !== 0 ? 1 : 0);
+	      }
+
+	      processingShape.push(sizeI);
+	    } else {
+	      processingShape.push(-1);
+	    }
+	  } // Step 4: Compute the final shape
+	  //
+	  // newAxis will increase dimension by 1 (with a one-size dimension)
+	  // slices like foo[3, ...] will reduce dimension by 1.
+	  // This cannot be done earlier, because it depends on Step 3.
+
+
+	  for (var denseDim = 0; denseDim < denseSpec.finalShapeGatherIndices.length; ++denseDim) {
+	    var gatherIndex = denseSpec.finalShapeGatherIndices[denseDim];
+
+	    if (gatherIndex >= 0) {
+	      finalShape.push(processingShape[gatherIndex]);
+	    } else if (gatherIndex === NEW_AXIS) {
+	      finalShape.push(1);
+	    }
 	  }
 
-	  if (ellipsisMask !== 0 && newAxisMask !== 0) {
-	    throw new Error('Using both ellipsisMask and newAxisMask is not yet supported.');
-	  }
-
-	  if (ellipsisMask !== 0 && shrinkAxisMask !== 0) {
-	    throw new Error('Using both ellipsisMask and shrinkAxisMask is not yet supported.');
-	  }
-
-	  var numInterpolatedAxes = xShape.length - $begin.length; // Expand the dims of x based on the newAxisMask.
-
-	  var expandAxes = maskToAxes(newAxisMask);
-	  var newShape = xShape.slice();
-	  expandAxes.forEach(function (axis) {
-	    $begin[axis] = 0;
-	    $end[axis] = 1;
-	    newShape.splice(axis, 0, 1);
-	  });
-
-	  var _getNormalizedAxes = getNormalizedAxes(newShape, ellipsisAxes, numInterpolatedAxes, $begin, $end, $strides, beginMask, endMask, ellipsisMask),
-	      normalizedBegin = _getNormalizedAxes.begin,
-	      normalizedEnd = _getNormalizedAxes.end,
-	      normalizedStrides = _getNormalizedAxes.strides;
-
-	  $begin = normalizedBegin;
-	  $end = normalizedEnd;
-	  $strides = normalizedStrides;
-	  var shrinkAxes = maskToAxes(shrinkAxisMask); // Adjust the ends based on the shrink mask.
-
-	  shrinkAxes.forEach(function (axis) {
-	    $end[axis] = $begin[axis] + 1;
-	    $strides[axis] = 1;
-	  }); // Figure out the output shape.
-
-	  var size = computeOutShape($begin, $end, $strides); // Remove the axes based on shrinkMask.
-
-	  var outShape = size.filter(function (_, axis) {
-	    return shrinkAxes.indexOf(axis) === -1;
-	  });
-	  var nonStrided = $strides.every(function (v) {
-	    return v === 1;
+	  var finalShapeSparse = finalShape.filter(function (dim, i) {
+	    return denseSpec.finalShapeGatherIndices[i] !== NEW_AXIS;
 	  });
 	  return {
-	    nonStrided: nonStrided,
-	    $begin: $begin,
-	    $end: $end,
-	    $strides: $strides,
-	    size: size,
-	    newShape: newShape,
-	    outShape: outShape
+	    finalShapeSparse: finalShapeSparse,
+	    finalShape: finalShape,
+	    isIdentity: isIdentity,
+	    sliceDim0: sliceDim0,
+	    isSimpleSlice: isSimpleSlice,
+	    begin: denseSpec.begin,
+	    end: denseSpec.end,
+	    strides: denseSpec.strides
 	  };
+	}
+
+	function buildDenseSpec(sparse, dense) {
+	  dense.beginMask = 0;
+	  dense.endMask = 0;
+	  dense.shrinkAxisMask = 0;
+	  var fullIndex = 0;
+	  dense.beginValid = sparse.begin != null;
+	  dense.endValid = sparse.end != null;
+	  dense.begin = new Array(dense.dims);
+	  dense.end = new Array(dense.dims);
+	  dense.strides = new Array(dense.dims);
+	  dense.finalShapeGatherIndices = [];
+	  dense.finalShapeGatherIndicesSparse = [];
+	  dense.inputShapeGatherIndicesSparse = new Array(dense.dims);
+
+	  for (var i = 0; i < sparse.dims; i++) {
+	    if (1 << i & sparse.ellipsisMask) {
+	      // Only the bit that has ellipsis will fall in this condition.
+	      // Expand the ellipsis into the appropriate indices
+	      // Note: this only works because we guaranteed one ellipsis.
+	      var nextIndex = Math.min(dense.dims - (sparse.dims - i) + 1 + sparse.numAddAxisAfterEllipsis, dense.dims);
+
+	      for (; fullIndex < nextIndex; fullIndex++) {
+	        // newAxis aren't real axis so you have to skip.
+	        dense.begin[fullIndex] = 0;
+	        dense.end[fullIndex] = 0;
+	        dense.strides[fullIndex] = 1;
+	        dense.beginMask |= 1 << fullIndex;
+	        dense.endMask |= 1 << fullIndex;
+	        dense.finalShapeGatherIndices.push(fullIndex);
+	        dense.finalShapeGatherIndicesSparse.push(-1);
+	        dense.inputShapeGatherIndicesSparse[fullIndex] = i;
+	      }
+	    } else if (1 << i & sparse.newAxisMask) {
+	      // Only the bit that has newAxis will fall in this condition.
+	      dense.finalShapeGatherIndices.push(NEW_AXIS);
+	      dense.finalShapeGatherIndicesSparse.push(-1);
+	    } else {
+	      if (fullIndex === dense.begin.length) {
+	        throw Error("Index out of range using input dim " + fullIndex + "; input " + ("has only " + dense.dims + " dims, " + dense.begin.length + "."));
+	      } // Gather slicing spec into appropriate index.
+
+
+	      if (sparse.begin != null) {
+	        dense.begin[fullIndex] = sparse.begin[i];
+	      }
+
+	      if (sparse.end != null) {
+	        dense.end[fullIndex] = sparse.end[i];
+	      }
+
+	      dense.strides[fullIndex] = sparse.strides[i];
+
+	      if (sparse.beginMask & 1 << i) {
+	        dense.beginMask |= 1 << fullIndex;
+	      }
+
+	      if (sparse.endMask & 1 << i) {
+	        dense.endMask |= 1 << fullIndex;
+	      } // If shrink, record where to get the dimensionality from (i.e. newAxis)
+	      // creates a fake 1 size dimension. Also remember shrink axis (now in
+	      // dense form) so we can ignore dense.end below.
+
+
+	      if (sparse.shrinkAxisMask & 1 << i) {
+	        dense.finalShapeGatherIndices.push(SHRINK_AXIS);
+	        dense.finalShapeGatherIndicesSparse.push(-1);
+	        dense.shrinkAxisMask |= 1 << fullIndex;
+	      } else {
+	        dense.finalShapeGatherIndices.push(fullIndex); // Remember that where in the sparse shape the dense dim comes from.
+
+	        dense.finalShapeGatherIndicesSparse.push(i);
+	      }
+
+	      dense.inputShapeGatherIndicesSparse[fullIndex] = i;
+	      fullIndex++;
+	    }
+	  }
+	}
+
+	function canonical(x, c, strideI, dimI, masks, validRange) {
+	  if (masks[c]) {
+	    return strideI > 0 ? validRange[c] : validRange[c + 1 & 1];
+	  } else {
+	    var xFwd = x < 0 ? dimI + x : x; // make negative indices positive
+
+	    return xFwd < validRange[0] ? validRange[0] : xFwd > validRange[1] ? validRange[1] : xFwd;
+	  }
 	}
 
 	var slice_util = {
@@ -25415,9 +25821,20 @@
 	  }
 	}
 	function expectArrayBuffersEqual(actual, expected) {
-	  // Safari & Jasmine don't like comparing ArrayBuffers directly. Wrapping in
+	  // Safari does not like comparing ArrayBuffers directly. Wrapping in
 	  // a Float32Array solves this issue.
-	  expect(new Float32Array(actual)).toEqual(new Float32Array(expected));
+	  var actualArray = new Float32Array(actual);
+	  var expectedArray = new Float32Array(expected);
+
+	  if (actualArray.length !== expectedArray.length) {
+	    throw new Error('Expected ArrayBuffer to be of length ' + (expectedArray.length + ", but it was " + actualArray.length));
+	  }
+
+	  for (var i = 0; i < expectedArray.length; i++) {
+	    if (actualArray[i] !== expectedArray[i]) {
+	      throw new Error("Expected ArrayBuffer value at " + i + " to be " + (expectedArray[i] + " but got " + actualArray[i] + " instead"));
+	    }
+	  }
 	}
 	/** Encodes strings into utf-8 bytes. */
 
@@ -25450,7 +25867,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$1 = '3.9.0';
+	var version$1 = '3.15.0';
 
 	/**
 	 * @license
@@ -26760,7 +27177,6 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-
 	/**
 	 *
 	 * @param inputShape Input tensor shape is of the following dimensions:
@@ -26785,6 +27201,7 @@
 	 *     Defaults to `[1, 1]`. If `dilations` is a single number, then
 	 *     `dilationHeight == dilationWidth`.
 	 */
+
 	function computeDilation2DInfo(inputShape, filterShape, strides, pad, dataFormat, dilations) {
 	  if (dataFormat === void 0) {
 	    dataFormat = 'NHWC';
@@ -27308,6 +27725,43 @@
 	    throw new Error("Unknown dataFormat " + dataFormat);
 	  }
 	}
+	/**
+	 * Check validity of pad when using dimRoundingMode.
+	 * @param opDesc A string of op description
+	 * @param pad The type of padding algorithm.
+	 *   - `same` and stride 1: output will be of same size as input,
+	 *       regardless of filter size.
+	 *   - `valid` output will be smaller than input if filter is larger
+	 *       than 1x1.
+	 *   - For more info, see this guide:
+	 *     [https://www.tensorflow.org/api_docs/python/tf/nn/convolution](
+	 *          https://www.tensorflow.org/api_docs/python/tf/nn/convolution)
+	 * @param dimRoundingMode A string from: 'ceil', 'round', 'floor'. If none is
+	 *     provided, it will default to truncate.
+	 * @throws unknown padding parameter
+	 */
+
+	function checkPadOnDimRoundingMode(opDesc, pad, dimRoundingMode) {
+	  if (dimRoundingMode != null) {
+	    if (typeof pad === 'string') {
+	      throw Error("Error in " + opDesc + ": pad must be an integer when using " + ("dimRoundingMode " + dimRoundingMode + " but got pad " + pad + "."));
+	    } else if (typeof pad === 'number') {
+	      assert(isInt(pad), function () {
+	        return "Error in " + opDesc + ": pad must be an integer when using " + ("dimRoundingMode " + dimRoundingMode + " but got pad " + pad + ".");
+	      });
+	    } else if (typeof pad === 'object') {
+	      pad.forEach(function (p) {
+	        p.forEach(function (v) {
+	          assert(isInt(v), function () {
+	            return "Error in " + opDesc + ": pad must be an integer when using " + ("dimRoundingMode " + dimRoundingMode + " but got pad " + v + ".");
+	          });
+	        });
+	      });
+	    } else {
+	      throw Error("Error in " + opDesc + ": Unknown padding parameter: " + pad);
+	    }
+	  }
+	}
 
 	/**
 	 * @license
@@ -27421,13 +27875,7 @@
 	  assert(x4D.rank === 4, function () {
 	    return "Error in avgPool: x must be rank 4 but got rank " + x4D.rank + ".";
 	  });
-
-	  if (dimRoundingMode != null) {
-	    assert(isInt(pad), function () {
-	      return "Error in avgPool: pad must be an integer when using, " + ("dimRoundingMode " + dimRoundingMode + " but got pad " + pad + ".");
-	    });
-	  }
-
+	  checkPadOnDimRoundingMode('avgPool', pad, dimRoundingMode);
 	  var inputs = {
 	    x: x4D
 	  };
@@ -27525,13 +27973,7 @@
 	  assert(dataFormat === 'NDHWC', function () {
 	    return "Error in avgPool3d: Only NDHWC is currently supported, " + ("but got dataFormat of " + dataFormat);
 	  });
-
-	  if (dimRoundingMode != null) {
-	    assert(isInt(pad), function () {
-	      return "Error in avgPool3d: pad must be an integer when using, " + ("dimRoundingMode " + dimRoundingMode + " but got pad " + pad + ".");
-	    });
-	  }
-
+	  checkPadOnDimRoundingMode('avgPool3d', pad, dimRoundingMode);
 	  var inputs = {
 	    x: x5D
 	  };
@@ -27677,7 +28119,7 @@
 	 */
 
 	function sigmoid_(x) {
-	  var $x = convertToTensor(x, 'x', 'sigmoid');
+	  var $x = convertToTensor(x, 'x', 'sigmoid', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -27790,7 +28232,7 @@
 	 */
 
 	function tanh_(x) {
-	  var $x = convertToTensor(x, 'x', 'tanh');
+	  var $x = convertToTensor(x, 'x', 'tanh', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -28467,7 +28909,7 @@
 	 */
 
 	function ceil_(x) {
-	  var $x = convertToTensor(x, 'x', 'ceil');
+	  var $x = convertToTensor(x, 'x', 'ceil', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -28701,8 +29143,8 @@
 	    dilations = [1, 1];
 	  }
 
-	  var $x = convertToTensor(x, 'x', 'conv2d');
-	  var $filter = convertToTensor(filter, 'filter', 'conv2d');
+	  var $x = convertToTensor(x, 'x', 'conv2d', 'float32');
+	  var $filter = convertToTensor(filter, 'filter', 'conv2d', 'float32');
 	  var x4D = $x;
 	  var reshapedTo4D = false;
 
@@ -28717,13 +29159,7 @@
 	  assert($filter.rank === 4, function () {
 	    return "Error in conv2d: filter must be rank 4, but got rank " + ($filter.rank + ".");
 	  });
-
-	  if (dimRoundingMode != null) {
-	    assert(isInt(pad), function () {
-	      return "Error in conv2d: pad must be an integer when using, " + ("dimRoundingMode " + dimRoundingMode + " but got pad " + pad + ".");
-	    });
-	  }
-
+	  checkPadOnDimRoundingMode('conv2d', pad, dimRoundingMode);
 	  var inDepth = dataFormat === 'NHWC' ? x4D.shape[3] : x4D.shape[1];
 	  assert(inDepth === $filter.shape[2], function () {
 	    return "Error in conv2d: depth of input (" + inDepth + ") must match " + ("input depth for filter " + $filter.shape[2] + ".");
@@ -28810,13 +29246,7 @@
 	  assert($filter.rank === 3, function () {
 	    return "Error in conv1d: filter must be rank 3, but got rank " + ($filter.rank + ".");
 	  });
-
-	  if (dimRoundingMode != null) {
-	    assert(isInt(pad), function () {
-	      return "Error in conv1d: pad must be an integer when using, " + ("dimRoundingMode " + dimRoundingMode + " but got pad " + pad + ".");
-	    });
-	  }
-
+	  checkPadOnDimRoundingMode('conv1d', pad, dimRoundingMode);
 	  assert(x3D.shape[2] === $filter.shape[1], function () {
 	    return "Error in conv1d: depth of input (" + x3D.shape[2] + ") must match " + ("input depth for filter " + $filter.shape[1] + ".");
 	  });
@@ -28920,13 +29350,7 @@
 	  assert(outDepth === filter.shape[3], function () {
 	    return "Error in conv2dDerInput: depth of output (" + outDepth + ") must " + ("match output depth for filter " + filter.shape[3] + ".");
 	  });
-
-	  if (dimRoundingMode != null) {
-	    assert(isInt(pad), function () {
-	      return "Error in conv2dDerInput: pad must be an integer when using, " + ("dimRoundingMode " + dimRoundingMode + " but got pad " + pad + ".");
-	    });
-	  }
-
+	  checkPadOnDimRoundingMode('conv2dDerInput', pad, dimRoundingMode);
 	  var inputs = {
 	    dy: dy4D,
 	    filter: filter
@@ -29233,13 +29657,13 @@
 	 *
 	 * x.cos().print();  // or tf.cos(x)
 	 * ```
-	 * @param x The input tensor.
+	 * @param x The input tensor. Must be float32 type.
 	 *
 	 * @doc {heading: 'Operations', subheading: 'Basic math'}
 	 */
 
 	function cos_(x) {
-	  var $x = convertToTensor(x, 'x', 'cos');
+	  var $x = convertToTensor(x, 'x', 'cos', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -29274,13 +29698,13 @@
 	 *
 	 * x.cosh().print();  // or tf.cosh(x)
 	 * ```
-	 * @param x The input tensor.
+	 * @param x The input tensor. Must be float32 type.
 	 *
 	 * @doc {heading: 'Operations', subheading: 'Basic math'}
 	 */
 
 	function cosh_(x) {
-	  var $x = convertToTensor(x, 'x', 'cosh');
+	  var $x = convertToTensor(x, 'x', 'cosh', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -29289,6 +29713,75 @@
 
 	var cosh = op({
 	  cosh_: cosh_
+	});
+
+	/**
+	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the 'License');
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an 'AS IS' BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Computes the cumulative product of a `tf.Tensor` along `axis`.
+	 *
+	 * ```js
+	 * const x = tf.tensor([1, 2, 3, 4]);
+	 * x.cumprod().print();
+	 * ```
+	 * ```js
+	 * const x = tf.tensor([[1, 2], [3, 4]]);
+	 * x.cumprod().print();
+	 * ```
+	 *
+	 * @param x The input tensor to cumulatively multiply.
+	 * @param axis The axis along which to multiply. Optional. Defaults to 0.
+	 * @param exclusive Whether to perform exclusive cumulative product. Optional.
+	 *     Defaults to false. If set to true then the product of each tensor entry
+	 *     does not include its own value, but only the values previous to it
+	 *     along the specified axis.
+	 * @param reverse Whether to multiply in the opposite direction. Optional.
+	 *     Defaults to false.
+	 *
+	 * @doc {heading: 'Operations', subheading: 'Scan'}
+	 */
+
+	function cumprod_(x, axis, exclusive, reverse) {
+	  if (axis === void 0) {
+	    axis = 0;
+	  }
+
+	  if (exclusive === void 0) {
+	    exclusive = false;
+	  }
+
+	  if (reverse === void 0) {
+	    reverse = false;
+	  }
+
+	  var $x = convertToTensor(x, 'x', 'cumprod');
+	  var inputs = {
+	    x: $x
+	  };
+	  var attrs = {
+	    axis: axis,
+	    exclusive: exclusive,
+	    reverse: reverse
+	  };
+	  return ENGINE.runKernel(Cumprod, inputs, attrs);
+	}
+
+	var cumprod = op({
+	  cumprod_: cumprod_
 	});
 
 	/**
@@ -29489,10 +29982,13 @@
 	    dataFormat = 'NHWC';
 	  }
 
-	  var $x = convertToTensor(x, 'x', 'depthToSpace');
+	  var $x = convertToTensor(x, 'x', 'depthToSpace', 'float32');
 	  var inputHeight = dataFormat === 'NHWC' ? $x.shape[1] : $x.shape[2];
 	  var inputWidth = dataFormat === 'NHWC' ? $x.shape[2] : $x.shape[3];
 	  var inputDepth = dataFormat === 'NHWC' ? $x.shape[3] : $x.shape[1];
+	  assert(blockSize > 1, function () {
+	    return "blockSize should be > 1 for depthToSpace, but was: " + blockSize;
+	  });
 	  assert(inputHeight * blockSize >= 0, function () {
 	    return "Negative dimension size caused by overflow when multiplying\n    " + inputHeight + " and " + blockSize + "  for depthToSpace with input shape\n    " + $x.shape;
 	  });
@@ -29587,8 +30083,8 @@
 	    dilations = [1, 1];
 	  }
 
-	  var $x = convertToTensor(x, 'x', 'depthwiseConv2d');
-	  var $filter = convertToTensor(filter, 'filter', 'depthwiseConv2d');
+	  var $x = convertToTensor(x, 'x', 'depthwiseConv2d', 'float32');
+	  var $filter = convertToTensor(filter, 'filter', 'depthwiseConv2d', 'float32');
 	  var x4D = $x;
 	  var reshapedTo4D = false;
 
@@ -29606,13 +30102,7 @@
 	  assert(x4D.shape[3] === $filter.shape[2], function () {
 	    return "Error in depthwiseConv2d: number of input channels " + ("(" + x4D.shape[3] + ") must match the inChannels dimension in ") + ("filter " + $filter.shape[2] + ".");
 	  });
-
-	  if (dimRoundingMode != null) {
-	    assert(isInt(pad), function () {
-	      return "Error in depthwiseConv2d: pad must be an integer when using, " + ("dimRoundingMode " + dimRoundingMode + " but got pad " + pad + ".");
-	    });
-	  }
-
+	  checkPadOnDimRoundingMode('depthwiseConv2d', pad, dimRoundingMode);
 	  var inputs = {
 	    x: x4D,
 	    filter: $filter
@@ -29669,7 +30159,7 @@
 	 * tf.diag(x).print()
 	 * ```
 	 * ```js
-	 * const x = tf.tensor1d([1, 2, 3, 4, 5, 6, 6, 8], [4, 2])
+	 * const x = tf.tensor2d([1, 2, 3, 4, 5, 6, 6, 8], [4, 2])
 	 *
 	 * tf.diag(x).print()
 	 * ```
@@ -29788,100 +30278,6 @@
 	var dilation2d = op({
 	  dilation2d_: dilation2d_
 	});
-
-	/**
-	 * @license
-	 * Copyright 2017 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-
-	/**
-	 * Returns the dimensions in the input shape that are broadcasted to
-	 * produce the provided output shape.
-	 *
-	 * The returned dimensions are 0-indexed and sorted. An example:
-	 * inShape = [4, 1, 3]
-	 * outShape = [5, 4, 3, 3]
-	 * result = [1]. Dimension 1 (2nd dimension of input) gets broadcasted 1 => 3.
-	 */
-	function getBroadcastDims(inShape, outShape) {
-	  var inRank = inShape.length;
-	  var dims = [];
-
-	  for (var i = 0; i < inRank; i++) {
-	    var dim = inRank - 1 - i;
-	    var a = inShape[dim] || 1;
-	    var b = outShape[outShape.length - 1 - i] || 1;
-
-	    if (b > 1 && a === 1) {
-	      dims.unshift(dim);
-	    }
-	  }
-
-	  return dims;
-	}
-	/**
-	 * Returns the axes in the output space that should be reduced to produce
-	 * the input space.
-	 */
-
-	function getReductionAxes(inShape, outShape) {
-	  var result = [];
-
-	  for (var i = 0; i < outShape.length; i++) {
-	    var inDim = inShape[inShape.length - i - 1];
-	    var outAxis = outShape.length - i - 1;
-	    var outDim = outShape[outAxis];
-
-	    if (inDim == null || inDim === 1 && outDim > 1) {
-	      result.unshift(outAxis);
-	    }
-	  }
-
-	  return result;
-	}
-	function assertAndGetBroadcastShape(shapeA, shapeB) {
-	  var result = [];
-	  var l = Math.max(shapeA.length, shapeB.length);
-
-	  for (var i = 0; i < l; i++) {
-	    var a = shapeA[shapeA.length - i - 1];
-
-	    if (a == null) {
-	      a = 1;
-	    }
-
-	    var b = shapeB[shapeB.length - i - 1];
-
-	    if (b == null) {
-	      b = 1;
-	    }
-
-	    if (a === 1) {
-	      result.unshift(b);
-	    } else if (b === 1) {
-	      result.unshift(a);
-	    } else if (a !== b) {
-	      var errMsg = "Operands could not be broadcast together with shapes " + (shapeA + " and " + shapeB + ".");
-	      throw Error(errMsg);
-	    } else {
-	      result.unshift(a);
-	    }
-	  }
-
-	  return result;
-	}
 
 	/**
 	 * @license
@@ -30324,7 +30720,7 @@
 	 */
 
 	function elu_(x) {
-	  var $x = convertToTensor(x, 'x', 'elu');
+	  var $x = convertToTensor(x, 'x', 'elu', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -30724,7 +31120,7 @@
 	 */
 
 	function floor_(x) {
-	  var $x = convertToTensor(x, 'x', 'floor');
+	  var $x = convertToTensor(x, 'x', 'floor', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -31389,7 +31785,7 @@
 	 */
 
 	function log_(x) {
-	  var $x = convertToTensor(x, 'x', 'log');
+	  var $x = convertToTensor(x, 'x', 'log', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -32712,13 +33108,7 @@
 	  assert(eitherStridesOrDilationsAreOne(strides, dilations), function () {
 	    return 'Error in maxPool: Either strides or dilations must be 1. ' + ("Got strides " + strides + " and dilations '" + dilations + "'");
 	  });
-
-	  if (dimRoundingMode != null) {
-	    assert(isInt(pad), function () {
-	      return "Error in maxPool: pad must be an integer when using, " + ("dimRoundingMode " + dimRoundingMode + " but got pad " + pad + ".");
-	    });
-	  }
-
+	  checkPadOnDimRoundingMode('maxPool', pad, dimRoundingMode);
 	  var inputs = {
 	    x: x4D
 	  };
@@ -32818,13 +33208,7 @@
 	  assert(dataFormat === 'NDHWC', function () {
 	    return "Error in maxPool3d: Only NDHWC is currently supported, " + ("but got dataFormat of " + dataFormat);
 	  });
-
-	  if (dimRoundingMode != null) {
-	    assert(isInt(pad), function () {
-	      return "Error in maxPool3d: pad must be an integer when using, " + ("dimRoundingMode " + dimRoundingMode + " but got pad " + pad + ".");
-	    });
-	  }
-
+	  checkPadOnDimRoundingMode('maxPool3d', pad, dimRoundingMode);
 	  var inputs = {
 	    x: x5D
 	  };
@@ -34153,11 +34537,13 @@
 	 *     1, then all values of `strides` must be 1.
 	 * @param strides The strides of the pooling: `[strideHeight, strideWidth]`. If
 	 *     `strides` is a single number, then `strideHeight == strideWidth`.
+	 * @param dimRoundingMode A string from: 'ceil', 'round', 'floor'. If none is
+	 *     provided, it will default to truncate.
 	 *
 	 * @doc {heading: 'Operations', subheading: 'Convolution'}
 	 */
 
-	function pool_(input, windowShape, poolingType, pad, dilations, strides) {
+	function pool_(input, windowShape, poolingType, pad, dilations, strides, dimRoundingMode) {
 	  if (dilations == null) {
 	    dilations = [1, 1];
 	  }
@@ -34205,9 +34591,9 @@
 	  var convertedPad = isDilationOne ? pad : 'valid';
 	  var convertedX = isDilationOne ? x4D : spaceToBatchND(x4D, dilation, adjustedPadding);
 	  var forwardOp = poolingType === 'avg' ? function () {
-	    return avgPool(convertedX, windowShape, strides, convertedPad);
+	    return avgPool(convertedX, windowShape, strides, convertedPad, dimRoundingMode);
 	  } : function () {
-	    return maxPool(convertedX, windowShape, strides, convertedPad);
+	    return maxPool(convertedX, windowShape, strides, convertedPad, dimRoundingMode);
 	  };
 	  var y = forwardOp();
 	  var res = isDilationOne ? y : batchToSpaceND(y, dilation, adjustedCrops);
@@ -36574,7 +36960,7 @@
 	 */
 
 	function rsqrt_(x) {
-	  var $x = convertToTensor(x, 'x', 'rsqrt');
+	  var $x = convertToTensor(x, 'x', 'rsqrt', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -36947,7 +37333,7 @@
 	 */
 
 	function sin_(x) {
-	  var $x = convertToTensor(x, 'x', 'sin');
+	  var $x = convertToTensor(x, 'x', 'sin', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -37551,7 +37937,7 @@
 	 */
 
 	function sqrt_(x) {
-	  var $x = convertToTensor(x, 'x', 'sqrt');
+	  var $x = convertToTensor(x, 'x', 'sqrt', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -37895,7 +38281,7 @@
 	 */
 
 	function tan_(x) {
-	  var $x = convertToTensor(x, 'x', 'tan');
+	  var $x = convertToTensor(x, 'x', 'tan', 'float32');
 	  var inputs = {
 	    x: $x
 	  };
@@ -39582,13 +39968,7 @@
 	  assert(outDepth === filterShape[3], function () {
 	    return "Error in conv2dDerFilter: depth of dy (" + outDepth + ") must " + ("match output depth for filter (" + filterShape[3] + ").");
 	  });
-
-	  if (dimRoundingMode != null) {
-	    assert(isInt(pad), function () {
-	      return "Error in conv2dDerFilter: pad must be an integer when using, " + ("dimRoundingMode " + dimRoundingMode + " but got pad " + pad + ".");
-	    });
-	  }
-
+	  checkPadOnDimRoundingMode('conv2dDerFilter', pad, dimRoundingMode);
 	  var inputs = {
 	    x: x4D,
 	    dy: dy4D
@@ -39773,8 +40153,8 @@
 	    return applyActivation(result, activation, preluActivationWeights, leakyreluAlpha);
 	  }
 
-	  var $x = convertToTensor(x, 'x', 'conv2d');
-	  var $filter = convertToTensor(filter, 'filter', 'conv2d');
+	  var $x = convertToTensor(x, 'x', 'conv2d', 'float32');
+	  var $filter = convertToTensor(filter, 'filter', 'conv2d', 'float32');
 	  var x4D = $x;
 	  var reshapedTo4D = false;
 
@@ -39789,13 +40169,7 @@
 	  assert($filter.rank === 4, function () {
 	    return "Error in fused conv2d: filter must be rank 4, but got rank " + ($filter.rank + ".");
 	  });
-
-	  if (dimRoundingMode != null) {
-	    assert(isInt(pad), function () {
-	      return "Error in fused conv2d: pad must be an integer when using, " + ("dimRoundingMode " + dimRoundingMode + " but got pad " + pad + ".");
-	    });
-	  }
-
+	  checkPadOnDimRoundingMode('fused conv2d', pad, dimRoundingMode);
 	  assert(x4D.shape[3] === $filter.shape[2], function () {
 	    return "Error in conv2d: depth of input (" + x4D.shape[3] + ") must match " + ("input depth for filter " + $filter.shape[2] + ".");
 	  });
@@ -40103,8 +40477,8 @@
 	    return applyActivation(result, activation, preluActivationWeights, leakyreluAlpha);
 	  }
 
-	  var $x = convertToTensor(x, 'x', 'depthwiseConv2d');
-	  var $filter = convertToTensor(filter, 'filter', 'depthwiseConv2d');
+	  var $x = convertToTensor(x, 'x', 'depthwiseConv2d', 'float32');
+	  var $filter = convertToTensor(filter, 'filter', 'depthwiseConv2d', 'float32');
 	  var x4D = $x;
 	  var reshapedTo4D = false;
 
@@ -40130,13 +40504,7 @@
 	  assert(eitherStridesOrDilationsAreOne(strides, dilations), function () {
 	    return 'Error in fused depthwiseConv2d: Either strides or dilations must ' + ("be 1. Got strides " + strides + " and dilations '" + dilations + "'");
 	  });
-
-	  if (dimRoundingMode != null) {
-	    assert(isInt(pad), function () {
-	      return "Error in fused depthwiseConv2d: pad must be an integer when " + ("using dimRoundingMode " + dimRoundingMode + " but got pad " + pad + ".");
-	    });
-	  }
-
+	  checkPadOnDimRoundingMode('fused depthwiseConv2d', pad, dimRoundingMode);
 	  var convInfo = computeConv2DInfo(x4D.shape, $filter.shape, strides, dilations, pad, dimRoundingMode, true
 	  /* depthwise */
 	  );
@@ -40311,16 +40679,11 @@
 	  var outerDimsB = $b.shape.slice(0, -2);
 	  var batchDimA = sizeFromShape(outerDimsA);
 	  var batchDimB = sizeFromShape(outerDimsB);
-	  assert($a.rank >= 2 && $b.rank >= 2 && $a.rank === $b.rank, function () {
-	    return "Error in fused matMul: inputs must have the same rank of at " + ("least 2, got ranks " + $a.rank + " and " + $b.rank + ".");
-	  });
-	  assert(arraysEqual(outerDimsA, outerDimsB), function () {
-	    return "Error in fused matMul: outer dimensions (" + outerDimsA + ") and (" + (outerDimsB + ") of Tensors with shapes " + $a.shape + " and ") + ($b.shape + " must match.");
-	  });
 	  assert(innerShapeA === innerShapeB, function () {
 	    return "Error in fused matMul: inner shapes (" + innerShapeA + ") and (" + (innerShapeB + ") of Tensors with shapes " + $a.shape + " and ") + ($b.shape + " and transposeA=" + transposeA) + (" and transposeB=" + transposeB + " must match.");
 	  });
-	  var outShape = $a.shape.slice(0, -2).concat([outerShapeA, outerShapeB]);
+	  var outShapeOuterDims = assertAndGetBroadcastShape($a.shape.slice(0, -2), $b.shape.slice(0, -2));
+	  var outShape = outShapeOuterDims.concat([outerShapeA, outerShapeB]);
 	  var a3D = transposeA ? reshape($a, [batchDimA, innerShapeA, outerShapeA]) : reshape($a, [batchDimA, outerShapeA, innerShapeA]);
 	  var b3D = transposeB ? reshape($b, [batchDimB, outerShapeB, innerShapeB]) : reshape($b, [batchDimB, innerShapeB, outerShapeB]);
 	  var $bias;
@@ -40975,8 +41338,8 @@
 	    scoreThreshold = Number.NEGATIVE_INFINITY;
 	  }
 
-	  var $boxes = convertToTensor(boxes, 'boxes', 'nonMaxSuppression');
-	  var $scores = convertToTensor(scores, 'scores', 'nonMaxSuppression');
+	  var $boxes = convertToTensor(boxes, 'boxes', 'nonMaxSuppression', 'float32');
+	  var $scores = convertToTensor(scores, 'scores', 'nonMaxSuppression', 'float32');
 	  var inputs = nonMaxSuppSanityCheck($boxes, $scores, maxOutputSize, iouThreshold, scoreThreshold);
 	  maxOutputSize = inputs.maxOutputSize;
 	  iouThreshold = inputs.iouThreshold;
@@ -43217,9 +43580,9 @@
 	 */
 
 	function sparseFillEmptyRows_(indices, values, denseShape, defaultValue) {
-	  var $indices = convertToTensor(indices, 'indices', 'sparseFillEmptyRows');
+	  var $indices = convertToTensor(indices, 'indices', 'sparseFillEmptyRows', 'int32');
 	  var $values = convertToTensor(values, 'values', 'sparseFillEmptyRows');
-	  var $denseShape = convertToTensor(denseShape, 'denseShape', 'sparseFillEmptyRows');
+	  var $denseShape = convertToTensor(denseShape, 'denseShape', 'sparseFillEmptyRows', 'int32');
 	  var $defaultValue = convertToTensor(defaultValue, 'defaultValue', 'sparseFillEmptyRows', $values.dtype);
 
 	  if ($indices.rank !== 2) {
@@ -43309,9 +43672,9 @@
 	 */
 
 	function sparseReshape_(inputIndices, inputShape, newShape) {
-	  var $inputIndices = convertToTensor(inputIndices, 'inputIndices', 'sparseReshape');
-	  var $inputShape = convertToTensor(inputShape, 'inputShape', 'sparseReshape');
-	  var $newShape = convertToTensor(newShape, 'newShape', 'sparseReshape');
+	  var $inputIndices = convertToTensor(inputIndices, 'inputIndices', 'sparseReshape', 'int32');
+	  var $inputShape = convertToTensor(inputShape, 'inputShape', 'sparseReshape', 'int32');
+	  var $newShape = convertToTensor(newShape, 'newShape', 'sparseReshape', 'int32');
 
 	  if ($inputIndices.rank !== 2) {
 	    throw new Error("Input indices should be Tensor2D but received shape\n        " + $inputIndices.shape);
@@ -43394,8 +43757,8 @@
 
 	function sparseSegmentMean_(data, indices, segmentIds) {
 	  var $data = convertToTensor(data, 'data', 'sparseSegmentMean');
-	  var $indices = convertToTensor(indices, 'indices', 'sparseSegmentMean');
-	  var $segmentIds = convertToTensor(segmentIds, 'segmentIds', 'sparseSegmentMean');
+	  var $indices = convertToTensor(indices, 'indices', 'sparseSegmentMean', 'int32');
+	  var $segmentIds = convertToTensor(segmentIds, 'segmentIds', 'sparseSegmentMean', 'int32');
 
 	  if ($data.rank < 1) {
 	    throw new Error("Data should be at least 1 dimensional but received scalar");
@@ -43474,8 +43837,8 @@
 
 	function sparseSegmentSum_(data, indices, segmentIds) {
 	  var $data = convertToTensor(data, 'data', 'sparseSegmentSum');
-	  var $indices = convertToTensor(indices, 'indices', 'sparseSegmentSum');
-	  var $segmentIds = convertToTensor(segmentIds, 'segmentIds', 'sparseSegmentSum');
+	  var $indices = convertToTensor(indices, 'indices', 'sparseSegmentSum', 'int32');
+	  var $segmentIds = convertToTensor(segmentIds, 'segmentIds', 'sparseSegmentSum', 'int32');
 
 	  if ($data.rank < 1) {
 	    throw new Error("Data should be at least 1 dimensional but received scalar");
@@ -46449,6 +46812,176 @@
 
 	/**
 	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+
+	/**
+	 * Generates sparse fill empty rows indices, dense shape mismatch error message.
+	 *
+	 * @param indicesLength The first dimension of indices.
+	 */
+	function getSparseFillEmptyRowsIndicesDenseShapeMismatch(indicesLength) {
+	  return "Received SparseTensor with denseShape[0] = 0 but\n  indices.shape[0] = " + indicesLength;
+	}
+	/**
+	 * Generates sparse fill empty rows negative index error message.
+	 *
+	 * @param index The index with a negative value.
+	 * @param value The negative value.
+	 */
+
+	function getSparseFillEmptyRowsNegativeIndexErrorMessage(index, value) {
+	  return "indices(" + index + ", 0) is invalid: " + value + " < 0";
+	}
+	/**
+	 * Generates sparse fill empty rows out of range index error message.
+	 *
+	 * @param index The index with an out of range value.
+	 * @param value The out of range value.
+	 * @param limit The upper limit for indices.
+	 */
+
+	function getSparseFillEmptyRowsOutOfRangeIndexErrorMessage(index, value, limit) {
+	  return "indices(" + index + ", 0) is invalid: " + value + " >= " + limit;
+	}
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Generates sparse reshape multiple negative 1 output dimension error message.
+	 *
+	 * @param dim1 The first dimension with a negative 1 value.
+	 * @param dim2 The second dimension with a negative 1 value.
+	 */
+
+	function getSparseReshapeMultipleNegativeOneOutputDimErrorMessage(dim1, dim2) {
+	  return "only one output dimension may be -1, not both " + dim1 + " and " + dim2;
+	}
+	/**
+	 * Generates sparse reshape negative output dimension error message.
+	 *
+	 * @param dim The dimension with a negative value.
+	 * @param value The negative value.
+	 */
+
+	function getSparseReshapeNegativeOutputDimErrorMessage(dim, value) {
+	  return "size " + dim + " must be non-negative, not " + value;
+	}
+	/**
+	 * Generates sparse reshape empty tensor zero output dimension error message.
+	 *
+	 */
+
+	function getSparseReshapeEmptyTensorZeroOutputDimErrorMessage() {
+	  return 'reshape cannot infer the missing input size for an empty tensor ' + 'unless all specified input sizes are non-zero';
+	}
+	/**
+	 * Generates sparse reshape input output multiple mismatch error message.
+	 *
+	 * @param inputShape the input shape.
+	 * @param outputShape the requested output shape.
+	 */
+
+	function getSparseReshapeInputOutputMultipleErrorMessage(inputShape, outputShape) {
+	  var inputSize = sizeFromShape(inputShape);
+	  var outputSize = sizeFromShape(outputShape);
+	  return "Input to reshape is a SparseTensor with " + inputSize + "\n  dense values, but the requested shape requires a multiple of " + outputSize + ". inputShape=" + inputShape + " outputShape= " + outputShape;
+	}
+	/**
+	 * Generates sparse reshape input output inequality error message.
+	 *
+	 * @param inputShape the input shape.
+	 * @param outputShape the requested output shape.
+	 */
+
+	function getSparseReshapeInputOutputMismatchErrorMessage(inputShape, outputShape) {
+	  var inputSize = sizeFromShape(inputShape);
+	  var outputSize = sizeFromShape(outputShape);
+	  return "Input to reshape is a tensor with " + inputSize + " dense values, but the requested shape has " + outputSize + ". inputShape=" + inputShape + " outputShape=" + outputShape;
+	}
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+
+	/**
+	 * Generates sparse segment reduction negative segment ids error message.
+	 *
+	 */
+	function getSparseSegmentReductionNegativeSegmentIdsErrorMessage() {
+	  return "segment ids must be >= 0";
+	}
+	/**
+	 * Generates sparse segment reduction non increasing segment ids error message.
+	 *
+	 */
+
+	function getSparseSegmentReductionNonIncreasingSegmentIdsErrorMessage() {
+	  return "segment ids are not increasing";
+	}
+	/**
+	 * Generates sparse segment reduction segment id out of range error message.
+	 *
+	 * @param segmentId The segment id index that is out of range.
+	 * @param outputRows Upper bound of valid segment id values.
+	 */
+
+	function getSparseSegmentReductionSegmentIdOutOfRangeErrorMessage(segmentId, outputRows) {
+	  return "Segment id " + segmentId + " out of range [0, " + outputRows + "), possibly because segmentIds input is not sorted.";
+	}
+	/**
+	 * Generates sparse segment reduction input indice out of range error message.
+	 *
+	 * @param index The index that holds the out of range value.
+	 * @param indexValue The value that is out of range.
+	 * @param inputRows Upper bound of valid index values.
+	 */
+
+	function getSparseSegmentReductionIndicesOutOfRangeErrorMessage(index, indexValue, inputRows) {
+	  return "Bad: indices[" + index + "] == " + indexValue + " out of range [0, " + inputRows + ")";
+	}
+
+	/**
+	 * @license
 	 * Copyright 2018 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -46628,6 +47161,7 @@
 		tupleValuesAreOne: tupleValuesAreOne,
 		eitherStridesOrDilationsAreOne: eitherStridesOrDilationsAreOne,
 		convertConv2DDataFormat: convertConv2DDataFormat,
+		checkPadOnDimRoundingMode: checkPadOnDimRoundingMode,
 		getFusedDyActivation: getFusedDyActivation,
 		getFusedBiasGradient: getFusedBiasGradient,
 		applyActivation: applyActivation,
@@ -46667,7 +47201,19 @@
 		checkEinsumDimSizes: checkEinsumDimSizes,
 		getEinsumComputePath: getEinsumComputePath,
 		isIdentityPermutation: isIdentityPermutation,
-		prepareSplitSize: prepareSplitSize
+		prepareSplitSize: prepareSplitSize,
+		getSparseFillEmptyRowsIndicesDenseShapeMismatch: getSparseFillEmptyRowsIndicesDenseShapeMismatch,
+		getSparseFillEmptyRowsNegativeIndexErrorMessage: getSparseFillEmptyRowsNegativeIndexErrorMessage,
+		getSparseFillEmptyRowsOutOfRangeIndexErrorMessage: getSparseFillEmptyRowsOutOfRangeIndexErrorMessage,
+		getSparseReshapeMultipleNegativeOneOutputDimErrorMessage: getSparseReshapeMultipleNegativeOneOutputDimErrorMessage,
+		getSparseReshapeNegativeOutputDimErrorMessage: getSparseReshapeNegativeOutputDimErrorMessage,
+		getSparseReshapeEmptyTensorZeroOutputDimErrorMessage: getSparseReshapeEmptyTensorZeroOutputDimErrorMessage,
+		getSparseReshapeInputOutputMultipleErrorMessage: getSparseReshapeInputOutputMultipleErrorMessage,
+		getSparseReshapeInputOutputMismatchErrorMessage: getSparseReshapeInputOutputMismatchErrorMessage,
+		getSparseSegmentReductionNegativeSegmentIdsErrorMessage: getSparseSegmentReductionNegativeSegmentIdsErrorMessage,
+		getSparseSegmentReductionNonIncreasingSegmentIdsErrorMessage: getSparseSegmentReductionNonIncreasingSegmentIdsErrorMessage,
+		getSparseSegmentReductionSegmentIdOutOfRangeErrorMessage: getSparseSegmentReductionSegmentIdOutOfRangeErrorMessage,
+		getSparseSegmentReductionIndicesOutOfRangeErrorMessage: getSparseSegmentReductionIndicesOutOfRangeErrorMessage
 	};
 
 	/**
@@ -47188,13 +47734,7 @@
 	  assert(input5D.rank === 5, function () {
 	    return "Error in avgPool3dGrad: input must be rank 5 but got rank " + (input5D.rank + ".");
 	  });
-
-	  if (dimRoundingMode != null) {
-	    assert(isInt(pad), function () {
-	      return "Error in avgPool3dGrad: pad must be an integer when " + ("using, dimRoundingMode " + dimRoundingMode + " but got pad " + pad + ".");
-	    });
-	  }
-
+	  checkPadOnDimRoundingMode('avgPool3dGrad', pad, dimRoundingMode);
 	  var inputs = {
 	    dy: dy5D,
 	    input: input5D
@@ -47988,13 +48528,7 @@
 	    assert(eitherStridesOrDilationsAreOne(strides, $dilations), function () {
 	      return 'Error in gradient of depthwiseConv2d: Either strides or ' + ("dilations must be  1. Got strides " + strides + " and dilations ") + ("'" + $dilations + "'.");
 	    });
-
-	    if (dimRoundingMode != null) {
-	      assert(isInt(pad), function () {
-	        return "Error in depthwiseConv2d: pad must be an integer when using, " + ("dimRoundingMode " + dimRoundingMode + " but got pad " + pad + ".");
-	      });
-	    }
-
+	    checkPadOnDimRoundingMode('depthwiseConv2d', pad, dimRoundingMode);
 	    return {
 	      x: function x() {
 	        return depthwiseConv2dNativeBackpropInput(_x.shape, dy, _filter, strides, pad, $dilations, dimRoundingMode);
@@ -48989,13 +49523,7 @@
 	  assert(output5D.rank === 5, function () {
 	    return "Error in maxPool3dGrad: output must be rank 5 but got rank " + (output5D.rank + ".");
 	  });
-
-	  if (dimRoundingMode != null) {
-	    assert(isInt(pad), function () {
-	      return "Error in maxPool3dGrad: pad must be an integer when " + ("using, dimRoundingMode " + dimRoundingMode + " but got pad " + pad + ".");
-	    });
-	  }
-
+	  checkPadOnDimRoundingMode('maxPool3dGrad', pad, dimRoundingMode);
 	  var inputs = {
 	    dy: dy5D,
 	    input: input5D,
@@ -49107,13 +49635,7 @@
 	  assert($input.rank === 4, function () {
 	    return "Error in maxPoolGrad: input must be rank 4 but got rank " + ($input.rank + ".");
 	  });
-
-	  if (dimRoundingMode != null) {
-	    assert(isInt(pad), function () {
-	      return "Error in maxPoolGrad: pad must be an integer when using, " + ("dimRoundingMode " + dimRoundingMode + " but got pad " + pad + ".");
-	    });
-	  }
-
+	  checkPadOnDimRoundingMode('maxPoolGrad', pad, dimRoundingMode);
 	  var inputs = {
 	    dy: $dy,
 	    input: $input,
@@ -51628,6 +52150,28 @@
 
 	/**
 	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the 'License');
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an 'AS IS' BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+
+	getGlobalTensorClass().prototype.cumprod = function (axis, exclusive, reverse) {
+	  this.throwIfDisposed();
+	  return cumprod(this, axis, exclusive, reverse);
+	};
+
+	/**
+	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -52809,9 +53353,9 @@
 	  return pad(this, paddings, constantValue);
 	};
 
-	getGlobalTensorClass().prototype.pool = function (windowShape, poolingType, padding, dilationRate, strides) {
+	getGlobalTensorClass().prototype.pool = function (windowShape, poolingType, padding, dilationRate, strides, dimRoundingMode) {
 	  this.throwIfDisposed();
-	  return pool(this, windowShape, poolingType, padding, dilationRate, strides);
+	  return pool(this, windowShape, poolingType, padding, dilationRate, strides, dimRoundingMode);
 	};
 
 	/**
@@ -54576,12 +55120,12 @@
 	 * @param waitMs The time between two consecutive calls to `f` in ms.
 	 */
 
-	function debounce(f, waitMs) {
-	  var lastTime = now();
+	function debounce(f, waitMs, nowFunc) {
+	  var lastTime = nowFunc != null ? nowFunc() : now();
 	  var lastResult;
 
 	  var f2 = function f2() {
-	    var now$1 = now();
+	    var now$1 = nowFunc != null ? nowFunc() : now();
 
 	    if (now$1 - lastTime < waitMs) {
 	      return lastResult;
@@ -58288,7 +58832,7 @@
 	   */
 	  ;
 
-	  _proto2.addWeight = function addWeight(name, shape, dtype, initializer, regularizer, trainable, constraint) {
+	  _proto2.addWeight = function addWeight(name, shape, dtype, initializer, regularizer, trainable, constraint, getInitializerFunc) {
 	    // Reject duplicate weight names.
 	    if (this._addedWeightNames.indexOf(name) !== -1) {
 	      throw new ValueError("Duplicate weight name " + name + " for layer " + this.name);
@@ -58301,7 +58845,7 @@
 	    }
 
 	    if (this.fastWeightInitDuringBuild) {
-	      initializer = getInitializer('zeros');
+	      initializer = getInitializerFunc != null ? getInitializerFunc() : getInitializer('zeros');
 	    }
 
 	    var initValue = initializer.apply(shape, dtype);
@@ -59897,6 +60441,8 @@
 
 	    _this3 = _BaseCallback3.call(this) || this;
 	    _this3.currentEpoch = 0;
+	    _this3.nowFunc = args.nowFunc;
+	    _this3.nextFrameFunc = args.nextFrameFunc || nextFrame;
 	    _this3.yieldEvery = yieldEvery || 'auto';
 
 	    if (_this3.yieldEvery === 'auto') {
@@ -59910,7 +60456,7 @@
 	    if (isNumber(_this3.yieldEvery)) {
 	      // Decorate `maybeWait` so it will be called at most once every
 	      // `yieldEvery` ms.
-	      _this3.maybeWait = debounce(_this3.maybeWait.bind(_assertThisInitialized(_this3)), _this3.yieldEvery);
+	      _this3.maybeWait = debounce(_this3.maybeWait.bind(_assertThisInitialized(_this3)), _this3.yieldEvery, _this3.nowFunc);
 	    }
 
 	    _this3.trainBegin = args.onTrainBegin;
@@ -59946,7 +60492,7 @@
 	              ps.push(this.yield(epoch, batch, logs));
 
 	            case 5:
-	              ps.push(nextFrame());
+	              ps.push(this.nextFrameFunc());
 	              _context19.next = 8;
 	              return Promise.all(ps);
 
@@ -60022,7 +60568,7 @@
 
 	            case 5:
 	              if (this.yieldEvery === 'epoch') {
-	                ps.push(nextFrame());
+	                ps.push(this.nextFrameFunc());
 	              }
 
 	              _context21.next = 8;
@@ -60098,7 +60644,7 @@
 
 	            case 5:
 	              if (this.yieldEvery === 'batch') {
-	                ps.push(nextFrame());
+	                ps.push(this.nextFrameFunc());
 	              } else if (isNumber(this.yieldEvery)) {
 	                ps.push(this.maybeWait(this.currentEpoch, batch, logs));
 	              }
@@ -60953,14 +61499,14 @@
 
 	  var sequentialLike = isModelSequentialLike(model); // Header names for different log elements.
 
-	  var toDisplay = ['Layer (type)', 'Output shape', 'Param #'];
+	  var toDisplay = ['Layer (type)', 'Input Shape', 'Output shape', 'Param #'];
 
 	  if (sequentialLike) {
-	    lineLength = lineLength || 65;
-	    positions = positions || [0.45, 0.85, 1];
+	    lineLength = lineLength || 90;
+	    positions = positions || [0.32, 0.61, 0.89, 1];
 	  } else {
-	    lineLength = lineLength || 98;
-	    positions = positions || [0.33, 0.55, 0.67, 1]; // Header names for different log elements.
+	    lineLength = lineLength || 115;
+	    positions = positions || [0.24, 0.48, 0.70, 0.80, 1]; // Header names for different log elements.
 	  }
 
 	  if (positions[positions.length - 1] <= 1) {
@@ -61099,6 +61645,15 @@
 	function printLayerSummary(layer, positions, // tslint:disable-next-line:no-any
 	printFn) {
 	  var outputShape;
+	  var inputShape;
+
+	  try {
+	    inputShape = layer.inboundNodes.map(function (x) {
+	      return JSON.stringify(x.inputShapes);
+	    }).join(',');
+	  } catch (err) {
+	    inputShape = 'multiple';
+	  }
 
 	  try {
 	    outputShape = JSON.stringify(layer.outputShape);
@@ -61108,7 +61663,7 @@
 
 	  var name = layer.name;
 	  var className = layer.getClassName();
-	  var fields = [name + " (" + className + ")", outputShape, layer.countParams().toString()];
+	  var fields = [name + " (" + className + ")", inputShape, outputShape, layer.countParams().toString()];
 	  printRow(fields, positions, printFn);
 	}
 	/**
@@ -61119,6 +61674,15 @@
 	function printLayerSummaryWithConnections(layer, positions, relevantNodes, // tslint:disable-next-line:no-any
 	printFn) {
 	  var outputShape;
+	  var inputShape;
+
+	  try {
+	    inputShape = layer.inboundNodes.map(function (x) {
+	      return JSON.stringify(x.inputShapes);
+	    }).join(',');
+	  } catch (err) {
+	    inputShape = 'multiple';
+	  }
 
 	  try {
 	    outputShape = JSON.stringify(layer.outputShape);
@@ -61146,11 +61710,11 @@
 	  var name = layer.name;
 	  var className = layer.getClassName();
 	  var firstConnection = connections.length === 0 ? '' : connections[0];
-	  var fields = [name + " (" + className + ")", outputShape, layer.countParams().toString(), firstConnection];
+	  var fields = [name + " (" + className + ")", inputShape, outputShape, layer.countParams().toString(), firstConnection];
 	  printRow(fields, positions, printFn);
 
 	  for (var i = 1; i < connections.length; ++i) {
-	    printRow(['', '', '', connections[i]], positions, printFn);
+	    printRow(['', '', '', '', connections[i]], positions, printFn);
 	  }
 	}
 
@@ -61281,7 +61845,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$2 = '3.9.0';
+	var version$2 = '3.15.0';
 
 	/**
 	 * Helper function to check the dtype and shape compatibility of a feed value.
@@ -64419,7 +64983,7 @@
 	  _fitTensors = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee3( // Type `model` as `any` here to avoid circular dependency w/ training.ts.
 	  // tslint:disable-next-line:no-any
 	  model, x, y, args) {
-	    var inputs, targets, inputValX, inputValY, valX, valY, sampleWeights, batchSize, checkBatchAxis, standardizedOuts, doValidation, valIns, _checkBatchAxis, valStandardized, splitAt, originalBatchSize, ins, trainFunction, outLabels, valFunction, callbackMetrics, callbacks, out;
+	    var inputs, targets, originalInputs, originalTargets, inputValX, inputValY, valX, valY, sampleWeights, batchSize, checkBatchAxis, standardizedOuts, doValidation, valIns, _checkBatchAxis, valStandardized, splitAt, originalBatchSize, ins, trainFunction, outLabels, valFunction, callbackMetrics, callbacks, out;
 
 	    return regeneratorRuntime.wrap(function _callee3$(_context5) {
 	      while (1) {
@@ -64509,8 +65073,10 @@
 	              splitAt = Math.floor(inputs[0].shape[0] * (1 - args.validationSplit));
 	              originalBatchSize = inputs[0].shape[0];
 	              valX = sliceArrays(inputs, splitAt, originalBatchSize);
+	              originalInputs = inputs;
 	              inputs = sliceArrays(inputs, 0, splitAt);
 	              valY = sliceArrays(targets, splitAt, originalBatchSize);
+	              originalTargets = targets;
 	              targets = sliceArrays(targets, 0, splitAt); // TODO(cais): Once sampleWeights becomes available, slice it to get
 	              //   valSampleWeights.
 
@@ -64562,6 +65128,8 @@
 
 	            disposeNewTensors(inputs, x);
 	            disposeNewTensors(targets, y);
+	            disposeNewTensors(originalInputs, x);
+	            disposeNewTensors(originalTargets, y);
 	            disposeNewTensors(valX, inputValX);
 	            disposeNewTensors(valY, inputValY);
 
@@ -64571,12 +65139,12 @@
 
 	            return _context5.finish(47);
 
-	          case 55:
+	          case 57:
 	          case "end":
 	            return _context5.stop();
 	        }
 	      }
-	    }, _callee3, null, [[4,, 47, 55]]);
+	    }, _callee3, null, [[4,, 47, 57]]);
 	  }));
 	  return _fitTensors.apply(this, arguments);
 	}
@@ -66271,9 +66839,11 @@
 
 	            case 17:
 	              dispose(losses);
+	              disposeNewTensors(standardizeOut[0], x);
+	              disposeNewTensors(standardizeOut[1], y);
 	              return _context5.abrupt("return", singletonOrArray(lossValues));
 
-	            case 19:
+	            case 21:
 	            case "end":
 	              return _context5.stop();
 	          }
@@ -71372,6 +71942,7 @@
 	    _this6.biasConstraint = getConstraint(args.biasConstraint);
 	    _this6.dropout = min$a([1, max$6([0, args.dropout == null ? 0 : args.dropout])]);
 	    _this6.recurrentDropout = min$a([1, max$6([0, args.recurrentDropout == null ? 0 : args.recurrentDropout])]);
+	    _this6.dropoutFunc = args.dropoutFunc;
 	    _this6.stateSize = _this6.units;
 	    _this6.dropoutMask = null;
 	    _this6.recurrentDropoutMask = null;
@@ -71421,7 +71992,8 @@
 	            return onesLike(inputs);
 	          },
 	          rate: _this7.dropout,
-	          training: training
+	          training: training,
+	          dropoutFunc: _this7.dropoutFunc
 	        });
 	      }
 
@@ -71431,7 +72003,8 @@
 	            return onesLike(prevOutput);
 	          },
 	          rate: _this7.recurrentDropout,
-	          training: training
+	          training: training,
+	          dropoutFunc: _this7.dropoutFunc
 	        });
 	      }
 
@@ -71573,6 +72146,7 @@
 	    _this9.biasConstraint = getConstraint(args.biasConstraint);
 	    _this9.dropout = min$a([1, max$6([0, args.dropout == null ? 0 : args.dropout])]);
 	    _this9.recurrentDropout = min$a([1, max$6([0, args.recurrentDropout == null ? 0 : args.recurrentDropout])]);
+	    _this9.dropoutFunc = args.dropoutFunc;
 	    _this9.implementation = args.implementation;
 	    _this9.stateSize = _this9.units;
 	    _this9.dropoutMask = null;
@@ -71623,7 +72197,8 @@
 	          },
 	          rate: _this10.dropout,
 	          training: training,
-	          count: 3
+	          count: 3,
+	          dropoutFunc: _this10.dropoutFunc
 	        });
 	      }
 
@@ -71634,7 +72209,8 @@
 	          },
 	          rate: _this10.recurrentDropout,
 	          training: training,
-	          count: 3
+	          count: 3,
+	          dropoutFunc: _this10.dropoutFunc
 	        });
 	      }
 
@@ -71801,6 +72377,7 @@
 	    _this12.biasConstraint = getConstraint(args.biasConstraint);
 	    _this12.dropout = min$a([1, max$6([0, args.dropout == null ? 0 : args.dropout])]);
 	    _this12.recurrentDropout = min$a([1, max$6([0, args.recurrentDropout == null ? 0 : args.recurrentDropout])]);
+	    _this12.dropoutFunc = args.dropoutFunc;
 	    _this12.implementation = args.implementation;
 	    _this12.stateSize = [_this12.units, _this12.units];
 	    _this12.dropoutMask = null;
@@ -71882,7 +72459,8 @@
 	          },
 	          rate: _this13.dropout,
 	          training: training,
-	          count: 4
+	          count: 4,
+	          dropoutFunc: _this13.dropoutFunc
 	        });
 	      }
 
@@ -71893,7 +72471,8 @@
 	          },
 	          rate: _this13.recurrentDropout,
 	          training: training,
-	          count: 4
+	          count: 4,
+	          dropoutFunc: _this13.dropoutFunc
 	        });
 	      }
 
@@ -72267,10 +72846,11 @@
 	      _args$training = args.training,
 	      training = _args$training === void 0 ? false : _args$training,
 	      _args$count = args.count,
-	      count = _args$count === void 0 ? 1 : _args$count;
+	      count = _args$count === void 0 ? 1 : _args$count,
+	      dropoutFunc = args.dropoutFunc;
 
 	  var droppedInputs = function droppedInputs() {
-	    return dropout$1(ones(), rate);
+	    return dropoutFunc != null ? dropoutFunc(ones(), rate) : dropout$1(ones(), rate);
 	  };
 
 	  var createMask = function createMask() {
@@ -72639,7 +73219,8 @@
 	          },
 	          rate: _this6.dropout,
 	          training: training,
-	          count: numOfKernels
+	          count: numOfKernels,
+	          dropoutFunc: _this6.dropoutFunc
 	        });
 	      }
 
@@ -72665,7 +73246,8 @@
 	          },
 	          rate: _this6.recurrentDropout,
 	          training: training,
-	          count: numOfKernels
+	          count: numOfKernels,
+	          dropoutFunc: _this6.dropoutFunc
 	        });
 	      }
 
@@ -75332,7 +75914,7 @@
 	      }
 
 	      var broadcast = function broadcast(v) {
-	        if (v != null && v.shape.length !== nDims && _this4.axis !== [nDims - 1]) {
+	        if (v != null && v.shape.length !== nDims) {
 	          return reshape(v, broadcastShape);
 	        } else {
 	          return v;
@@ -79264,6 +79846,33 @@
 
 	/**
 	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	var ENV$1 = env();
+	/** Whether to keep intermediate tensors. */
+
+	ENV$1.registerFlag('KEEP_INTERMEDIATE_TENSORS', function () {
+	  return false;
+	}, function (debugValue) {
+	  if (debugValue) {
+	    console.warn('Keep intermediate tensors is ON. This will print the values of all ' + 'intermediate tensors during model inference. Not all models ' + 'support this mode. For details, check e2e/benchmarks/ ' + 'model_config.js. This significantly impacts performance.');
+	  }
+	});
+
+	/**
+	 * @license
 	 * Copyright 2019 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -79284,7 +79893,11 @@
 	var DataType;
 
 	(function (DataType) {
-	  DataType[DataType["DT_INVALID"] = 0] = "DT_INVALID";
+	  // Not a legal value for DataType.  Used to indicate a DataType field
+	  // has not been set.
+	  DataType[DataType["DT_INVALID"] = 0] = "DT_INVALID"; // Data types that all computation devices are expected to be
+	  // capable to support.
+
 	  DataType[DataType["DT_FLOAT"] = 1] = "DT_FLOAT";
 	  DataType[DataType["DT_DOUBLE"] = 2] = "DT_DOUBLE";
 	  DataType[DataType["DT_INT32"] = 3] = "DT_INT32";
@@ -79299,6 +79912,17 @@
 	  DataType[DataType["DT_QUINT8"] = 12] = "DT_QUINT8";
 	  DataType[DataType["DT_QINT32"] = 13] = "DT_QINT32";
 	  DataType[DataType["DT_BFLOAT16"] = 14] = "DT_BFLOAT16";
+	  DataType[DataType["DT_QINT16"] = 15] = "DT_QINT16";
+	  DataType[DataType["DT_QUINT16"] = 16] = "DT_QUINT16";
+	  DataType[DataType["DT_UINT16"] = 17] = "DT_UINT16";
+	  DataType[DataType["DT_COMPLEX128"] = 18] = "DT_COMPLEX128";
+	  DataType[DataType["DT_HALF"] = 19] = "DT_HALF";
+	  DataType[DataType["DT_RESOURCE"] = 20] = "DT_RESOURCE";
+	  DataType[DataType["DT_VARIANT"] = 21] = "DT_VARIANT";
+	  DataType[DataType["DT_UINT32"] = 22] = "DT_UINT32";
+	  DataType[DataType["DT_UINT64"] = 23] = "DT_UINT64"; // Do not use!  These are only for parameters.  Every enum above
+	  // should have a corresponding value below (verified by types_test).
+
 	  DataType[DataType["DT_FLOAT_REF"] = 101] = "DT_FLOAT_REF";
 	  DataType[DataType["DT_DOUBLE_REF"] = 102] = "DT_DOUBLE_REF";
 	  DataType[DataType["DT_INT32_REF"] = 103] = "DT_INT32_REF";
@@ -79313,6 +79937,15 @@
 	  DataType[DataType["DT_QUINT8_REF"] = 112] = "DT_QUINT8_REF";
 	  DataType[DataType["DT_QINT32_REF"] = 113] = "DT_QINT32_REF";
 	  DataType[DataType["DT_BFLOAT16_REF"] = 114] = "DT_BFLOAT16_REF";
+	  DataType[DataType["DT_QINT16_REF"] = 115] = "DT_QINT16_REF";
+	  DataType[DataType["DT_QUINT16_REF"] = 116] = "DT_QUINT16_REF";
+	  DataType[DataType["DT_UINT16_REF"] = 117] = "DT_UINT16_REF";
+	  DataType[DataType["DT_COMPLEX128_REF"] = 118] = "DT_COMPLEX128_REF";
+	  DataType[DataType["DT_HALF_REF"] = 119] = "DT_HALF_REF";
+	  DataType[DataType["DT_RESOURCE_REF"] = 120] = "DT_RESOURCE_REF";
+	  DataType[DataType["DT_VARIANT_REF"] = 121] = "DT_VARIANT_REF";
+	  DataType[DataType["DT_UINT32_REF"] = 122] = "DT_UINT32_REF";
+	  DataType[DataType["DT_UINT64_REF"] = 123] = "DT_UINT64_REF";
 	})(DataType || (DataType = {}));
 
 	var SaverDef;
@@ -79558,7 +80191,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -79865,7 +80498,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -80532,6 +81165,22 @@
 		json: json$1
 	};
 
+	/**
+	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
 	var json$2 = [{
 	  'tfOpName': 'EmptyTensorList',
 	  'category': 'control',
@@ -81151,7 +81800,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2020 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -81418,7 +82067,7 @@
 	    'type': 'tensor'
 	  }, {
 	    'start': 2,
-	    end: 0,
+	    'end': 0,
 	    'name': 'args',
 	    'type': 'tensors'
 	  }],
@@ -81597,7 +82246,7 @@
 	    'type': 'tensor'
 	  }, {
 	    'start': 2,
-	    end: 0,
+	    'end': 0,
 	    'name': 'args',
 	    'type': 'tensors'
 	  }],
@@ -81703,7 +82352,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -81888,12 +82537,12 @@
 	    'tfName': 'means',
 	    'name': 'mean',
 	    'type': 'number',
-	    'defaultValue': 0.0
+	    'defaultValue': 0
 	  }, {
 	    'tfName': 'stddev',
 	    'name': 'stdDev',
 	    'type': 'number',
-	    'defaultValue': 1.0
+	    'defaultValue': 1
 	  }, {
 	    'tfName': 'seed',
 	    'name': 'seed',
@@ -81978,7 +82627,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -82144,7 +82793,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -82204,7 +82853,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -82371,6 +83020,22 @@
 		json: json$7
 	};
 
+	/**
+	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
 	var json$8 = [{
 	  'tfOpName': 'HashTable',
 	  'category': 'hash_table',
@@ -82546,7 +83211,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -82641,6 +83306,35 @@
 	    'name': 'extrapolationValue',
 	    'type': 'number'
 	  }]
+	}, {
+	  'tfOpName': 'ImageProjectiveTransformV3',
+	  'category': 'image',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 'images',
+	    'type': 'tensor'
+	  }, {
+	    'start': 1,
+	    'name': 'transforms',
+	    'type': 'tensor'
+	  }, {
+	    'start': 2,
+	    'name': 'outputShape',
+	    'type': 'number[]'
+	  }, {
+	    'start': 3,
+	    'name': 'fillValue',
+	    'type': 'number'
+	  }],
+	  'attrs': [{
+	    'tfName': 'interpolation',
+	    'name': 'interpolation',
+	    'type': 'string'
+	  }, {
+	    'tfName': 'fill_mode',
+	    'name': 'fillMode',
+	    'type': 'string'
+	  }]
 	}];
 
 	var image$1 = {
@@ -82650,7 +83344,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -82875,7 +83569,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -82902,7 +83596,7 @@
 	    'type': 'tensor'
 	  }, {
 	    'start': 2,
-	    end: 0,
+	    'end': 0,
 	    'name': 'args',
 	    'type': 'tensors'
 	  }],
@@ -83070,7 +83764,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -83206,12 +83900,12 @@
 	    'tfName': 'bias',
 	    'name': 'bias',
 	    'type': 'number',
-	    'defaultValue': 1.0
+	    'defaultValue': 1
 	  }, {
 	    'tfName': 'alpha',
 	    'name': 'alpha',
 	    'type': 'number',
-	    'defaultValue': 1.0
+	    'defaultValue': 1
 	  }, {
 	    'tfName': 'beta',
 	    'name': 'beta',
@@ -83270,7 +83964,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -83465,6 +84159,27 @@
 	    'type': 'bool'
 	  }]
 	}, {
+	  'tfOpName': 'Cumprod',
+	  'category': 'reduction',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 'x',
+	    'type': 'tensor'
+	  }, {
+	    'start': 1,
+	    'name': 'axis',
+	    'type': 'number'
+	  }],
+	  'attrs': [{
+	    'tfName': 'exclusive',
+	    'name': 'exclusive',
+	    'type': 'bool'
+	  }, {
+	    'tfName': 'reverse',
+	    'name': 'reverse',
+	    'type': 'bool'
+	  }]
+	}, {
 	  'tfOpName': 'Cumsum',
 	  'category': 'reduction',
 	  'inputs': [{
@@ -83494,7 +84209,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -83820,7 +84535,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -83917,7 +84632,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -83982,7 +84697,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -84074,7 +84789,7 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -84767,6 +85482,7 @@
 
 	  switch (value) {
 	    case DataType.DT_FLOAT:
+	    case DataType.DT_HALF:
 	      return 'float32';
 
 	    case DataType.DT_INT32:
@@ -85062,6 +85778,7 @@
 		conv3dTranspose: conv3dTranspose,
 		cos: cos,
 		cosh: cosh,
+		cumprod: cumprod,
 		cumsum: cumsum,
 		denseBincount: denseBincount,
 		depthToSpace: depthToSpace,
@@ -87582,6 +88299,18 @@
 	        return [image.cropAndResize(image$1, boxes, boxInd, cropSize, method, extrapolationValue)];
 	      }
 
+	    case 'ImageProjectiveTransformV3':
+	      {
+	        var _images2 = getParamValue('images', node, tensorMap, context);
+
+	        var transforms = getParamValue('transforms', node, tensorMap, context);
+	        var outputShape = getParamValue('outputShape', node, tensorMap, context);
+	        var fillValue = getParamValue('fillValue', node, tensorMap, context);
+	        var interpolation = getParamValue('interpolation', node, tensorMap, context);
+	        var fillMode = getParamValue('fillMode', node, tensorMap, context);
+	        return [image.transform(_images2, transforms, interpolation.toLowerCase(), fillMode.toLowerCase(), fillValue, outputShape)];
+	      }
+
 	    default:
 	      throw TypeError("Node type " + node.op + " is not implemented");
 	  }
@@ -87881,13 +88610,24 @@
 	        return [prod(getParamValue('x', node, tensorMap, context), _axis8, _keepDims6)];
 	      }
 
-	    case 'Cumsum':
+	    case 'Cumprod':
 	      {
 	        var _axis9 = getParamValue('axis', node, tensorMap, context);
 
 	        var exclusive = getParamValue('exclusive', node, tensorMap, context);
 	        var reverse = getParamValue('reverse', node, tensorMap, context);
-	        return [cumsum(getParamValue('x', node, tensorMap, context), _axis9, exclusive, reverse)];
+	        return [cumprod(getParamValue('x', node, tensorMap, context), _axis9, exclusive, reverse)];
+	      }
+
+	    case 'Cumsum':
+	      {
+	        var _axis10 = getParamValue('axis', node, tensorMap, context);
+
+	        var _exclusive = getParamValue('exclusive', node, tensorMap, context);
+
+	        var _reverse = getParamValue('reverse', node, tensorMap, context);
+
+	        return [cumsum(getParamValue('x', node, tensorMap, context), _axis10, _exclusive, _reverse)];
 	      }
 
 	    case 'Bincount':
@@ -88853,6 +89593,8 @@
 	    this.SEPERATOR = ',';
 	    this._functions = {};
 	    this._functionExecutorMap = {};
+	    this.intermediateTensors = {};
+	    this.keepTensorForDebug = false;
 	    this._outputs = graph.outputs;
 	    this._inputs = graph.inputs;
 	    this._initNodes = graph.initNodes;
@@ -88931,7 +89673,8 @@
 	    });
 	    var outputNodes = outputNodeNames.map(function (name) {
 	      return _this2.graph.nodes[name];
-	    }); // If no outputs are specified, then use the default outputs of the model.
+	    });
+	    this.resetIntermediateTensors(); // If no outputs are specified, then use the default outputs of the model.
 
 	    if (outputNodes.length === 0) {
 	      outputNodes = this._outputs;
@@ -89004,6 +89747,8 @@
 	  };
 
 	  _proto.checkTensorForDisposal = function checkTensorForDisposal(nodeName, node, tensorMap, context, tensorsToKeep, outputNames, intermediateTensorConsumerCount) {
+	    var _this3 = this;
+
 	    // Skip output nodes and any control flow nodes, since its dependency is
 	    // tricky to track correctly.
 	    if (node.category === 'control' || outputNames.indexOf(nodeName) !== -1) {
@@ -89027,7 +89772,21 @@
 	              var count = intermediateTensorConsumerCount[tensor.id];
 
 	              if (count === 1) {
-	                tensor.dispose();
+	                if (!_this3.keepTensorForDebug) {
+	                  tensor.dispose();
+	                } else {
+	                  var _getNodeNameAndIndex = getNodeNameAndIndex(node.name, context),
+	                      _nodeName = _getNodeNameAndIndex[0],
+	                      index = _getNodeNameAndIndex[1];
+
+	                  if (_this3.intermediateTensors[_nodeName]) {
+	                    _this3.intermediateTensors[_nodeName][index] = tensor;
+	                  } else {
+	                    _this3.intermediateTensors[_nodeName] = [];
+	                    _this3.intermediateTensors[_nodeName][index] = tensor;
+	                  }
+	                }
+
 	                delete intermediateTensorConsumerCount[tensor.id];
 	              } else if (count != null) {
 	                // only intermediate nodes has count set, inputs and weights are
@@ -89074,7 +89833,52 @@
 	    }
 
 	    return executeAsync;
-	  }()
+	  }();
+
+	  _proto.disposeIntermediateTensors = function disposeIntermediateTensors() {
+	    var _this4 = this;
+
+	    if (!this.intermediateTensors) {
+	      return;
+	    }
+
+	    Object.keys(this.intermediateTensors).forEach(function (key) {
+	      return _this4.intermediateTensors[key].forEach(function (tensor) {
+	        return tensor.dispose();
+	      });
+	    });
+	    this.disposeTensorsMap();
+	  };
+
+	  _proto.disposeTensorsMap = function disposeTensorsMap() {
+	    var _this5 = this;
+
+	    if (!this.tensorsMap) {
+	      return;
+	    }
+
+	    Object.keys(this.tensorsMap).forEach(function (key) {
+	      var tensorArray = _this5.tensorsMap[key];
+	      tensorArray.forEach(function (tensor) {
+	        if (tensor && !tensor.kept && !tensor.isDisposed && !_this5.keepIds.has(tensor.id)) {
+	          tensor.dispose();
+	        }
+	      });
+	    });
+	  };
+
+	  _proto.getIntermediateTensors = function getIntermediateTensors() {
+	    return this.tensorsMap;
+	  };
+
+	  _proto.resetIntermediateTensors = function resetIntermediateTensors() {
+	    for (var key in this.intermediateTensors) {
+	      this.intermediateTensors[key].forEach(function (tensor) {
+	        return tensor.dispose();
+	      });
+	      delete this.intermediateTensors[key];
+	    }
+	  }
 	  /**
 	   * Executes the inference for given input tensors in Async fashion.
 	   * @param inputs Tensor map for the model inputs, keyed by the input node
@@ -89095,7 +89899,9 @@
 	  /*#__PURE__*/
 	  function () {
 	    var _executeAsync3 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2(inputs, outputs, isFunctionExecution, tensorArrayMap, tensorListMap) {
-	      var context, tensorMap, results, outputIds, inputIds, keepIds;
+	      var _this6 = this;
+
+	      var context, results, outputIds, inputIds;
 	      return regeneratorRuntime.wrap(function _callee2$(_context2) {
 	        while (1) {
 	          switch (_context2.prev = _context2.next) {
@@ -89118,19 +89924,27 @@
 	                this.checkInputShapeAndType(inputs);
 	                outputs = this.mapOutputs(outputs);
 	                this.checkOutputs(outputs);
+	              } // For model debug.
+
+
+	              try {
+	                this.keepTensorForDebug = env().getBool('KEEP_INTERMEDIATE_TENSORS');
+	              } catch (e) {
+	                console.warn(e.message);
 	              }
 
+	              this.resetIntermediateTensors();
 	              context = new ExecutionContext(this.weightMap, tensorArrayMap, tensorListMap, this.functionExecutorMap); // Graph with control flow op requires runtime evaluation of the execution
 	              // order, while without control flow the execution order is pre-determined
 	              // in the compile method.
 
-	              _context2.next = 7;
+	              _context2.next = 9;
 	              return this.executeWithControlFlow(inputs, context, outputs, isFunctionExecution);
 
-	            case 7:
-	              tensorMap = _context2.sent;
+	            case 9:
+	              this.tensorsMap = _context2.sent;
 	              results = outputs.map(function (name) {
-	                return getTensor(name, tensorMap, context);
+	                return getTensor(name, _this6.tensorsMap, context);
 	              }); // dispose all the intermediate tensors
 
 	              outputIds = results.map(function (t) {
@@ -89139,23 +89953,20 @@
 	              inputIds = Object.keys(inputs).map(function (name) {
 	                return inputs[name].id;
 	              });
-	              keepIds = new Set([].concat(outputIds, inputIds, this.weightIds));
-	              Object.keys(tensorMap).forEach(function (key) {
-	                var tensorArray = tensorMap[key];
-	                tensorArray.forEach(function (tensor) {
-	                  if (tensor && !tensor.kept && !tensor.isDisposed && !keepIds.has(tensor.id)) {
-	                    tensor.dispose();
-	                  }
-	                });
-	              }); // dispose the context for the root executor
+	              this.keepIds = new Set([].concat(outputIds, inputIds, this.weightIds));
+
+	              if (!this.keepTensorForDebug) {
+	                this.disposeTensorsMap();
+	              } // dispose the context for the root executor
+
 
 	              if (this.parent == null) {
-	                context.dispose(keepIds);
+	                context.dispose(this.keepIds);
 	              }
 
 	              return _context2.abrupt("return", results);
 
-	            case 15:
+	            case 17:
 	            case "end":
 	              return _context2.stop();
 	          }
@@ -89172,7 +89983,7 @@
 
 	  _proto.executeFunctionAsync = /*#__PURE__*/function () {
 	    var _executeFunctionAsync = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee3(inputs, tensorArrayMap, tensorListMap) {
-	      var _this3 = this;
+	      var _this7 = this;
 
 	      var mappedInputs;
 	      return regeneratorRuntime.wrap(function _callee3$(_context3) {
@@ -89180,7 +89991,7 @@
 	          switch (_context3.prev = _context3.next) {
 	            case 0:
 	              mappedInputs = inputs.reduce(function (map, tensor, index) {
-	                map[_this3.inputs[index].name] = tensor;
+	                map[_this7.inputs[index].name] = tensor;
 	                return map;
 	              }, {});
 	              return _context3.abrupt("return", this._executeAsync(mappedInputs, this.outputNodes, true, tensorArrayMap, tensorListMap));
@@ -89216,7 +90027,7 @@
 	  /*#__PURE__*/
 	  function () {
 	    var _executeWithControlFlow = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee4(inputs, context, outputNames, isFunctionExecution) {
-	      var _this4 = this;
+	      var _this8 = this;
 
 	      var names, inputNodes, outputNodeNames, outputNodes, _getExecutionSubgraph, usedNodes, missingInputs, dynamicNode, syncInputs, stack, tensorsMap, intermediateTensorConsumerCount, tensorsToKeep, added, promises, missingOutputs, alternativeMsg;
 
@@ -89226,13 +90037,13 @@
 	            case 0:
 	              names = Object.keys(inputs);
 	              inputNodes = names.map(function (name) {
-	                return _this4.graph.nodes[parseNodeName(name)[0]];
+	                return _this8.graph.nodes[parseNodeName(name)[0]];
 	              });
 	              outputNodeNames = outputNames.map(function (name) {
 	                return parseNodeName(name)[0];
 	              });
 	              outputNodes = outputNodeNames.map(function (name) {
-	                return _this4.graph.nodes[name];
+	                return _this8.graph.nodes[name];
 	              }); // If no outputs are specified, then use the default outputs of the model.
 
 	              if (outputNodes.length === 0) {
@@ -89318,7 +90129,7 @@
 	  }();
 
 	  _proto.processStack = function processStack(inputNodes, stack, context, tensorMap, added, tensorsToKeep, outputNames, intermediateTensorConsumerCount, usedNodes) {
-	    var _this5 = this;
+	    var _this9 = this;
 
 	    var promises = [];
 
@@ -89330,20 +90141,20 @@
 	      // whole loop.
 
 	      if (item.node.op === 'Enter' && getParamValue('isConstant', item.node, tensorMap, context)) {
-	        var _getNodeNameAndIndex = getNodeNameAndIndex(item.node.name, context);
+	        var _getNodeNameAndIndex2 = getNodeNameAndIndex(item.node.name, context);
 
-	        nodeName = _getNodeNameAndIndex[0];
+	        nodeName = _getNodeNameAndIndex2[0];
 	      } // only process nodes that are not in the tensorMap yet, this include
 	      // inputNodes and internal initNodes.
 
 
 	      if (tensorMap[item.node.name] == null) {
-	        var tensors = executeOp$j(item.node, tensorMap, context, _this5._resourceManager);
+	        var tensors = executeOp$j(item.node, tensorMap, context, _this9._resourceManager);
 
 	        if (!nodeName) {
-	          var _getNodeNameAndIndex2 = getNodeNameAndIndex(item.node.name, context);
+	          var _getNodeNameAndIndex3 = getNodeNameAndIndex(item.node.name, context);
 
-	          nodeName = _getNodeNameAndIndex2[0];
+	          nodeName = _getNodeNameAndIndex3[0];
 	        }
 
 	        var currentContext = context.currentContext;
@@ -89353,21 +90164,21 @@
 	            tensorMap[nodeName] = t;
 	            context.currentContext = currentContext;
 
-	            _this5.checkTensorForDisposal(nodeName, item.node, tensorMap, context, tensorsToKeep, outputNames, intermediateTensorConsumerCount);
+	            _this9.checkTensorForDisposal(nodeName, item.node, tensorMap, context, tensorsToKeep, outputNames, intermediateTensorConsumerCount);
 
-	            _this5.processChildNodes(item.node, stack, context, tensorMap, added, usedNodes);
+	            _this9.processChildNodes(item.node, stack, context, tensorMap, added, usedNodes);
 
 	            return t;
 	          }));
 	        } else {
 	          tensorMap[nodeName] = tensors;
 
-	          _this5.checkTensorForDisposal(nodeName, item.node, tensorMap, context, tensorsToKeep, outputNames, intermediateTensorConsumerCount);
+	          _this9.checkTensorForDisposal(nodeName, item.node, tensorMap, context, tensorsToKeep, outputNames, intermediateTensorConsumerCount);
 
-	          _this5.processChildNodes(item.node, stack, context, tensorMap, added, usedNodes);
+	          _this9.processChildNodes(item.node, stack, context, tensorMap, added, usedNodes);
 	        }
 	      } else {
-	        _this5.processChildNodes(item.node, stack, context, tensorMap, added, usedNodes);
+	        _this9.processChildNodes(item.node, stack, context, tensorMap, added, usedNodes);
 	      }
 	    };
 
@@ -89380,8 +90191,8 @@
 
 	  _proto.processChildNodes = function processChildNodes(node, stack, context, tensorMap, added, usedNodes) {
 	    node.children.forEach(function (childNode) {
-	      var _getNodeNameAndIndex3 = getNodeNameAndIndex(childNode.name, context),
-	          nodeName = _getNodeNameAndIndex3[0];
+	      var _getNodeNameAndIndex4 = getNodeNameAndIndex(childNode.name, context),
+	          nodeName = _getNodeNameAndIndex4[0];
 
 	      if (added[nodeName] || !usedNodes.has(childNode.name)) {
 	        return;
@@ -89416,17 +90227,17 @@
 	  ;
 
 	  _proto.dispose = function dispose() {
-	    var _this6 = this;
+	    var _this10 = this;
 
 	    Object.keys(this.weightMap).forEach(function (key) {
-	      return _this6.weightMap[key].forEach(function (tensor) {
+	      return _this10.weightMap[key].forEach(function (tensor) {
 	        return tensor.dispose();
 	      });
 	    });
 	  };
 
 	  _proto.checkInputShapeAndType = function checkInputShapeAndType(inputs) {
-	    var _this7 = this;
+	    var _this11 = this;
 
 	    Object.keys(inputs).forEach(function (name) {
 	      var input = inputs[name];
@@ -89434,7 +90245,7 @@
 	      var _parseNodeName3 = parseNodeName(name),
 	          nodeName = _parseNodeName3[0];
 
-	      var node = _this7.graph.nodes[nodeName];
+	      var node = _this11.graph.nodes[nodeName];
 
 	      if (node.attrParams['shape'] && node.attrParams['shape'].value) {
 	        var shape = node.attrParams['shape'].value;
@@ -89470,13 +90281,13 @@
 	  };
 
 	  _proto.checkInputs = function checkInputs(inputs) {
-	    var _this8 = this;
+	    var _this12 = this;
 
 	    var notInGraph = Object.keys(inputs).filter(function (name) {
 	      var _parseNodeName4 = parseNodeName(name),
 	          nodeName = _parseNodeName4[0];
 
-	      return _this8.graph.nodes[nodeName] == null;
+	      return _this12.graph.nodes[nodeName] == null;
 	    });
 
 	    if (notInGraph.length > 0) {
@@ -89485,11 +90296,11 @@
 	  };
 
 	  _proto.mapOutputs = function mapOutputs(outputs) {
-	    var _this9 = this;
+	    var _this13 = this;
 
 	    return outputs.map(function (name) {
-	      if (_this9._signature != null && _this9._signature.outputs != null && _this9._signature.outputs[name] != null) {
-	        var tensor = _this9._signature.outputs[name];
+	      if (_this13._signature != null && _this13._signature.outputs != null && _this13._signature.outputs[name] != null) {
+	        var tensor = _this13._signature.outputs[name];
 	        return tensor.name;
 	      }
 
@@ -89498,13 +90309,13 @@
 	  };
 
 	  _proto.checkOutputs = function checkOutputs(outputs) {
-	    var _this10 = this;
+	    var _this14 = this;
 
 	    outputs.forEach(function (name) {
 	      var _parseNodeName5 = parseNodeName(name),
 	          normalizedName = _parseNodeName5[0];
 
-	      if (!_this10.graph.nodes[normalizedName]) {
+	      if (!_this14.graph.nodes[normalizedName]) {
 	        throw new Error("The output '" + name + "' is not found in the graph");
 	      }
 	    });
@@ -89586,10 +90397,10 @@
 	  }, {
 	    key: "functions",
 	    get: function get() {
-	      var _this11 = this;
+	      var _this15 = this;
 
 	      return Object.keys(this._functions).reduce(function (map, key) {
-	        map[key] = _this11._functions[key].signature;
+	        map[key] = _this15._functions[key].signature;
 	        return map;
 	      }, {});
 	    }
@@ -90066,7 +90877,29 @@
 	    }
 
 	    return executeAsync;
-	  }();
+	  }()
+	  /**
+	   * Get intermediate tensors for model debugging mode (flag
+	   * KEEP_INTERMEDIATE_TENSORS is true).
+	   *
+	   * @doc {heading: 'Models', subheading: 'Classes'}
+	   */
+	  ;
+
+	  _proto.getIntermediateTensors = function getIntermediateTensors() {
+	    return this.executor.getIntermediateTensors();
+	  }
+	  /**
+	   * Dispose intermediate tensors for model debugging mode (flag
+	   * KEEP_INTERMEDIATE_TENSORS is true).
+	   *
+	   * @doc {heading: 'Models', subheading: 'Classes'}
+	   */
+	  ;
+
+	  _proto.disposeIntermediateTensors = function disposeIntermediateTensors() {
+	    this.executor.disposeIntermediateTensors();
+	  };
 
 	  _proto.convertTensorMapToTensorsMap = function convertTensorMapToTensorsMap(map) {
 	    return Object.keys(map).reduce(function (newMap, key) {
@@ -90222,7 +91055,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$3 = '3.9.0';
+	var version$3 = '3.15.0';
 
 	/**
 	 * @license
@@ -90282,6 +91115,10 @@
 	    return null;
 	  }
 
+	  if (typeof Blob === 'function' && input instanceof Blob) {
+	    return input.slice();
+	  }
+
 	  if (containedIn.has(input)) {
 	    throw new Error('Circular references are not supported.');
 	  }
@@ -90311,6 +91148,11 @@
 	    }
 
 	    containedIn.delete(input);
+
+	    if (input.__proto__) {
+	      mappedIterable.__proto__ = input.__proto__;
+	    }
+
 	    return mappedIterable;
 	  } else {
 	    throw new Error("Can't recurse into non-iterable type: " + input);
@@ -94803,7 +95645,7 @@
 	                microphoneConfig = {};
 	              }
 
-	              if (!env().get('IS_NODE')) {
+	              if (env().get('IS_BROWSER')) {
 	                _context.next = 3;
 	                break;
 	              }
@@ -95167,7 +96009,7 @@
 	                webcamConfig = {};
 	              }
 
-	              if (!env().get('IS_NODE')) {
+	              if (env().get('IS_BROWSER')) {
 	                _context.next = 3;
 	                break;
 	              }
@@ -95979,12 +96821,12 @@
 	 * yet reliably provide a reader stream for the response body.
 	 */
 
-	function urlChunkIterator(_x, _x2) {
+	function urlChunkIterator(_x, _x2, _x3) {
 	  return _urlChunkIterator.apply(this, arguments);
 	} // Generate RequestInit from Request to match tf.util.fetch signature.
 
 	function _urlChunkIterator() {
-	  _urlChunkIterator = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(url, options) {
+	  _urlChunkIterator = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(url, options, fetchFunc) {
 	    var urlString, requestInit, response, uint8Array;
 	    return regeneratorRuntime.wrap(function _callee$(_context) {
 	      while (1) {
@@ -96002,7 +96844,7 @@
 	            }
 
 	            _context.next = 4;
-	            return fetch$2(urlString, requestInit);
+	            return (fetchFunc || fetch$2)(urlString, requestInit);
 
 	          case 4:
 	            response = _context.sent;
@@ -96532,7 +97374,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$4 = '3.9.0';
+	var version$4 = '3.15.0';
 
 	/**
 	 * @license
@@ -96892,7 +97734,7 @@
 	  var resultValues = new Float32Array(sizeFromShape(x.shape));
 	  var values = cpuBackend.data.get(x.dataId).values;
 	  resultValues = simpleAbsImpl(values);
-	  return cpuBackend.makeOutput(resultValues, x.shape, 'float32');
+	  return cpuBackend.makeOutput(resultValues, x.shape, x.dtype);
 	};
 	var absConfig = {
 	  kernelName: Abs,
@@ -97758,7 +98600,7 @@
 	var expImpl = createSimpleUnaryImpl(function (xi) {
 	  return Math.exp(xi);
 	});
-	var exp$4 = unaryKernelFuncFromImpl(Exp, expImpl);
+	var exp$4 = unaryKernelFuncFromImpl(Exp, expImpl, 'float32');
 	var expConfig = {
 	  kernelName: Exp,
 	  backendName: 'cpu',
@@ -97885,7 +98727,11 @@
 	    var indicesIndex = indicesBuf.locToIndex([batchIdx, indicesIdx]);
 	    originalLoc[2] = indicesBuf.values[indicesIndex];
 	    var originalIndex = xBuf.locToIndex(originalLoc);
-	    outBuf.values[i] = xBuf.values[originalIndex];
+
+	    if (0 <= originalIndex && originalIndex < xBuf.values.length) {
+	      outBuf.values[i] = xBuf.values[originalIndex];
+	    } // Else, index is out of bounds, so leave the default zero val in outBuf.
+
 	  }
 
 	  return outBuf;
@@ -98620,7 +99466,7 @@
 
 	  if (denseRows === 0) {
 	    if (indicesCount !== 0) {
-	      throw new Error("Received SparseTensor with denseShape[0] = 0 but\n         indices.shape[0] = " + indicesCount);
+	      throw new Error(getSparseFillEmptyRowsIndicesDenseShapeMismatch(indicesCount));
 	    }
 
 	    var outputIndices = getArrayFromDType(indicesDType, 0);
@@ -98637,11 +99483,11 @@
 	    var row = indices[i * rank];
 
 	    if (row < 0) {
-	      throw new Error("indices(" + i + ", 0) is invalid: " + row + " < 0");
+	      throw new Error(getSparseFillEmptyRowsNegativeIndexErrorMessage(i, row));
 	    }
 
 	    if (row >= denseRows) {
-	      throw new Error("indices(" + i + ", 0) is invalid: " + row + " >= " + denseRows);
+	      throw new Error(getSparseFillEmptyRowsOutOfRangeIndexErrorMessage(i, row, denseRows));
 	    }
 
 	    ++csrOffset[row];
@@ -98759,14 +99605,14 @@
 
 	    if (size === -1) {
 	      if (unknownIndex !== -1) {
-	        throw new Error("only one output dimension may be -1, not both " + unknownIndex + " and " + d);
+	        throw new Error(getSparseReshapeMultipleNegativeOneOutputDimErrorMessage(unknownIndex, d));
 	      }
 
 	      unknownIndex = d;
 	      outputShape.push(1);
 	    } else {
 	      if (size < 0) {
-	        throw new Error("size " + d + " must be non-negative, not " + size);
+	        throw new Error(getSparseReshapeNegativeOutputDimErrorMessage(d, size));
 	      }
 
 	      product *= size;
@@ -98776,13 +99622,13 @@
 
 	  if (unknownIndex !== -1) {
 	    if (product <= 0) {
-	      throw new Error('reshape cannot infer the missing ' + 'input size for an empty tensor unless all ' + 'specified input sizes are non-zero');
+	      throw new Error(getSparseReshapeEmptyTensorZeroOutputDimErrorMessage());
 	    }
 
 	    var missing = Math.trunc(denseSize / product);
 
 	    if (product * missing !== denseSize) {
-	      throw new Error("Input to reshape is a SparseTensor with " + denseSize + "\n          dense values, but the requested shape requires a multiple of " + product + ". inputShape=" + inputShape + " outputShape= " + outputShape);
+	      throw new Error(getSparseReshapeInputOutputMultipleErrorMessage(inputShape, outputShape));
 	    }
 
 	    outputShape[unknownIndex] = missing;
@@ -98791,7 +99637,7 @@
 	  var outputSize = sizeFromShape(outputShape);
 
 	  if (outputSize !== denseSize) {
-	    throw new Error("Input to reshape is a tensor with " + denseSize + " dense values, but the requested shape has " + outputSize + ". inputShape=" + inputShape + " outputShape=" + outputShape);
+	    throw new Error(getSparseReshapeInputOutputMismatchErrorMessage(inputShape, outputShape));
 	  }
 
 	  var inputRank = inputShape.length;
@@ -98860,12 +99706,7 @@
 	    defaultValue = 0;
 	  }
 
-	  var numIndices = indices.length;
-
-	  if (numIndices !== segmentIds.length) {
-	    throw new Error("segmentIds and indices should have same size.");
-	  } // Flatten the array to two dimensions
-
+	  var numIndices = indices.length; // Flatten the array to two dimensions
 
 	  var inputFlat = [inputShape[0], input.length / inputShape[0]];
 	  var numCol = inputFlat[1]; // Note that the current implementation assumes that segmentIds values are
@@ -98875,7 +99716,7 @@
 	  var outputRows = lastSegmentIdPlusOne;
 
 	  if (outputRows < 0) {
-	    throw new Error("segment ids must be >= 0");
+	    throw new Error(getSparseSegmentReductionNegativeSegmentIdsErrorMessage());
 	  }
 
 	  var outputShape = inputShape.slice();
@@ -98896,7 +99737,7 @@
 	  }
 
 	  if (outputRows <= 0) {
-	    throw new Error("segment ids must be >= 0");
+	    throw new Error(getSparseSegmentReductionNegativeSegmentIdsErrorMessage());
 	  }
 
 	  var start = 0,
@@ -98919,12 +99760,12 @@
 
 
 	      if (outIndex >= nextIndex) {
-	        throw new Error("segment ids are not increasing");
+	        throw new Error(getSparseSegmentReductionNonIncreasingSegmentIdsErrorMessage());
 	      }
 	    }
 
 	    if (outIndex < 0 || outIndex >= outputRows) {
-	      throw new Error("Segment id " + outIndex + " out of range [0, " + outputRows + "), possibly because segmentIds input is not sorted.");
+	      throw new Error(getSparseSegmentReductionSegmentIdOutOfRangeErrorMessage(outIndex, outputRows));
 	    } // If there is a gap between two indices, we need to set that gap to the
 	    // default value.
 
@@ -98937,7 +99778,7 @@
 	      var index = indices[i];
 
 	      if (index < 0 || index >= inputFlat[0]) {
-	        throw new Error("Bad: indices[" + i + "] == " + indices[i] + " out of range [0, " + inputFlat[0] + ")");
+	        throw new Error(getSparseSegmentReductionIndicesOutOfRangeErrorMessage(i, indices[i], inputFlat[0]));
 	      }
 
 	      for (var j = 0; j < numCol; j++) {
@@ -99838,7 +100679,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$5 = '3.9.0';
+	var version$5 = '3.15.0';
 
 	/**
 	 * @license
@@ -99955,11 +100796,11 @@
 	  var aVals = backend.data.get(x.dataId).values;
 	  var bVals = backend.data.get(alpha.dataId).values;
 
-	  var _preluImpl = preluImpl(x.shape, alpha.shape, aVals, bVals, x.dtype),
+	  var _preluImpl = preluImpl(x.shape, alpha.shape, aVals, bVals, 'float32'),
 	      resultData = _preluImpl[0],
 	      resultShape = _preluImpl[1];
 
-	  return backend.makeTensorInfo(resultShape, x.dtype, resultData);
+	  return backend.makeTensorInfo(resultShape, 'float32', resultData);
 	}
 	var preluConfig = {
 	  kernelName: Prelu,
@@ -100177,11 +101018,7 @@
 	  var outerDimsB = b.shape.slice(0, -2);
 	  var batchDimA = sizeFromShape(outerDimsA);
 	  var batchDimB = sizeFromShape(outerDimsB);
-	  var batchDimsCompatible = batchDimA === batchDimB || batchDimA === 1 || batchDimB === 1;
-	  assert(aRank >= 2 && bRank >= 2 && batchDimsCompatible, function () {
-	    return "Error in matMul: the input batch dimensions must either be the " + "same or at least one input batch dimension must be 1. Got input " + ("batch dimensions of (" + outerDimsA + ") and (" + outerDimsB + ").");
-	  });
-	  var outShapeOuterDims = batchDimA > batchDimB ? a.shape.slice(0, -2) : b.shape.slice(0, -2);
+	  var outShapeOuterDims = assertAndGetBroadcastShape(a.shape.slice(0, -2), b.shape.slice(0, -2));
 	  var outShape = outShapeOuterDims.concat([outerShapeA, outerShapeB]);
 	  assert(innerShapeA === innerShapeB, function () {
 	    return "Error in matMul: inner shapes (" + innerShapeA + ") and (" + (innerShapeB + ") of Tensors with shapes " + a.shape + " and ") + (b.shape + " and transposeA=" + transposeA) + (" and transposeB=" + transposeB + " must match.");
@@ -101783,7 +102620,7 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var clip = unaryKernelFunc(ClipByValue, function (xi, attrs) {
+	var clipByValue$1 = unaryKernelFunc(ClipByValue, function (xi, attrs) {
 	  var clipAttrs = attrs;
 
 	  if (xi > clipAttrs.clipValueMax) {
@@ -101792,10 +102629,10 @@
 
 	  return xi < clipAttrs.clipValueMin ? clipAttrs.clipValueMin : xi;
 	});
-	var clipConfig = {
+	var clipByValueConfig = {
 	  kernelName: ClipByValue,
 	  backendName: 'cpu',
-	  kernelFunc: clip
+	  kernelFunc: clipByValue$1
 	};
 
 	/**
@@ -102881,6 +103718,101 @@
 
 	/**
 	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function cumprod$1(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend,
+	      attrs = args.attrs;
+	  var x = inputs.x;
+	  var axis = attrs.axis,
+	      exclusive = attrs.exclusive,
+	      reverse = attrs.reverse;
+	  assertNotComplex(x, 'cumprod');
+	  var permutation = getAxesPermutation([axis], x.shape.length);
+	  var $x = x;
+
+	  if (permutation != null) {
+	    $x = transpose$1({
+	      inputs: {
+	        x: x
+	      },
+	      backend: backend,
+	      attrs: {
+	        perm: permutation
+	      }
+	    });
+	  }
+
+	  var permutedAxis = getInnerMostAxes(1, x.shape.length)[0];
+
+	  if (permutedAxis !== $x.shape.length - 1) {
+	    throw new Error("backend.cumprod in CPU expects an inner-most " + ("axis=" + ($x.shape.length - 1) + " but got axis=" + permutedAxis));
+	  }
+
+	  var resultDtype = upcastType($x.dtype, 'int32');
+	  var vals = makeOnesTypedArray(sizeFromShape($x.shape), resultDtype);
+	  var aVals = backend.data.get($x.dataId).values;
+	  var finalDim = $x.shape[$x.shape.length - 1];
+	  var indexAdjuster = reverse ? function (i, j) {
+	    return i + finalDim - j - 1;
+	  } : function (i, j) {
+	    return i + j;
+	  };
+
+	  for (var i = 0; i < aVals.length; i += finalDim) {
+	    for (var j = 0; j < finalDim; j++) {
+	      var idx = indexAdjuster(i, j);
+
+	      if (j === 0) {
+	        vals[idx] = exclusive ? 1 : aVals[idx];
+	      } else {
+	        var prevIdx = indexAdjuster(i, j - 1);
+	        vals[idx] = exclusive ? aVals[prevIdx] * vals[prevIdx] : aVals[idx] * vals[prevIdx];
+	      }
+	    }
+	  }
+
+	  var result = backend.makeTensorInfo($x.shape, resultDtype, vals);
+
+	  if (permutation != null) {
+	    var reversePermutation = getUndoAxesPermutation(permutation);
+	    var reverseTransposedResult = transpose$1({
+	      inputs: {
+	        x: result
+	      },
+	      backend: backend,
+	      attrs: {
+	        perm: reversePermutation
+	      }
+	    });
+	    backend.disposeIntermediateTensorInfo(result);
+	    backend.disposeIntermediateTensorInfo($x);
+	    return reverseTransposedResult;
+	  }
+
+	  return result;
+	}
+	var cumprodConfig = {
+	  kernelName: Cumprod,
+	  backendName: 'cpu',
+	  kernelFunc: cumprod$1
+	};
+
+	/**
+	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -103044,9 +103976,6 @@
 	      dataFormat = attrs.dataFormat;
 	  assert(dataFormat === 'NHWC', function () {
 	    return "Only NHWC dataFormat supported on CPU for depthToSpace. Got " + dataFormat;
-	  });
-	  assert(blockSize > 1, function () {
-	    return "blockSize should be > 1 for depthToSpace, but was: " + blockSize;
 	  });
 	  var batchSize = x.shape[0];
 	  var inputHeight = x.shape[1];
@@ -103439,7 +104368,7 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var dilation2dConfig = {
+	var dilation2DConfig = {
 	  kernelName: Dilation2D,
 	  backendName: 'cpu',
 	  kernelFunc: function kernelFunc(_ref) {
@@ -103544,7 +104473,7 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var dilation2dBackpropFilterConfig = {
+	var dilation2DBackpropFilterConfig = {
 	  kernelName: Dilation2DBackpropFilter,
 	  backendName: 'cpu',
 	  kernelFunc: function kernelFunc(_ref) {
@@ -103654,7 +104583,7 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var dilation2dBackpropInputConfig = {
+	var dilation2DBackpropInputConfig = {
 	  kernelName: Dilation2DBackpropInput,
 	  backendName: 'cpu',
 	  kernelFunc: function kernelFunc(_ref) {
@@ -104891,7 +105820,23 @@
 	      indices = inputs.indices;
 	  var axis = attrs.axis,
 	      batchDims = attrs.batchDims;
-	  assertNotComplex([x, indices], 'gatherV2');
+	  assertNotComplex([x, indices], 'gatherV2'); // Throw error when any index is out of bound.
+
+	  var parsedAxis = parseAxisParam(axis, x.shape)[0];
+	  var indicesVals = backend.data.get(indices.dataId).values;
+	  var axisDim = x.shape[parsedAxis];
+
+	  var _loop = function _loop(i) {
+	    var index = indicesVals[i];
+	    assert(index <= axisDim - 1 && index >= 0, function () {
+	      return "GatherV2: the index value " + index + " is not in [0, " + (axisDim - 1) + "]";
+	    });
+	  };
+
+	  for (var i = 0; i < indicesVals.length; ++i) {
+	    _loop(i);
+	  }
+
 	  var $batchDims = batchDims;
 
 	  if (batchDims == null) {
@@ -104899,7 +105844,6 @@
 	  }
 
 	  var indicesSize = sizeFromShape(indices.shape);
-	  var parsedAxis = parseAxisParam(axis, x.shape)[0];
 	  var shapeInfo = collectGatherOpShapeInfo(x, indices, parsedAxis, $batchDims);
 	  var flattenX = reshape$2({
 	    inputs: {
@@ -105251,8 +106195,9 @@
 	  }
 
 	  return backend.makeTensorInfo(x.shape, x.dtype, result);
-	}
-	var lRNConfig = {
+	} // tslint:disable-next-line: variable-name
+
+	var LRNConfig = {
 	  kernelName: LRN,
 	  backendName: 'cpu',
 	  kernelFunc: lRN
@@ -105319,8 +106264,9 @@
 	  }
 
 	  return backend.makeTensorInfo(dy.shape, x.dtype, result);
-	}
-	var lRNGradConfig = {
+	} // tslint:disable-next-line: variable-name
+
+	var LRNGradConfig = {
 	  kernelName: LRNGrad,
 	  backendName: 'cpu',
 	  kernelFunc: lRNGrad
@@ -107920,6 +108866,10 @@
 	    throw new Error("Segment ids should be a vector but received shape\n          " + segmentIds.shape);
 	  }
 
+	  if (indices.shape[0] !== segmentIds.shape[0]) {
+	    throw new Error("segmentIds and indices should have same size.");
+	  }
+
 	  var $data = backend.data.get(data.dataId).values;
 	  var $indices = backend.data.get(indices.dataId).values;
 	  var $segmentIds = backend.data.get(segmentIds.dataId).values;
@@ -107969,6 +108919,10 @@
 
 	  if (segmentIds.shape.length !== 1) {
 	    throw new Error("Segment ids should be a vector but received shape\n         " + segmentIds.shape);
+	  }
+
+	  if (indices.shape[0] !== segmentIds.shape[0]) {
+	    throw new Error("segmentIds and indices should have same size.");
 	  }
 
 	  var $data = backend.data.get(data.dataId).values;
@@ -108187,28 +109141,39 @@
 	  assertNotComplex(x, 'stridedSlice');
 
 	  var _slice_util$sliceInfo = sliceInfo(x.shape, begin, end, strides, beginMask, endMask, ellipsisMask, newAxisMask, shrinkAxisMask),
-	      nonStrided = _slice_util$sliceInfo.nonStrided,
-	      $begin = _slice_util$sliceInfo.$begin,
-	      $strides = _slice_util$sliceInfo.$strides,
-	      size = _slice_util$sliceInfo.size,
-	      newShape = _slice_util$sliceInfo.newShape,
-	      outShape = _slice_util$sliceInfo.outShape;
+	      finalShapeSparse = _slice_util$sliceInfo.finalShapeSparse,
+	      finalShape = _slice_util$sliceInfo.finalShape,
+	      isIdentity = _slice_util$sliceInfo.isIdentity,
+	      sliceDim0 = _slice_util$sliceInfo.sliceDim0,
+	      isSimpleSlice = _slice_util$sliceInfo.isSimpleSlice,
+	      $begin = _slice_util$sliceInfo.begin,
+	      $end = _slice_util$sliceInfo.end,
+	      $strides = _slice_util$sliceInfo.strides;
 
-	  var $x = reshape$2({
-	    inputs: {
-	      x: x
-	    },
-	    backend: backend,
-	    attrs: {
-	      shape: newShape
-	    }
-	  });
-	  var result;
+	  var result; // ref:
+	  // https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/kernels/strided_slice_op.cc
 
-	  if (nonStrided) {
+	  if (isIdentity) {
+	    // Optimization #1, slice is a no-op plus reshape
+	    result = reshape$2({
+	      inputs: {
+	        x: x
+	      },
+	      backend: backend,
+	      attrs: {
+	        shape: finalShape
+	      }
+	    });
+	  } else if (sliceDim0 || isSimpleSlice) {
+	    // Optimization #2, slice is memory contiguous (only occurs in dim 0)
+	    assert(x.shape.length >= 1, function () {
+	      return "Input must have rank at least 1, got: " + x.shape.length;
+	    });
+	    var size = computeOutShape($begin, $end, $strides); // To tolerate begin[0] > end[0] (a 0-output slice), we min(begin, end).
+
 	    var sliced = slice$3({
 	      inputs: {
-	        x: $x
+	        x: x
 	      },
 	      backend: backend,
 	      attrs: {
@@ -108222,32 +109187,17 @@
 	      },
 	      backend: backend,
 	      attrs: {
-	        shape: outShape
+	        shape: finalShape
 	      }
 	    });
 	    backend.disposeIntermediateTensorInfo(sliced);
-	  } else if (outShape.some(function (axis) {
-	    return axis === 0;
-	  })) {
-	    result = backend.makeTensorInfo(outShape, x.dtype, []);
 	  } else {
-	    var xBuf = backend.bufferSync($x);
-	    var outBuf = stridedSliceImpl(outShape, xBuf, $strides, $begin);
-	    result = backend.makeTensorInfo(outBuf.shape, outBuf.dtype, outBuf.values);
+	    var xBuf = backend.bufferSync(x);
+	    var outBuf = stridedSliceImpl(finalShapeSparse, xBuf, $strides, $begin);
+	    result = backend.makeTensorInfo(finalShape, outBuf.dtype, outBuf.values);
 	  }
 
-	  var resultReshaped = reshape$2({
-	    inputs: {
-	      x: result
-	    },
-	    backend: backend,
-	    attrs: {
-	      shape: outShape
-	    }
-	  });
-	  backend.disposeIntermediateTensorInfo($x);
-	  backend.disposeIntermediateTensorInfo(result);
-	  return resultReshaped;
+	  return result;
 	}
 	var stridedSliceConfig = {
 	  kernelName: StridedSlice,
@@ -108971,7 +109921,7 @@
 	 * =============================================================================
 	 */
 
-	var kernelConfigs = [_fusedMatMulConfig, absConfig, acosConfig, acoshConfig, addConfig, addNConfig, allConfig, anyConfig, argMaxConfig, argMinConfig, asinConfig, asinhConfig, atanConfig, atan2Config, atanhConfig, avgPoolConfig, avgPool3DConfig, avgPool3DGradConfig$1, avgPoolGradConfig$1, batchMatMulConfig, batchNormConfig, batchToSpaceNDConfig, bincountConfig, broadcastArgsConfig, castConfig, ceilConfig, clipConfig, complexConfig, complexAbsConfig, concatConfig, conv2DBackpropFilterConfig, conv2DBackpropInputConfig, conv2DConfig, conv3DBackpropFilterV2Config, conv3DBackpropInputV2Config, conv3DConfig, cosConfig, coshConfig, cropAndResizeConfig, cumsumConfig, denseBincountConfig, depthToSpaceConfig, depthwiseConv2dNativeConfig, depthwiseConv2dNativeBackpropFilterConfig, depthwiseConv2dNativeBackpropInputConfig, diagConfig, dilation2dConfig, dilation2dBackpropInputConfig, dilation2dBackpropFilterConfig, realDivConfig, einsumConfig, eluConfig, eluGradConfig$1, equalConfig, erfConfig, expConfig, expandDimsConfig, expm1Config, fftConfig, fillConfig, flipLeftRightConfig, floorConfig, floorDivConfig, fusedConv2DConfig, fusedDepthwiseConv2DConfig, gatherNdConfig, gatherV2Config, greaterConfig, greaterEqualConfig, identityConfig, ifftConfig, imagConfig, isFiniteConfig, isInfConfig, isNaNConfig, leakyReluConfig, lessConfig, lessEqualConfig, linSpaceConfig, logConfig, log1pConfig, logicalAndConfig, logicalNotConfig, logicalOrConfig, lRNConfig, lRNGradConfig, maximumConfig, maxPoolConfig, maxPool3DConfig, maxPool3DGradConfig$1, maxPoolGradConfig$1, maxPoolWithArgmaxConfig, maxConfig, meanConfig, minConfig, minimumConfig, mirrorPadConfig, modConfig, multinomialConfig, multiplyConfig, negConfig, nonMaxSuppressionV3Config, nonMaxSuppressionV4Config, nonMaxSuppressionV5Config, notEqualConfig, oneHotConfig, onesLikeConfig, packConfig, padV2Config, powConfig, preluConfig, prodConfig, rangeConfig, realConfig, reciprocalConfig, reluConfig, relu6Config, reshapeConfig, resizeBilinearConfig, resizeBilinearGradConfig$1, resizeNearestNeighborConfig, resizeNearestNeighborGradConfig$1, reverseConfig, rotateWithOffsetConfig, roundConfig, rsqrtConfig, scatterNdConfig, selectConfig, seluConfig, sigmoidConfig, signConfig, sinConfig, sinhConfig, sliceConfig, softmaxConfig, softplusConfig, spaceToBatchNDConfig, sparseFillEmptyRowsConfig, sparseReshapeConfig, sparseSegmentMeanConfig, sparseSegmentSumConfig, sparseToDenseConfig, splitVConfig, sqrtConfig, squareConfig, squaredDifferenceConfig, stepConfig, stridedSliceConfig, stringNGramsConfig, stringSplitConfig, stringToHashBucketFastConfig, subConfig, sumConfig, tanConfig, tanhConfig, tileConfig, topKConfig, transposeConfig, transformConfig, uniqueConfig, unpackConfig, unsortedSegmentSumConfig, zerosLikeConfig];
+	var kernelConfigs = [_fusedMatMulConfig, absConfig, acosConfig, acoshConfig, addConfig, addNConfig, allConfig, anyConfig, argMaxConfig, argMinConfig, asinConfig, asinhConfig, atanConfig, atan2Config, atanhConfig, avgPoolConfig, avgPool3DConfig, avgPool3DGradConfig$1, avgPoolGradConfig$1, batchMatMulConfig, batchNormConfig, batchToSpaceNDConfig, bincountConfig, broadcastArgsConfig, castConfig, ceilConfig, clipByValueConfig, complexConfig, complexAbsConfig, concatConfig, conv2DConfig, conv2DBackpropFilterConfig, conv2DBackpropInputConfig, conv3DConfig, conv3DBackpropFilterV2Config, conv3DBackpropInputV2Config, cosConfig, coshConfig, cropAndResizeConfig, cumprodConfig, cumsumConfig, denseBincountConfig, depthToSpaceConfig, depthwiseConv2dNativeConfig, depthwiseConv2dNativeBackpropFilterConfig, depthwiseConv2dNativeBackpropInputConfig, diagConfig, dilation2DConfig, dilation2DBackpropFilterConfig, dilation2DBackpropInputConfig, einsumConfig, eluConfig, eluGradConfig$1, equalConfig, erfConfig, expConfig, expandDimsConfig, expm1Config, fftConfig, fillConfig, flipLeftRightConfig, floorConfig, floorDivConfig, fusedConv2DConfig, fusedDepthwiseConv2DConfig, gatherNdConfig, gatherV2Config, greaterConfig, greaterEqualConfig, identityConfig, ifftConfig, imagConfig, isFiniteConfig, isInfConfig, isNaNConfig, leakyReluConfig, lessConfig, lessEqualConfig, linSpaceConfig, logConfig, log1pConfig, logicalAndConfig, logicalNotConfig, logicalOrConfig, LRNConfig, LRNGradConfig, maxConfig, maximumConfig, maxPoolConfig, maxPool3DConfig, maxPool3DGradConfig$1, maxPoolGradConfig$1, maxPoolWithArgmaxConfig, meanConfig, minConfig, minimumConfig, mirrorPadConfig, modConfig, multinomialConfig, multiplyConfig, negConfig, nonMaxSuppressionV3Config, nonMaxSuppressionV4Config, nonMaxSuppressionV5Config, notEqualConfig, oneHotConfig, onesLikeConfig, packConfig, padV2Config, powConfig, preluConfig, prodConfig, rangeConfig, realConfig, realDivConfig, reciprocalConfig, reluConfig, relu6Config, reshapeConfig, resizeBilinearConfig, resizeBilinearGradConfig$1, resizeNearestNeighborConfig, resizeNearestNeighborGradConfig$1, reverseConfig, rotateWithOffsetConfig, roundConfig, rsqrtConfig, scatterNdConfig, selectConfig, seluConfig, sigmoidConfig, signConfig, sinConfig, sinhConfig, sliceConfig, softmaxConfig, softplusConfig, spaceToBatchNDConfig, sparseFillEmptyRowsConfig, sparseReshapeConfig, sparseSegmentMeanConfig, sparseSegmentSumConfig, sparseToDenseConfig, splitVConfig, sqrtConfig, squareConfig, squaredDifferenceConfig, stepConfig, stridedSliceConfig, stringNGramsConfig, stringSplitConfig, stringToHashBucketFastConfig, subConfig, sumConfig, tanConfig, tanhConfig, tileConfig, topKConfig, transformConfig, transposeConfig, uniqueConfig, unpackConfig, unsortedSegmentSumConfig, zerosLikeConfig];
 
 	for (var _i$1 = 0, _kernelConfigs = kernelConfigs; _i$1 < _kernelConfigs.length; _i$1++) {
 	  var kernelConfig = _kernelConfigs[_i$1];
@@ -109027,9 +109977,9 @@
 	function setWebGLContext(webGLVersion, gl) {
 	  contexts[webGLVersion] = gl;
 	}
-	function getWebGLContext(webGLVersion) {
-	  if (!(webGLVersion in contexts)) {
-	    var newCtx = getWebGLRenderingContext(webGLVersion);
+	function getWebGLContext(webGLVersion, customCanvas) {
+	  if (!(webGLVersion in contexts) || customCanvas != null) {
+	    var newCtx = getWebGLRenderingContext(webGLVersion, customCanvas);
 
 	    if (newCtx !== null) {
 	      contexts[webGLVersion] = newCtx;
@@ -109041,7 +109991,7 @@
 
 	  var gl = contexts[webGLVersion];
 
-	  if (gl.isContextLost()) {
+	  if (gl == null || gl.isContextLost()) {
 	    delete contexts[webGLVersion];
 	    return getWebGLContext(webGLVersion);
 	  }
@@ -109068,12 +110018,12 @@
 	  }
 	}
 
-	function getWebGLRenderingContext(webGLVersion) {
+	function getWebGLRenderingContext(webGLVersion, customCanvas) {
 	  if (webGLVersion !== 1 && webGLVersion !== 2) {
 	    throw new Error('Cannot get WebGL rendering context, WebGL is disabled.');
 	  }
 
-	  var canvas = createCanvas(webGLVersion);
+	  var canvas = customCanvas == null ? createCanvas(webGLVersion) : customCanvas;
 	  canvas.addEventListener('webglcontextlost', function (ev) {
 	    ev.preventDefault();
 	    delete contexts[webGLVersion];
@@ -109235,6 +110185,7 @@
 	    defaultNumChannels = 1;
 	    textureTypeHalfFloat = glany.HALF_FLOAT;
 	    textureTypeFloat = glany.FLOAT;
+	    downloadTextureFormat = glany.RGBA8;
 	  } else {
 	    internalFormatFloat = gl.RGBA;
 	    internalFormatHalfFloat = gl.RGBA;
@@ -109245,9 +110196,9 @@
 	    defaultNumChannels = 4;
 	    textureTypeHalfFloat = textureHalfFloatExtension != null ? textureHalfFloatExtension.HALF_FLOAT_OES : null;
 	    textureTypeFloat = gl.FLOAT;
+	    downloadTextureFormat = gl.RGBA;
 	  }
 
-	  downloadTextureFormat = gl.RGBA;
 	  return {
 	    internalFormatFloat: internalFormatFloat,
 	    internalFormatHalfFloat: internalFormatHalfFloat,
@@ -109367,6 +110318,10 @@
 	    return gl.compileShader(fragmentShader);
 	  });
 
+	  if (env().get('ENGINE_COMPILE_ONLY')) {
+	    return fragmentShader;
+	  }
+
 	  if (gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS) === false) {
 	    logShaderSourceAndInfoLog(fragmentShaderSource, gl.getShaderInfoLog(fragmentShader));
 	    throw new Error('Failed to compile fragment shader.');
@@ -109375,7 +110330,6 @@
 	  return fragmentShader;
 	}
 	var lineNumberRegex = /ERROR: [0-9]+:([0-9]+):/g;
-
 	function logShaderSourceAndInfoLog(shaderSource, shaderInfoLog) {
 	  var lineNumberRegexResult = lineNumberRegex.exec(shaderInfoLog);
 
@@ -109405,7 +110359,6 @@
 	  console.log("%c " + rightPad(errorLine[0], maxLineLength), 'border:1px solid red; background-color:#e3d2d2; color:#a61717');
 	  console.log(afterErrorLines.join('\n'));
 	}
-
 	function createProgram(gl) {
 	  return throwIfNull(gl, function () {
 	    return gl.createProgram();
@@ -109415,6 +110368,10 @@
 	  callAndCheck(gl, function () {
 	    return gl.linkProgram(program);
 	  });
+
+	  if (env().get('ENGINE_COMPILE_ONLY')) {
+	    return;
+	  }
 
 	  if (gl.getProgramParameter(program, gl.LINK_STATUS) === false) {
 	    console.log(gl.getProgramInfoLog(program));
@@ -109959,7 +110916,7 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var ENV$1 = env();
+	var ENV$2 = env();
 	/**
 	 * This file contains WebGL-specific flag registrations.
 	 */
@@ -109968,12 +110925,12 @@
 	 * True if WebGL is supported.
 	 */
 
-	ENV$1.registerFlag('HAS_WEBGL', function () {
-	  return ENV$1.getNumber('WEBGL_VERSION') > 0;
+	ENV$2.registerFlag('HAS_WEBGL', function () {
+	  return ENV$2.getNumber('WEBGL_VERSION') > 0;
 	});
 	/** 0: No WebGL, 1: WebGL 1.0, 2: WebGL 2.0. */
 
-	ENV$1.registerFlag('WEBGL_VERSION', function () {
+	ENV$2.registerFlag('WEBGL_VERSION', function () {
 	  if (isWebGLVersionEnabled(2)) {
 	    return 2;
 	  } else if (isWebGLVersionEnabled(1)) {
@@ -109984,86 +110941,86 @@
 	});
 	/** Whether to check for numerical representation problems. */
 
-	ENV$1.registerFlag('WEBGL_CHECK_NUMERICAL_PROBLEMS', function () {
+	ENV$2.registerFlag('WEBGL_CHECK_NUMERICAL_PROBLEMS', function () {
 	  return false;
 	});
-	ENV$1.registerFlag('WEBGL_BUFFER_SUPPORTED', function () {
-	  return ENV$1.get('WEBGL_VERSION') === 2;
+	ENV$2.registerFlag('WEBGL_BUFFER_SUPPORTED', function () {
+	  return ENV$2.get('WEBGL_VERSION') === 2;
 	});
 	/** Whether the WebGL backend will sometimes forward ops to the CPU. */
 
-	ENV$1.registerFlag('WEBGL_CPU_FORWARD', function () {
+	ENV$2.registerFlag('WEBGL_CPU_FORWARD', function () {
 	  return true;
 	});
 	/** Whether the WebGL backend will always use f16 textures for rendering. */
 
-	ENV$1.registerFlag('WEBGL_FORCE_F16_TEXTURES', function () {
+	ENV$2.registerFlag('WEBGL_FORCE_F16_TEXTURES', function () {
 	  return false;
 	});
 	/** Whether to turn all packing related flags on. */
 
-	ENV$1.registerFlag('WEBGL_PACK', function () {
-	  return ENV$1.getBool('HAS_WEBGL');
+	ENV$2.registerFlag('WEBGL_PACK', function () {
+	  return ENV$2.getBool('HAS_WEBGL');
 	});
 	/** Whether we will pack the batchnormalization op. */
 
-	ENV$1.registerFlag('WEBGL_PACK_NORMALIZATION', function () {
-	  return ENV$1.getBool('WEBGL_PACK');
+	ENV$2.registerFlag('WEBGL_PACK_NORMALIZATION', function () {
+	  return ENV$2.getBool('WEBGL_PACK');
 	});
 	/** Whether we will pack the clip op. */
 
-	ENV$1.registerFlag('WEBGL_PACK_CLIP', function () {
-	  return ENV$1.getBool('WEBGL_PACK');
+	ENV$2.registerFlag('WEBGL_PACK_CLIP', function () {
+	  return ENV$2.getBool('WEBGL_PACK');
 	});
 	/** Whether we will pack the depthwise conv op. */
 
-	ENV$1.registerFlag('WEBGL_PACK_DEPTHWISECONV', function () {
-	  return ENV$1.getBool('WEBGL_PACK');
+	ENV$2.registerFlag('WEBGL_PACK_DEPTHWISECONV', function () {
+	  return ENV$2.getBool('WEBGL_PACK');
 	});
 	/** Whether we will pack binary ops. */
 
-	ENV$1.registerFlag('WEBGL_PACK_BINARY_OPERATIONS', function () {
-	  return ENV$1.getBool('WEBGL_PACK');
+	ENV$2.registerFlag('WEBGL_PACK_BINARY_OPERATIONS', function () {
+	  return ENV$2.getBool('WEBGL_PACK');
 	});
 	/** Whether we will pack unary ops. */
 
-	ENV$1.registerFlag('WEBGL_PACK_UNARY_OPERATIONS', function () {
-	  return ENV$1.getBool('WEBGL_PACK');
+	ENV$2.registerFlag('WEBGL_PACK_UNARY_OPERATIONS', function () {
+	  return ENV$2.getBool('WEBGL_PACK');
 	});
 	/** Whether we will pack array ops. */
 
-	ENV$1.registerFlag('WEBGL_PACK_ARRAY_OPERATIONS', function () {
-	  return ENV$1.getBool('WEBGL_PACK');
+	ENV$2.registerFlag('WEBGL_PACK_ARRAY_OPERATIONS', function () {
+	  return ENV$2.getBool('WEBGL_PACK');
 	});
 	/** Whether we will pack image ops. */
 
-	ENV$1.registerFlag('WEBGL_PACK_IMAGE_OPERATIONS', function () {
-	  return ENV$1.getBool('WEBGL_PACK');
+	ENV$2.registerFlag('WEBGL_PACK_IMAGE_OPERATIONS', function () {
+	  return ENV$2.getBool('WEBGL_PACK');
 	});
 	/** Whether we will pack reduce ops. */
 
-	ENV$1.registerFlag('WEBGL_PACK_REDUCE', function () {
-	  return ENV$1.getBool('WEBGL_PACK');
+	ENV$2.registerFlag('WEBGL_PACK_REDUCE', function () {
+	  return ENV$2.getBool('WEBGL_PACK');
 	});
 	/** Whether packed WebGL kernels lazily unpack their outputs. */
 
-	ENV$1.registerFlag('WEBGL_LAZILY_UNPACK', function () {
-	  return ENV$1.getBool('WEBGL_PACK');
+	ENV$2.registerFlag('WEBGL_LAZILY_UNPACK', function () {
+	  return ENV$2.getBool('WEBGL_PACK');
 	});
 	/** Whether we will use the im2col algorithm to speed up convolutions. */
 
-	ENV$1.registerFlag('WEBGL_CONV_IM2COL', function () {
-	  return ENV$1.getBool('WEBGL_PACK');
+	ENV$2.registerFlag('WEBGL_CONV_IM2COL', function () {
+	  return ENV$2.getBool('WEBGL_PACK');
 	});
 	/** The maximum texture dimension. */
 
-	ENV$1.registerFlag('WEBGL_MAX_TEXTURE_SIZE', function () {
-	  return getWebGLMaxTextureSize(ENV$1.getNumber('WEBGL_VERSION'));
+	ENV$2.registerFlag('WEBGL_MAX_TEXTURE_SIZE', function () {
+	  return getWebGLMaxTextureSize(ENV$2.getNumber('WEBGL_VERSION'));
 	});
 	/** The maximum texture dimension. */
 
-	ENV$1.registerFlag('WEBGL_MAX_TEXTURES_IN_SHADER', function () {
-	  return getMaxTexturesInShader(ENV$1.getNumber('WEBGL_VERSION'));
+	ENV$2.registerFlag('WEBGL_MAX_TEXTURES_IN_SHADER', function () {
+	  return getMaxTexturesInShader(ENV$2.getNumber('WEBGL_VERSION'));
 	});
 	/**
 	 * The disjoint_query_timer extension version.
@@ -110074,8 +111031,8 @@
 	 * WebGL 1.0 extension.
 	 */
 
-	ENV$1.registerFlag('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION', function () {
-	  var webGLVersion = ENV$1.getNumber('WEBGL_VERSION');
+	ENV$2.registerFlag('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION', function () {
+	  var webGLVersion = ENV$2.getNumber('WEBGL_VERSION');
 
 	  if (webGLVersion === 0) {
 	    return 0;
@@ -110088,47 +111045,47 @@
 	 * timing information that is reliable.
 	 */
 
-	ENV$1.registerFlag('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_RELIABLE', function () {
-	  return ENV$1.getNumber('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION') > 0 && !isMobile();
+	ENV$2.registerFlag('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_RELIABLE', function () {
+	  return ENV$2.getNumber('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION') > 0 && !isMobile();
 	});
 	/**
 	 * Whether the device is physically capable of rendering to float32 textures.
 	 */
 
-	ENV$1.registerFlag('WEBGL_RENDER_FLOAT32_CAPABLE', function () {
-	  return isCapableOfRenderingToFloatTexture(ENV$1.getNumber('WEBGL_VERSION'));
+	ENV$2.registerFlag('WEBGL_RENDER_FLOAT32_CAPABLE', function () {
+	  return isCapableOfRenderingToFloatTexture(ENV$2.getNumber('WEBGL_VERSION'));
 	});
 	/**
 	 * Whether rendering to float32 textures is enabled. If disabled, renders to
 	 * float16 textures.
 	 */
 
-	ENV$1.registerFlag('WEBGL_RENDER_FLOAT32_ENABLED', function () {
-	  return ENV$1.getBool('WEBGL_FORCE_F16_TEXTURES') ? false : ENV$1.getBool('WEBGL_RENDER_FLOAT32_CAPABLE');
+	ENV$2.registerFlag('WEBGL_RENDER_FLOAT32_ENABLED', function () {
+	  return ENV$2.getBool('WEBGL_FORCE_F16_TEXTURES') ? false : ENV$2.getBool('WEBGL_RENDER_FLOAT32_CAPABLE');
 	});
 	/**
 	 * Whether downloading float textures is enabled (16 or 32 bit). If disabled,
 	 * uses IEEE 754 encoding of the float32 values to 4 uint8 when downloading.
 	 */
 
-	ENV$1.registerFlag('WEBGL_DOWNLOAD_FLOAT_ENABLED', function () {
-	  return isDownloadFloatTextureEnabled(ENV$1.getNumber('WEBGL_VERSION'));
+	ENV$2.registerFlag('WEBGL_DOWNLOAD_FLOAT_ENABLED', function () {
+	  return isDownloadFloatTextureEnabled(ENV$2.getNumber('WEBGL_VERSION'));
 	});
 	/** Whether the fence API is available. */
 
-	ENV$1.registerFlag('WEBGL_FENCE_API_ENABLED', function () {
-	  return isWebGLFenceEnabled(ENV$1.getNumber('WEBGL_VERSION'));
+	ENV$2.registerFlag('WEBGL_FENCE_API_ENABLED', function () {
+	  return isWebGLFenceEnabled(ENV$2.getNumber('WEBGL_VERSION'));
 	});
 	/**
 	 * Tensors with size <= than this will be uploaded as uniforms, not textures.
 	 */
 
-	ENV$1.registerFlag('WEBGL_SIZE_UPLOAD_UNIFORM', function () {
+	ENV$2.registerFlag('WEBGL_SIZE_UPLOAD_UNIFORM', function () {
 	  // Use uniform uploads only when 32bit floats are supported. In
 	  // 16bit
 	  // environments there are problems with comparing a 16bit texture value
 	  // with a 32bit uniform value.
-	  var useUniforms = ENV$1.getBool('WEBGL_RENDER_FLOAT32_ENABLED');
+	  var useUniforms = ENV$2.getBool('WEBGL_RENDER_FLOAT32_ENABLED');
 	  return useUniforms ? 4 : 0;
 	});
 	/**
@@ -110139,7 +111096,7 @@
 	 * Default value -1 indicates that we will never aggressively delete textures.
 	 */
 
-	ENV$1.registerFlag('WEBGL_DELETE_TEXTURE_THRESHOLD', function () {
+	ENV$2.registerFlag('WEBGL_DELETE_TEXTURE_THRESHOLD', function () {
 	  return -1;
 	}, function (threshold) {
 	  if (threshold < 0 && threshold !== -1) {
@@ -110156,8 +111113,8 @@
 	 * we will not enforce manual flush and depend on system default flush schedule.
 	 */
 
-	ENV$1.registerFlag('WEBGL_FLUSH_THRESHOLD', function () {
-	  return isMobile() && ENV$1.getBool('IS_CHROME') ? 1 : -1;
+	ENV$2.registerFlag('WEBGL_FLUSH_THRESHOLD', function () {
+	  return isMobile() ? 1 : -1;
 	}, function (threshold) {
 	  if (threshold < 0 && threshold !== -1) {
 	    throw new Error("WEBGL_FLUSH_THRESHOLD must be -1 (indicating never " + ("manual flush) or at least 0, but got " + threshold + "."));
@@ -110170,12 +111127,12 @@
 	 * Default value is 128.
 	 */
 
-	ENV$1.registerFlag('CPU_HANDOFF_SIZE_THRESHOLD', function () {
+	ENV$2.registerFlag('CPU_HANDOFF_SIZE_THRESHOLD', function () {
 	  return 128;
 	});
 	/** Whether we will use shapes uniforms. */
 
-	ENV$1.registerFlag('WEBGL_USE_SHAPES_UNIFORMS', function () {
+	ENV$2.registerFlag('WEBGL_USE_SHAPES_UNIFORMS', function () {
 	  return false;
 	});
 	/**
@@ -110186,7 +111143,7 @@
 	 * Default value is 100000.
 	 */
 
-	ENV$1.registerFlag('TOPK_LAST_DIM_CPU_HANDOFF_SIZE_THRESHOLD', function () {
+	ENV$2.registerFlag('TOPK_LAST_DIM_CPU_HANDOFF_SIZE_THRESHOLD', function () {
 	  return 100000;
 	});
 	/**
@@ -110197,7 +111154,7 @@
 	 * Default value is 128.
 	 */
 
-	ENV$1.registerFlag('TOPK_K_CPU_HANDOFF_THRESHOLD', function () {
+	ENV$2.registerFlag('TOPK_K_CPU_HANDOFF_THRESHOLD', function () {
 	  return 128;
 	});
 
@@ -110239,9 +111196,17 @@
 	    defineOutput = 'out vec4 outputColor;'; // Use custom isnan definition to work across differences between
 	    // implementations on various platforms. While this should happen in ANGLE
 	    // we still see differences between android and windows (on chrome) when
-	    // using isnan directly.
+	    // using isnan directly. Since WebGL2 supports uint type and
+	    // floatBitsToUinT built-in function, we could implment isnan following
+	    // IEEE 754 rules.
+	    // NaN defination in IEEE 754-1985 is :
+	    //   - sign = either 0 or 1.
+	    //   - biased exponent = all 1 bits.
+	    //   - fraction = anything except all 0 bits (since all 0 bits represents
+	    //   infinity).
+	    // https://en.wikipedia.org/wiki/IEEE_754-1985#Representation_of_non-numbers
 
-	    defineSpecialNaN = "\n      bool isnan_custom(float val) {\n        return (val > 0.0 || val < 0.0) ? false : val != 0.0;\n      }\n\n      bvec4 isnan_custom(vec4 val) {\n        return bvec4(isnan_custom(val.x),\n          isnan_custom(val.y), isnan_custom(val.z), isnan_custom(val.w));\n      }\n\n      #define isnan(value) isnan_custom(value)\n    "; // In webgl 2 we do not need to specify a custom isinf so there is no
+	    defineSpecialNaN = "\n      bool isnan_custom(float val) {\n        uint floatToUint = floatBitsToUint(val);\n        return (floatToUint & 0x7fffffffu) > 0x7f800000u;\n      }\n\n      bvec4 isnan_custom(vec4 val) {\n        return bvec4(isnan_custom(val.x),\n          isnan_custom(val.y), isnan_custom(val.z), isnan_custom(val.w));\n      }\n\n      #define isnan(value) isnan_custom(value)\n    "; // In webgl 2 we do not need to specify a custom isinf so there is no
 	    // need for a special INFINITY constant.
 
 	    defineSpecialInf = "";
@@ -111519,10 +112484,50 @@
 	    flatOffset: null
 	  };
 	  var source = makeShader(inputInfos, outShapeInfo, program);
-	  var webGLProgram = gpgpu.createProgram(source); // Add special uniforms (NAN, INFINITY)
+	  var fragmentShader = createFragmentShader(gpgpu.gl, source);
+	  var webGLProgram = gpgpu.createProgram(fragmentShader);
 
+	  if (!env().get('ENGINE_COMPILE_ONLY')) {
+	    return Object.assign({
+	      program: program,
+	      fragmentShader: fragmentShader,
+	      source: source,
+	      webGLProgram: webGLProgram,
+	      inShapeInfos: inShapeInfos,
+	      outShapeInfo: outShapeInfo
+	    }, getUniformLocations(gpgpu, program, webGLProgram));
+	  } else {
+	    return {
+	      program: program,
+	      fragmentShader: fragmentShader,
+	      source: source,
+	      webGLProgram: webGLProgram,
+	      inShapeInfos: inShapeInfos,
+	      outShapeInfo: outShapeInfo,
+	      uniformLocations: null,
+	      customUniformLocations: null,
+	      infLoc: null,
+	      nanLoc: null,
+	      inShapesLocations: null,
+	      inTexShapesLocations: null,
+	      outShapeLocation: null,
+	      outShapeStridesLocation: null,
+	      outTexShapeLocation: null
+	    };
+	  }
+	}
+	function getUniformLocations(gpgpu, program, webGLProgram) {
+	  var uniformLocations = {};
+	  var inShapesLocations = {};
+	  var inTexShapesLocations = {};
+	  var customUniformLocations = [];
+	  var outShapeLocation;
+	  var outTexShapeLocation;
+	  var outShapeStridesLocation;
 	  var infLoc = null;
-	  var nanLoc = gpgpu.getUniformLocation(webGLProgram, 'NAN', false);
+	  var nanLoc = null; // Add special uniforms (NAN, INFINITY)
+
+	  nanLoc = gpgpu.getUniformLocation(webGLProgram, 'NAN', false);
 
 	  if (env().getNumber('WEBGL_VERSION') === 1) {
 	    infLoc = gpgpu.getUniformLocation(webGLProgram, 'INFINITY', false);
@@ -111530,9 +112535,6 @@
 
 
 	  var shouldThrow = false;
-	  var uniformLocations = {};
-	  var inShapesLocations = {};
-	  var inTexShapesLocations = {};
 
 	  for (var i = 0; i < program.variableNames.length; i++) {
 	    var varName = program.variableNames[i];
@@ -111545,17 +112547,11 @@
 	    }
 	  }
 
-	  var outShapeLocation;
-	  var outTexShapeLocation;
-	  var outShapeStridesLocation;
-
 	  if (program.enableShapeUniforms) {
 	    outShapeLocation = gpgpu.getUniformLocation(webGLProgram, 'outShape', shouldThrow);
 	    outShapeStridesLocation = gpgpu.getUniformLocation(webGLProgram, 'outShapeStrides', shouldThrow);
 	    outTexShapeLocation = gpgpu.getUniformLocation(webGLProgram, 'outTexShape', shouldThrow);
 	  }
-
-	  var customUniformLocations = [];
 
 	  if (program.customUniforms) {
 	    program.customUniforms.forEach(function (d, i) {
@@ -111564,13 +112560,8 @@
 	  }
 
 	  return {
-	    program: program,
-	    source: source,
-	    webGLProgram: webGLProgram,
 	    uniformLocations: uniformLocations,
 	    customUniformLocations: customUniformLocations,
-	    inShapeInfos: inShapeInfos,
-	    outShapeInfo: outShapeInfo,
 	    infLoc: infLoc,
 	    nanLoc: nanLoc,
 	    inShapesLocations: inShapesLocations,
@@ -111619,9 +112610,9 @@
 	  var outTexShape = output.texData.texShape;
 
 	  if (output.texData.isPacked) {
-	    gpgpu.setOutputPackedMatrixTexture(outTex, outTexShape[0], outTexShape[1]);
+	    gpgpu.setOutputPackedMatrixTexture(outTex.texture, outTexShape[0], outTexShape[1]);
 	  } else {
-	    gpgpu.setOutputMatrixTexture(outTex, outTexShape[0], outTexShape[1]);
+	    gpgpu.setOutputMatrixTexture(outTex.texture, outTexShape[0], outTexShape[1]);
 	  }
 
 	  gpgpu.setProgram(binary.webGLProgram); // Set special uniforms (NAN, INFINITY)
@@ -111701,7 +112692,7 @@
 	      gpgpu.gl.uniform1i(varOffsetLoc, input.texData.slice.flatOffset);
 	    }
 
-	    gpgpu.setInputMatrixTexture(input.texData.texture, varLoc, i);
+	    gpgpu.setInputMatrixTexture(input.texData.texture.texture, varLoc, i);
 	  });
 	  var outShapeLoc = binary.outShapeLocation;
 
@@ -112115,13 +113106,24 @@
 	  callAndCheck(gl, function () {
 	    return gl.texParameteri(tex2d, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 	  });
-	  callAndCheck(gl, function () {
-	    return gl.texImage2D(tex2d, 0, internalFormat, width, height, 0, textureFormat, textureType, null);
-	  });
+
+	  if (env().getNumber('WEBGL_VERSION') === 1) {
+	    callAndCheck(gl, function () {
+	      return gl.texImage2D(tex2d, 0, internalFormat, width, height, 0, textureFormat, textureType, null);
+	    });
+	  } else {
+	    callAndCheck(gl, function () {
+	      return gl.texStorage2D(tex2d, 1, internalFormat, width, height);
+	    });
+	  }
+
 	  callAndCheck(gl, function () {
 	    return gl.bindTexture(gl.TEXTURE_2D, null);
 	  });
-	  return texture;
+	  return {
+	    texture: texture,
+	    texShape: [height, width]
+	  };
 	}
 
 	function getInternalFormatForFloat32MatrixTexture(textureConfig) {
@@ -112204,9 +113206,17 @@
 	  }
 
 	  dataForUpload.set(data);
-	  callAndCheck(gl, function () {
-	    return gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, width, height, 0, gl.RGBA, texelDataType, dataForUpload);
-	  });
+
+	  if (env().getNumber('WEBGL_VERSION') === 2) {
+	    callAndCheck(gl, function () {
+	      return gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, texelDataType, dataForUpload);
+	    });
+	  } else {
+	    callAndCheck(gl, function () {
+	      return gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, width, height, 0, gl.RGBA, texelDataType, dataForUpload);
+	    });
+	  }
+
 	  callAndCheck(gl, function () {
 	    return gl.bindTexture(gl.TEXTURE_2D, null);
 	  });
@@ -112217,13 +113227,25 @@
 	  });
 
 	  if (pixels.data instanceof Uint8Array) {
-	    callAndCheck(gl, function () {
-	      return gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, pixels.width, pixels.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels.data);
-	    });
+	    if (env().getNumber('WEBGL_VERSION') === 2) {
+	      callAndCheck(gl, function () {
+	        return gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, pixels.width, pixels.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels.data);
+	      });
+	    } else {
+	      callAndCheck(gl, function () {
+	        return gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, pixels.width, pixels.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels.data);
+	      });
+	    }
 	  } else {
-	    callAndCheck(gl, function () {
-	      return gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-	    });
+	    if (env().getNumber('WEBGL_VERSION') === 2) {
+	      callAndCheck(gl, function () {
+	        return gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+	      });
+	    } else {
+	      callAndCheck(gl, function () {
+	        return gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+	      });
+	    }
 	  }
 
 	  callAndCheck(gl, function () {
@@ -112310,6 +113332,7 @@
 
 	    var COLOR_BUFFER_FLOAT = 'WEBGL_color_buffer_float';
 	    var COLOR_BUFFER_HALF_FLOAT = 'EXT_color_buffer_half_float';
+	    this.parallelCompilationExtension = this.gl.getExtension('KHR_parallel_shader_compile');
 
 	    if (env().getNumber('WEBGL_VERSION') === 1) {
 	      var TEXTURE_FLOAT = 'OES_texture_float';
@@ -112512,12 +113535,11 @@
 	    });
 	  };
 
-	  _proto.createProgram = function createProgram$1(fragmentShaderSource) {
+	  _proto.createProgram = function createProgram$1(fragmentShader) {
 	    var _this6 = this;
 
 	    this.throwIfDisposed();
 	    var gl = this.gl;
-	    var fragmentShader = createFragmentShader(gl, fragmentShaderSource);
 
 	    if (this.vertexShader == null) {
 	      this.vertexShader = createVertexShader$1(gl);
@@ -113058,81 +114080,90 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var PackProgram = function PackProgram(outputShape) {
-	  this.variableNames = ['A'];
-	  this.packedInputs = false;
-	  this.packedOutput = true; // Only input / output 3D tensors.
+	var PackProgram = /*#__PURE__*/function () {
+	  function PackProgram(outputShape) {
+	    this.variableNames = ['A'];
+	    this.packedInputs = false;
+	    this.packedOutput = true; // Only input / output 3D tensors.
 
-	  this.outputShape = outputShape;
-	  var rank = outputShape.length;
+	    this.outputShape = outputShape;
+	    this.rank = outputShape.length;
+	    this.enableShapeUniforms = useShapeUniforms(this.outputShape.length);
 
-	  if (rank === 0) {
-	    this.userCode = "\n        void main() {\n          setOutput(vec4(getA(), 0., 0., 0.));\n        }\n      ";
-	  } else {
-	    var channels = getChannels('rc', rank);
-	    var dtype = getCoordsDataType(rank);
-	    var outOfBoundsCondition = getOutOfBoundsCondition(rank, outputShape, channels);
-	    var setup = getSetup(rank, outputShape[outputShape.length - 1], outputShape[outputShape.length - 2], channels);
-	    var output = getOutput(outputShape, channels);
-	    this.userCode = "\n        void main() {\n          " + dtype + " rc = getOutputCoords();\n\n          if(" + outOfBoundsCondition + ") {\n            setOutput(vec4(0));\n          } else {\n            " + setup + "\n\n            setOutput(vec4(" + output + "));\n          }\n        }\n      ";
+	    if (this.rank === 0) {
+	      this.userCode = "\n        void main() {\n          setOutput(vec4(getA(), 0., 0., 0.));\n        }\n      ";
+	    } else {
+	      var channels = getChannels('rc', this.rank);
+	      var dtype = getCoordsDataType(this.rank);
+	      var outOfBoundsCondition = this.getOutOfBoundsCondition(channels);
+	      var setup = this.getSetup(channels);
+	      var output = this.getOutput(channels);
+	      this.userCode = "\n        void main() {\n          " + dtype + " rc = getOutputCoords();\n\n          if(" + outOfBoundsCondition + ") {\n            setOutput(vec4(0));\n          } else {\n            " + setup + "\n\n            setOutput(vec4(" + output + "));\n          }\n        }\n      ";
+	    }
 	  }
-	};
 
-	function getSourceCoordsArr(rank, dims) {
-	  var coords = [];
+	  var _proto = PackProgram.prototype;
 
-	  for (var row = 0; row <= 1; row++) {
-	    for (var col = 0; col <= 1; col++) {
-	      var coord = (row === 0 ? 'r' : 'rp1') + ", " + (col === 0 ? 'c' : 'cp1');
+	  _proto.getSourceCoordsArr = function getSourceCoordsArr(dims) {
+	    var coords = [];
 
-	      for (var d = 2; d < rank; d++) {
-	        coord = dims[dims.length - 1 - d] + "," + coord;
+	    for (var row = 0; row <= 1; row++) {
+	      for (var col = 0; col <= 1; col++) {
+	        var coord = (row === 0 ? 'r' : 'rp1') + ", " + (col === 0 ? 'c' : 'cp1');
+
+	        for (var d = 2; d < this.rank; d++) {
+	          coord = dims[dims.length - 1 - d] + "," + coord;
+	        }
+
+	        coords.push(coord);
 	      }
-
-	      coords.push(coord);
 	    }
-	  }
 
-	  return coords;
-	}
+	    return coords;
+	  };
 
-	function getOutOfBoundsCondition(rank, shape, dims) {
-	  if (rank === 1) {
-	    return "rc > " + shape[0];
-	  }
-
-	  var cond = '';
-
-	  for (var i = rank - 2; i < rank; i++) {
-	    cond += dims[i] + " >= " + shape[i];
-
-	    if (i < rank - 1) {
-	      cond += '||';
+	  _proto.getOutOfBoundsCondition = function getOutOfBoundsCondition(dims) {
+	    if (this.rank === 1) {
+	      return "rc > " + (this.enableShapeUniforms ? 'outShape' : this.outputShape[0]);
 	    }
-	  }
 
-	  return cond;
-	}
+	    var cond = '';
 
-	function getSetup(rank, cols, rows, dims) {
-	  if (rank === 1) {
-	    return '';
-	  }
+	    for (var i = this.rank - 2; i < this.rank; i++) {
+	      cond += dims[i] + " >= " + (this.enableShapeUniforms ? "outShape[" + i + "]" : this.outputShape[i]);
 
-	  var innerDims = dims.slice(-2);
-	  return "\n    int r = " + innerDims[0] + ";\n    int c = " + innerDims[1] + ";\n    int rp1 = r + 1;\n    int cp1 = c + 1;\n\n    bool cEdge = cp1 >= " + cols + ";\n    bool rEdge = rp1 >= " + rows + ";\n  ";
-	}
+	      if (i < this.rank - 1) {
+	        cond += '||';
+	      }
+	    }
 
-	function getOutput(shape, dims) {
-	  var rank = shape.length;
-	  var sourceCoords = getSourceCoordsArr(rank, dims);
+	    return cond;
+	  };
 
-	  if (rank === 1) {
-	    return "getA(rc),\n            rc + 1 >= " + shape[0] + " ? 0. : getA(rc + 1),\n            0, 0";
-	  }
+	  _proto.getSetup = function getSetup(dims) {
+	    if (this.rank === 1) {
+	      return '';
+	    }
 
-	  return "getA(" + sourceCoords[0] + "),\n          cEdge ? 0. : getA(" + sourceCoords[1] + "),\n          rEdge ? 0. : getA(" + sourceCoords[2] + "),\n          rEdge || cEdge ? 0. : getA(" + sourceCoords[3] + ")";
-	}
+	    var innerDims = dims.slice(-2);
+	    var col = this.enableShapeUniforms ? "outShape[" + this.rank + " - 1]" : this.outputShape[this.rank - 1];
+	    var row = this.enableShapeUniforms ? "outShape[" + this.rank + " - 2]" : this.outputShape[this.rank - 2];
+	    return "\n      int r = " + innerDims[0] + ";\n      int c = " + innerDims[1] + ";\n      int rp1 = r + 1;\n      int cp1 = c + 1;\n\n      bool cEdge = cp1 >= " + col + ";\n      bool rEdge = rp1 >= " + row + ";\n    ";
+	  };
+
+	  _proto.getOutput = function getOutput(dims) {
+	    var sourceCoords = this.getSourceCoordsArr(dims);
+
+	    if (this.rank === 1) {
+	      var outShape = this.enableShapeUniforms ? 'outShape' : this.outputShape[0];
+	      return "getA(rc), (rc + 1 >= " + outShape + " ? 0. : getA(rc + 1)), 0, 0";
+	    }
+
+	    return "getA(" + sourceCoords[0] + "),\n            cEdge ? 0. : getA(" + sourceCoords[1] + "),\n            rEdge ? 0. : getA(" + sourceCoords[2] + "),\n            rEdge || cEdge ? 0. : getA(" + sourceCoords[3] + ")";
+	  };
+
+	  return PackProgram;
+	}();
 
 	/**
 	 * @license
@@ -113264,7 +114295,7 @@
 	    var deleteTexThreshold = env().get('WEBGL_DELETE_TEXTURE_THRESHOLD');
 
 	    if (deleteTexThreshold !== -1 && this._numBytesAllocated > deleteTexThreshold) {
-	      this.gpgpu.deleteMatrixTexture(texture);
+	      this.gpgpu.deleteMatrixTexture(texture.texture);
 	      this._numBytesAllocated -= texBytes;
 	    } else {
 	      this.freeTextures[shapeKey].push(texture);
@@ -113314,13 +114345,13 @@
 
 	    for (var texShape in this.freeTextures) {
 	      this.freeTextures[texShape].forEach(function (tex) {
-	        _this.gpgpu.deleteMatrixTexture(tex);
+	        _this.gpgpu.deleteMatrixTexture(tex.texture);
 	      });
 	    }
 
 	    for (var _texShape in this.usedTextures) {
 	      this.usedTextures[_texShape].forEach(function (tex) {
-	        _this.gpgpu.deleteMatrixTexture(tex);
+	        _this.gpgpu.deleteMatrixTexture(tex.texture);
 	      });
 	    }
 
@@ -113361,6 +114392,8 @@
 	    return 16;
 	  } else if (internalFormat === glany.RGBA16F) {
 	    return 8;
+	  } else if (internalFormat === glany.RGBA8) {
+	    return 4;
 	  }
 
 	  throw new Error("Unknown internal format " + internalFormat);
@@ -113536,6 +114569,7 @@
 	  this.packedInputs = true;
 	  this.packedOutput = false;
 	  this.outputShape = outputShape;
+	  this.enableShapeUniforms = useShapeUniforms(this.outputShape.length);
 	  var rank = outputShape.length;
 	  var channels = getChannels('rc', rank);
 	  var dtype = getCoordsDataType(rank);
@@ -113576,7 +114610,7 @@
 	var MathBackendWebGL = /*#__PURE__*/function (_KernelBackend) {
 	  _inheritsLoose(MathBackendWebGL, _KernelBackend);
 
-	  function MathBackendWebGL(gpgpu) {
+	  function MathBackendWebGL(gpuResource) {
 	    var _this;
 
 	    _this = _KernelBackend.call(this) || this; // Maps data ids that have a pending read operation, to list of subscribers.
@@ -113603,19 +114637,28 @@
 	      throw new Error('WebGL is not supported on this device');
 	    }
 
-	    if (gpgpu == null) {
-	      var gl = getWebGLContext(env().getNumber('WEBGL_VERSION'));
-	      _this.binaryCache = getBinaryCache(env().getNumber('WEBGL_VERSION'));
-	      _this.gpgpu = new GPGPUContext(gl);
-	      _this.canvas = gl.canvas;
-	      _this.gpgpuCreatedLocally = true;
-	    } else {
-	      _this.gpgpu = gpgpu;
+	    var newGPGPU;
+
+	    if (gpuResource != null) {
+	      if (gpuResource instanceof GPGPUContext) {
+	        newGPGPU = gpuResource;
+	      } else {
+	        var gl = getWebGLContext(env().getNumber('WEBGL_VERSION'), gpuResource);
+	        newGPGPU = new GPGPUContext(gl);
+	      }
+
 	      _this.binaryCache = {};
 	      _this.gpgpuCreatedLocally = false;
-	      _this.canvas = gpgpu.gl.canvas;
+	    } else {
+	      var _gl = getWebGLContext(env().getNumber('WEBGL_VERSION'));
+
+	      newGPGPU = new GPGPUContext(_gl);
+	      _this.binaryCache = getBinaryCache(env().getNumber('WEBGL_VERSION'));
+	      _this.gpgpuCreatedLocally = true;
 	    }
 
+	    _this.gpgpu = newGPGPU;
+	    _this.canvas = _this.gpgpu.gl.canvas;
 	    _this.textureManager = new TextureManager(_this.gpgpu);
 	    _this.numMBBeforeWarning = numMBBeforeWarning();
 	    _this.texData = new DataStorage(_assertThisInitialized(_this), engine());
@@ -113818,51 +114861,56 @@
 	              return _context.abrupt("return", this.convertAndCacheOnCPU(dataId));
 
 	            case 13:
+	              if (!env().getBool('DEBUG')) {
+	                _context.next = 16;
+	                break;
+	              }
+
 	              if (!(!env().getBool('WEBGL_DOWNLOAD_FLOAT_ENABLED') && env().getNumber('WEBGL_VERSION') === 2)) {
-	                _context.next = 15;
+	                _context.next = 16;
 	                break;
 	              }
 
 	              throw new Error("tensor.data() with WEBGL_DOWNLOAD_FLOAT_ENABLED=false and " + "WEBGL_VERSION=2 not yet supported.");
 
-	            case 15:
+	            case 16:
 	              buffer = null;
 
 	              if (dtype !== 'complex64' && env().get('WEBGL_BUFFER_SUPPORTED')) {
 	                // Possibly copy the texture into a buffer before inserting a fence.
 	                tmpDownloadTarget = this.decode(dataId);
 	                tmpData = this.texData.get(tmpDownloadTarget.dataId);
-	                buffer = (_this$gpgpu = this.gpgpu).createBufferFromTexture.apply(_this$gpgpu, [tmpData.texture].concat(getDenseTexShape(shape)));
+	                buffer = (_this$gpgpu = this.gpgpu).createBufferFromTexture.apply(_this$gpgpu, [tmpData.texture.texture].concat(getDenseTexShape(shape)));
 	              }
 
 	              this.pendingRead.set(dataId, []);
 
 	              if (!(dtype !== 'complex64')) {
-	                _context.next = 21;
+	                _context.next = 22;
 	                break;
 	              }
 
-	              _context.next = 21;
+	              _context.next = 22;
 	              return this.gpgpu.createAndWaitForFence();
 
-	            case 21:
+	            case 22:
 	              if (!(dtype === 'complex64')) {
-	                _context.next = 30;
+	                _context.next = 31;
 	                break;
 	              }
 
-	              _context.next = 24;
+	              _context.next = 25;
 	              return Promise.all([this.read(complexTensorInfos.real.dataId), this.read(complexTensorInfos.imag.dataId)]);
 
-	            case 24:
+	            case 25:
 	              ps = _context.sent;
 	              realValues = ps[0];
 	              imagValues = ps[1];
 	              vals = mergeRealAndImagArrays(realValues, imagValues);
-	              _context.next = 31;
+	              _context.next = 32;
 	              break;
 
-	            case 30:
+	            case 31:
 	              if (buffer == null) {
 	                vals = this.getValuesFromTexture(dataId);
 	              } else {
@@ -113870,7 +114918,7 @@
 	                vals = this.gpgpu.downloadFloat32MatrixFromBuffer(buffer, size);
 	              }
 
-	            case 31:
+	            case 32:
 	              if (tmpDownloadTarget != null) {
 	                this.disposeIntermediateTensorInfo(tmpDownloadTarget);
 	              }
@@ -113902,7 +114950,7 @@
 
 	              return _context.abrupt("return", dTypeVals);
 
-	            case 39:
+	            case 40:
 	            case "end":
 	              return _context.stop();
 	          }
@@ -113915,7 +114963,72 @@
 	    }
 
 	    return read;
-	  }();
+	  }()
+	  /**
+	   * Read tensor to a new texture that is densely packed for ease of use.
+	   * @param dataId The source tensor.
+	   * @param options
+	   *     customTexShape: Optional. If set, will use the user defined texture
+	   *     shape to create the texture.
+	   */
+	  ;
+
+	  _proto.readToGPU = function readToGPU(dataId, options) {
+	    if (options === void 0) {
+	      options = {};
+	    }
+
+	    var texData = this.texData.get(dataId);
+	    var values = texData.values,
+	        shape = texData.shape,
+	        slice = texData.slice,
+	        dtype = texData.dtype,
+	        isPacked = texData.isPacked,
+	        texture = texData.texture;
+
+	    if (dtype === 'complex64') {
+	      throw new Error('Does not support reading texture for complex64 dtype.');
+	    } // The presence of `slice` indicates this tensor is a shallow slice of a
+	    // different tensor, and is using that original tensor's texture. Run
+	    // `clone` in order to copy that texture and read from it.
+
+
+	    if (slice != null) {
+	      var program;
+
+	      if (isPacked) {
+	        program = new UnaryOpPackedProgram(shape, CLONE);
+	      } else {
+	        program = new UnaryOpProgram(shape, CLONE);
+	      }
+
+	      var res = this.runWebGLProgram(program, [{
+	        dataId: dataId,
+	        shape: shape,
+	        dtype: dtype
+	      }], dtype);
+	      var gpuResouorce = this.readToGPU(res, options);
+	      this.disposeIntermediateTensorInfo(res);
+	      return gpuResouorce;
+	    }
+
+	    if (texture == null) {
+	      if (values != null) {
+	        throw new Error('Data is not on GPU but on CPU.');
+	      } else {
+	        throw new Error('There is no data on GPU or CPU.');
+	      }
+	    } // Decode the texture so that it is stored densely (using four channels).
+
+
+	    var tmpTarget = this.decode(dataId, options.customTexShape); // Make engine track this tensor, so that we can dispose it later.
+
+	    var tensorRef = engine().makeTensorFromDataId(tmpTarget.dataId, tmpTarget.shape, tmpTarget.dtype);
+	    var tmpData = this.texData.get(tmpTarget.dataId);
+	    return Object.assign({
+	      tensorRef: tensorRef
+	    }, tmpData.texture);
+	  };
 
 	  _proto.bufferSync = function bufferSync(t) {
 	    var data = this.readSync(t.dataId);
@@ -113968,7 +115081,7 @@
 
 	      var _tmpData = this.texData.get(tmpTarget.dataId);
 
-	      var _vals = (_this$gpgpu2 = this.gpgpu).downloadMatrixFromPackedTexture.apply(_this$gpgpu2, [_tmpData.texture].concat(getDenseTexShape(shape))).subarray(0, size);
+	      var _vals = (_this$gpgpu2 = this.gpgpu).downloadMatrixFromPackedTexture.apply(_this$gpgpu2, [_tmpData.texture.texture].concat(getDenseTexShape(shape))).subarray(0, size);
 
 	      this.disposeIntermediateTensorInfo(tmpTarget);
 	      return _vals;
@@ -113983,7 +115096,7 @@
 	      dataId: dataId
 	    }], 'float32');
 	    var tmpData = this.texData.get(output.dataId);
-	    var vals = this.gpgpu.downloadByteEncodedFloatMatrixFromOutputTexture(tmpData.texture, tmpData.texShape[0], tmpData.texShape[1]).subarray(0, size);
+	    var vals = this.gpgpu.downloadByteEncodedFloatMatrixFromOutputTexture(tmpData.texture.texture, tmpData.texShape[0], tmpData.texShape[1]).subarray(0, size);
 	    this.disposeIntermediateTensorInfo(output);
 	    return vals;
 	  };
@@ -113992,60 +115105,61 @@
 	    return env().getNumber('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_RELIABLE') > 0;
 	  };
 
-	  _proto.time = /*#__PURE__*/function () {
-	    var _time = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2(f) {
-	      var oldActiveTimers, newActiveTimers, outerMostTime, flattenedActiveTimerQueries, flattenedActiveTimerNames, res, kernelMs;
+	  _proto.time = function time(f) {
+	    var _this2 = this;
+
+	    var oldActiveTimers = this.activeTimers;
+	    var newActiveTimers = [];
+	    var outerMostTime = false;
+
+	    if (this.programTimersStack == null) {
+	      this.programTimersStack = newActiveTimers;
+	      outerMostTime = true;
+	    } else {
+	      this.activeTimers.push(newActiveTimers);
+	    }
+
+	    this.activeTimers = newActiveTimers;
+	    f(); // needing to split these up because util.flatten only accepts certain types
+
+	    var flattenedActiveTimerQueries = flatten(this.activeTimers.map(function (d) {
+	      return d.query;
+	    })).filter(function (d) {
+	      return d != null;
+	    });
+	    var flattenedActiveTimerNames = flatten(this.activeTimers.map(function (d) {
+	      return d.name;
+	    })).filter(function (d) {
+	      return d != null;
+	    });
+	    this.activeTimers = oldActiveTimers;
+
+	    if (outerMostTime) {
+	      this.programTimersStack = null;
+	    }
+
+	    var res = {
+	      uploadWaitMs: this.uploadWaitMs,
+	      downloadWaitMs: this.downloadWaitMs,
+	      kernelMs: null,
+	      wallMs: null // will be filled by the engine
+
+	    };
+	    return _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2() {
+	      var kernelMs;
 	      return regeneratorRuntime.wrap(function _callee2$(_context2) {
 	        while (1) {
 	          switch (_context2.prev = _context2.next) {
 	            case 0:
-	              oldActiveTimers = this.activeTimers;
-	              newActiveTimers = [];
-	              outerMostTime = false;
-
-	              if (this.programTimersStack == null) {
-	                this.programTimersStack = newActiveTimers;
-	                outerMostTime = true;
-	              } else {
-	                this.activeTimers.push(newActiveTimers);
-	              }
-
-	              this.activeTimers = newActiveTimers;
-	              f(); // needing to split these up because util.flatten only accepts certain types
-
-	              flattenedActiveTimerQueries = flatten(this.activeTimers.map(function (d) {
-	                return d.query;
-	              })).filter(function (d) {
-	                return d != null;
-	              });
-	              flattenedActiveTimerNames = flatten(this.activeTimers.map(function (d) {
-	                return d.name;
-	              })).filter(function (d) {
-	                return d != null;
-	              });
-	              this.activeTimers = oldActiveTimers;
-
-	              if (outerMostTime) {
-	                this.programTimersStack = null;
-	              }
-
-	              res = {
-	                uploadWaitMs: this.uploadWaitMs,
-	                downloadWaitMs: this.downloadWaitMs,
-	                kernelMs: null,
-	                wallMs: null // will be filled by the engine
-
-	              };
-
 	              if (!(env().getNumber('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_RELIABLE') > 0)) {
-	                _context2.next = 19;
+	                _context2.next = 8;
 	                break;
 	              }
 
-	              _context2.next = 14;
+	              _context2.next = 3;
 	              return Promise.all(flattenedActiveTimerQueries);
 
-	            case 14:
+	            case 3:
 	              kernelMs = _context2.sent;
 	              res['kernelMs'] = sum(kernelMs);
 
@@ -114060,33 +115174,27 @@
 	                }).join(', ');
 	              };
 
-	              _context2.next = 20;
+	              _context2.next = 9;
 	              break;
 
-	            case 19:
+	            case 8:
 	              res['kernelMs'] = {
 	                error: 'WebGL query timers are not supported in this environment.'
 	              };
 
-	            case 20:
-	              this.uploadWaitMs = 0;
-	              this.downloadWaitMs = 0;
+	            case 9:
+	              _this2.uploadWaitMs = 0;
+	              _this2.downloadWaitMs = 0;
 	              return _context2.abrupt("return", res);
 
-	            case 23:
+	            case 12:
 	            case "end":
 	              return _context2.stop();
 	          }
 	        }
-	      }, _callee2, this);
-	    }));
-
-	    function time(_x2) {
-	      return _time.apply(this, arguments);
-	    }
-
-	    return time;
-	  }();
+	      }, _callee2);
+	    }))();
+	  };
 
 	  _proto.memory = function memory() {
 	    return {
@@ -114144,7 +115252,7 @@
 	      }, _callee3, this);
 	    }));
 
-	    function getQueryTime(_x3) {
+	    function getQueryTime(_x2) {
 	      return _getQueryTime.apply(this, arguments);
 	    }
 
@@ -114241,7 +115349,7 @@
 
 	  _proto.getTexture = function getTexture(dataId) {
 	    this.uploadToGPU(dataId);
-	    return this.texData.get(dataId).texture;
+	    return this.texData.get(dataId).texture.texture;
 	  }
 	  /**
 	   * Returns internal information for the specific data bucket. Used in unit
@@ -114262,14 +115370,14 @@
 	  ;
 
 	  _proto.shouldExecuteOnCPU = function shouldExecuteOnCPU(inputs, sizeThreshold) {
-	    var _this2 = this;
+	    var _this3 = this;
 
 	    if (sizeThreshold === void 0) {
 	      sizeThreshold = CPU_HANDOFF_SIZE_THRESHOLD;
 	    }
 
 	    return env().getBool('WEBGL_CPU_FORWARD') && inputs.every(function (input) {
-	      return _this2.texData.get(input.dataId).texture == null && sizeFromShape(input.shape) < sizeThreshold;
+	      return _this3.texData.get(input.dataId).texture == null && sizeFromShape(input.shape) < sizeThreshold;
 	    });
 	  };
 
@@ -114367,14 +115475,22 @@
 	    };
 	  };
 
-	  _proto.decode = function decode(dataId) {
+	  _proto.decode = function decode(dataId, customTexShape) {
 	    var texData = this.texData.get(dataId);
 	    var isPacked = texData.isPacked,
 	        shape = texData.shape,
 	        dtype = texData.dtype;
+
+	    if (customTexShape != null) {
+	      var size = sizeFromShape(shape);
+	      var texSize = customTexShape[0] * customTexShape[1] * 4;
+	      assert(size <= texSize, function () {
+	        return 'customTexShape is too small. ' + 'Row * Column * 4 should be equal or larger than the ' + 'size of the tensor data.';
+	      });
+	    }
+
 	    var shapeAs3D = getShapeAs3D(shape);
 	    var program;
-	    var denseTexShape = getDenseTexShape(shapeAs3D);
 
 	    if (isPacked) {
 	      program = new DecodeMatrixPackedProgram(shapeAs3D);
@@ -114383,12 +115499,12 @@
 	    }
 
 	    var preventEagerUnpackingOfOutput = true;
-	    var customValues = [denseTexShape];
+	    var customValues = [customTexShape != null ? customTexShape : getDenseTexShape(shapeAs3D)];
 	    var out = this.runWebGLProgram(program, [{
 	      shape: shapeAs3D,
 	      dtype: dtype,
 	      dataId: dataId
-	    }], dtype, customValues, preventEagerUnpackingOfOutput);
+	    }], dtype, customValues, preventEagerUnpackingOfOutput, customTexShape);
 	    return {
 	      dtype: dtype,
 	      shape: shape,
@@ -114396,8 +115512,8 @@
 	    };
 	  };
 
-	  _proto.runWebGLProgram = function runWebGLProgram(program, inputs, outputDtype, customUniformValues, preventEagerUnpackingOfOutput) {
-	    var _this3 = this;
+	  _proto.runWebGLProgram = function runWebGLProgram(program, inputs, outputDtype, customUniformValues, preventEagerUnpackingOfOutput, customTexShape) {
+	    var _this4 = this;
 
 	    if (preventEagerUnpackingOfOutput === void 0) {
 	      preventEagerUnpackingOfOutput = false;
@@ -114411,7 +115527,7 @@
 	    }
 
 	    if (program.outPackingScheme === PackingScheme.DENSE) {
-	      var texelShape = getDenseTexShape(program.outputShape); // For a densely packed output, we explicitly set texShape
+	      var texelShape = customTexShape != null ? customTexShape : getDenseTexShape(program.outputShape); // For a densely packed output, we explicitly set texShape
 	      // so it doesn't get assigned later according to our typical packing
 	      // scheme wherein a single texel can only contain values from adjacent
 	      // rows/cols.
@@ -114438,7 +115554,7 @@
 	        throw new Error("GPGPUProgram does not support complex64 input. For complex64 " + "dtypes, please separate the program into real and imaginary " + "parts.");
 	      }
 
-	      var texData = _this3.texData.get(input.dataId);
+	      var texData = _this4.texData.get(input.dataId);
 
 	      if (texData.texture == null) {
 	        if (!program.packedInputs && sizeFromShape(input.shape) <= env().getNumber('WEBGL_SIZE_UPLOAD_UNIFORM')) {
@@ -114461,10 +115577,14 @@
 	          texData.isPacked = true;
 	          texData.shape = input.shape;
 	        }
-	      } else if (!!texData.isPacked !== !!program.packedInputs) {
-	        input = texData.isPacked ? _this3.unpackTensor(input) : _this3.packTensor(input);
+	      }
+
+	      _this4.uploadToGPU(input.dataId);
+
+	      if (!!texData.isPacked !== !!program.packedInputs) {
+	        input = texData.isPacked ? _this4.unpackTensor(input) : _this4.packTensor(input);
 	        dataToDispose.push(input);
-	        texData = _this3.texData.get(input.dataId);
+	        texData = _this4.texData.get(input.dataId);
 	      } else if (texData.isPacked && !isReshapeFree(texData.shape, input.shape)) {
 	        // This is a special case where a texture exists for a tensor
 	        // but the shapes are incompatible (due to packing constraints) because
@@ -114475,13 +115595,11 @@
 	        var savedInput = input;
 	        var targetShape = input.shape;
 	        input.shape = texData.shape;
-	        input = _this3.packedReshape(input, targetShape);
+	        input = _this4.packedReshape(input, targetShape);
 	        dataToDispose.push(input);
-	        texData = _this3.texData.get(input.dataId);
+	        texData = _this4.texData.get(input.dataId);
 	        savedInput.shape = targetShape;
 	      }
-
-	      _this3.uploadToGPU(input.dataId);
 
 	      return {
 	        shape: input.shape,
@@ -114497,7 +115615,7 @@
 	    };
 	    var key = makeShaderKey(program, inputsData, outputData);
 	    var binary = this.getAndSaveBinary(key, function () {
-	      return compileProgram(_this3.gpgpu, program, inputsData, outputData);
+	      return compileProgram(_this4.gpgpu, program, inputsData, outputData);
 	    });
 	    var shouldTimeProgram = this.activeTimers != null;
 	    var query;
@@ -114506,9 +115624,12 @@
 	      query = this.startTimer();
 	    }
 
-	    runProgram(this.gpgpu, binary, inputsData, outputData, customUniformValues);
+	    if (!env().get('ENGINE_COMPILE_ONLY')) {
+	      runProgram(this.gpgpu, binary, inputsData, outputData, customUniformValues);
+	    }
+
 	    dataToDispose.forEach(function (info) {
-	      return _this3.disposeIntermediateTensorInfo(info);
+	      return _this4.disposeIntermediateTensorInfo(info);
 	    });
 
 	    if (shouldTimeProgram) {
@@ -114562,7 +115683,7 @@
 	  };
 
 	  _proto.dispose = function dispose() {
-	    var _this4 = this;
+	    var _this5 = this;
 
 	    if (this.disposed) {
 	      return;
@@ -114573,9 +115694,9 @@
 	    if (!env().getBool('IS_TEST')) {
 	      var allKeys = Object.keys(this.binaryCache);
 	      allKeys.forEach(function (key) {
-	        _this4.gpgpu.deleteProgram(_this4.binaryCache[key].webGLProgram);
+	        _this5.gpgpu.deleteProgram(_this5.binaryCache[key].webGLProgram);
 
-	        delete _this4.binaryCache[key];
+	        delete _this5.binaryCache[key];
 	      });
 	    }
 
@@ -114596,7 +115717,7 @@
 	  };
 
 	  _proto.floatPrecision = function floatPrecision() {
-	    var _this5 = this;
+	    var _this6 = this;
 
 	    if (this.floatPrecisionValue == null) {
 	      this.floatPrecisionValue = tidy(function () {
@@ -114606,7 +115727,7 @@
 	          var debugFlag = env().getBool('DEBUG');
 	          env().set('DEBUG', false);
 
-	          var underflowCheckValue = _this5.abs(scalar(1e-8)).dataSync()[0];
+	          var underflowCheckValue = _this6.abs(scalar(1e-8)).dataSync()[0];
 
 	          env().set('DEBUG', debugFlag);
 
@@ -114652,6 +115773,8 @@
 	    var texShape = texData.texShape;
 
 	    if (texShape == null) {
+	      // This texShape may not be the final texture shape. For packed or dense
+	      // textures, the texShape will be changed when textures are created.
 	      texShape = getTextureShapeFromLogicalShape(shape, isPacked);
 	      texData.texShape = texShape;
 	    }
@@ -114661,26 +115784,36 @@
 	      var program;
 	      var width = texShape[1],
 	          height = texShape[0];
-	      var isByteArray = values instanceof Uint8Array;
+	      var isByteArray = values instanceof Uint8Array || values instanceof Uint8ClampedArray; // texture for float array is PhysicalTextureType.PACKED_2X2_FLOAT32, we
+	      // need to make sure the upload uses the same packed size
 
-	      if (isPacked) {
+	      if (isPacked || !isByteArray) {
 	        var _tex_util$getPackedMa = getPackedMatrixTextureShapeWidthHeight(texShape[0], texShape[1]);
 
 	        width = _tex_util$getPackedMa[0];
 	        height = _tex_util$getPackedMa[1];
+	      }
+
+	      if (isPacked) {
 	        program = new EncodeMatrixPackedProgram(shapeAs3D, isByteArray);
 	      } else {
 	        program = new EncodeMatrixProgram(shapeAs3D, isByteArray);
-	      }
+	      } // TexShape for float array needs to be the original shape, which byte
+	      // array needs to be packed size. This allow the data upload shape to be
+	      // matched with texture creation logic.
 
-	      var tempDenseInputHandle = this.makeTensorInfo([height, width], dtype);
+
+	      var tempDenseInputTexShape = isByteArray ? [height, width] : texShape;
+	      var tempDenseInputHandle = this.makeTensorInfo(tempDenseInputTexShape, dtype);
+	      var tempDenseInputTexData = this.texData.get(tempDenseInputHandle.dataId);
 
 	      if (isByteArray) {
-	        this.texData.get(tempDenseInputHandle.dataId).usage = TextureUsage.PIXELS;
+	        tempDenseInputTexData.usage = TextureUsage.PIXELS;
 	      } else {
-	        this.texData.get(tempDenseInputHandle.dataId).usage = TextureUsage.UPLOAD;
+	        tempDenseInputTexData.usage = TextureUsage.UPLOAD;
 	      }
 
+	      tempDenseInputTexData.texShape = tempDenseInputTexShape;
 	      this.gpgpu.uploadDenseMatrixToTexture(this.getTexture(tempDenseInputHandle.dataId), width, height, values);
 	      var customValues = [[height, width]]; // We want the output to remain packed regardless of the value of
 	      // WEBGL_PACK.
@@ -114689,14 +115822,20 @@
 	      var encodedOutputTarget = this.runWebGLProgram(program, [tempDenseInputHandle], dtype, customValues, preventEagerUnpacking); // Have the original texture assume the identity of the encoded output.
 
 	      var outputTexData = this.texData.get(encodedOutputTarget.dataId);
-	      texData.texture = outputTexData.texture;
 	      texData.texShape = outputTexData.texShape;
 	      texData.isPacked = outputTexData.isPacked;
 	      texData.usage = outputTexData.usage;
-	      this.disposeIntermediateTensorInfo(tempDenseInputHandle);
-	      this.texData.delete(encodedOutputTarget.dataId); // Once uploaded, don't store the values on cpu.
 
-	      texData.values = null;
+	      if (!env().get('ENGINE_COMPILE_ONLY')) {
+	        texData.texture = outputTexData.texture; // Once uploaded, don't store the values on cpu.
+
+	        texData.values = null;
+	        this.texData.delete(encodedOutputTarget.dataId);
+	      } else {
+	        this.disposeData(encodedOutputTarget.dataId);
+	      }
+
+	      this.disposeIntermediateTensorInfo(tempDenseInputHandle);
 
 	      if (shouldTimeProgram) {
 	        this.uploadWaitMs += now() - start;
@@ -114735,6 +115874,153 @@
 	    return shape[0] * shape[1] * bytesPerElement(dtype);
 	  };
 
+	  _proto.checkCompileCompletion = function checkCompileCompletion() {
+	    for (var _i = 0, _Object$entries = Object.entries(this.binaryCache); _i < _Object$entries.length; _i++) {
+	      var _Object$entries$_i = _Object$entries[_i],
+	          binary = _Object$entries$_i[1];
+	      this.checkCompletion_(binary);
+	    }
+	  };
+
+	  _proto.checkCompileCompletionAsync = /*#__PURE__*/function () {
+	    var _checkCompileCompletionAsync = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee4() {
+	      var _this7 = this;
+
+	      var ps, _i2, _Object$entries2, _Object$entries2$_i, binary, _loop, _i3, _Object$entries3;
+
+	      return regeneratorRuntime.wrap(function _callee4$(_context4) {
+	        while (1) {
+	          switch (_context4.prev = _context4.next) {
+	            case 0:
+	              ps = [];
+
+	              if (!this.gpgpu.parallelCompilationExtension) {
+	                _context4.next = 6;
+	                break;
+	              }
+
+	              for (_i2 = 0, _Object$entries2 = Object.entries(this.binaryCache); _i2 < _Object$entries2.length; _i2++) {
+	                _Object$entries2$_i = _Object$entries2[_i2], binary = _Object$entries2$_i[1];
+	                ps.push(this.checkCompletionAsync_(binary));
+	              }
+
+	              return _context4.abrupt("return", Promise.all(ps));
+
+	            case 6:
+	              _loop = function _loop() {
+	                var _Object$entries3$_i = _Object$entries3[_i3],
+	                    binary = _Object$entries3$_i[1];
+	                var p = new Promise(function (resolve) {
+	                  try {
+	                    _this7.checkCompletion_(binary);
+
+	                    resolve(true);
+	                  } catch (error) {
+	                    throw error;
+	                  }
+	                });
+	                ps.push(p);
+	              };
+
+	              for (_i3 = 0, _Object$entries3 = Object.entries(this.binaryCache); _i3 < _Object$entries3.length; _i3++) {
+	                _loop();
+	              }
+
+	              return _context4.abrupt("return", Promise.all(ps));
+
+	            case 9:
+	            case "end":
+	              return _context4.stop();
+	          }
+	        }
+	      }, _callee4, this);
+	    }));
+
+	    function checkCompileCompletionAsync() {
+	      return _checkCompileCompletionAsync.apply(this, arguments);
+	    }
+
+	    return checkCompileCompletionAsync;
+	  }();
+
+	  _proto.checkCompletionAsync_ = /*#__PURE__*/function () {
+	    var _checkCompletionAsync_ = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee5(binary) {
+	      return regeneratorRuntime.wrap(function _callee5$(_context5) {
+	        while (1) {
+	          switch (_context5.prev = _context5.next) {
+	            case 0:
+	              if (!this.gpgpu.gl.getProgramParameter(binary.webGLProgram, this.gpgpu.parallelCompilationExtension.COMPLETION_STATUS_KHR)) {
+	                _context5.next = 4;
+	                break;
+	              }
+
+	              return _context5.abrupt("return", this.checkCompletion_(binary));
+
+	            case 4:
+	              _context5.next = 6;
+	              return nextFrame();
+
+	            case 6:
+	              return _context5.abrupt("return", this.checkCompletionAsync_(binary));
+
+	            case 7:
+	            case "end":
+	              return _context5.stop();
+	          }
+	        }
+	      }, _callee5, this);
+	    }));
+
+	    function checkCompletionAsync_(_x3) {
+	      return _checkCompletionAsync_.apply(this, arguments);
+	    }
+
+	    return checkCompletionAsync_;
+	  }();
+
+	  _proto.checkCompletion_ = function checkCompletion_(binary) {
+	    if (this.gpgpu.gl.getProgramParameter(binary.webGLProgram, this.gpgpu.gl.LINK_STATUS) === false) {
+	      console.log(this.gpgpu.gl.getProgramInfoLog(binary.webGLProgram));
+
+	      if (this.gpgpu.gl.getShaderParameter(binary.fragmentShader, this.gpgpu.gl.COMPILE_STATUS) === false) {
+	        logShaderSourceAndInfoLog(binary.source, this.gpgpu.gl.getShaderInfoLog(binary.fragmentShader));
+	        throw new Error('Failed to compile fragment shader.');
+	      }
+
+	      throw new Error('Failed to link vertex and fragment shaders.');
+	    }
+
+	    return true;
+	  };
+
+	  _proto.getUniformLocations = function getUniformLocations$1() {
+	    for (var _i4 = 0, _Object$entries4 = Object.entries(this.binaryCache); _i4 < _Object$entries4.length; _i4++) {
+	      var _Object$entries4$_i = _Object$entries4[_i4],
+	          binary = _Object$entries4$_i[1];
+
+	      var _getUniformLocations2 = getUniformLocations(this.gpgpu, binary.program, binary.webGLProgram),
+	          uniformLocations = _getUniformLocations2.uniformLocations,
+	          customUniformLocations = _getUniformLocations2.customUniformLocations,
+	          infLoc = _getUniformLocations2.infLoc,
+	          nanLoc = _getUniformLocations2.nanLoc,
+	          inShapesLocations = _getUniformLocations2.inShapesLocations,
+	          inTexShapesLocations = _getUniformLocations2.inTexShapesLocations,
+	          outShapeLocation = _getUniformLocations2.outShapeLocation,
+	          outShapeStridesLocation = _getUniformLocations2.outShapeStridesLocation,
+	          outTexShapeLocation = _getUniformLocations2.outTexShapeLocation;
+
+	      binary.uniformLocations = uniformLocations;
+	      binary.customUniformLocations = customUniformLocations;
+	      binary.infLoc = infLoc;
+	      binary.nanLoc = nanLoc;
+	      binary.inShapesLocations = inShapesLocations;
+	      binary.inTexShapesLocations = inTexShapesLocations;
+	      binary.outShapeLocation = outShapeLocation;
+	      binary.outShapeStridesLocation = outShapeStridesLocation;
+	      binary.outTexShapeLocation = outTexShapeLocation;
+	    }
+	  };
+
 	  return MathBackendWebGL;
 	}(KernelBackend);
 	MathBackendWebGL.nextDataId = 0;
@@ -114757,7 +116043,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$6 = '3.9.0';
+	var version$6 = '3.15.0';
 
 	/**
 	 * @license
@@ -115015,7 +116301,7 @@
 	  var alpha = attrs.alpha;
 	  var $alpha = backend.makeTensorInfo([], 'float32', createScalarValue(alpha, 'float32'));
 	  var program = env().getBool('WEBGL_PACK_BINARY_OPERATIONS') ? new BinaryOpPackedProgram(LEAKYRELU_PACKED, x.shape, $alpha.shape) : new BinaryOpProgram(LEAKYRELU, x.shape, $alpha.shape);
-	  var result = backend.runWebGLProgram(program, [x, $alpha], x.dtype);
+	  var result = backend.runWebGLProgram(program, [x, $alpha], 'float32');
 	  backend.disposeIntermediateTensorInfo($alpha);
 	  return result;
 	}
@@ -115049,7 +116335,7 @@
 	  var x = inputs.x,
 	      alpha = inputs.alpha;
 	  var program = env().getBool('WEBGL_PACK_BINARY_OPERATIONS') ? new BinaryOpPackedProgram(PRELU_PACKED, x.shape, alpha.shape) : new BinaryOpProgram(PRELU, x.shape, alpha.shape);
-	  return backend.runWebGLProgram(program, [x, alpha], x.dtype);
+	  return backend.runWebGLProgram(program, [x, alpha], 'float32');
 	}
 	var preluConfig$1 = {
 	  kernelName: Prelu,
@@ -116071,11 +117357,7 @@
 	  var outerDimsB = b.shape.slice(0, -2);
 	  var batchDimA = sizeFromShape(outerDimsA);
 	  var batchDimB = sizeFromShape(outerDimsB);
-	  var batchDimsCompatible = batchDimA === batchDimB || batchDimA === 1 || batchDimB === 1;
-	  assert(aRank >= 2 && bRank >= 2 && batchDimsCompatible, function () {
-	    return "Error in matMul: the input batch dimensions must either be the " + "same or at least one input batch dimension must be 1. Got input " + ("batch dimensions of (" + outerDimsA + ") and (" + outerDimsB + ").");
-	  });
-	  var outShapeOuterDims = batchDimA > batchDimB ? a.shape.slice(0, -2) : b.shape.slice(0, -2);
+	  var outShapeOuterDims = assertAndGetBroadcastShape(a.shape.slice(0, -2), b.shape.slice(0, -2));
 	  var outShape = outShapeOuterDims.concat([outerShapeA, outerShapeB]);
 	  assert(innerShapeA === innerShapeB, function () {
 	    return "Error in matMul: inner shapes (" + innerShapeA + ") and (" + (innerShapeB + ") of Tensors with shapes " + a.shape + " and ") + (b.shape + " and transposeA=" + transposeA) + (" and transposeB=" + transposeB + " must match.");
@@ -117506,7 +118788,7 @@
 	  var avgPoolBackpropProgram = new AvgPool3DBackpropProgram(convInfo);
 	  return backend.runWebGLProgram(avgPoolBackpropProgram, [dy], x.dtype);
 	}
-	var avgPoolGrad3DConfig = {
+	var avgPool3DGradConfig$2 = {
 	  kernelName: AvgPool3DGrad,
 	  backendName: 'webgl',
 	  kernelFunc: avgPool3DGrad$1
@@ -118044,6 +119326,38 @@
 
 	/**
 	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function broadcastArgs$2(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend;
+	  var s0 = inputs.s0,
+	      s1 = inputs.s1;
+	  var s0Vals = backend.readSync(s0.dataId);
+	  var s1Vals = backend.readSync(s1.dataId);
+	  var broadcastShape = assertAndGetBroadcastShape(Array.from(s0Vals), Array.from(s1Vals));
+	  return backend.makeTensorInfo([broadcastShape.length], 'int32', Int32Array.from(broadcastShape));
+	}
+	var broadcastArgsConfig$1 = {
+	  kernelName: BroadcastArgs,
+	  backendName: 'webgl',
+	  kernelFunc: broadcastArgs$2
+	};
+
+	/**
+	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -118359,7 +119673,7 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	function clipByValue$1(args) {
+	function clipByValue$2(args) {
 	  var inputs = args.inputs,
 	      backend = args.backend,
 	      attrs = args.attrs;
@@ -118377,10 +119691,10 @@
 	  var customValues = [[clipValueMin], [clipValueMax]];
 	  return backend.runWebGLProgram(program, [x], x.dtype, customValues);
 	}
-	var clipByValueConfig = {
+	var clipByValueConfig$1 = {
 	  kernelName: ClipByValue,
 	  backendName: 'webgl',
-	  kernelFunc: clipByValue$1
+	  kernelFunc: clipByValue$2
 	};
 
 	/**
@@ -119760,6 +121074,159 @@
 	  kernelFunc: cropAndResize$2
 	};
 
+	var CumProdProgram = function CumProdProgram(shape, exclusive, reverse) {
+	  this.variableNames = ['x'];
+	  this.customUniforms = [{
+	    name: 'index',
+	    type: 'float'
+	  }];
+	  this.outputShape = shape;
+	  var rank = shape.length;
+	  var val = exclusive ? '1.0' : "getX(" + getCoords$1(rank, 'coords') + ")";
+	  var length = shape[shape.length - 1];
+	  var condition = '';
+	  var idxString = ''; // When exclusive is set, the cumprod op becomes roll op that copies the
+	  // value from the previous index based on the direction specified by the
+	  // reverse flag.
+
+	  if (exclusive) {
+	    condition = reverse ? "end != " + (length - 1) : 'end != 0';
+	    idxString = reverse ? 'end + 1' : 'end - 1';
+	  } else {
+	    condition = reverse ? "end + pow2 < " + length : 'end >= pow2';
+	    idxString = reverse ? 'end + pow2' : 'end - pow2';
+	  }
+
+	  this.userCode = "\n      void main() {\n        " + getCoordsDataType(rank) + " coords = getOutputCoords();\n        int end = " + getFinalCoord(rank, 'coords') + ";\n        float val = " + val + ";\n        int pow2 = int(pow(2.0, index));\n        if (" + condition + ") {\n          int idx = " + idxString + ";\n          " + getFinalCoord(rank, 'coords') + " = idx;\n          val *= getX(" + getCoords$1(rank, 'coords') + ");\n        }\n        setOutput(val);\n      }\n    ";
+	};
+
+	function getCoords$1(rank, name) {
+	  if (rank === 1) {
+	    return "" + name;
+	  } else if (rank === 2) {
+	    return name + ".x, " + name + ".y";
+	  } else if (rank === 3) {
+	    return name + ".x, " + name + ".y, " + name + ".z";
+	  } else if (rank === 4) {
+	    return name + ".x, " + name + ".y, " + name + ".z, " + name + ".w";
+	  } else {
+	    throw Error("Cumulative product for rank " + rank + " is not yet supported");
+	  }
+	}
+
+	function getFinalCoord(rank, name) {
+	  if (rank === 1) {
+	    return "" + name;
+	  } else if (rank === 2) {
+	    return name + ".y";
+	  } else if (rank === 3) {
+	    return name + ".z";
+	  } else if (rank === 4) {
+	    return name + ".w";
+	  } else {
+	    throw Error("Cumulative product for rank " + rank + " is not yet supported");
+	  }
+	}
+
+	/**
+	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function cumprod$2(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend,
+	      attrs = args.attrs;
+	  var x = inputs.x;
+	  var axis = attrs.axis,
+	      exclusive = attrs.exclusive,
+	      reverse = attrs.reverse;
+	  var xRank = x.shape.length;
+	  var permutation = getAxesPermutation([axis], xRank);
+	  var permutedX = x;
+
+	  if (permutation != null) {
+	    permutedX = transpose$2({
+	      inputs: {
+	        x: x
+	      },
+	      backend: backend,
+	      attrs: {
+	        perm: permutation
+	      }
+	    });
+	  }
+
+	  var permutedAxis = getInnerMostAxes(1, xRank)[0];
+
+	  if (permutedAxis !== xRank - 1) {
+	    throw new Error("WebGL cumprod shader expects an inner-most axis=" + (x.shape.length - 1) + " " + ("but got axis=" + axis));
+	  }
+
+	  var size = permutedX.shape[permutedAxis];
+	  var result = identity$2({
+	    inputs: {
+	      x: permutedX
+	    },
+	    backend: backend
+	  }); // Use cumprod parallel algorithm, inspired by:
+	  // https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
+	  // Note: although the algorithm is called sum, it works for any associtative
+	  // operator with an identity.
+
+	  for (var i = 0; i <= Math.ceil(Math.log2(size)) - 1; i++) {
+	    var program = new CumProdProgram(permutedX.shape, false, reverse);
+	    var customValues = [[i]];
+	    var prevResult = result;
+	    result = backend.runWebGLProgram(program, [result], result.dtype, customValues);
+	    backend.disposeIntermediateTensorInfo(prevResult);
+	  } // For exclusive cumprod, shift the end result in the direction of product
+	  // and add 1 to the front index.
+
+
+	  if (exclusive) {
+	    var _program = new CumProdProgram(permutedX.shape, exclusive, reverse);
+
+	    var _prevResult = result;
+	    result = backend.runWebGLProgram(_program, [result], result.dtype);
+	    backend.disposeIntermediateTensorInfo(_prevResult);
+	  }
+
+	  if (permutation != null) {
+	    var reversePermutation = getUndoAxesPermutation(permutation);
+	    var reverseTransposedResult = transpose$2({
+	      inputs: {
+	        x: result
+	      },
+	      backend: backend,
+	      attrs: {
+	        perm: reversePermutation
+	      }
+	    });
+	    backend.disposeIntermediateTensorInfo(result);
+	    backend.disposeIntermediateTensorInfo(permutedX);
+	    return reverseTransposedResult;
+	  }
+
+	  return result;
+	}
+	var cumprodConfig$1 = {
+	  kernelName: Cumprod,
+	  backendName: 'webgl',
+	  kernelFunc: cumprod$2
+	};
+
 	var CumSumProgram = function CumSumProgram(shape, exclusive, reverse) {
 	  this.variableNames = ['x'];
 	  this.customUniforms = [{
@@ -119768,7 +121235,7 @@
 	  }];
 	  this.outputShape = shape;
 	  var rank = shape.length;
-	  var val = exclusive ? '0.0' : "getX(" + getCoords$1(rank, 'coords') + ")";
+	  var val = exclusive ? '0.0' : "getX(" + getCoords$2(rank, 'coords') + ")";
 	  var length = shape[shape.length - 1];
 	  var condition = '';
 	  var idxString = ''; // When exclusive is set, the cumsum op becomes roll op that copies the
@@ -119783,10 +121250,10 @@
 	    idxString = reverse ? 'end + pow2' : 'end - pow2';
 	  }
 
-	  this.userCode = "\n      void main() {\n        " + getCoordsDataType(rank) + " coords = getOutputCoords();\n        int end = " + getFinalCoord(rank, 'coords') + ";\n        float val = " + val + ";\n        int pow2 = int(pow(2.0, index));\n        if (" + condition + ") {\n          int idx = " + idxString + ";\n          " + getFinalCoord(rank, 'coords') + " = idx;\n          val += getX(" + getCoords$1(rank, 'coords') + ");\n        }\n        setOutput(val);\n      }\n    ";
+	  this.userCode = "\n      void main() {\n        " + getCoordsDataType(rank) + " coords = getOutputCoords();\n        int end = " + getFinalCoord$1(rank, 'coords') + ";\n        float val = " + val + ";\n        int pow2 = int(pow(2.0, index));\n        if (" + condition + ") {\n          int idx = " + idxString + ";\n          " + getFinalCoord$1(rank, 'coords') + " = idx;\n          val += getX(" + getCoords$2(rank, 'coords') + ");\n        }\n        setOutput(val);\n      }\n    ";
 	};
 
-	function getCoords$1(rank, name) {
+	function getCoords$2(rank, name) {
 	  if (rank === 1) {
 	    return "" + name;
 	  } else if (rank === 2) {
@@ -119800,7 +121267,7 @@
 	  }
 	}
 
-	function getFinalCoord(rank, name) {
+	function getFinalCoord$1(rank, name) {
 	  if (rank === 1) {
 	    return "" + name;
 	  } else if (rank === 2) {
@@ -120050,9 +121517,6 @@
 	  var x = inputs.x;
 	  var blockSize = attrs.blockSize,
 	      dataFormat = attrs.dataFormat;
-	  assert(blockSize > 1, function () {
-	    return "blockSize should be > 1 for depthToSpace, but was: " + blockSize;
-	  });
 	  var batchSize = x.shape[0];
 	  var inputHeight = dataFormat === 'NHWC' ? x.shape[1] : x.shape[2];
 	  var inputWidth = dataFormat === 'NHWC' ? x.shape[2] : x.shape[3];
@@ -120227,112 +121691,112 @@
 	   */
 
 
-	  for (var r = 0; r < filterHeight; r++) {
-	    for (var _c = 0; _c < filterWidth; _c++) {
-	      mainLoop += "\n          xTexelC" + _c * 2 + " = vec4(0.0);\n          xTexelC" + _c * 2 + "Ready = 0;\n          xTexelC" + (_c * 2 + 1) + " = vec4(0.0);\n          xTexelC" + (_c * 2 + 1) + "Ready = 0;\n          xC" + _c + " = vec4(0.0);";
-	    }
+	  mainLoop += "\n    for (int r = 0; r < " + filterHeight + "; r++) {\n      ";
 
-	    mainLoop += "\n        xR = xRCorner + " + r + " * dilations[0];\n        if (xR >=0 && xR < inDims[0]) {\n      ";
-
-	    for (var texelC = 0; texelC < (texelsAcross + 1) / 2; texelC++) {
-	      var colIndex = texelC * 2;
-	      mainLoop += "\n          xC = xCCorner + " + colIndex * dilationWidth + ";\n          ";
-
-	      if (strideWidth === 1) {
-	        if (colIndex < filterWidth) {
-	          // If padding is odd, the outer texels have to be composed.
-	          if (padLeft % 2 === 1) {
-	            // TODO: Ensure vec4 previous does not result in redundant sample,
-	            // and avoid setting xTexelRC's that exceed the boundary in the
-	            // first place rather than resetting them to vec4(0)).
-	            // To compute xCOffset:
-	            // - If padding is odd, we must add 1 to ensure we ask for an
-	            // even-numbered row.
-	            // - We subtract 2 to access the previous texel.
-	            mainLoop += "\n                xCOffset = xC + 1;\n                if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xCOffset + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n              "; // This texel has been read in previous iteration if the dilation
-	            // is 1.
-
-	            if (dilationWidth === 1 && colIndex > 0) {
-	              mainLoop += "\n                xC" + colIndex + " = vec4(xTexelC" + (colIndex - 2) + ".zw, xTexelC" + colIndex + ".xy);\n                ";
-	            } else {
-	              mainLoop += "\n                  xCOffset = xC + 1 - 2;\n\n                  if (xCOffset >= 0 && xCOffset < inDims[1]) {\n                    previous = getX(batch, xR, xCOffset, d1);\n\n                    // Need to manually clear unused channels in case\n                    // we're reading from recycled texture.\n                    if (xCOffset + 1 >= inDims[1]) {\n                      previous.zw = vec2(0.0);\n                    }\n\n                    xC" + colIndex + " = vec4(previous.zw, xTexelC" + colIndex + ".xy);\n                  } else {\n                    xC" + colIndex + " = vec4(0.0, 0.0, xTexelC" + colIndex + ".xy);\n                  }\n                  ";
-	            }
-	          } else {
-	            // Padding is even, so xRC corresponds to a single texel.
-	            mainLoop += "\n                if (xC >= 0 && xC < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xC, d1);\n                  if (xC + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                xC" + colIndex + " = xTexelC" + colIndex + ";\n                ";
-	          }
-
-	          if (colIndex + 1 < filterWidth) {
-	            // If dilation is even, the second entry should match the first
-	            // (either both are composed or both are single samples). But if
-	            // dilation is odd, then the second entry should be the opposite
-	            // of the first (if the first is composed, the second is a single
-	            // sample, and vice versa.)
-	            var nextTexelOffset = padLeft % 2 === 0 ? nearestLargerEven(dilationWidth) : dilationWidth;
-
-	            if (dilationWidth % 2 === 0 && padLeft % 2 === 1 || dilationWidth % 2 !== 0 && padLeft % 2 !== 1) {
-	              mainLoop += "\n                  xCOffset = xC + imod(pads[1], 2) + " + nextTexelOffset + ";\n\n                  if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                    xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n\n                    // Need to manually clear unused channels in case\n                    // we're reading from recycled texture.\n                    if (xCOffset + 1 >= inDims[1]) {\n                      xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                    }\n                    xTexelC" + (colIndex + 1) + "Ready = 1;\n                  }\n                  "; // If dilation > 1 then the xRC's will not be able to share any
-	              // values, so each xRC will require two unique calls to getX.
-
-	              if (dilationWidth > 1) {
-	                mainLoop += "\n                    xCOffset -= 2;\n                    if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                      xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n                      xTexelC" + colIndex + "Ready = 1;\n                    }\n                    ";
-	              }
-
-	              mainLoop += "\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".xy);\n                  ";
-	            } else {
-	              // If dilation is 1 and padding is odd, we have already read the
-	              // texel when constructing the previous x value. Here we can
-	              // simply skip the texture read.
-	              if (nextTexelOffset === 1) {
-	                mainLoop += "\n                    xC" + (colIndex + 1) + " = xTexelC" + colIndex + ";\n                    ";
-	              } else {
-	                mainLoop += "\n                    xCOffset = xC + " + nextTexelOffset + ";\n\n                    if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                      xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n                      if (xCOffset + 1 >= inDims[1]) {\n                        xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                      }\n                      xTexelC" + (colIndex + 1) + "Ready = 1;\n                    }\n\n                    xC" + (colIndex + 1) + " = xTexelC" + (colIndex + 1) + ";\n                    ";
-	              }
-	            }
-	          }
-	        }
-	      } else {
-	        // stride === 2
-	        if (colIndex < filterWidth) {
-	          // Depending on whether padLeft is even or odd, we want either the
-	          // xy or zw channels from X texels for xC${colIndex}. If padLeft is
-	          // even, xC${colIndex +1} is simply the zw channels of texels we've
-	          // already sampled. But if padLeft is odd, xC{$c + 1}.zw will
-	          // need to come from the xy channels of a new texel, hence the `
-	          // vec4
-	          // final` initialized below.
-	          if (padLeft % 2 === 1) {
-	            mainLoop += "\n                xCOffset = xC + 1 - strides[1];\n                if(xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xCOffset + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                if(xC + 1 >= 0 && xC + 1 < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                  xTexelC" + (colIndex + 1) + " = getX(batch, xR, xC + 1, d1);\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xC + 2 >= inDims[1]) {\n                    xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + (colIndex + 1) + "Ready = 1;\n                }\n\n                xC" + colIndex + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".zw);\n              ";
-
-	            if (colIndex + 1 < filterWidth) {
-	              mainLoop += "\n                  final = vec4(0.0);\n                  xCOffset = xC + 1 + strides[1];\n                  if(xCOffset >= 0 && xCOffset < inDims[1]) {\n                    final = getX(batch, xR, xCOffset, d1);\n                  }\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + (colIndex + 1) + ".xy, final.xy);\n                ";
-	            }
-	          } else {
-	            mainLoop += "\n                if(xC >= 0 && xC < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xC, d1);\n                  if (xC + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                xCOffset = xC + strides[1];\n                if(xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                  xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n                  if (xCOffset + 1 >= inDims[1]) {\n                    xTexelC" + (colIndex + 1) + ".zw = vec2(0.);\n                  }\n                  xTexelC" + (colIndex + 1) + "Ready = 1;\n                }\n\n                xC" + colIndex + " = vec4(\n                  xTexelC" + colIndex + ".xy, xTexelC" + (colIndex + 1) + ".xy);\n              ";
-
-	            if (colIndex + 1 < filterWidth) {
-	              mainLoop += "\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".zw);\n                ";
-	            }
-	          }
-	        }
-	      } // localize the dotProd accumulation within the loop, the theory is for
-	      // GPU with limited cache, accumulate sum across large amount of
-	      // veriables will cause lots of cache misses. (i.e. 5x5 filter will have
-	      // 50 variables)
-
-
-	      if (colIndex < filterWidth) {
-	        mainLoop += "\n            wTexel = getW(" + r + ", " + colIndex + ", d1, q);\n            dotProd += xC" + colIndex + " * vec4(wTexel.xz, wTexel.xz);\n          ";
-
-	        if (colIndex + 1 < filterWidth) {
-	          mainLoop += "\n              wTexel = getW(" + r + ", " + (colIndex + 1) + ", d1, q);\n              dotProd += xC" + (colIndex + 1) + " * vec4(wTexel.xz, wTexel.xz);\n            ";
-	        }
-	      }
-	    }
-
-	    mainLoop += "\n        }\n      ";
+	  for (var _c = 0; _c < filterWidth; _c++) {
+	    mainLoop += "\n          xTexelC" + _c * 2 + " = vec4(0.0);\n          xTexelC" + _c * 2 + "Ready = 0;\n          xTexelC" + (_c * 2 + 1) + " = vec4(0.0);\n          xTexelC" + (_c * 2 + 1) + "Ready = 0;\n          xC" + _c + " = vec4(0.0);";
 	  }
 
+	  mainLoop += "\n        xR = xRCorner + r * dilations[0];\n        if (xR >=0 && xR < inDims[0]) {\n      ";
+
+	  for (var texelC = 0; texelC < (texelsAcross + 1) / 2; texelC++) {
+	    var colIndex = texelC * 2;
+	    mainLoop += "\n          xC = xCCorner + " + colIndex * dilationWidth + ";\n          ";
+
+	    if (strideWidth === 1) {
+	      if (colIndex < filterWidth) {
+	        // If padding is odd, the outer texels have to be composed.
+	        if (padLeft % 2 === 1) {
+	          // TODO: Ensure vec4 previous does not result in redundant sample,
+	          // and avoid setting xTexelRC's that exceed the boundary in the
+	          // first place rather than resetting them to vec4(0)).
+	          // To compute xCOffset:
+	          // - If padding is odd, we must add 1 to ensure we ask for an
+	          // even-numbered row.
+	          // - We subtract 2 to access the previous texel.
+	          mainLoop += "\n                xCOffset = xC + 1;\n                if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xCOffset + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n              "; // This texel has been read in previous iteration if the dilation
+	          // is 1.
+
+	          if (dilationWidth === 1 && colIndex > 0) {
+	            mainLoop += "\n                xC" + colIndex + " = vec4(xTexelC" + (colIndex - 2) + ".zw, xTexelC" + colIndex + ".xy);\n                ";
+	          } else {
+	            mainLoop += "\n                  xCOffset = xC + 1 - 2;\n\n                  if (xCOffset >= 0 && xCOffset < inDims[1]) {\n                    previous = getX(batch, xR, xCOffset, d1);\n\n                    // Need to manually clear unused channels in case\n                    // we're reading from recycled texture.\n                    if (xCOffset + 1 >= inDims[1]) {\n                      previous.zw = vec2(0.0);\n                    }\n\n                    xC" + colIndex + " = vec4(previous.zw, xTexelC" + colIndex + ".xy);\n                  } else {\n                    xC" + colIndex + " = vec4(0.0, 0.0, xTexelC" + colIndex + ".xy);\n                  }\n                  ";
+	          }
+	        } else {
+	          // Padding is even, so xRC corresponds to a single texel.
+	          mainLoop += "\n                if (xC >= 0 && xC < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xC, d1);\n                  if (xC + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                xC" + colIndex + " = xTexelC" + colIndex + ";\n                ";
+	        }
+
+	        if (colIndex + 1 < filterWidth) {
+	          // If dilation is even, the second entry should match the first
+	          // (either both are composed or both are single samples). But if
+	          // dilation is odd, then the second entry should be the opposite
+	          // of the first (if the first is composed, the second is a single
+	          // sample, and vice versa.)
+	          var nextTexelOffset = padLeft % 2 === 0 ? nearestLargerEven(dilationWidth) : dilationWidth;
+
+	          if (dilationWidth % 2 === 0 && padLeft % 2 === 1 || dilationWidth % 2 !== 0 && padLeft % 2 !== 1) {
+	            mainLoop += "\n                  xCOffset = xC + imod(pads[1], 2) + " + nextTexelOffset + ";\n\n                  if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                    xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n\n                    // Need to manually clear unused channels in case\n                    // we're reading from recycled texture.\n                    if (xCOffset + 1 >= inDims[1]) {\n                      xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                    }\n                    xTexelC" + (colIndex + 1) + "Ready = 1;\n                  }\n                  "; // If dilation > 1 then the xRC's will not be able to share any
+	            // values, so each xRC will require two unique calls to getX.
+
+	            if (dilationWidth > 1) {
+	              mainLoop += "\n                    xCOffset -= 2;\n                    if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                      xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n                      xTexelC" + colIndex + "Ready = 1;\n                    }\n                    ";
+	            }
+
+	            mainLoop += "\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".xy);\n                  ";
+	          } else {
+	            // If dilation is 1 and padding is odd, we have already read the
+	            // texel when constructing the previous x value. Here we can
+	            // simply skip the texture read.
+	            if (nextTexelOffset === 1) {
+	              mainLoop += "\n                    xC" + (colIndex + 1) + " = xTexelC" + colIndex + ";\n                    ";
+	            } else {
+	              mainLoop += "\n                    xCOffset = xC + " + nextTexelOffset + ";\n\n                    if (xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                      xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n                      if (xCOffset + 1 >= inDims[1]) {\n                        xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                      }\n                      xTexelC" + (colIndex + 1) + "Ready = 1;\n                    }\n\n                    xC" + (colIndex + 1) + " = xTexelC" + (colIndex + 1) + ";\n                    ";
+	            }
+	          }
+	        }
+	      }
+	    } else {
+	      // stride === 2
+	      if (colIndex < filterWidth) {
+	        // Depending on whether padLeft is even or odd, we want either the
+	        // xy or zw channels from X texels for xC${colIndex}. If padLeft is
+	        // even, xC${colIndex +1} is simply the zw channels of texels we've
+	        // already sampled. But if padLeft is odd, xC{$c + 1}.zw will
+	        // need to come from the xy channels of a new texel, hence the `
+	        // vec4
+	        // final` initialized below.
+	        if (padLeft % 2 === 1) {
+	          mainLoop += "\n                xCOffset = xC + 1 - strides[1];\n                if(xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xCOffset, d1);\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xCOffset + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                if(xC + 1 >= 0 && xC + 1 < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                  xTexelC" + (colIndex + 1) + " = getX(batch, xR, xC + 1, d1);\n                  // Need to manually clear unused channels in case\n                  // we're reading from recycled texture.\n                  if (xC + 2 >= inDims[1]) {\n                    xTexelC" + (colIndex + 1) + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + (colIndex + 1) + "Ready = 1;\n                }\n\n                xC" + colIndex + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".zw);\n              ";
+
+	          if (colIndex + 1 < filterWidth) {
+	            mainLoop += "\n                  final = vec4(0.0);\n                  xCOffset = xC + 1 + strides[1];\n                  if(xCOffset >= 0 && xCOffset < inDims[1]) {\n                    final = getX(batch, xR, xCOffset, d1);\n                  }\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + (colIndex + 1) + ".xy, final.xy);\n                ";
+	          }
+	        } else {
+	          mainLoop += "\n                if(xC >= 0 && xC < inDims[1] && xTexelC" + colIndex + "Ready == 0) {\n                  xTexelC" + colIndex + " = getX(batch, xR, xC, d1);\n                  if (xC + 1 >= inDims[1]) {\n                    xTexelC" + colIndex + ".zw = vec2(0.0);\n                  }\n                  xTexelC" + colIndex + "Ready = 1;\n                }\n\n                xCOffset = xC + strides[1];\n                if(xCOffset >= 0 && xCOffset < inDims[1] && xTexelC" + (colIndex + 1) + "Ready == 0) {\n                  xTexelC" + (colIndex + 1) + " = getX(batch, xR, xCOffset, d1);\n                  if (xCOffset + 1 >= inDims[1]) {\n                    xTexelC" + (colIndex + 1) + ".zw = vec2(0.);\n                  }\n                  xTexelC" + (colIndex + 1) + "Ready = 1;\n                }\n\n                xC" + colIndex + " = vec4(\n                  xTexelC" + colIndex + ".xy, xTexelC" + (colIndex + 1) + ".xy);\n              ";
+
+	          if (colIndex + 1 < filterWidth) {
+	            mainLoop += "\n                  xC" + (colIndex + 1) + " = vec4(xTexelC" + colIndex + ".zw, xTexelC" + (colIndex + 1) + ".zw);\n                ";
+	          }
+	        }
+	      }
+	    } // localize the dotProd accumulation within the loop, the theory is for
+	    // GPU with limited cache, accumulate sum across large amount of
+	    // veriables will cause lots of cache misses. (i.e. 5x5 filter will have
+	    // 50 variables)
+
+
+	    if (colIndex < filterWidth) {
+	      mainLoop += "\n            wTexel = getW(r, " + colIndex + ", d1, q);\n            dotProd += xC" + colIndex + " * vec4(wTexel.xz, wTexel.xz);\n          ";
+
+	      if (colIndex + 1 < filterWidth) {
+	        mainLoop += "\n              wTexel = getW(r, " + (colIndex + 1) + ", d1, q);\n              dotProd += xC" + (colIndex + 1) + " * vec4(wTexel.xz, wTexel.xz);\n            ";
+	      }
+	    }
+	  }
+
+	  mainLoop += "\n    }\n  ";
+	  mainLoop += "\n      }\n    ";
 	  var activationSnippet = '',
 	      applyActivationSnippet = '';
 
@@ -120687,7 +122151,7 @@
 	  backend.disposeIntermediateTensorInfo(out);
 	  return outReshaped;
 	}
-	var dilation2DConfig = {
+	var dilation2DConfig$1 = {
 	  kernelName: Dilation2D,
 	  backendName: 'webgl',
 	  kernelFunc: dilation2D
@@ -120945,11 +122409,13 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var EXP = "return exp(x);";
+	var EXP = CHECK_NAN_SNIPPET_UNARY + "\n  return exp(x);\n";
+	var EXP_PACKED = "\n  vec4 result = exp(x);\n  bvec4 isNaN = isnan(x);\n  result.r = isNaN.r ? x.r : result.r;\n  result.g = isNaN.g ? x.g : result.g;\n  result.b = isNaN.b ? x.b : result.b;\n  result.a = isNaN.a ? x.a : result.a;\n\n  return result;\n";
 	var exp$5 = unaryKernelFunc$1({
 	  opSnippet: EXP,
-	  packedOpSnippet: EXP,
-	  cpuKernelImpl: expImplCPU
+	  packedOpSnippet: EXP_PACKED,
+	  cpuKernelImpl: expImplCPU,
+	  dtype: 'float32'
 	});
 	var expConfig$1 = {
 	  kernelName: Exp,
@@ -121769,7 +123235,7 @@
 	  this.rank = outputShape.length;
 	  var dtype = getCoordsDataType(this.rank);
 	  var sourceCoords = getSourceCoords$1(aShape, 2);
-	  this.userCode = "\n      void main() {\n        " + dtype + " resRC = getOutputCoords();\n        setOutput(getA(" + sourceCoords + "));\n      }\n    ";
+	  this.userCode = "\n      void main() {\n        " + dtype + " resRC = getOutputCoords();\n        int index = int(getIndices(resRC.x, resRC.z));\n        float inBounds = (index >= 0) && (index < " + aShape[2] + ") ? 1.0 : 0.0;\n        setOutput(inBounds * getA(" + sourceCoords + "));\n      }\n    ";
 	}; // The input and output are always flattened into rank 4 tensors.
 
 	function getSourceCoords$1(aShape, axis) {
@@ -121778,7 +123244,7 @@
 
 	  for (var i = 0; i < aShape.length; i++) {
 	    if (i === 2) {
-	      sourceCoords.push('int(getIndices(resRC.x, resRC.z))');
+	      sourceCoords.push('index');
 	    } else {
 	      sourceCoords.push("" + currentCoords[i]);
 	    }
@@ -121812,6 +123278,27 @@
 	  var axis = attrs.axis,
 	      batchDims = attrs.batchDims;
 	  var parsedAxis = parseAxisParam(axis, x.shape)[0];
+
+	  if (env().get('DEBUG')) {
+	    (function () {
+	      // In debug mode, throw error when any index is out of bound.
+	      // Otherwise, just fill out of bounds with zeroes.
+	      var indicesVals = backend.readSync(indices.dataId);
+	      var axisDim = x.shape[parsedAxis];
+
+	      var _loop = function _loop(i) {
+	        var index = indicesVals[i];
+	        assert(index <= axisDim - 1 && index >= 0, function () {
+	          return "GatherV2: the index value " + index + " is not in [0, " + (axisDim - 1) + "]";
+	        });
+	      };
+
+	      for (var i = 0; i < indicesVals.length; ++i) {
+	        _loop(i);
+	      }
+	    })();
+	  }
+
 	  var shapeInfo = collectGatherOpShapeInfo(x, indices, parsedAxis, batchDims);
 	  var indicesSize = sizeFromShape(indices.shape);
 	  var toDispose = [];
@@ -122149,8 +123636,10 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var LOG = "if (x < 0.0) return NAN;\n  return log(x);";
-	var LOG_PACKED = "\n  vec4 result = log(x);\n  vec4 isNaN = vec4(lessThan(x, vec4(0.0)));\n  result.r = isNaN.r == 1.0 ? NAN : result.r;\n  result.g = isNaN.g == 1.0 ? NAN : result.g;\n  result.b = isNaN.b == 1.0 ? NAN : result.b;\n  result.a = isNaN.a == 1.0 ? NAN : result.a;\n\n  return result;\n";
+	// return NaN if the input is 0 to solve compatiblity issue.
+
+	var LOG = CHECK_NAN_SNIPPET_UNARY + "\n  return x < 0.0 ? 0./0. : log(x);\n";
+	var LOG_PACKED = "\n  vec4 result = log(x);\n  bvec4 isNaN = isnan(x);\n  result.r = isNaN.r ? x.r : (x.r < 0.0 ? 0./0. : result.r);\n  result.g = isNaN.g ? x.g : (x.g < 0.0 ? 0./0. : result.g);\n  result.b = isNaN.b ? x.b : (x.b < 0.0 ? 0./0. : result.b);\n  result.a = isNaN.a ? x.a : (x.a < 0.0 ? 0./0. : result.a);\n  return result;\n";
 	var log$c = unaryKernelFunc$1({
 	  opSnippet: LOG,
 	  packedOpSnippet: LOG_PACKED,
@@ -122178,7 +123667,7 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var LOG1P = "return log(1.0 + x);";
+	var LOG1P = CHECK_NAN_SNIPPET_UNARY + "\n  return log(1.0 + x);\n";
 	var log1p$2 = unaryKernelFunc$1({
 	  opSnippet: LOG1P
 	});
@@ -122383,7 +123872,7 @@
 	  return backend.runWebGLProgram(program, [x], x.dtype);
 	}; // tslint:disable-next-line: variable-name
 
-	var LRNConfig = {
+	var LRNConfig$1 = {
 	  kernelName: LRN,
 	  backendName: 'webgl',
 	  kernelFunc: lrn
@@ -122448,7 +123937,7 @@
 	  return backend.runWebGLProgram(program, [x, y, dy], x.dtype);
 	}; // tslint:disable-next-line: variable-name
 
-	var LRNGradConfig = {
+	var LRNGradConfig$1 = {
 	  kernelName: LRNGrad,
 	  backendName: 'webgl',
 	  kernelFunc: lrnGrad
@@ -122791,7 +124280,7 @@
 	  backend.disposeIntermediateTensorInfo(maxPool3dPositions);
 	  return result;
 	}
-	var maxPoolGrad3DConfig = {
+	var maxPool3DGradConfig$2 = {
 	  kernelName: MaxPool3DGrad,
 	  backendName: 'webgl',
 	  kernelFunc: maxPool3DGrad$1
@@ -123617,7 +125106,8 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var NEG = "return -x;"; // This doesn't use unaryKernelFunc because negImplCPU is not of type
+	var NEG = CHECK_NAN_SNIPPET + "\n  return -x;\n";
+	var NEG_PACKED = "\n  vec4 result = -x;\n  bvec4 isNaN = isnan(x);\n\n  result.r = isNaN.r ? x.r : result.r;\n  result.g = isNaN.g ? x.g : result.g;\n  result.b = isNaN.b ? x.b : result.b;\n  result.a = isNaN.a ? x.a : result.a;\n\n  return result;\n"; // This doesn't use unaryKernelFunc because negImplCPU is not of type
 	// SimpleUnaryKernelImplCPU.
 
 	function neg$2(args) {
@@ -123638,7 +125128,7 @@
 	  var program;
 
 	  if (env().getBool('WEBGL_PACK_UNARY_OPERATIONS')) {
-	    program = new UnaryOpPackedProgram(x.shape, NEG);
+	    program = new UnaryOpPackedProgram(x.shape, NEG_PACKED);
 	  } else {
 	    program = new UnaryOpProgram(x.shape, NEG);
 	  }
@@ -125412,10 +126902,11 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var SIGMOID$2 = "return 1.0 / (1.0 + exp(-1.0 * x));";
+	var SIGMOID$2 = CHECK_NAN_SNIPPET_UNARY + "\n  return 1.0 / (1.0 + exp(-1.0 * x));\n";
+	var SIGMOID_PACKED = "\n  vec4 result = 1.0 / (1.0 + exp(-1.0 * x));\n  bvec4 isNaN = isnan(x);\n\n  result.r = isNaN.r ? x.r : result.r;\n  result.g = isNaN.g ? x.g : result.g;\n  result.b = isNaN.b ? x.b : result.b;\n  result.a = isNaN.a ? x.a : result.a;\n\n  return result;\n";
 	var sigmoid$2 = unaryKernelFunc$1({
 	  opSnippet: SIGMOID$2,
-	  packedOpSnippet: SIGMOID$2,
+	  packedOpSnippet: SIGMOID_PACKED,
 	  cpuKernelImpl: sigmoidImplCPU
 	});
 	var sigmoidConfig$1 = {
@@ -126119,28 +127610,38 @@
 	      shrinkAxisMask = attrs.shrinkAxisMask;
 
 	  var _slice_util$sliceInfo = sliceInfo(x.shape, begin, end, strides, beginMask, endMask, ellipsisMask, newAxisMask, shrinkAxisMask),
-	      nonStrided = _slice_util$sliceInfo.nonStrided,
-	      $begin = _slice_util$sliceInfo.$begin,
-	      $strides = _slice_util$sliceInfo.$strides,
-	      size = _slice_util$sliceInfo.size,
-	      newShape = _slice_util$sliceInfo.newShape,
-	      outShape = _slice_util$sliceInfo.outShape;
+	      finalShapeSparse = _slice_util$sliceInfo.finalShapeSparse,
+	      finalShape = _slice_util$sliceInfo.finalShape,
+	      isIdentity = _slice_util$sliceInfo.isIdentity,
+	      sliceDim0 = _slice_util$sliceInfo.sliceDim0,
+	      isSimpleSlice = _slice_util$sliceInfo.isSimpleSlice,
+	      $begin = _slice_util$sliceInfo.begin,
+	      $end = _slice_util$sliceInfo.end,
+	      $strides = _slice_util$sliceInfo.strides;
 
-	  var $x = reshape$3({
-	    inputs: {
-	      x: x
-	    },
-	    backend: backend,
-	    attrs: {
-	      shape: newShape
-	    }
-	  });
 	  var result;
 
-	  if (nonStrided) {
+	  if (isIdentity) {
+	    // Optimization #1, slice is a no-op plus reshape
+	    result = reshape$3({
+	      inputs: {
+	        x: x
+	      },
+	      backend: backend,
+	      attrs: {
+	        shape: finalShape
+	      }
+	    });
+	  } else if (sliceDim0 || isSimpleSlice) {
+	    // Optimization #2, slice is memory contiguous (only occurs in dim 0)
+	    assert(x.shape.length >= 1, function () {
+	      return "Input must have rank at least 1, got: " + x.shape.length;
+	    });
+	    var size = computeOutShape($begin, $end, $strides); // To tolerate begin[0] > end[0] (a 0-output slice), we min(begin, end).
+
 	    var sliced = slice$4({
 	      inputs: {
-	        x: $x
+	        x: x
 	      },
 	      backend: backend,
 	      attrs: {
@@ -126154,26 +127655,23 @@
 	      },
 	      backend: backend,
 	      attrs: {
-	        shape: outShape
+	        shape: finalShape
 	      }
 	    });
 	    backend.disposeIntermediateTensorInfo(sliced);
-	  } else if (outShape.some(function (axis) {
-	    return axis === 0;
-	  })) {
-	    result = backend.makeTensorInfo(outShape, x.dtype, []);
 	  } else {
-	    var shouldExecuteOnCPU = backend.shouldExecuteOnCPU([$x]);
+	    var shouldExecuteOnCPU = backend.shouldExecuteOnCPU([x]);
 
 	    if (shouldExecuteOnCPU) {
-	      var xTexData = backend.texData.get($x.dataId);
-	      var values = xTexData.values;
-	      var xBuf = buffer($x.shape, $x.dtype, values);
-	      var resultValues = stridedSliceImplCPU(outShape, xBuf, $strides, $begin);
-	      result = backend.makeTensorInfo(outShape, $x.dtype, resultValues.values);
+	      // tslint:disable-next-line: no-unnecessary-type-assertion
+	      var values = backend.readSync(x.dataId); // tslint:disable-next-line: no-unnecessary-type-assertion
+
+	      var xBuf = buffer(x.shape, x.dtype, values);
+	      var resultValues = stridedSliceImplCPU(finalShapeSparse, xBuf, $strides, $begin);
+	      result = backend.makeTensorInfo(finalShape, x.dtype, resultValues.values);
 	    } else {
-	      var program = new StridedSliceProgram($begin, $strides, outShape);
-	      result = backend.runWebGLProgram(program, [$x], $x.dtype);
+	      var program = new StridedSliceProgram($begin, $strides, finalShapeSparse);
+	      result = backend.runWebGLProgram(program, [x], x.dtype);
 	    }
 	  }
 
@@ -126183,10 +127681,9 @@
 	    },
 	    backend: backend,
 	    attrs: {
-	      shape: outShape
+	      shape: finalShape
 	    }
 	  });
-	  backend.disposeIntermediateTensorInfo($x);
 	  backend.disposeIntermediateTensorInfo(result);
 	  return resultReshaped;
 	}
@@ -127170,7 +128667,7 @@
 	 * =============================================================================
 	 */
 
-	var kernelConfigs$1 = [LRNConfig, LRNGradConfig, _fusedMatMulConfig$1, absConfig$1, acosConfig$1, acoshConfig$1, addConfig$1, addNConfig$1, allConfig$1, anyConfig$1, argMaxConfig$1, argMinConfig$1, asinConfig$1, asinhConfig$1, atan2Config$1, atanConfig$1, atanhConfig$1, avgPool3DConfig$1, avgPoolConfig$1, avgPoolGrad3DConfig, avgPoolGradConfig$2, batchMatMulConfig$1, batchNormConfig$1, batchToSpaceNDConfig$1, bincountConfig$1, castConfig$1, ceilConfig$1, clipByValueConfig, complexAbsConfig$1, complexConfig$1, concatConfig$1, conv2DBackpropFilterConfig$1, conv2DBackpropInputConfig$1, conv2DConfig$1, conv3DBackpropFilterV2Config$1, conv3DBackpropInputConfig, conv3DConfig$1, cosConfig$1, coshConfig$1, cropAndResizeConfig$1, cumsumConfig$1, denseBincountConfig$1, depthToSpaceConfig$1, depthwiseConv2dNativeBackpropFilterConfig$1, depthwiseConv2dNativeBackpropInputConfig$1, depthwiseConv2dNativeConfig$1, diagConfig$1, dilation2DConfig, einsumConfig$1, eluConfig$1, eluGradConfig$2, equalConfig$1, erfConfig$1, expConfig$1, expandDimsConfig$1, expm1Config$1, fftConfig$1, fillConfig$1, flipLeftRightConfig$1, floorConfig$1, floorDivConfig$1, fromPixelsConfig, fusedConv2DConfig$1, fusedDepthwiseConv2DConfig$1, gatherNdConfig$1, gatherV2Config$1, greaterConfig$1, greaterEqualConfig$1, identityConfig$1, ifftConfig$1, imagConfig$1, isFiniteConfig$1, isInfConfig$1, isNaNConfig$1, leakyReluConfig$1, lessConfig$1, lessEqualConfig$1, linSpaceConfig$1, log1pConfig$1, logConfig$1, logicalAndConfig$1, logicalNotConfig$1, logicalOrConfig$1, maxConfig$1, maxPool3DConfig$1, maxPoolConfig$1, maxPoolGrad3DConfig, maxPoolGradConfig$2, maxPoolWithArgmaxConfig$1, maximumConfig$1, meanConfig$1, minConfig$1, minimumConfig$1, mirrorPadConfig$1, modConfig$1, multinomialConfig$1, multiplyConfig$1, negConfig$1, nonMaxSuppressionV3Config$1, nonMaxSuppressionV4Config$1, nonMaxSuppressionV5Config$1, notEqualConfig$1, oneHotConfig$1, onesLikeConfig$1, packConfig$1, padV2Config$1, powConfig$1, preluConfig$1, prodConfig$1, rangeConfig$1, realConfig$1, realDivConfig$1, reciprocalConfig$1, relu6Config$1, reluConfig$1, reshapeConfig$1, resizeBilinearConfig$1, resizeBilinearGradConfig$2, resizeNearestNeighborConfig$1, resizeNearestNeighborGradConfig$2, reverseConfig$1, rotateWithOffsetConfig$1, roundConfig$1, rsqrtConfig$1, scatterNdConfig$1, selectConfig$1, seluConfig$1, sigmoidConfig$1, signConfig$1, sinConfig$1, sinhConfig$1, sliceConfig$1, softmaxConfig$1, softplusConfig$1, spaceToBatchNDConfig$1, sparseFillEmptyRowsConfig$1, sparseReshapeConfig$1, sparseSegmentMeanConfig$1, sparseSegmentSumConfig$1, sparseToDenseConfig$1, splitVConfig$1, sqrtConfig$1, squareConfig$1, squaredDifferenceConfig$1, stepConfig$1, stridedSliceConfig$1, stringNGramsConfig$1, stringSplitConfig$1, stringToHashBucketFastConfig$1, subConfig$1, sumConfig$1, tanConfig$1, tanhConfig$1, tileConfig$1, topKConfig$1, transformConfig$1, transposeConfig$1, uniqueConfig$1, unpackConfig$1, unsortedSegmentSumConfig$1, zerosLikeConfig$1];
+	var kernelConfigs$1 = [_fusedMatMulConfig$1, absConfig$1, acosConfig$1, acoshConfig$1, addConfig$1, addNConfig$1, allConfig$1, anyConfig$1, argMaxConfig$1, argMinConfig$1, asinConfig$1, asinhConfig$1, atanConfig$1, atan2Config$1, atanhConfig$1, avgPoolConfig$1, avgPool3DConfig$1, avgPool3DGradConfig$2, avgPoolGradConfig$2, batchMatMulConfig$1, batchNormConfig$1, batchToSpaceNDConfig$1, bincountConfig$1, broadcastArgsConfig$1, castConfig$1, ceilConfig$1, clipByValueConfig$1, complexConfig$1, complexAbsConfig$1, concatConfig$1, conv2DConfig$1, conv2DBackpropFilterConfig$1, conv2DBackpropInputConfig$1, conv3DConfig$1, conv3DBackpropFilterV2Config$1, conv3DBackpropInputConfig, cosConfig$1, coshConfig$1, cropAndResizeConfig$1, cumprodConfig$1, cumsumConfig$1, denseBincountConfig$1, depthToSpaceConfig$1, depthwiseConv2dNativeConfig$1, depthwiseConv2dNativeBackpropFilterConfig$1, depthwiseConv2dNativeBackpropInputConfig$1, diagConfig$1, dilation2DConfig$1, einsumConfig$1, eluConfig$1, eluGradConfig$2, equalConfig$1, erfConfig$1, expConfig$1, expandDimsConfig$1, expm1Config$1, fftConfig$1, fillConfig$1, flipLeftRightConfig$1, floorConfig$1, floorDivConfig$1, fromPixelsConfig, fusedConv2DConfig$1, fusedDepthwiseConv2DConfig$1, gatherNdConfig$1, gatherV2Config$1, greaterConfig$1, greaterEqualConfig$1, identityConfig$1, ifftConfig$1, imagConfig$1, isFiniteConfig$1, isInfConfig$1, isNaNConfig$1, leakyReluConfig$1, lessConfig$1, lessEqualConfig$1, linSpaceConfig$1, logConfig$1, log1pConfig$1, logicalAndConfig$1, logicalNotConfig$1, logicalOrConfig$1, LRNConfig$1, LRNGradConfig$1, maxConfig$1, maximumConfig$1, maxPoolConfig$1, maxPool3DConfig$1, maxPool3DGradConfig$2, maxPoolGradConfig$2, maxPoolWithArgmaxConfig$1, meanConfig$1, minConfig$1, minimumConfig$1, mirrorPadConfig$1, modConfig$1, multinomialConfig$1, multiplyConfig$1, negConfig$1, nonMaxSuppressionV3Config$1, nonMaxSuppressionV4Config$1, nonMaxSuppressionV5Config$1, notEqualConfig$1, oneHotConfig$1, onesLikeConfig$1, packConfig$1, padV2Config$1, powConfig$1, preluConfig$1, prodConfig$1, rangeConfig$1, realConfig$1, realDivConfig$1, reciprocalConfig$1, reluConfig$1, relu6Config$1, reshapeConfig$1, resizeBilinearConfig$1, resizeBilinearGradConfig$2, resizeNearestNeighborConfig$1, resizeNearestNeighborGradConfig$2, reverseConfig$1, rotateWithOffsetConfig$1, roundConfig$1, rsqrtConfig$1, scatterNdConfig$1, selectConfig$1, seluConfig$1, sigmoidConfig$1, signConfig$1, sinConfig$1, sinhConfig$1, sliceConfig$1, softmaxConfig$1, softplusConfig$1, spaceToBatchNDConfig$1, sparseFillEmptyRowsConfig$1, sparseReshapeConfig$1, sparseSegmentMeanConfig$1, sparseSegmentSumConfig$1, sparseToDenseConfig$1, splitVConfig$1, sqrtConfig$1, squareConfig$1, squaredDifferenceConfig$1, stepConfig$1, stridedSliceConfig$1, stringNGramsConfig$1, stringSplitConfig$1, stringToHashBucketFastConfig$1, subConfig$1, sumConfig$1, tanConfig$1, tanhConfig$1, tileConfig$1, topKConfig$1, transformConfig$1, transposeConfig$1, uniqueConfig$1, unpackConfig$1, unsortedSegmentSumConfig$1, zerosLikeConfig$1];
 
 	for (var _i$2 = 0, _kernelConfigs$1 = kernelConfigs$1; _i$2 < _kernelConfigs$1.length; _i$2++) {
 	  var kernelConfig$1 = _kernelConfigs$1[_i$2];
@@ -127196,7 +128693,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$7 = '3.9.0';
+	var version$7 = '3.15.0';
 
 	/**
 	 * @license
@@ -127285,6 +128782,7 @@
 	exports.Cos = Cos;
 	exports.Cosh = Cosh;
 	exports.CropAndResize = CropAndResize;
+	exports.Cumprod = Cumprod;
 	exports.Cumsum = Cumsum;
 	exports.CustomCallback = CustomCallback;
 	exports.DataStorage = DataStorage;
@@ -127368,6 +128866,7 @@
 	exports.OneHot = OneHot;
 	exports.OnesLike = OnesLike;
 	exports.Optimizer = Optimizer;
+	exports.OptimizerConstructors = OptimizerConstructors;
 	exports.Pack = Pack;
 	exports.PadV2 = PadV2;
 	exports.Pool = Pool;
@@ -127463,6 +128962,7 @@
 	exports.booleanMaskAsync = booleanMaskAsync;
 	exports.broadcastArgs = broadcastArgs;
 	exports.broadcastTo = broadcastTo;
+	exports.broadcast_util = broadcast_util;
 	exports.browser = browser;
 	exports.buffer = buffer;
 	exports.callbacks = callbacks;
@@ -127486,6 +128986,7 @@
 	exports.cos = cos;
 	exports.cosh = cosh;
 	exports.cosineWindow = cosineWindow;
+	exports.cumprod = cumprod;
 	exports.cumsum = cumsum;
 	exports.customGrad = customGrad;
 	exports.data = index$1;
