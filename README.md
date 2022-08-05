@@ -12,7 +12,7 @@ This repository contains:
     Csound. CsoundAC is written in C++ and has C++ and Python interfaces.
     
 2.  My computer music playpen, designed to facilitate algorithmic composition 
-    with Csound and CsoundAC by extended standard text editors.
+    with Csound and CsoundAC by extendeing standard text editors.
     
 3.  silencio, a JavaScript library for algorithmic composition similar to 
     CsoundAC.
