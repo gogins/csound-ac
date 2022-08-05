@@ -14673,7 +14673,9 @@
 	var LogicalAnd = 'LogicalAnd';
 	var LogicalNot = 'LogicalNot';
 	var LogicalOr = 'LogicalOr';
+	var LogicalXor = 'LogicalXor';
 	var LogSoftmax = 'LogSoftmax';
+	var LowerBound = 'LowerBound';
 	var LRN = 'LRN';
 	var LRNGrad = 'LRNGrad';
 	var Max = 'Max';
@@ -14717,6 +14719,7 @@
 	var Round = 'Round';
 	var Rsqrt = 'Rsqrt';
 	var ScatterNd = 'ScatterNd';
+	var SearchSorted = 'SearchSorted';
 	var Select = 'Select';
 	var Selu = 'Selu';
 	var Slice = 'Slice';
@@ -14751,6 +14754,7 @@
 	var Unique = 'Unique';
 	var Unpack = 'Unpack';
 	var UnsortedSegmentSum = 'UnsortedSegmentSum';
+	var UpperBound = 'UpperBound';
 	var ZerosLike = 'ZerosLike';
 	/**
 	 * TensorFlow.js-only kernels
@@ -17509,6 +17513,9 @@
 	   * For WebGL backend, the data will be stored on a densely packed texture.
 	   * This means that the texture will use the RGBA channels to store value.
 	   *
+	   * For WebGPU backend, the data will be stored on a buffer. There is no
+	   * parameter, so can not use an user defined size to create the buffer.
+	   *
 	   * @param options:
 	   *     For WebGL,
 	   *         - customTexShape: Optional. If set, will use the user defined
@@ -17521,6 +17528,15 @@
 	   *        texture: WebGLTexture,
 	   *        texShape: [number, number] // [height, width]
 	   *     }
+	   *
+	   *     For WebGPU backend, a GPUData contains the new buffer and
+	   *     its information.
+	   *     {
+	   *        tensorRef: The tensor that is associated with this buffer,
+	   *        buffer: GPUBuffer,
+	   *        bufSize: number
+	   *     }
+	   *
 	   *     Remember to dispose the GPUData after it is used by
 	   *     `res.tensorRef.dispose()`.
 	   *
@@ -18621,10 +18637,7 @@
 	            return outInfo;
 	          }
 
-	          var dataId = outInfo.dataId,
-	              shape = outInfo.shape,
-	              dtype = outInfo.dtype;
-	          return _this6.makeTensorFromDataId(dataId, shape, dtype);
+	          return _this6.makeTensorFromTensorInfo(outInfo);
 	        }); // Save any required inputs and outputs.
 	        // Do not save unless we are recording to the tape. Otherwise it would
 	        // cause a mem leak since there would be no backprop for these tensors
@@ -18823,11 +18836,30 @@
 	   * Internal method used by backends. Makes a new tensor
 	   * that is a wrapper around an existing data id. It doesn't create
 	   * a new data id, only increments the ref count used in memory tracking.
+	   * @deprecated
 	   */
 	  ;
 
 	  _proto2.makeTensorFromDataId = function makeTensorFromDataId(dataId, shape, dtype, backend) {
 	    dtype = dtype || 'float32';
+	    var tensorInfo = {
+	      dataId: dataId,
+	      shape: shape,
+	      dtype: dtype
+	    };
+	    return this.makeTensorFromTensorInfo(tensorInfo, backend);
+	  }
+	  /**
+	   * Internal method used by backends. Makes a new tensor that is a wrapper
+	   * around an existing data id in TensorInfo. It doesn't create a new data id,
+	   * only increments the ref count used in memory tracking.
+	   */
+	  ;
+
+	  _proto2.makeTensorFromTensorInfo = function makeTensorFromTensorInfo(tensorInfo, backend) {
+	    var dataId = tensorInfo.dataId,
+	        shape = tensorInfo.shape,
+	        dtype = tensorInfo.dtype;
 	    var t = new Tensor(shape, dtype, dataId, this.nextTensorId());
 	    this.trackTensor(t, backend);
 	    return t;
@@ -21682,7 +21714,7 @@
 	  };
 
 	  ModelStoreManagerRegistry.getManager = function getManager(scheme) {
-	    var manager = this.getInstance().managers[scheme];
+	    var manager = ModelStoreManagerRegistry.getInstance().managers[scheme];
 
 	    if (manager == null) {
 	      throw new Error("Cannot find model manager for scheme '" + scheme + "'");
@@ -21692,7 +21724,7 @@
 	  };
 
 	  ModelStoreManagerRegistry.getSchemes = function getSchemes() {
-	    return Object.keys(this.getInstance().managers);
+	    return Object.keys(ModelStoreManagerRegistry.getInstance().managers);
 	  };
 
 	  return ModelStoreManagerRegistry;
@@ -23644,28 +23676,9 @@
 
 	  var _proto = PassthroughLoader.prototype;
 
-	  _proto.load = /*#__PURE__*/function () {
-	    var _load = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee() {
-	      return regeneratorRuntime.wrap(function _callee$(_context) {
-	        while (1) {
-	          switch (_context.prev = _context.next) {
-	            case 0:
-	              return _context.abrupt("return", this.modelArtifacts);
-
-	            case 1:
-	            case "end":
-	              return _context.stop();
-	          }
-	        }
-	      }, _callee, this);
-	    }));
-
-	    function load() {
-	      return _load.apply(this, arguments);
-	    }
-
-	    return load;
-	  }();
+	  _proto.load = function load() {
+	    return this.modelArtifacts;
+	  };
 
 	  return PassthroughLoader;
 	}();
@@ -23677,31 +23690,26 @@
 
 	  var _proto2 = PassthroughSaver.prototype;
 
-	  _proto2.save = /*#__PURE__*/function () {
-	    var _save = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2(modelArtifacts) {
-	      return regeneratorRuntime.wrap(function _callee2$(_context2) {
-	        while (1) {
-	          switch (_context2.prev = _context2.next) {
-	            case 0:
-	              return _context2.abrupt("return", this.saveHandler(modelArtifacts));
-
-	            case 1:
-	            case "end":
-	              return _context2.stop();
-	          }
-	        }
-	      }, _callee2, this);
-	    }));
-
-	    function save(_x) {
-	      return _save.apply(this, arguments);
-	    }
-
-	    return save;
-	  }();
+	  _proto2.save = function save(modelArtifacts) {
+	    return this.saveHandler(modelArtifacts);
+	  };
 
 	  return PassthroughSaver;
 	}();
+
+	var PassthroughAsync = function PassthroughAsync(handler) {
+	  if (handler.load) {
+	    this.load = function () {
+	      return Promise.resolve(handler.load());
+	    };
+	  }
+
+	  if (handler.save) {
+	    this.save = function (modelArtifacts) {
+	      return Promise.resolve(handler.save(modelArtifacts));
+	    };
+	  }
+	};
 	/**
 	 * Creates an IOHandler that loads model artifacts from memory.
 	 *
@@ -23716,9 +23724,9 @@
 	 * @param modelArtifacts a object containing model topology (i.e., parsed from
 	 *   the JSON format).
 	 * @param weightSpecs An array of `WeightsManifestEntry` objects describing the
-	 *   names, shapes, types, and quantization of the weight data.
+	 *   names, shapes, types, and quantization of the weight data. Optional.
 	 * @param weightData A single `ArrayBuffer` containing the weight data,
-	 *   concatenated in the order described by the weightSpecs.
+	 *   concatenated in the order described by the weightSpecs. Optional.
 	 * @param trainingConfig Model training configuration. Optional.
 	 *
 	 * @returns A passthrough `IOHandler` that simply loads the provided data.
@@ -23726,6 +23734,32 @@
 
 
 	function fromMemory(modelArtifacts, weightSpecs, weightData, trainingConfig) {
+	  var args = arguments;
+	  return new PassthroughAsync(fromMemorySync.apply(void 0, args));
+	}
+	/**
+	 * Creates an IOHandler that loads model artifacts from memory.
+	 *
+	 * When used in conjunction with `tf.loadLayersModel`, an instance of
+	 * `tf.LayersModel` (Keras-style) can be constructed from the loaded artifacts.
+	 *
+	 * ```js
+	 * const model = await tf.loadLayersModel(tf.io.fromMemory(
+	 *     modelTopology, weightSpecs, weightData));
+	 * ```
+	 *
+	 * @param modelArtifacts a object containing model topology (i.e., parsed from
+	 *   the JSON format).
+	 * @param weightSpecs An array of `WeightsManifestEntry` objects describing the
+	 *   names, shapes, types, and quantization of the weight data. Optional.
+	 * @param weightData A single `ArrayBuffer` containing the weight data,
+	 *   concatenated in the order described by the weightSpecs. Optional.
+	 * @param trainingConfig Model training configuration. Optional.
+	 *
+	 * @returns A passthrough `IOHandlerSync` that simply loads the provided data.
+	 */
+
+	function fromMemorySync(modelArtifacts, weightSpecs, weightData, trainingConfig) {
 	  if (arguments.length === 1) {
 	    var isModelArtifacts = modelArtifacts.modelTopology != null || modelArtifacts.weightSpecs != null;
 
@@ -23764,10 +23798,29 @@
 	 * ```
 	 *
 	 * @param saveHandler A function that accepts a `ModelArtifacts` and returns a
-	 *     `SaveResult`.
+	 *     promise that resolves to a `SaveResult`.
 	 */
 
 	function withSaveHandler(saveHandler) {
+	  return new PassthroughSaver(saveHandler);
+	}
+	/**
+	 * Creates an IOHandlerSync that passes saved model artifacts to a callback.
+	 *
+	 * ```js
+	 * function handleSave(artifacts) {
+	 *   // ... do something with the artifacts ...
+	 *   return {modelArtifactsInfo: {...}, ...};
+	 * }
+	 *
+	 * const saveResult = model.save(tf.io.withSaveHandler(handleSave));
+	 * ```
+	 *
+	 * @param saveHandler A function that accepts a `ModelArtifacts` and returns a
+	 *     `SaveResult`.
+	 */
+
+	function withSaveHandlerSync(saveHandler) {
 	  return new PassthroughSaver(saveHandler);
 	}
 
@@ -23796,6 +23849,7 @@
 		decodeWeights: decodeWeights,
 		encodeWeights: encodeWeights,
 		fromMemory: fromMemory,
+		fromMemorySync: fromMemorySync,
 		getLoadHandlers: getLoadHandlers,
 		getModelArtifactsForJSON: getModelArtifactsForJSON,
 		getModelArtifactsInfoForJSON: getModelArtifactsInfoForJSON,
@@ -23807,6 +23861,7 @@
 		registerSaveRouter: registerSaveRouter,
 		weightsLoaderFactory: weightsLoaderFactory,
 		withSaveHandler: withSaveHandler,
+		withSaveHandlerSync: withSaveHandlerSync,
 		copyModel: copyModel,
 		listModels: listModels,
 		moveModel: moveModel,
@@ -23963,6 +24018,510 @@
 	 * =============================================================================
 	 */
 	/**
+	 * Enables production mode which disables correctness checks in favor of
+	 * performance.
+	 *
+	 * @doc {heading: 'Environment'}
+	 */
+
+	function enableProdMode() {
+	  env().set('PROD', true);
+	}
+	/**
+	 * Enables debug mode which will log information about all executed kernels:
+	 * the elapsed time of the kernel execution, as well as the rank, shape, and
+	 * size of the output tensor.
+	 *
+	 * Debug mode will significantly slow down your application as it will
+	 * download the result of every operation to the CPU. This should not be used in
+	 * production. Debug mode does not affect the timing information of the kernel
+	 * execution as we do not measure download time in the kernel execution time.
+	 *
+	 * See also: `tf.profile`, `tf.memory`.
+	 *
+	 * @doc {heading: 'Environment'}
+	 */
+
+	function enableDebugMode() {
+	  env().set('DEBUG', true);
+	}
+	/** Globally disables deprecation warnings */
+
+	function disableDeprecationWarnings() {
+	  env().set('DEPRECATION_WARNINGS_ENABLED', false);
+	  console.warn("TensorFlow.js deprecation warnings have been disabled.");
+	}
+	/** Warn users about deprecated functionality. */
+
+	function deprecationWarn(msg) {
+	  if (env().getBool('DEPRECATION_WARNINGS_ENABLED')) {
+	    console.warn(msg + ' You can disable deprecation warnings with ' + 'tf.disableDeprecationWarnings().');
+	  }
+	}
+	setDeprecationWarningFn(deprecationWarn);
+	/**
+	 * Dispose all variables kept in backend engine.
+	 *
+	 * @doc {heading: 'Environment'}
+	 */
+
+	function disposeVariables() {
+	  ENGINE.disposeVariables();
+	}
+	/**
+	 * It returns the global engine that keeps track of all tensors and backends.
+	 *
+	 * @doc {heading: 'Environment'}
+	 */
+
+	function engine() {
+	  return ENGINE;
+	}
+	/**
+	 * Returns memory info at the current time in the program. The result is an
+	 * object with the following properties:
+	 *
+	 * - `numBytes`: Number of bytes allocated (undisposed) at this time.
+	 * - `numTensors`: Number of unique tensors allocated.
+	 * - `numDataBuffers`: Number of unique data buffers allocated
+	 *   (undisposed) at this time, which is ≤ the number of tensors
+	 *   (e.g. `a.reshape(newShape)` makes a new Tensor that shares the same
+	 *   data buffer with `a`).
+	 * - `unreliable`: True if the memory usage is unreliable. See `reasons` when
+	 *    `unreliable` is true.
+	 * - `reasons`: `string[]`, reasons why the memory is unreliable, present if
+	 *    `unreliable` is true.
+	 *
+	 * WebGL Properties:
+	 * - `numBytesInGPU`: Number of bytes allocated (undisposed) in the GPU only at
+	 *     this time.
+	 *
+	 * @doc {heading: 'Performance', subheading: 'Memory'}
+	 */
+
+	function memory() {
+	  return ENGINE.memory();
+	}
+	/**
+	 * Executes the provided function `f()` and returns a promise that resolves
+	 * with information about the function's memory use:
+	 * - `newBytes`: the number of new bytes allocated
+	 * - `newTensors`: the number of new tensors created
+	 * - `peakBytes`: the peak number of bytes allocated
+	 * - `kernels`: an array of objects for each kernel involved that reports
+	 * their input and output shapes, number of bytes used, and number of new
+	 * tensors created.
+	 * - `kernelNames`: an array of unique strings with just the names of the
+	 * kernels in the `kernels` array.
+	 *
+	 * ```js
+	 * const profile = await tf.profile(() => {
+	 *   const x = tf.tensor1d([1, 2, 3]);
+	 *   let x2 = x.square();
+	 *   x2.dispose();
+	 *   x2 = x.square();
+	 *   x2.dispose();
+	 *   return x;
+	 * });
+	 *
+	 * console.log(`newBytes: ${profile.newBytes}`);
+	 * console.log(`newTensors: ${profile.newTensors}`);
+	 * console.log(`byte usage over all kernels: ${profile.kernels.map(k =>
+	 * k.totalBytesSnapshot)}`);
+	 * ```
+	 *
+	 *
+	 * @doc {heading: 'Performance', subheading: 'Profile'}
+	 */
+
+	function profile(f) {
+	  return ENGINE.profile(f);
+	}
+	/**
+	 * Executes the provided function `fn` and after it is executed, cleans up all
+	 * intermediate tensors allocated by `fn` except those returned by `fn`.
+	 * `fn` must not return a Promise (async functions not allowed). The returned
+	 * result can be a complex object.
+	 *
+	 * Using this method helps avoid memory leaks. In general, wrap calls to
+	 * operations in `tf.tidy` for automatic memory cleanup.
+	 *
+	 * NOTE: Variables do *not* get cleaned up when inside a tidy(). If you want to
+	 * dispose variables, please use `tf.disposeVariables` or call dispose()
+	 * directly on variables.
+	 *
+	 * ```js
+	 * // y = 2 ^ 2 + 1
+	 * const y = tf.tidy(() => {
+	 *   // a, b, and one will be cleaned up when the tidy ends.
+	 *   const one = tf.scalar(1);
+	 *   const a = tf.scalar(2);
+	 *   const b = a.square();
+	 *
+	 *   console.log('numTensors (in tidy): ' + tf.memory().numTensors);
+	 *
+	 *   // The value returned inside the tidy function will return
+	 *   // through the tidy, in this case to the variable y.
+	 *   return b.add(one);
+	 * });
+	 *
+	 * console.log('numTensors (outside tidy): ' + tf.memory().numTensors);
+	 * y.print();
+	 * ```
+	 *
+	 * @param nameOrFn The name of the closure, or the function to execute.
+	 *     If a name is provided, the 2nd argument should be the function.
+	 *     If debug mode is on, the timing and the memory usage of the function
+	 *     will be tracked and displayed on the console using the provided name.
+	 * @param fn The function to execute.
+	 *
+	 * @doc {heading: 'Performance', subheading: 'Memory'}
+	 */
+
+	function tidy(nameOrFn, fn) {
+	  return ENGINE.tidy(nameOrFn, fn);
+	}
+	/**
+	 * Disposes any `tf.Tensor`s found within the provided object.
+	 *
+	 * @param container an object that may be a `tf.Tensor` or may directly
+	 *     contain `tf.Tensor`s, such as a `Tensor[]` or `{key: Tensor, ...}`. If
+	 *     the object is not a `tf.Tensor` or does not contain `Tensors`, nothing
+	 *     happens. In general it is safe to pass any object here, except that
+	 *     `Promise`s are not supported.
+	 *
+	 * @doc {heading: 'Performance', subheading: 'Memory'}
+	 */
+
+	function dispose(container) {
+	  var tensors = getTensorsInContainer(container);
+	  tensors.forEach(function (tensor) {
+	    return tensor.dispose();
+	  });
+	}
+	/**
+	 * Keeps a `tf.Tensor` generated inside a `tf.tidy` from being disposed
+	 * automatically.
+	 *
+	 * ```js
+	 * let b;
+	 * const y = tf.tidy(() => {
+	 *   const one = tf.scalar(1);
+	 *   const a = tf.scalar(2);
+	 *
+	 *   // b will not be cleaned up by the tidy. a and one will be cleaned up
+	 *   // when the tidy ends.
+	 *   b = tf.keep(a.square());
+	 *
+	 *   console.log('numTensors (in tidy): ' + tf.memory().numTensors);
+	 *
+	 *   // The value returned inside the tidy function will return
+	 *   // through the tidy, in this case to the variable y.
+	 *   return b.add(one);
+	 * });
+	 *
+	 * console.log('numTensors (outside tidy): ' + tf.memory().numTensors);
+	 * console.log('y:');
+	 * y.print();
+	 * console.log('b:');
+	 * b.print();
+	 * ```
+	 *
+	 * @param result The tensor to keep from being disposed.
+	 *
+	 * @doc {heading: 'Performance', subheading: 'Memory'}
+	 */
+
+	function keep(result) {
+	  return ENGINE.keep(result);
+	}
+	/**
+	 * Executes `f()` and returns a promise that resolves with timing
+	 * information.
+	 *
+	 * The result is an object with the following properties:
+	 *
+	 * - `wallMs`: Wall execution time.
+	 * - `kernelMs`: Kernel execution time, ignoring data transfer. If using the
+	 * WebGL backend and the query timer extension is not available, this will
+	 * return an error object.
+	 * - On `WebGL` The following additional properties exist:
+	 *   - `uploadWaitMs`: CPU blocking time on texture uploads.
+	 *   - `downloadWaitMs`: CPU blocking time on texture downloads (readPixels).
+	 *
+	 * ```js
+	 * const x = tf.randomNormal([20, 20]);
+	 * const time = await tf.time(() => x.matMul(x));
+	 *
+	 * console.log(`kernelMs: ${time.kernelMs}, wallTimeMs: ${time.wallMs}`);
+	 * ```
+	 *
+	 * @param f The function to execute and time.
+	 *
+	 * @doc {heading: 'Performance', subheading: 'Timing'}
+	 */
+
+	function time(f) {
+	  return ENGINE.time(f);
+	}
+	/**
+	 * Sets the backend (cpu, webgl, wasm, etc) responsible for creating tensors and
+	 * executing operations on those tensors. Returns a promise that resolves
+	 * to a boolean if the backend initialization was successful.
+	 *
+	 * Note this disposes the current backend, if any, as well as any tensors
+	 * associated with it. A new backend is initialized, even if it is of the
+	 * same type as the previous one.
+	 *
+	 * @param backendName The name of the backend. Currently supports
+	 *     `'webgl'|'cpu'` in the browser, `'tensorflow'` under node.js
+	 *     (requires tfjs-node), and `'wasm'` (requires tfjs-backend-wasm).
+	 *
+	 * @doc {heading: 'Backends'}
+	 */
+
+	function setBackend(backendName) {
+	  return ENGINE.setBackend(backendName);
+	}
+	/**
+	 * Returns a promise that resolves when the currently selected backend (or the
+	 * highest priority one) has initialized. Await this promise when you are using
+	 * a backend that has async initialization.
+	 *
+	 * @doc {heading: 'Backends'}
+	 */
+
+	function ready() {
+	  return ENGINE.ready();
+	}
+	/**
+	 * Returns the current backend name (cpu, webgl, etc). The backend is
+	 * responsible for creating tensors and executing operations on those tensors.
+	 *
+	 * @doc {heading: 'Backends'}
+	 */
+
+	function getBackend() {
+	  return ENGINE.backendName;
+	}
+	/**
+	 * Removes a backend and the registered factory.
+	 *
+	 * @doc {heading: 'Backends'}
+	 */
+
+	function removeBackend(name) {
+	  ENGINE.removeBackend(name);
+	}
+	/**
+	 * Finds the backend registered under the provided name. Returns null if the
+	 * name is not in the registry, or the registration hasn't finished yet.
+	 */
+
+	function findBackend(name) {
+	  return ENGINE.findBackend(name);
+	}
+	/**
+	 * Finds the backend factory registered under the provided name. Returns a
+	 * function that produces a new backend when called. Returns null if the name
+	 * is not in the registry.
+	 */
+
+	function findBackendFactory(name) {
+	  return ENGINE.findBackendFactory(name);
+	}
+	/**
+	 * Registers a global backend. The registration should happen when importing
+	 * a module file (e.g. when importing `backend_webgl.ts`), and is used for
+	 * modular builds (e.g. custom tfjs bundle with only webgl support).
+	 *
+	 * @param factory The backend factory function. When called, it should
+	 * return a backend instance, or a promise of an instance.
+	 * @param priority The priority of the backend (higher = more important).
+	 *     In case multiple backends are registered, the priority is used to find
+	 *     the best backend. Defaults to 1.
+	 * @return False if there is already a registered backend under this name, true
+	 *     if not.
+	 *
+	 * @doc {heading: 'Backends'}
+	 */
+
+	function registerBackend(name, factory, priority) {
+	  if (priority === void 0) {
+	    priority = 1;
+	  }
+
+	  return ENGINE.registerBackend(name, factory, priority);
+	}
+	/**
+	 * Gets the current backend. If no backends have been initialized, this will
+	 * attempt to initialize the best backend. Will throw an error if the highest
+	 * priority backend has async initialization, in which case, you should call
+	 * 'await tf.ready()' before running other code.
+	 *
+	 * @doc {heading: 'Backends'}
+	 */
+
+	function backend() {
+	  return ENGINE.backend;
+	}
+	/**
+	 * Sets the global platform.
+	 *
+	 * @param platformName The name of this platform.
+	 * @param platform A platform implementation.
+	 */
+
+	function setPlatform(platformName, platform) {
+	  env().setPlatform(platformName, platform);
+	}
+
+	/**
+	 * @license
+	 * Copyright 2020 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Returns the imaginary part of a complex (or real) tensor.
+	 *
+	 * Given a tensor input, this operation returns a tensor of type float that is
+	 * the imaginary part of each element in input considered as a complex number.
+	 * If input is real, a tensor of all zeros is returned.
+	 *
+	 * ```js
+	 * const x = tf.complex([-2.25, 3.25], [4.75, 5.75]);
+	 * tf.imag(x).print();
+	 * ```
+	 *
+	 * @doc {heading: 'Tensors', subheading: 'Creation'}
+	 */
+
+	function imag_(input) {
+	  var $input = convertToTensor(input, 'input', 'imag');
+	  var inputs = {
+	    input: $input
+	  };
+	  return ENGINE.runKernel(Imag, inputs);
+	}
+
+	var imag = op({
+	  imag_: imag_
+	});
+
+	/**
+	 * @license
+	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Computes `-1 * x` element-wise.
+	 *
+	 * ```js
+	 * const x = tf.tensor2d([1, 2, -2, 0], [2, 2]);
+	 *
+	 * x.neg().print();  // or tf.neg(x)
+	 * ```
+	 *
+	 * @param x The input tensor.
+	 *
+	 * @doc {heading: 'Operations', subheading: 'Basic math'}
+	 */
+
+	function neg_(x) {
+	  var $x = convertToTensor(x, 'x', 'neg');
+	  var inputs = {
+	    x: $x
+	  };
+	  return ENGINE.runKernel(Neg, inputs);
+	}
+
+	var neg = op({
+	  neg_: neg_
+	});
+
+	/**
+	 * @license
+	 * Copyright 2020 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Returns the real part of a complex (or real) tensor.
+	 *
+	 * Given a tensor input, this operation returns a tensor of type float that is
+	 * the real part of each element in input considered as a complex number.
+	 *
+	 * If the input is real, it simply makes a clone.
+	 *
+	 * ```js
+	 * const x = tf.complex([-2.25, 3.25], [4.75, 5.75]);
+	 * tf.real(x).print();
+	 * ```
+	 *
+	 * @doc {heading: 'Tensors', subheading: 'Creation'}
+	 */
+
+	function real_(input) {
+	  var $input = convertToTensor(input, 'input', 'real');
+	  var inputs = {
+	    input: $input
+	  };
+	  return ENGINE.runKernel(Real, inputs);
+	}
+
+	var real = op({
+	  real_: real_
+	});
+
+	/**
+	 * @license
+	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
 	 * Transposes the `tf.Tensor`. Permutes the dimensions according to `perm`.
 	 *
 	 * The returned `tf.Tensor`'s dimension `i` will correspond to the input
@@ -23978,11 +24537,12 @@
 	 *
 	 * @param x The tensor to transpose.
 	 * @param perm The permutation of the dimensions of a.
+	 * @param conjugate Will conjugate complex input if true.
 	 *
 	 * @doc {heading: 'Operations', subheading: 'Matrices'}
 	 */
 
-	function transpose_(x, perm) {
+	function transpose_(x, perm, conjugate) {
 	  var $x = convertToTensor(x, 'x', 'transpose');
 
 	  if (perm == null) {
@@ -24010,6 +24570,26 @@
 	  var attrs = {
 	    perm: perm
 	  };
+
+	  if ($x.dtype === 'complex64') {
+	    return tidy(function () {
+	      var $real = real($x);
+	      var $imag = imag($x);
+	      $real = ENGINE.runKernel(Transpose, {
+	        x: $real
+	      }, attrs);
+	      $imag = ENGINE.runKernel(Transpose, {
+	        x: $imag
+	      }, attrs);
+
+	      if (conjugate) {
+	        $imag = neg($imag);
+	      }
+
+	      return complex($real, $imag);
+	    });
+	  }
+
 	  return ENGINE.runKernel(Transpose, inputs, attrs);
 	}
 
@@ -24390,7 +24970,9 @@
 	          throw new Error('Cannot parse input in current context. ' + 'Reason: OffscreenCanvas Context2D rendering is not supported.');
 	        }
 	      } else {
-	        fromPixels2DContext = document.createElement('canvas').getContext('2d');
+	        fromPixels2DContext = document.createElement('canvas').getContext('2d', {
+	          willReadFrequently: true
+	        });
 	      }
 	    }
 
@@ -25867,382 +26449,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$1 = '3.15.0';
-
-	/**
-	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	/**
-	 * Enables production mode which disables correctness checks in favor of
-	 * performance.
-	 *
-	 * @doc {heading: 'Environment'}
-	 */
-
-	function enableProdMode() {
-	  env().set('PROD', true);
-	}
-	/**
-	 * Enables debug mode which will log information about all executed kernels:
-	 * the elapsed time of the kernel execution, as well as the rank, shape, and
-	 * size of the output tensor.
-	 *
-	 * Debug mode will significantly slow down your application as it will
-	 * download the result of every operation to the CPU. This should not be used in
-	 * production. Debug mode does not affect the timing information of the kernel
-	 * execution as we do not measure download time in the kernel execution time.
-	 *
-	 * See also: `tf.profile`, `tf.memory`.
-	 *
-	 * @doc {heading: 'Environment'}
-	 */
-
-	function enableDebugMode() {
-	  env().set('DEBUG', true);
-	}
-	/** Globally disables deprecation warnings */
-
-	function disableDeprecationWarnings() {
-	  env().set('DEPRECATION_WARNINGS_ENABLED', false);
-	  console.warn("TensorFlow.js deprecation warnings have been disabled.");
-	}
-	/** Warn users about deprecated functionality. */
-
-	function deprecationWarn(msg) {
-	  if (env().getBool('DEPRECATION_WARNINGS_ENABLED')) {
-	    console.warn(msg + ' You can disable deprecation warnings with ' + 'tf.disableDeprecationWarnings().');
-	  }
-	}
-	setDeprecationWarningFn(deprecationWarn);
-	/**
-	 * Dispose all variables kept in backend engine.
-	 *
-	 * @doc {heading: 'Environment'}
-	 */
-
-	function disposeVariables() {
-	  ENGINE.disposeVariables();
-	}
-	/**
-	 * It returns the global engine that keeps track of all tensors and backends.
-	 *
-	 * @doc {heading: 'Environment'}
-	 */
-
-	function engine() {
-	  return ENGINE;
-	}
-	/**
-	 * Returns memory info at the current time in the program. The result is an
-	 * object with the following properties:
-	 *
-	 * - `numBytes`: Number of bytes allocated (undisposed) at this time.
-	 * - `numTensors`: Number of unique tensors allocated.
-	 * - `numDataBuffers`: Number of unique data buffers allocated
-	 *   (undisposed) at this time, which is ≤ the number of tensors
-	 *   (e.g. `a.reshape(newShape)` makes a new Tensor that shares the same
-	 *   data buffer with `a`).
-	 * - `unreliable`: True if the memory usage is unreliable. See `reasons` when
-	 *    `unreliable` is true.
-	 * - `reasons`: `string[]`, reasons why the memory is unreliable, present if
-	 *    `unreliable` is true.
-	 *
-	 * WebGL Properties:
-	 * - `numBytesInGPU`: Number of bytes allocated (undisposed) in the GPU only at
-	 *     this time.
-	 *
-	 * @doc {heading: 'Performance', subheading: 'Memory'}
-	 */
-
-	function memory() {
-	  return ENGINE.memory();
-	}
-	/**
-	 * Executes the provided function `f()` and returns a promise that resolves
-	 * with information about the function's memory use:
-	 * - `newBytes`: the number of new bytes allocated
-	 * - `newTensors`: the number of new tensors created
-	 * - `peakBytes`: the peak number of bytes allocated
-	 * - `kernels`: an array of objects for each kernel involved that reports
-	 * their input and output shapes, number of bytes used, and number of new
-	 * tensors created.
-	 * - `kernelNames`: an array of unique strings with just the names of the
-	 * kernels in the `kernels` array.
-	 *
-	 * ```js
-	 * const profile = await tf.profile(() => {
-	 *   const x = tf.tensor1d([1, 2, 3]);
-	 *   let x2 = x.square();
-	 *   x2.dispose();
-	 *   x2 = x.square();
-	 *   x2.dispose();
-	 *   return x;
-	 * });
-	 *
-	 * console.log(`newBytes: ${profile.newBytes}`);
-	 * console.log(`newTensors: ${profile.newTensors}`);
-	 * console.log(`byte usage over all kernels: ${profile.kernels.map(k =>
-	 * k.totalBytesSnapshot)}`);
-	 * ```
-	 *
-	 *
-	 * @doc {heading: 'Performance', subheading: 'Profile'}
-	 */
-
-	function profile(f) {
-	  return ENGINE.profile(f);
-	}
-	/**
-	 * Executes the provided function `fn` and after it is executed, cleans up all
-	 * intermediate tensors allocated by `fn` except those returned by `fn`.
-	 * `fn` must not return a Promise (async functions not allowed). The returned
-	 * result can be a complex object.
-	 *
-	 * Using this method helps avoid memory leaks. In general, wrap calls to
-	 * operations in `tf.tidy` for automatic memory cleanup.
-	 *
-	 * NOTE: Variables do *not* get cleaned up when inside a tidy(). If you want to
-	 * dispose variables, please use `tf.disposeVariables` or call dispose()
-	 * directly on variables.
-	 *
-	 * ```js
-	 * // y = 2 ^ 2 + 1
-	 * const y = tf.tidy(() => {
-	 *   // a, b, and one will be cleaned up when the tidy ends.
-	 *   const one = tf.scalar(1);
-	 *   const a = tf.scalar(2);
-	 *   const b = a.square();
-	 *
-	 *   console.log('numTensors (in tidy): ' + tf.memory().numTensors);
-	 *
-	 *   // The value returned inside the tidy function will return
-	 *   // through the tidy, in this case to the variable y.
-	 *   return b.add(one);
-	 * });
-	 *
-	 * console.log('numTensors (outside tidy): ' + tf.memory().numTensors);
-	 * y.print();
-	 * ```
-	 *
-	 * @param nameOrFn The name of the closure, or the function to execute.
-	 *     If a name is provided, the 2nd argument should be the function.
-	 *     If debug mode is on, the timing and the memory usage of the function
-	 *     will be tracked and displayed on the console using the provided name.
-	 * @param fn The function to execute.
-	 *
-	 * @doc {heading: 'Performance', subheading: 'Memory'}
-	 */
-
-	function tidy(nameOrFn, fn) {
-	  return ENGINE.tidy(nameOrFn, fn);
-	}
-	/**
-	 * Disposes any `tf.Tensor`s found within the provided object.
-	 *
-	 * @param container an object that may be a `tf.Tensor` or may directly
-	 *     contain `tf.Tensor`s, such as a `Tensor[]` or `{key: Tensor, ...}`. If
-	 *     the object is not a `tf.Tensor` or does not contain `Tensors`, nothing
-	 *     happens. In general it is safe to pass any object here, except that
-	 *     `Promise`s are not supported.
-	 *
-	 * @doc {heading: 'Performance', subheading: 'Memory'}
-	 */
-
-	function dispose(container) {
-	  var tensors = getTensorsInContainer(container);
-	  tensors.forEach(function (tensor) {
-	    return tensor.dispose();
-	  });
-	}
-	/**
-	 * Keeps a `tf.Tensor` generated inside a `tf.tidy` from being disposed
-	 * automatically.
-	 *
-	 * ```js
-	 * let b;
-	 * const y = tf.tidy(() => {
-	 *   const one = tf.scalar(1);
-	 *   const a = tf.scalar(2);
-	 *
-	 *   // b will not be cleaned up by the tidy. a and one will be cleaned up
-	 *   // when the tidy ends.
-	 *   b = tf.keep(a.square());
-	 *
-	 *   console.log('numTensors (in tidy): ' + tf.memory().numTensors);
-	 *
-	 *   // The value returned inside the tidy function will return
-	 *   // through the tidy, in this case to the variable y.
-	 *   return b.add(one);
-	 * });
-	 *
-	 * console.log('numTensors (outside tidy): ' + tf.memory().numTensors);
-	 * console.log('y:');
-	 * y.print();
-	 * console.log('b:');
-	 * b.print();
-	 * ```
-	 *
-	 * @param result The tensor to keep from being disposed.
-	 *
-	 * @doc {heading: 'Performance', subheading: 'Memory'}
-	 */
-
-	function keep(result) {
-	  return ENGINE.keep(result);
-	}
-	/**
-	 * Executes `f()` and returns a promise that resolves with timing
-	 * information.
-	 *
-	 * The result is an object with the following properties:
-	 *
-	 * - `wallMs`: Wall execution time.
-	 * - `kernelMs`: Kernel execution time, ignoring data transfer. If using the
-	 * WebGL backend and the query timer extension is not available, this will
-	 * return an error object.
-	 * - On `WebGL` The following additional properties exist:
-	 *   - `uploadWaitMs`: CPU blocking time on texture uploads.
-	 *   - `downloadWaitMs`: CPU blocking time on texture downloads (readPixels).
-	 *
-	 * ```js
-	 * const x = tf.randomNormal([20, 20]);
-	 * const time = await tf.time(() => x.matMul(x));
-	 *
-	 * console.log(`kernelMs: ${time.kernelMs}, wallTimeMs: ${time.wallMs}`);
-	 * ```
-	 *
-	 * @param f The function to execute and time.
-	 *
-	 * @doc {heading: 'Performance', subheading: 'Timing'}
-	 */
-
-	function time(f) {
-	  return ENGINE.time(f);
-	}
-	/**
-	 * Sets the backend (cpu, webgl, wasm, etc) responsible for creating tensors and
-	 * executing operations on those tensors. Returns a promise that resolves
-	 * to a boolean if the backend initialization was successful.
-	 *
-	 * Note this disposes the current backend, if any, as well as any tensors
-	 * associated with it. A new backend is initialized, even if it is of the
-	 * same type as the previous one.
-	 *
-	 * @param backendName The name of the backend. Currently supports
-	 *     `'webgl'|'cpu'` in the browser, `'tensorflow'` under node.js
-	 *     (requires tfjs-node), and `'wasm'` (requires tfjs-backend-wasm).
-	 *
-	 * @doc {heading: 'Backends'}
-	 */
-
-	function setBackend(backendName) {
-	  return ENGINE.setBackend(backendName);
-	}
-	/**
-	 * Returns a promise that resolves when the currently selected backend (or the
-	 * highest priority one) has initialized. Await this promise when you are using
-	 * a backend that has async initialization.
-	 *
-	 * @doc {heading: 'Backends'}
-	 */
-
-	function ready() {
-	  return ENGINE.ready();
-	}
-	/**
-	 * Returns the current backend name (cpu, webgl, etc). The backend is
-	 * responsible for creating tensors and executing operations on those tensors.
-	 *
-	 * @doc {heading: 'Backends'}
-	 */
-
-	function getBackend() {
-	  return ENGINE.backendName;
-	}
-	/**
-	 * Removes a backend and the registered factory.
-	 *
-	 * @doc {heading: 'Backends'}
-	 */
-
-	function removeBackend(name) {
-	  ENGINE.removeBackend(name);
-	}
-	/**
-	 * Finds the backend registered under the provided name. Returns null if the
-	 * name is not in the registry, or the registration hasn't finished yet.
-	 */
-
-	function findBackend(name) {
-	  return ENGINE.findBackend(name);
-	}
-	/**
-	 * Finds the backend factory registered under the provided name. Returns a
-	 * function that produces a new backend when called. Returns null if the name
-	 * is not in the registry.
-	 */
-
-	function findBackendFactory(name) {
-	  return ENGINE.findBackendFactory(name);
-	}
-	/**
-	 * Registers a global backend. The registration should happen when importing
-	 * a module file (e.g. when importing `backend_webgl.ts`), and is used for
-	 * modular builds (e.g. custom tfjs bundle with only webgl support).
-	 *
-	 * @param factory The backend factory function. When called, it should
-	 * return a backend instance, or a promise of an instance.
-	 * @param priority The priority of the backend (higher = more important).
-	 *     In case multiple backends are registered, the priority is used to find
-	 *     the best backend. Defaults to 1.
-	 * @return False if there is already a registered backend under this name, true
-	 *     if not.
-	 *
-	 * @doc {heading: 'Backends'}
-	 */
-
-	function registerBackend(name, factory, priority) {
-	  if (priority === void 0) {
-	    priority = 1;
-	  }
-
-	  return ENGINE.registerBackend(name, factory, priority);
-	}
-	/**
-	 * Gets the current backend. If no backends have been initialized, this will
-	 * attempt to initialize the best backend. Will throw an error if the highest
-	 * priority backend has async initialization, in which case, you should call
-	 * 'await tf.ready()' before running other code.
-	 *
-	 * @doc {heading: 'Backends'}
-	 */
-
-	function backend() {
-	  return ENGINE.backend;
-	}
-	/**
-	 * Sets the global platform.
-	 *
-	 * @param platformName The name of this platform.
-	 * @param platform A platform implementation.
-	 */
-
-	function setPlatform(platformName, platform) {
-	  env().setPlatform(platformName, platform);
-	}
+	var version$1 = '3.19.0';
 
 	/**
 	 * @license
@@ -30099,8 +30306,9 @@
 	  assert($filter.rank === 4, function () {
 	    return "Error in depthwiseConv2d: filter must be rank 4, but got rank " + ($filter.rank + ".");
 	  });
-	  assert(x4D.shape[3] === $filter.shape[2], function () {
-	    return "Error in depthwiseConv2d: number of input channels " + ("(" + x4D.shape[3] + ") must match the inChannels dimension in ") + ("filter " + $filter.shape[2] + ".");
+	  var inChannels = dataFormat === 'NHWC' ? x4D.shape[3] : x4D.shape[1];
+	  assert(inChannels === $filter.shape[2], function () {
+	    return "Error in depthwiseConv2d: number of input channels " + ("(" + inChannels + ") must match the inChannels dimension in ") + ("filter " + $filter.shape[2] + ".");
 	  });
 	  checkPadOnDimRoundingMode('depthwiseConv2d', pad, dimRoundingMode);
 	  var inputs = {
@@ -30783,6 +30991,733 @@
 
 	/**
 	 * @license
+	 * Copyright 2017 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Returns true if the axis specifies the inner most dimensions of the
+	 * array.
+	 */
+
+	function axesAreInnerMostDims(axes, rank) {
+	  for (var i = 0; i < axes.length; ++i) {
+	    if (axes[axes.length - i - 1] !== rank - 1 - i) {
+	      return false;
+	    }
+	  }
+
+	  return true;
+	}
+	function combineLocations(outputLoc, reduceLoc, axes) {
+	  var rank = outputLoc.length + reduceLoc.length;
+	  var loc = [];
+	  var outIdx = 0;
+	  var reduceIdx = 0;
+
+	  for (var dim = 0; dim < rank; dim++) {
+	    if (axes.indexOf(dim) === -1) {
+	      loc.push(outputLoc[outIdx++]);
+	    } else {
+	      loc.push(reduceLoc[reduceIdx++]);
+	    }
+	  }
+
+	  return loc;
+	}
+	function computeOutAndReduceShapes(aShape, axes) {
+	  var outShape = [];
+	  var rank = aShape.length;
+
+	  for (var dim = 0; dim < rank; dim++) {
+	    if (axes.indexOf(dim) === -1) {
+	      outShape.push(aShape[dim]);
+	    }
+	  }
+
+	  var reduceShape = axes.map(function (dim) {
+	    return aShape[dim];
+	  });
+	  return [outShape, reduceShape];
+	}
+	function expandShapeToKeepDim(shape, axes) {
+	  var reduceSubShape = axes.map(function (x) {
+	    return 1;
+	  });
+	  return combineLocations(shape, reduceSubShape, axes);
+	}
+	function assertAxesAreInnerMostDims(msg, axes, rank) {
+	  assert(axesAreInnerMostDims(axes, rank), function () {
+	    return msg + " supports only inner-most axes for now. " + ("Got axes " + axes + " and rank-" + rank + " input.");
+	  });
+	}
+	/**
+	 * Returns the axes permutation to be used with `tf.transpose`, if such
+	 * permutation is necessary. Otherwise it returns null. This method is used by
+	 * operations that operate only on inner-most axes.
+	 */
+
+	function getAxesPermutation(axes, rank) {
+	  if (axesAreInnerMostDims(axes, rank)) {
+	    return null;
+	  }
+
+	  var result = [];
+
+	  for (var i = 0; i < rank; ++i) {
+	    if (axes.indexOf(i) === -1) {
+	      result.push(i);
+	    }
+	  }
+
+	  axes.forEach(function (axis) {
+	    return result.push(axis);
+	  });
+	  return result;
+	}
+	/** Returns the axes permutation that undoes the original permutation. */
+
+	function getUndoAxesPermutation(axes) {
+	  return axes.map(function (axis, i) {
+	    return [i, axis];
+	  }).sort(function (a, b) {
+	    return a[1] - b[1];
+	  }).map(function (x) {
+	    return x[0];
+	  });
+	}
+	function getInnerMostAxes(numAxes, rank) {
+	  var res = [];
+
+	  for (var i = rank - numAxes; i < rank; ++i) {
+	    res.push(i);
+	  }
+
+	  return res;
+	}
+
+	/**
+	 * @license
+	 * Copyright 2020 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Computes the maximum of elements across dimensions of a `tf.Tensor`.
+	 *
+	 * Reduces the input along the dimensions given in `axes`. Unless `keepDims`
+	 * is true, the rank of the `tf.Tensor` is reduced by 1 for each entry in
+	 * `axes`. If `keepDims` is true, the reduced dimensions are retained with
+	 * length 1. If `axes` has no entries, all dimensions are reduced, and an
+	 * `tf.Tensor` with a single element is returned.
+	 *
+	 * ```js
+	 * const x = tf.tensor1d([1, 2, 3]);
+	 *
+	 * x.max().print();  // or tf.max(x)
+	 * ```
+	 *
+	 * ```js
+	 * const x = tf.tensor2d([1, 2, 3, 4], [2, 2]);
+	 *
+	 * const axis = 1;
+	 * x.max(axis).print();  // or tf.max(x, axis)
+	 * ```
+	 *
+	 * @param x The input tensor.
+	 * @param axis The dimension(s) to reduce. By default it reduces
+	 *     all dimensions.
+	 * @param keepDims If true, retains reduced dimensions with size 1.
+	 *
+	 * @doc {heading: 'Operations', subheading: 'Reduction'}
+	 */
+
+	function max_(x, axis, keepDims) {
+	  if (axis === void 0) {
+	    axis = null;
+	  }
+
+	  if (keepDims === void 0) {
+	    keepDims = false;
+	  }
+
+	  var $x = convertToTensor(x, 'x', 'max');
+	  var inputs = {
+	    x: $x
+	  };
+	  var attrs = {
+	    reductionIndices: axis,
+	    keepDims: keepDims
+	  };
+	  return ENGINE.runKernel(Max, inputs, attrs);
+	}
+
+	var max$5 = op({
+	  max_: max_
+	});
+
+	/**
+	 * @license
+	 * Copyright 2020 Google Inc. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Computes the minimum value from the input.
+	 *
+	 * Reduces the input along the dimensions given in `axes`. Unless `keepDims`
+	 * is true, the rank of the array is reduced by 1 for each entry in `axes`.
+	 * If `keepDims` is true, the reduced dimensions are retained with length 1.
+	 * If `axes` has no entries, all dimensions are reduced, and an array with a
+	 * single element is returned.
+	 *
+	 * ```js
+	 * const x = tf.tensor1d([1, 2, 3]);
+	 *
+	 * x.min().print();  // or tf.min(x)
+	 * ```
+	 *
+	 * ```js
+	 * const x = tf.tensor2d([1, 2, 3, 4], [2, 2]);
+	 *
+	 * const axis = 1;
+	 * x.min(axis).print();  // or tf.min(x, axis)
+	 * ```
+	 *
+	 * @param x The input Tensor.
+	 * @param axis The dimension(s) to reduce. By default it reduces
+	 *     all dimensions.
+	 * @param keepDims If true, retains reduced dimensions with size 1.
+	 *
+	 * @doc {heading: 'Operations', subheading: 'Reduction'}
+	 */
+
+	function min_(x, axis, keepDims) {
+	  if (axis === void 0) {
+	    axis = null;
+	  }
+
+	  if (keepDims === void 0) {
+	    keepDims = false;
+	  }
+
+	  var $x = convertToTensor(x, 'x', 'min');
+	  var inputs = {
+	    x: $x
+	  };
+	  var attrs = {
+	    axis: axis,
+	    keepDims: keepDims
+	  }; // tslint:disable-next-line: no-unnecessary-type-assertion
+
+	  return ENGINE.runKernel(Min, inputs, attrs);
+	}
+
+	var min$9 = op({
+	  min_: min_
+	});
+
+	/**
+	 * @license
+	 * Copyright 2020 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Computes the power of one `tf.Tensor` to another. Supports broadcasting.
+	 *
+	 * Given a `tf.Tensor` x and a `tf.Tensor` y, this operation computes x^y for
+	 * corresponding elements in x and y. The result's dtype will be the upcasted
+	 * type of the `base` and `exp` dtypes.
+	 *
+	 * ```js
+	 * const a = tf.tensor([[2, 3], [4, 5]])
+	 * const b = tf.tensor([[1, 2], [3, 0]]).toInt();
+	 *
+	 * a.pow(b).print();  // or tf.pow(a, b)
+	 * ```
+	 *
+	 * ```js
+	 * const a = tf.tensor([[1, 2], [3, 4]])
+	 * const b = tf.tensor(2).toInt();
+	 *
+	 * a.pow(b).print();  // or tf.pow(a, b)
+	 * ```
+	 * We also expose `powStrict` which has the same signature as this op and
+	 * asserts that `base` and `exp` are the same shape (does not broadcast).
+	 *
+	 * @param base The base `tf.Tensor` to pow element-wise.
+	 * @param exp The exponent `tf.Tensor` to pow element-wise.
+	 *
+	 * @doc {heading: 'Operations', subheading: 'Arithmetic'}
+	 */
+
+	function pow_(base, exp) {
+	  var $base = convertToTensor(base, 'base', 'pow');
+	  var $exp = convertToTensor(exp, 'exp', 'pow');
+
+	  var _makeTypesMatch = makeTypesMatch($base, $exp);
+
+	  $base = _makeTypesMatch[0];
+	  $exp = _makeTypesMatch[1];
+	  var inputs = {
+	    a: $base,
+	    b: $exp
+	  };
+	  return ENGINE.runKernel(Pow, inputs);
+	}
+
+	var pow$5 = op({
+	  pow_: pow_
+	});
+
+	/**
+	 * @license
+	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Creates rank-0 `tf.Tensor` (scalar) with the provided value and dtype.
+	 *
+	 * The same functionality can be achieved with `tf.tensor`, but in general
+	 * we recommend using `tf.scalar` as it makes the code more readable.
+	 *
+	 * ```js
+	 * tf.scalar(3.14).print();
+	 * ```
+	 *
+	 * @param value The value of the scalar.
+	 * @param dtype The data type.
+	 *
+	 * @doc {heading: 'Tensors', subheading: 'Creation'}
+	 */
+
+	function scalar(value, dtype) {
+	  if ((isTypedArray$1(value) && dtype !== 'string' || Array.isArray(value)) && dtype !== 'complex64') {
+	    throw new Error('Error creating a new Scalar: value must be a primitive ' + '(number|boolean|string)');
+	  }
+
+	  if (dtype === 'string' && isTypedArray$1(value) && !(value instanceof Uint8Array)) {
+	    throw new Error('When making a scalar from encoded string, ' + 'the value must be `Uint8Array`.');
+	  }
+
+	  var shape = [];
+	  var inferredShape = [];
+	  return makeTensor(value, shape, inferredShape, dtype);
+	}
+
+	/**
+	 * @license
+	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Computes square root of the input `tf.Tensor` element-wise: `y = sqrt(x)`
+	 *
+	 * ```js
+	 * const x = tf.tensor1d([1, 2, 4, -1]);
+	 *
+	 * x.sqrt().print();  // or tf.sqrt(x)
+	 * ```
+	 * @param x The input tensor.
+	 *
+	 * @doc {heading: 'Operations', subheading: 'Basic math'}
+	 */
+
+	function sqrt_(x) {
+	  var $x = convertToTensor(x, 'x', 'sqrt', 'float32');
+	  var inputs = {
+	    x: $x
+	  };
+	  return ENGINE.runKernel(Sqrt, inputs);
+	}
+
+	var sqrt$3 = op({
+	  sqrt_: sqrt_
+	});
+
+	/**
+	 * @license
+	 * Copyright 2019 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Computes square of `x` element-wise: `x ^ 2`
+	 *
+	 * ```js
+	 * const x = tf.tensor1d([1, 2, Math.sqrt(2), -1]);
+	 *
+	 * x.square().print();  // or tf.square(x)
+	 * ```
+	 * @param x The input Tensor.
+	 *
+	 * @doc {heading: 'Operations', subheading: 'Basic math'}
+	 */
+
+	function square_(x) {
+	  var $x = convertToTensor(x, 'x', 'square');
+	  var attrs = {};
+	  return ENGINE.runKernel('Square', {
+	    x: $x
+	  }, attrs);
+	}
+
+	var square = op({
+	  square_: square_
+	});
+
+	/**
+	 * @license
+	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Computes the sum of elements across dimensions of a `tf.Tensor`.
+	 *
+	 * Reduces the input along the dimensions given in `axes`. Unless `keepDims`
+	 * is true, the rank of the `tf.Tensor` is reduced by 1 for each entry in
+	 * `axes`. If `keepDims` is true, the reduced dimensions are retained with
+	 * length 1. If axes has no entries, all dimensions are reduced, and a
+	 * `tf.Tensor` with a single element is returned.
+	 *
+	 * ```js
+	 * const x = tf.tensor1d([1, 2, 3]);
+	 *
+	 * x.sum().print();  // or tf.sum(x)
+	 * ```
+	 *
+	 * ```js
+	 * const x = tf.tensor2d([1, 2, 3, 4], [2, 2]);
+	 *
+	 * const axis = 1;
+	 * x.sum(axis).print();  // or tf.sum(x, axis)
+	 * ```
+	 *
+	 * @param x The input tensor to compute the sum over. If the dtype is `bool`
+	 *   it will be converted to `int32` and the output dtype will be `int32`.
+	 * @param axis The dimension(s) to reduce. By default it reduces
+	 *     all dimensions.
+	 * @param keepDims If true, retains reduced dimensions with size 1.
+	 *
+	 * @doc {heading: 'Operations', subheading: 'Reduction'}
+	 */
+
+	function sum_(x, axis, keepDims) {
+	  if (axis === void 0) {
+	    axis = null;
+	  }
+
+	  if (keepDims === void 0) {
+	    keepDims = false;
+	  }
+
+	  var $x = convertToTensor(x, 'x', 'sum');
+
+	  if ($x.dtype === 'bool') {
+	    $x = cast($x, 'int32');
+	  }
+
+	  var inputs = {
+	    x: $x
+	  };
+	  var attrs = {
+	    axis: axis,
+	    keepDims: keepDims
+	  };
+	  return ENGINE.runKernel(Sum, inputs, attrs);
+	}
+
+	var sum$1 = op({
+	  sum_: sum_
+	});
+
+	/**
+	 * @license
+	 * Copyright 2018 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Computes the norm of scalar, vectors, and matrices.
+	 * This function can compute several different vector norms (the 1-norm, the
+	 * Euclidean or 2-norm, the inf-norm, and in general the p-norm for p > 0)
+	 * and matrix norms (Frobenius, 1-norm, and inf-norm).
+	 *
+	 * ```js
+	 * const x = tf.tensor1d([1, 2, 3, 4]);
+	 *
+	 * x.norm().print();  // or tf.norm(x)
+	 * ```
+	 *
+	 * @param x The input array.
+	 * @param ord Optional. Order of the norm. Supported norm types are
+	 * following:
+	 *
+	 *  | ord        | norm for matrices         | norm for vectors
+	 *  |------------|---------------------------|---------------------
+	 *  |'euclidean' |Frobenius norm             |2-norm
+	 *  |'fro'       |Frobenius norm	           |
+	 *  |Infinity    |max(sum(abs(x), axis=1))   |max(abs(x))
+	 *  |-Infinity   |min(sum(abs(x), axis=1))   |min(abs(x))
+	 *  |1           |max(sum(abs(x), axis=0))   |sum(abs(x))
+	 *  |2           |                           |sum(abs(x)^2)^1/2*
+	 *
+	 * @param axis Optional. If axis is null (the default), the input is
+	 * considered a vector and a single vector norm is computed over the entire
+	 * set of values in the Tensor, i.e. norm(x, ord) is equivalent
+	 * to norm(x.reshape([-1]), ord). If axis is a integer, the input
+	 * is considered a batch of vectors, and axis determines the axis in x
+	 * over which to compute vector norms. If axis is a 2-tuple of integer it is
+	 * considered a batch of matrices and axis determines the axes in NDArray
+	 * over which to compute a matrix norm.
+	 * @param keepDims Optional. If true, the norm have the same dimensionality
+	 * as the input.
+	 *
+	 * @doc {heading: 'Operations', subheading: 'Matrices'}
+	 */
+
+	function norm_(x, ord, axis, keepDims) {
+	  if (ord === void 0) {
+	    ord = 'euclidean';
+	  }
+
+	  if (axis === void 0) {
+	    axis = null;
+	  }
+
+	  if (keepDims === void 0) {
+	    keepDims = false;
+	  }
+
+	  x = convertToTensor(x, 'x', 'norm');
+	  var norm = normImpl(x, ord, axis);
+	  var keepDimsShape = norm.shape;
+
+	  if (keepDims) {
+	    var axes = parseAxisParam(axis, x.shape);
+	    keepDimsShape = expandShapeToKeepDim(norm.shape, axes);
+	  }
+
+	  return reshape(norm, keepDimsShape);
+	}
+
+	function normImpl(x, p, axis) {
+	  if (axis === void 0) {
+	    axis = null;
+	  }
+
+	  if (x.rank === 0) {
+	    return abs$8(x);
+	  } // consider vector when no axis is specified
+
+
+	  if (x.rank !== 1 && axis === null) {
+	    return normImpl(reshape(x, [-1]), p, axis);
+	  } // vector
+
+
+	  if (x.rank === 1 || typeof axis === 'number' || Array.isArray(axis) && axis.length === 1) {
+	    if (p === 1) {
+	      return sum$1(abs$8(x), axis);
+	    }
+
+	    if (p === Infinity) {
+	      return max$5(abs$8(x), axis);
+	    }
+
+	    if (p === -Infinity) {
+	      return min$9(abs$8(x), axis);
+	    }
+
+	    if (p === 'euclidean' || p === 2) {
+	      // norm(x, 2) = sum(abs(xi) ^ 2) ^ 1/2
+	      return sqrt$3(sum$1(pow$5(abs$8(x), scalar(2, 'int32')), axis));
+	    }
+
+	    throw new Error("Error in norm: invalid ord value: " + p);
+	  } // matrix (assumption axis[0] < axis[1])
+
+
+	  if (Array.isArray(axis) && axis.length === 2) {
+	    if (p === 1) {
+	      return max$5(sum$1(abs$8(x), axis[0]), axis[1] - 1);
+	    }
+
+	    if (p === Infinity) {
+	      return max$5(sum$1(abs$8(x), axis[1]), axis[0]);
+	    }
+
+	    if (p === -Infinity) {
+	      return min$9(sum$1(abs$8(x), axis[1]), axis[0]);
+	    }
+
+	    if (p === 'fro' || p === 'euclidean') {
+	      // norm(x) = sqrt(sum(pow(x, 2)))
+	      return sqrt$3(sum$1(square(x), axis));
+	    }
+
+	    throw new Error("Error in norm: invalid ord value: " + p);
+	  }
+
+	  throw new Error("Error in norm: invalid axis: " + axis);
+	}
+
+	var norm = op({
+	  norm_: norm_
+	});
+
+	/**
+	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Computes the euclidean norm of scalar, vectors, and matrices.
+	 *
+	 * ```js
+	 * const x = tf.tensor1d([1, 2, 3, 4]);
+	 *
+	 * x.euclideanNorm().print();  // or tf.euclideanNorm(x)
+	 * ```
+	 *
+	 * @param x The input array.
+	 * @param axis Optional. If axis is null (the default), the input is
+	 * considered a vector and a single vector norm is computed over the entire
+	 * set of values in the Tensor, i.e. euclideanNorm(x) is equivalent
+	 * to euclideanNorm(x.reshape([-1])). If axis is a integer, the input
+	 * is considered a batch of vectors, and axis determines the axis in x
+	 * over which to compute vector norms. If axis is a 2-tuple of integer it is
+	 * considered a batch of matrices and axis determines the axes in NDArray
+	 * over which to compute a matrix norm.
+	 * @param keepDims Optional. If true, the norm have the same dimensionality
+	 * as the input.
+	 *
+	 * @doc {heading: 'Operations', subheading: 'Matrices'}
+	 */
+
+	function euclideanNorm_(x, axis, keepDims) {
+	  if (axis === void 0) {
+	    axis = null;
+	  }
+
+	  if (keepDims === void 0) {
+	    keepDims = false;
+	  }
+
+	  return norm(x, 'euclidean', axis, keepDims);
+	}
+
+	var euclideanNorm = op({
+	  euclideanNorm_: euclideanNorm_
+	});
+
+	/**
+	 * @license
 	 * Copyright 2018 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -31302,49 +32237,6 @@
 
 	var greaterEqual = op({
 	  greaterEqual_: greaterEqual_
-	});
-
-	/**
-	 * @license
-	 * Copyright 2020 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	/**
-	 * Returns the imaginary part of a complex (or real) tensor.
-	 *
-	 * Given a tensor input, this operation returns a tensor of type float that is
-	 * the imaginary part of each element in input considered as a complex number.
-	 * If input is real, a tensor of all zeros is returned.
-	 *
-	 * ```js
-	 * const x = tf.complex([-2.25, 3.25], [4.75, 5.75]);
-	 * tf.imag(x).print();
-	 * ```
-	 *
-	 * @doc {heading: 'Tensors', subheading: 'Creation'}
-	 */
-
-	function imag_(input) {
-	  var $input = convertToTensor(input, 'input', 'imag');
-	  var inputs = {
-	    input: $input
-	  };
-	  return ENGINE.runKernel(Imag, inputs);
-	}
-
-	var imag = op({
-	  imag_: imag_
 	});
 
 	/**
@@ -32251,48 +33143,6 @@
 	 * =============================================================================
 	 */
 	/**
-	 * Computes `-1 * x` element-wise.
-	 *
-	 * ```js
-	 * const x = tf.tensor2d([1, 2, -2, 0], [2, 2]);
-	 *
-	 * x.neg().print();  // or tf.neg(x)
-	 * ```
-	 *
-	 * @param x The input tensor.
-	 *
-	 * @doc {heading: 'Operations', subheading: 'Basic math'}
-	 */
-
-	function neg_(x) {
-	  var $x = convertToTensor(x, 'x', 'neg');
-	  var inputs = {
-	    x: $x
-	  };
-	  return ENGINE.runKernel(Neg, inputs);
-	}
-
-	var neg = op({
-	  neg_: neg_
-	});
-
-	/**
-	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	/**
 	 * Computes softplus of the input `tf.Tensor` element-wise: `log(exp(x) + 1)`
 	 *
 	 * ```js
@@ -32392,76 +33242,6 @@
 	 * =============================================================================
 	 */
 	/**
-	 * Computes the maximum of elements across dimensions of a `tf.Tensor`.
-	 *
-	 * Reduces the input along the dimensions given in `axes`. Unless `keepDims`
-	 * is true, the rank of the `tf.Tensor` is reduced by 1 for each entry in
-	 * `axes`. If `keepDims` is true, the reduced dimensions are retained with
-	 * length 1. If `axes` has no entries, all dimensions are reduced, and an
-	 * `tf.Tensor` with a single element is returned.
-	 *
-	 * ```js
-	 * const x = tf.tensor1d([1, 2, 3]);
-	 *
-	 * x.max().print();  // or tf.max(x)
-	 * ```
-	 *
-	 * ```js
-	 * const x = tf.tensor2d([1, 2, 3, 4], [2, 2]);
-	 *
-	 * const axis = 1;
-	 * x.max(axis).print();  // or tf.max(x, axis)
-	 * ```
-	 *
-	 * @param x The input tensor.
-	 * @param axis The dimension(s) to reduce. By default it reduces
-	 *     all dimensions.
-	 * @param keepDims If true, retains reduced dimensions with size 1.
-	 *
-	 * @doc {heading: 'Operations', subheading: 'Reduction'}
-	 */
-
-	function max_(x, axis, keepDims) {
-	  if (axis === void 0) {
-	    axis = null;
-	  }
-
-	  if (keepDims === void 0) {
-	    keepDims = false;
-	  }
-
-	  var $x = convertToTensor(x, 'x', 'max');
-	  var inputs = {
-	    x: $x
-	  };
-	  var attrs = {
-	    reductionIndices: axis,
-	    keepDims: keepDims
-	  };
-	  return ENGINE.runKernel(Max, inputs, attrs);
-	}
-
-	var max$5 = op({
-	  max_: max_
-	});
-
-	/**
-	 * @license
-	 * Copyright 2020 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	/**
 	 * Subtracts two `tf.Tensor`s element-wise, A - B. Supports broadcasting.
 	 *
 	 * ```js
@@ -32502,82 +33282,6 @@
 
 	var sub = op({
 	  sub_: sub_
-	});
-
-	/**
-	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	/**
-	 * Computes the sum of elements across dimensions of a `tf.Tensor`.
-	 *
-	 * Reduces the input along the dimensions given in `axes`. Unless `keepDims`
-	 * is true, the rank of the `tf.Tensor` is reduced by 1 for each entry in
-	 * `axes`. If `keepDims` is true, the reduced dimensions are retained with
-	 * length 1. If axes has no entries, all dimensions are reduced, and a
-	 * `tf.Tensor` with a single element is returned.
-	 *
-	 * ```js
-	 * const x = tf.tensor1d([1, 2, 3]);
-	 *
-	 * x.sum().print();  // or tf.sum(x)
-	 * ```
-	 *
-	 * ```js
-	 * const x = tf.tensor2d([1, 2, 3, 4], [2, 2]);
-	 *
-	 * const axis = 1;
-	 * x.sum(axis).print();  // or tf.sum(x, axis)
-	 * ```
-	 *
-	 * @param x The input tensor to compute the sum over. If the dtype is `bool`
-	 *   it will be converted to `int32` and the output dtype will be `int32`.
-	 * @param axis The dimension(s) to reduce. By default it reduces
-	 *     all dimensions.
-	 * @param keepDims If true, retains reduced dimensions with size 1.
-	 *
-	 * @doc {heading: 'Operations', subheading: 'Reduction'}
-	 */
-
-	function sum_(x, axis, keepDims) {
-	  if (axis === void 0) {
-	    axis = null;
-	  }
-
-	  if (keepDims === void 0) {
-	    keepDims = false;
-	  }
-
-	  var $x = convertToTensor(x, 'x', 'sum');
-
-	  if ($x.dtype === 'bool') {
-	    $x = cast($x, 'int32');
-	  }
-
-	  var inputs = {
-	    x: $x
-	  };
-	  var attrs = {
-	    axis: axis,
-	    keepDims: keepDims
-	  };
-	  return ENGINE.runKernel(Sum, inputs, attrs);
-	}
-
-	var sum$1 = op({
-	  sum_: sum_
 	});
 
 	/**
@@ -32674,123 +33378,6 @@
 	var logSoftmax = op({
 	  logSoftmax_: logSoftmax_
 	});
-
-	/**
-	 * @license
-	 * Copyright 2017 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	/**
-	 * Returns true if the axis specifies the inner most dimensions of the
-	 * array.
-	 */
-
-	function axesAreInnerMostDims(axes, rank) {
-	  for (var i = 0; i < axes.length; ++i) {
-	    if (axes[axes.length - i - 1] !== rank - 1 - i) {
-	      return false;
-	    }
-	  }
-
-	  return true;
-	}
-	function combineLocations(outputLoc, reduceLoc, axes) {
-	  var rank = outputLoc.length + reduceLoc.length;
-	  var loc = [];
-	  var outIdx = 0;
-	  var reduceIdx = 0;
-
-	  for (var dim = 0; dim < rank; dim++) {
-	    if (axes.indexOf(dim) === -1) {
-	      loc.push(outputLoc[outIdx++]);
-	    } else {
-	      loc.push(reduceLoc[reduceIdx++]);
-	    }
-	  }
-
-	  return loc;
-	}
-	function computeOutAndReduceShapes(aShape, axes) {
-	  var outShape = [];
-	  var rank = aShape.length;
-
-	  for (var dim = 0; dim < rank; dim++) {
-	    if (axes.indexOf(dim) === -1) {
-	      outShape.push(aShape[dim]);
-	    }
-	  }
-
-	  var reduceShape = axes.map(function (dim) {
-	    return aShape[dim];
-	  });
-	  return [outShape, reduceShape];
-	}
-	function expandShapeToKeepDim(shape, axes) {
-	  var reduceSubShape = axes.map(function (x) {
-	    return 1;
-	  });
-	  return combineLocations(shape, reduceSubShape, axes);
-	}
-	function assertAxesAreInnerMostDims(msg, axes, rank) {
-	  assert(axesAreInnerMostDims(axes, rank), function () {
-	    return msg + " supports only inner-most axes for now. " + ("Got axes " + axes + " and rank-" + rank + " input.");
-	  });
-	}
-	/**
-	 * Returns the axes permutation to be used with `tf.transpose`, if such
-	 * permutation is necessary. Otherwise it returns null. This method is used by
-	 * operations that operate only on inner-most axes.
-	 */
-
-	function getAxesPermutation(axes, rank) {
-	  if (axesAreInnerMostDims(axes, rank)) {
-	    return null;
-	  }
-
-	  var result = [];
-
-	  for (var i = 0; i < rank; ++i) {
-	    if (axes.indexOf(i) === -1) {
-	      result.push(i);
-	    }
-	  }
-
-	  axes.forEach(function (axis) {
-	    return result.push(axis);
-	  });
-	  return result;
-	}
-	/** Returns the axes permutation that undoes the original permutation. */
-
-	function getUndoAxesPermutation(axes) {
-	  return axes.map(function (axis, i) {
-	    return [i, axis];
-	  }).sort(function (a, b) {
-	    return a[1] - b[1];
-	  }).map(function (x) {
-	    return x[0];
-	  });
-	}
-	function getInnerMostAxes(numAxes, rank) {
-	  var res = [];
-
-	  for (var i = rank - numAxes; i < rank; ++i) {
-	    res.push(i);
-	  }
-
-	  return res;
-	}
 
 	/**
 	 * @license
@@ -33048,6 +33635,186 @@
 	var logicalXor = op({
 	  logicalXor_: logicalXor_
 	});
+
+	/**
+	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	var INT32_MAX = 2147483648;
+	/**
+	 * Searches for where a value would go in a sorted sequence.
+	 *
+	 * This is not a method for checking containment (like javascript in).
+	 *
+	 * The typical use case for this operation is "binning", "bucketing", or
+	 * "discretizing". The values are assigned to bucket-indices based on the edges
+	 * listed in 'sortedSequence'. This operation returns the bucket-index for each
+	 * value.
+	 *
+	 * The side argument controls which index is returned if a value lands exactly
+	 * on an edge.
+	 *
+	 * The axis is not settable for this operation. It always operates on the
+	 * innermost dimension (axis=-1). The operation will accept any number of outer
+	 * dimensions.
+	 *
+	 * Note: This operation assumes that 'sortedSequence' is sorted along the
+	 * innermost axis, maybe using 'sort(..., axis=-1)'. If the sequence is not
+	 * sorted no error is raised and the content of the returned tensor is not well
+	 * defined.
+	 *
+	 * ```js
+	 * const edges = tf.tensor1d([-1, 3.3, 9.1, 10.0]);
+	 * let values = tf.tensor1d([0.0, 4.1, 12.0]);
+	 * const result1 = tf.searchSorted(edges, values, 'left');
+	 * result1.print(); // [1, 2, 4]
+	 *
+	 * const seq = tf.tensor1d([0, 3, 9, 10, 10]);
+	 * values = tf.tensor1d([0, 4, 10]);
+	 * const result2 = tf.searchSorted(seq, values, 'left');
+	 * result2.print(); // [0, 2, 3]
+	 * const result3 = tf.searchSorted(seq, values, 'right');
+	 * result3.print(); // [1, 2, 5]
+	 *
+	 * const sortedSequence = tf.tensor2d([[0., 3., 8., 9., 10.],
+	 *                                     [1., 2., 3., 4., 5.]]);
+	 * values = tf.tensor2d([[9.8, 2.1, 4.3],
+	 *                       [0.1, 6.6, 4.5, ]]);
+	 * const result4 = tf.searchSorted(sortedSequence, values, 'left');
+	 * result4.print(); // [[4, 1, 2], [0, 5, 4]]
+	 * ```
+	 * @param sortedSequence: N-D. Sorted sequence.
+	 * @param values: N-D. Search values.
+	 * @param side: 'left'|'right'. Defaults to 'left'. 'left' corresponds to lower
+	 *     bound and 'right' to upper bound.
+	 * @return An N-D int32 tensor the size of values containing the result of
+	 *     applying either lower bound or upper bound (depending on side) to each
+	 *     value. The result is not a global index to the entire Tensor, but the
+	 *     index in the last dimension.
+	 * @doc {heading: 'Operations', subheading: 'Evaluation'}
+	 */
+
+	function searchSorted_(sortedSequence, values, side) {
+	  if (side === void 0) {
+	    side = 'left';
+	  }
+
+	  var $sortedSequence = convertToTensor(sortedSequence, 'sortedSequence', 'searchSorted');
+	  var $values = convertToTensor(values, 'values', 'searchSorted');
+	  var sequenceSize = $sortedSequence.shape[$sortedSequence.shape.length - 1];
+	  var valuesSize = $values.shape[$values.shape.length - 1];
+	  var $sortedSequence2D = reshape($sortedSequence, [-1, sequenceSize]);
+	  var $values2D = reshape($values, [-1, valuesSize]);
+
+	  if ($sortedSequence2D.rank < 2) {
+	    throw new Error("Sorted input argument must be at least 2-dimensional");
+	  }
+
+	  if ($sortedSequence2D.shape[0] !== $values2D.shape[0]) {
+	    throw new Error("Leading dimension of 'sortedSequence' and 'values' must match.");
+	  }
+
+	  if (sizeFromShape($values2D.shape) >= INT32_MAX) {
+	    throw new Error("values tensor size must less than " + INT32_MAX);
+	  }
+
+	  if ($sortedSequence2D.shape[1] >= INT32_MAX) {
+	    throw new Error("trailing dim_size must less than " + INT32_MAX + " for int32 output type, was " + $sortedSequence2D.shape[1]);
+	  }
+
+	  var inputs = {
+	    sortedSequence: $sortedSequence2D,
+	    values: $values2D
+	  };
+	  var attrs = {
+	    side: side
+	  };
+	  return ENGINE.runKernel(SearchSorted, inputs, attrs);
+	}
+
+	var searchSorted = op({
+	  searchSorted_: searchSorted_
+	});
+
+	/**
+	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Searches for where a value would go in a sorted sequence.
+	 *
+	 * This is not a method for checking containment (like javascript in).
+	 *
+	 * The typical use case for this operation is "binning", "bucketing", or
+	 * "discretizing". The values are assigned to bucket-indices based on the edges
+	 * listed in 'sortedSequence'. This operation returns the bucket-index for each
+	 * value.
+	 *
+	 * The index returned corresponds to the first edge greater than or equal to the
+	 * value.
+	 *
+	 * The axis is not settable for this operation. It always operates on the
+	 * innermost dimension (axis=-1). The operation will accept any number of outer
+	 * dimensions.
+	 *
+	 * Note: This operation assumes that 'lowerBound' is sorted along the
+	 * innermost axis, maybe using 'sort(..., axis=-1)'. If the sequence is not
+	 * sorted no error is raised and the content of the returned tensor is not well
+	 * defined.
+	 *
+	 * ```js
+	 * const edges = tf.tensor1d([-1, 3.3, 9.1, 10.0]);
+	 * let values = tf.tensor1d([0.0, 4.1, 12.0]);
+	 * const result1 = tf.lowerBound(edges, values);
+	 * result1.print(); // [1, 2, 4]
+	 *
+	 * const seq = tf.tensor1d([0, 3, 9, 10, 10]);
+	 * values = tf.tensor1d([0, 4, 10]);
+	 * const result2 = tf.lowerBound(seq, values);
+	 * result2.print(); // [0, 2, 3]
+	 *
+	 * const sortedSequence = tf.tensor2d([[0., 3., 8., 9., 10.],
+	 *                                     [1., 2., 3., 4., 5.]]);
+	 * values = tf.tensor2d([[9.8, 2.1, 4.3],
+	 *                       [0.1, 6.6, 4.5, ]]);
+	 * const result3 = tf.lowerBound(sortedSequence, values);
+	 * result3.print(); // [[4, 1, 2], [0, 5, 4]]
+	 * ```
+	 * @param sortedSequence: N-D. Sorted sequence.
+	 * @param values: N-D. Search values.
+	 * @return An N-D int32 tensor the size of values containing the result of
+	 *     applying lower bound to each value. The result is not a global index to
+	 *     the entire Tensor, but the index in the last dimension.
+	 * @doc {heading: 'Operations', subheading: 'Evaluation'}
+	 */
+
+	function lowerBound(sortedSequence, values) {
+	  return searchSorted(sortedSequence, values, 'left');
+	}
 
 	/**
 	 * @license
@@ -33624,77 +34391,6 @@
 
 	/**
 	 * @license
-	 * Copyright 2020 Google Inc. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	/**
-	 * Computes the minimum value from the input.
-	 *
-	 * Reduces the input along the dimensions given in `axes`. Unless `keepDims`
-	 * is true, the rank of the array is reduced by 1 for each entry in `axes`.
-	 * If `keepDims` is true, the reduced dimensions are retained with length 1.
-	 * If `axes` has no entries, all dimensions are reduced, and an array with a
-	 * single element is returned.
-	 *
-	 * ```js
-	 * const x = tf.tensor1d([1, 2, 3]);
-	 *
-	 * x.min().print();  // or tf.min(x)
-	 * ```
-	 *
-	 * ```js
-	 * const x = tf.tensor2d([1, 2, 3, 4], [2, 2]);
-	 *
-	 * const axis = 1;
-	 * x.min(axis).print();  // or tf.min(x, axis)
-	 * ```
-	 *
-	 * @param x The input Tensor.
-	 * @param axis The dimension(s) to reduce. By default it reduces
-	 *     all dimensions.
-	 * @param keepDims If true, retains reduced dimensions with size 1.
-	 *
-	 * @doc {heading: 'Operations', subheading: 'Reduction'}
-	 */
-
-	function min_(x, axis, keepDims) {
-	  if (axis === void 0) {
-	    axis = null;
-	  }
-
-	  if (keepDims === void 0) {
-	    keepDims = false;
-	  }
-
-	  var $x = convertToTensor(x, 'x', 'min');
-	  var inputs = {
-	    x: $x
-	  };
-	  var attrs = {
-	    axis: axis,
-	    keepDims: keepDims
-	  }; // tslint:disable-next-line: no-unnecessary-type-assertion
-
-	  return ENGINE.runKernel(Min, inputs, attrs);
-	}
-
-	var min$9 = op({
-	  min_: min_
-	});
-
-	/**
-	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -33910,47 +34606,6 @@
 
 	var mod = op({
 	  mod_: mod_
-	});
-
-	/**
-	 * @license
-	 * Copyright 2019 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	/**
-	 * Computes square of `x` element-wise: `x ^ 2`
-	 *
-	 * ```js
-	 * const x = tf.tensor1d([1, 2, Math.sqrt(2), -1]);
-	 *
-	 * x.square().print();  // or tf.square(x)
-	 * ```
-	 * @param x The input Tensor.
-	 *
-	 * @doc {heading: 'Operations', subheading: 'Basic math'}
-	 */
-
-	function square_(x) {
-	  var $x = convertToTensor(x, 'x', 'square');
-	  var attrs = {};
-	  return ENGINE.runKernel('Square', {
-	    x: $x
-	  }, attrs);
-	}
-
-	var square = op({
-	  square_: square_
 	});
 
 	/**
@@ -34677,70 +35332,6 @@
 	 * =============================================================================
 	 */
 	/**
-	 * Computes the power of one `tf.Tensor` to another. Supports broadcasting.
-	 *
-	 * Given a `tf.Tensor` x and a `tf.Tensor` y, this operation computes x^y for
-	 * corresponding elements in x and y. The result's dtype will be the upcasted
-	 * type of the `base` and `exp` dtypes.
-	 *
-	 * ```js
-	 * const a = tf.tensor([[2, 3], [4, 5]])
-	 * const b = tf.tensor([[1, 2], [3, 0]]).toInt();
-	 *
-	 * a.pow(b).print();  // or tf.pow(a, b)
-	 * ```
-	 *
-	 * ```js
-	 * const a = tf.tensor([[1, 2], [3, 4]])
-	 * const b = tf.tensor(2).toInt();
-	 *
-	 * a.pow(b).print();  // or tf.pow(a, b)
-	 * ```
-	 * We also expose `powStrict` which has the same signature as this op and
-	 * asserts that `base` and `exp` are the same shape (does not broadcast).
-	 *
-	 * @param base The base `tf.Tensor` to pow element-wise.
-	 * @param exp The exponent `tf.Tensor` to pow element-wise.
-	 *
-	 * @doc {heading: 'Operations', subheading: 'Arithmetic'}
-	 */
-
-	function pow_(base, exp) {
-	  var $base = convertToTensor(base, 'base', 'pow');
-	  var $exp = convertToTensor(exp, 'exp', 'pow');
-
-	  var _makeTypesMatch = makeTypesMatch($base, $exp);
-
-	  $base = _makeTypesMatch[0];
-	  $exp = _makeTypesMatch[1];
-	  var inputs = {
-	    a: $base,
-	    b: $exp
-	  };
-	  return ENGINE.runKernel(Pow, inputs);
-	}
-
-	var pow$5 = op({
-	  pow_: pow_
-	});
-
-	/**
-	 * @license
-	 * Copyright 2020 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	/**
 	 * Computes leaky rectified linear element-wise with parametric alphas.
 	 *
 	 * `x < 0 ? alpha * x : f(x) = x`
@@ -34914,10 +35505,10 @@
 	  // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 	  // copies of the Software, and to permit persons to whom the Software is
 	  // furnished to do so, subject to the following conditions:
-	  // 
+	  //
 	  // The above copyright notice and this permission notice shall be included in
 	  // all copies or substantial portions of the Software.
-	  // 
+	  //
 	  // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 	  // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 	  // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -35002,7 +35593,7 @@
 	      var n = 0xefc8249d;
 
 	      var mash = function mash(data) {
-	        data = data.toString();
+	        data = String(data);
 
 	        for (var i = 0; i < data.length; i++) {
 	          n += data.charCodeAt(i);
@@ -35640,7 +36231,7 @@
 
 	var seedrandom = createCommonjsModule(function (module) {
 	  /*
-	  Copyright 2014 David Bau.
+	  Copyright 2019 David Bau.
 	  
 	  Permission is hereby granted, free of charge, to any person obtaining
 	  a copy of this software and associated documentation files (the
@@ -35662,12 +36253,11 @@
 	  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	  
 	  */
-	  (function (pool, math) {
+	  (function (global, pool, math) {
 	    //
 	    // The following constants are related to IEEE 754 limits.
 	    //
-	    var global = this,
-	        width = 256,
+	    var width = 256,
 	        // each RC4 output is 0 <= x < 256
 	    chunks = 6,
 	        // at least six RC4 outputs for each double
@@ -35758,9 +36348,7 @@
 	        // prng directly.
 	        else return prng;
 	      })(prng, shortseed, 'global' in options ? options.global : this == math, options.state);
-	    }
-
-	    math['seed' + rngname] = seedrandom; //
+	    } //
 	    // ARC4
 	    //
 	    // An ARC4 implementation.  The constructor takes a key in the form of
@@ -35770,6 +36358,7 @@
 	    // the next (count) outputs from ARC4.  Its return value is a number x
 	    // that is in the range 0 <= x < (width ^ count).
 	    //
+
 
 	    function ARC4(key) {
 	      var t,
@@ -35919,9 +36508,14 @@
 	      undefined(function () {
 	        return seedrandom;
 	      });
+	    } else {
+	      // When included as a plain script, set up Math.seedrandom global.
+	      math['seed' + rngname] = seedrandom;
 	    } // End anonymous scope, and pass initial values.
 
-	  })([], // pool: entropy pool starts empty
+	  })( // global: `self` in browsers (including strict mode and web workers),
+	  // otherwise `this` in Node and other environments
+	  typeof self !== 'undefined' ? self : commonjsGlobal, [], // pool: entropy pool starts empty
 	  Math // math: package containing random, pow, and seedrandom
 	  );
 	});
@@ -36391,6 +36985,50 @@
 
 	/**
 	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Creates a `tf.Tensor` with values sampled from a normal distribution.
+	 *
+	 * The generated values will have mean 0 and standard deviation 1.
+	 *
+	 * ```js
+	 * tf.randomStandardNormal([2, 2]).print();
+	 * ```
+	 *
+	 * @param shape An array of integers defining the output tensor shape.
+	 * @param dtype The data type of the output.
+	 * @param seed The seed for the random number generator.
+	 *
+	 * @doc {heading: 'Tensors', subheading: 'Random'}
+	 */
+
+	function randomStandardNormal_(shape, dtype, seed) {
+	  if (dtype != null && dtype === 'bool') {
+	    throw new Error("Unsupported data type " + dtype);
+	  }
+
+	  return randomNormal(shape, 0, 1, dtype, seed);
+	}
+
+	var randomStandardNormal = op({
+	  randomStandardNormal_: randomStandardNormal_
+	});
+
+	/**
+	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -36512,50 +37150,6 @@
 	  /* inputs */
 	  , attrs);
 	}
-
-	/**
-	 * @license
-	 * Copyright 2020 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	/**
-	 * Returns the real part of a complex (or real) tensor.
-	 *
-	 * Given a tensor input, this operation returns a tensor of type float that is
-	 * the real part of each element in input considered as a complex number.
-	 *
-	 * If the input is real, it simply makes a clone.
-	 *
-	 * ```js
-	 * const x = tf.complex([-2.25, 3.25], [4.75, 5.75]);
-	 * tf.real(x).print();
-	 * ```
-	 *
-	 * @doc {heading: 'Tensors', subheading: 'Creation'}
-	 */
-
-	function real_(input) {
-	  var $input = convertToTensor(input, 'input', 'real');
-	  var inputs = {
-	    input: $input
-	  };
-	  return ENGINE.runKernel(Real, inputs);
-	}
-
-	var real = op({
-	  real_: real_
-	});
 
 	/**
 	 * @license
@@ -36970,52 +37564,6 @@
 	var rsqrt = op({
 	  rsqrt_: rsqrt_
 	});
-
-	/**
-	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	/**
-	 * Creates rank-0 `tf.Tensor` (scalar) with the provided value and dtype.
-	 *
-	 * The same functionality can be achieved with `tf.tensor`, but in general
-	 * we recommend using `tf.scalar` as it makes the code more readable.
-	 *
-	 * ```js
-	 * tf.scalar(3.14).print();
-	 * ```
-	 *
-	 * @param value The value of the scalar.
-	 * @param dtype The data type.
-	 *
-	 * @doc {heading: 'Tensors', subheading: 'Creation'}
-	 */
-
-	function scalar(value, dtype) {
-	  if ((isTypedArray$1(value) && dtype !== 'string' || Array.isArray(value)) && dtype !== 'complex64') {
-	    throw new Error('Error creating a new Scalar: value must be a primitive ' + '(number|boolean|string)');
-	  }
-
-	  if (dtype === 'string' && isTypedArray$1(value) && !(value instanceof Uint8Array)) {
-	    throw new Error('When making a scalar from encoded string, ' + 'the value must be `Uint8Array`.');
-	  }
-
-	  var shape = [];
-	  var inferredShape = [];
-	  return makeTensor(value, shape, inferredShape, dtype);
-	}
 
 	/**
 	 * @license
@@ -37909,47 +38457,6 @@
 
 	/**
 	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	/**
-	 * Computes square root of the input `tf.Tensor` element-wise: `y = sqrt(x)`
-	 *
-	 * ```js
-	 * const x = tf.tensor1d([1, 2, 4, -1]);
-	 *
-	 * x.sqrt().print();  // or tf.sqrt(x)
-	 * ```
-	 * @param x The input tensor.
-	 *
-	 * @doc {heading: 'Operations', subheading: 'Basic math'}
-	 */
-
-	function sqrt_(x) {
-	  var $x = convertToTensor(x, 'x', 'sqrt', 'float32');
-	  var inputs = {
-	    x: $x
-	  };
-	  return ENGINE.runKernel(Sqrt, inputs);
-	}
-
-	var sqrt$3 = op({
-	  sqrt_: sqrt_
-	});
-
-	/**
-	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -38043,7 +38550,7 @@
 	 */
 
 	function squeeze_(x, axis) {
-	  var $x = convertToTensor(x, 'x', 'squeeze');
+	  var $x = convertToTensor(x, 'x', 'squeeze', 'string_or_numeric');
 	  return reshape($x, squeezeShape($x.shape, axis).newShape);
 	}
 
@@ -38938,6 +39445,61 @@
 
 	/**
 	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	/**
+	 * Searches for where a value would go in a sorted sequence.
+	 *
+	 * This is not a method for checking containment (like javascript in).
+	 *
+	 * The typical use case for this operation is "binning", "bucketing", or
+	 * "discretizing". The values are assigned to bucket-indices based on the edges
+	 * listed in 'sortedSequence'. This operation returns the bucket-index for each
+	 * value.
+	 *
+	 * The index returned corresponds to the first edge greater than the value.
+	 *
+	 * The axis is not settable for this operation. It always operates on the
+	 * innermost dimension (axis=-1). The operation will accept any number of outer
+	 * dimensions.
+	 *
+	 * Note: This operation assumes that 'upperBound' is sorted along the
+	 * innermost axis, maybe using 'sort(..., axis=-1)'. If the sequence is not
+	 * sorted no error is raised and the content of the returned tensor is not well
+	 * defined.
+	 *
+	 * ```js
+	 * const seq = tf.tensor1d([0, 3, 9, 10, 10]);
+	 * const values = tf.tensor1d([0, 4, 10]);
+	 * const result = tf.upperBound(seq, values);
+	 * result.print(); // [1, 2, 5]
+	 * ```
+	 * @param sortedSequence: N-D. Sorted sequence.
+	 * @param values: N-D. Search values.
+	 * @return An N-D int32 tensor the size of values containing the result of
+	 *     applying upper bound to each value. The result is not a global index to
+	 *     the entire Tensor, but the index in the last dimension.
+	 * @doc {heading: 'Operations', subheading: 'Evaluation'}
+	 */
+
+	function upperBound(sortedSequence, values) {
+	  return searchSorted(sortedSequence, values, 'right');
+	}
+
+	/**
+	 * @license
 	 * Copyright 2018 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -39171,151 +39733,6 @@
 	 * =============================================================================
 	 */
 	/**
-	 * Computes the norm of scalar, vectors, and matrices.
-	 * This function can compute several different vector norms (the 1-norm, the
-	 * Euclidean or 2-norm, the inf-norm, and in general the p-norm for p > 0)
-	 * and matrix norms (Frobenius, 1-norm, and inf-norm).
-	 *
-	 * ```js
-	 * const x = tf.tensor1d([1, 2, 3, 4]);
-	 *
-	 * x.norm().print();  // or tf.norm(x)
-	 * ```
-	 *
-	 * @param x The input array.
-	 * @param ord Optional. Order of the norm. Supported norm types are
-	 * following:
-	 *
-	 *  | ord        | norm for matrices         | norm for vectors
-	 *  |------------|---------------------------|---------------------
-	 *  |'euclidean' |Frobenius norm             |2-norm
-	 *  |'fro'       |Frobenius norm	           |
-	 *  |Infinity    |max(sum(abs(x), axis=1))   |max(abs(x))
-	 *  |-Infinity   |min(sum(abs(x), axis=1))   |min(abs(x))
-	 *  |1           |max(sum(abs(x), axis=0))   |sum(abs(x))
-	 *  |2           |                           |sum(abs(x)^2)^1/2*
-	 *
-	 * @param axis Optional. If axis is null (the default), the input is
-	 * considered a vector and a single vector norm is computed over the entire
-	 * set of values in the Tensor, i.e. norm(x, ord) is equivalent
-	 * to norm(x.reshape([-1]), ord). If axis is a integer, the input
-	 * is considered a batch of vectors, and axis determines the axis in x
-	 * over which to compute vector norms. If axis is a 2-tuple of integer it is
-	 * considered a batch of matrices and axis determines the axes in NDArray
-	 * over which to compute a matrix norm.
-	 * @param keepDims Optional. If true, the norm have the same dimensionality
-	 * as the input.
-	 *
-	 * @doc {heading: 'Operations', subheading: 'Matrices'}
-	 */
-
-	function norm_(x, ord, axis, keepDims) {
-	  if (ord === void 0) {
-	    ord = 'euclidean';
-	  }
-
-	  if (axis === void 0) {
-	    axis = null;
-	  }
-
-	  if (keepDims === void 0) {
-	    keepDims = false;
-	  }
-
-	  x = convertToTensor(x, 'x', 'norm');
-	  var norm = normImpl(x, ord, axis);
-	  var keepDimsShape = norm.shape;
-
-	  if (keepDims) {
-	    var axes = parseAxisParam(axis, x.shape);
-	    keepDimsShape = expandShapeToKeepDim(norm.shape, axes);
-	  }
-
-	  return reshape(norm, keepDimsShape);
-	}
-
-	function normImpl(x, p, axis) {
-	  if (axis === void 0) {
-	    axis = null;
-	  }
-
-	  if (x.rank === 0) {
-	    return abs$8(x);
-	  } // consider vector when no axis is specified
-
-
-	  if (x.rank !== 1 && axis === null) {
-	    return normImpl(reshape(x, [-1]), p, axis);
-	  } // vector
-
-
-	  if (x.rank === 1 || typeof axis === 'number' || Array.isArray(axis) && axis.length === 1) {
-	    if (p === 1) {
-	      return sum$1(abs$8(x), axis);
-	    }
-
-	    if (p === Infinity) {
-	      return max$5(abs$8(x), axis);
-	    }
-
-	    if (p === -Infinity) {
-	      return min$9(abs$8(x), axis);
-	    }
-
-	    if (p === 'euclidean' || p === 2) {
-	      // norm(x, 2) = sum(abs(xi) ^ 2) ^ 1/2
-	      return sqrt$3(sum$1(pow$5(abs$8(x), scalar(2, 'int32')), axis));
-	    }
-
-	    throw new Error("Error in norm: invalid ord value: " + p);
-	  } // matrix (assumption axis[0] < axis[1])
-
-
-	  if (Array.isArray(axis) && axis.length === 2) {
-	    if (p === 1) {
-	      return max$5(sum$1(abs$8(x), axis[0]), axis[1] - 1);
-	    }
-
-	    if (p === Infinity) {
-	      return max$5(sum$1(abs$8(x), axis[1]), axis[0]);
-	    }
-
-	    if (p === -Infinity) {
-	      return min$9(sum$1(abs$8(x), axis[1]), axis[0]);
-	    }
-
-	    if (p === 'fro' || p === 'euclidean') {
-	      // norm(x) = sqrt(sum(pow(x, 2)))
-	      return sqrt$3(sum$1(square(x), axis));
-	    }
-
-	    throw new Error("Error in norm: invalid ord value: " + p);
-	  }
-
-	  throw new Error("Error in norm: invalid axis: " + axis);
-	}
-
-	var norm = op({
-	  norm_: norm_
-	});
-
-	/**
-	 * @license
-	 * Copyright 2018 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
-	/**
 	 * Compute the moving average of a variable.
 	 *
 	 * Without zeroDebias, the moving average operation is defined by:
@@ -39531,7 +39948,7 @@
 	  }
 
 	  var $sparseIndices = convertToTensor(sparseIndices, 'sparseIndices', 'sparseToDense', 'int32');
-	  var $sparseValues = convertToTensor(sparseValues, 'sparseValues', 'sparseToDense');
+	  var $sparseValues = convertToTensor(sparseValues, 'sparseValues', 'sparseToDense', 'string_or_numeric');
 	  var $defaultValue = convertToTensor(defaultValue, 'defaultValue', 'sparseToDense', $sparseValues.dtype);
 	  validateInput$1($sparseIndices, $sparseValues, outputShape, $defaultValue);
 	  var inputs = {
@@ -40144,6 +40561,11 @@
 	  activation = activation || 'linear';
 
 	  if (shouldFuse(ENGINE.state.gradientDepth, activation) === false) {
+	    // TODO: Transpose bias and preluActivationWeights properly for NCHW
+	    // format before computation.
+	    assert(dataFormat === 'NHWC', function () {
+	      return "Error in fused conv2d: got dataFormat of " + dataFormat + " but " + "only NHWC is currently supported for the case of gradient depth " + "is 0 and the activation is not linear.";
+	    });
 	    var result = conv2d(x, filter, strides, pad, dataFormat, dilations, dimRoundingMode);
 
 	    if (bias != null) {
@@ -40170,14 +40592,12 @@
 	    return "Error in fused conv2d: filter must be rank 4, but got rank " + ($filter.rank + ".");
 	  });
 	  checkPadOnDimRoundingMode('fused conv2d', pad, dimRoundingMode);
-	  assert(x4D.shape[3] === $filter.shape[2], function () {
-	    return "Error in conv2d: depth of input (" + x4D.shape[3] + ") must match " + ("input depth for filter " + $filter.shape[2] + ".");
+	  var inputChannels = dataFormat === 'NHWC' ? x4D.shape[3] : x4D.shape[1];
+	  assert($filter.shape[2] === inputChannels, function () {
+	    return "Error in conv2d: depth of input (" + inputChannels + ") must match " + ("input depth for filter " + $filter.shape[2] + ".");
 	  });
 	  assert(eitherStridesOrDilationsAreOne(strides, dilations), function () {
 	    return 'Error in conv2D: Either strides or dilations must be 1. ' + ("Got strides " + strides + " and dilations '" + dilations + "'");
-	  });
-	  assert(dataFormat === 'NHWC', function () {
-	    return "Error in conv2d: got dataFormat of " + dataFormat + " but only NHWC is currently supported.";
 	  });
 	  var convInfo = computeConv2DInfo(x4D.shape, $filter.shape, strides, dilations, pad, dimRoundingMode);
 	  var $bias;
@@ -40188,16 +40608,60 @@
 	    var _makeTypesMatch = makeTypesMatch($bias, $x);
 
 	    $bias = _makeTypesMatch[0];
-	    assertAndGetBroadcastShape(convInfo.outShape, $bias.shape);
+
+	    // According to TensorFlow, the bias is supposed be a 1-D tensor or a
+	    // scalar.
+	    //
+	    // 3-D or 4-D bias is not disabled for NHWC format, because they are
+	    // currently being used in some cases. For examplem in our code base,
+	    // https://github.com/tensorflow/tfjs/blob/b53bd47e880367ae57493f0ea628abaf08db2d5d/tfjs-core/src/ops/fused/fused_conv2d_test.ts#L1972.
+	    if (dataFormat === 'NHWC') {
+	      assertAndGetBroadcastShape(convInfo.outShape, $bias.shape);
+	    } else {
+	      assert($bias.shape.length <= 1, function () {
+	        return "Error in fused conv2d: only supports scalar or 1-D Tensor " + "bias for NCHW format but got the bias of " + ("rank-" + $bias.shape.length + ".");
+	      });
+	      assert($bias.shape.length === 0 || $bias.shape[0] === convInfo.outChannels || $bias.shape[0] === 1, function () {
+	        return "Error in fused conv2d: bias shape (" + $bias.shape + ") is not " + "compatible with the number of output channels " + ("(" + convInfo.outChannels + ")");
+	      });
+	    }
 	  }
 
 	  var $preluActivationWeights;
 
 	  if (preluActivationWeights != null) {
+	    // PReLU's activation weights could be a scalar, a 1-D tensor or a 3-D
+	    // tensor.
+	    var alphaShape = preluActivationWeights.shape;
+	    assert(alphaShape.length <= 1 || alphaShape.length === 3, function () {
+	      return "Error in fused conv2d: only supports scalar, 1-D Tensor or " + "3-D Tensor PReLU activation weights but got a tensor of " + ("rank-" + alphaShape.length + ".");
+	    });
+
+	    if (alphaShape.length === 1) {
+	      // Whether the data format is NCHW or NHWC, the 1-D PReLU activation
+	      // weights tensor should be aligned with the output channels of conv2d
+	      // result.
+	      assert(alphaShape[0] === 1 || alphaShape[0] === convInfo.outChannels, function () {
+	        return "Error in fused conv2d: PReLU activation weights " + ("(" + alphaShape + ") is not compatible with the number of output ") + ("channels (" + convInfo.outChannels + ").");
+	      });
+	    } else if (alphaShape.length === 3) {
+	      // Whether the data format is NCHW or NHWC, the PReLU activation weights
+	      // tensor should has the compatible shape with the result of conv2d.
+	      try {
+	        assertAndGetBroadcastShape(alphaShape, convInfo.outShape);
+	      } catch (e) {
+	        var errMsg = "Error in fused conv2d: PReLU activation weights (" + alphaShape + ") " + "is not compatible with the output shape of the conv2d " + ("(" + convInfo.outShape + ").");
+	        throw Error(errMsg);
+	      }
+	    }
+
 	    $preluActivationWeights = convertToTensor(preluActivationWeights, 'prelu weights', 'fused conv2d');
 	  }
 
 	  var grad = function grad(dy, saved) {
+	    assert(dataFormat === 'NHWC', function () {
+	      return "Error in gradient of fused conv2D: got dataFormat of " + dataFormat + " but only NHWC is currently supported.";
+	    });
 	    var $filter = saved[0],
 	        x4D = saved[1],
 	        y = saved[2],
@@ -40652,7 +41116,8 @@
 	      _ref$activation = _ref.activation,
 	      activation = _ref$activation === void 0 ? 'linear' : _ref$activation,
 	      preluActivationWeights = _ref.preluActivationWeights,
-	      leakyreluAlpha = _ref.leakyreluAlpha;
+	      _ref$leakyreluAlpha = _ref.leakyreluAlpha,
+	      leakyreluAlpha = _ref$leakyreluAlpha === void 0 ? 0.2 : _ref$leakyreluAlpha;
 
 	  if (shouldFuse(ENGINE.state.gradientDepth, activation) === false) {
 	    var result = matMul(a, b, transposeA, transposeB);
@@ -50196,6 +50661,113 @@
 
 	/**
 	 * @license
+	 * Copyright 2022 Google Inc. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+
+	function prodGradFn_(x, dy, axis) {
+	  // The gradient tensor (dy) has a set of axes removed, so we create re-shaped
+	  // versions (of size 1) for the removed axis; this supports broadcasting over
+	  // those dimensions.
+	  var expandedYShape = x.shape.slice();
+	  expandedYShape[axis] = 1; // The actual gradient computation.
+
+	  var expandedDy = reshape(dy, expandedYShape);
+	  var xCumProd = cumprod(x, axis, true, false);
+	  var xCumRevProd = cumprod(x, axis, true, true);
+	  var dx = mul(xCumProd, xCumRevProd);
+	  return mul(expandedDy, dx);
+	} // Support gradients when the product is done on many axes at once.
+	// This done py pushing all the axes on which the product is applied into a
+	// single axis.
+
+
+	function prodsGradFn_(x, dy, axis) {
+	  // Move all axes for doing prod over to the end of the tensor.
+	  var xRank = x.shape.length;
+	  var finalProdAxis = xRank - axis.length;
+	  var xPermutation = getAxesPermutation(axis, xRank);
+	  var permutedX = x;
+
+	  if (xPermutation != null) {
+	    permutedX = transpose(x, xPermutation);
+	  } // Reshape all the prod dimensions into a single one, and do compute prod
+	  // gradients on that.
+
+
+	  var newShape = permutedX.shape.slice();
+	  var removedShape = newShape.splice(xRank - axis.length, axis.length);
+	  var endPartShape = removedShape.reduce(function (p, c) {
+	    return p * c;
+	  }, 1);
+	  newShape.push(endPartShape);
+	  var reshapedPermutedX = permutedX.reshape(newShape);
+	  var prodGrad = prodGradFn_(reshapedPermutedX, dy, finalProdAxis); // Undo the re-shaping now we have the dx vector, and permute back to
+	  // original axes order.
+
+	  prodGrad = prodGrad.reshape(permutedX.shape);
+
+	  if (xPermutation != null) {
+	    var undoPermutation = getUndoAxesPermutation(xPermutation);
+	    prodGrad = transpose(prodGrad, undoPermutation);
+	  }
+
+	  return prodGrad;
+	} // Running example:
+	// [
+	//   [
+	//     [3.0, 4.0],
+	//     [5.0, 6.0],
+	//     [7.0, 8.0]
+	//   ],
+	//   [
+	//     [3.0, 5.0],
+	//     [0.0, 6.0],
+	//     [5.0, 6.0]
+	//   ]
+	// ]
+	//
+
+
+	var prodGradConfig = {
+	  kernelName: Prod,
+	  inputsToSave: ['x'],
+	  gradFunc: function gradFunc(dy, saved, attrs) {
+	    var _x = saved[0];
+	    var axis = attrs.axis;
+	    var axisArr = [];
+
+	    if (axis === undefined || axis === null) {
+	      axisArr = _x.shape.map(function (_, i) {
+	        return i;
+	      });
+	    } else if (typeof axis === 'number') {
+	      axisArr = [axis];
+	    } else {
+	      axisArr = axis;
+	    }
+
+	    return {
+	      x: function x() {
+	        return prodsGradFn_(_x, dy, axisArr);
+	      }
+	    };
+	  }
+	};
+
+	/**
+	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -51374,7 +51946,7 @@
 	 * =============================================================================
 	 */
 
-	var gradConfigs = [absGradConfig, acosGradConfig, acoshGradConfig, addGradConfig, addNGradConfig, argMaxGradConfig, argMinGradConfig, asinGradConfig, asinhGradConfig, atan2GradConfig, atanGradConfig, atanhGradConfig, avgPool3DGradConfig, avgPoolGradConfig, batchMatMulGradConfig, batchToSpaceNDGradConfig, broadcastToGradConfig, castGradConfig, ceilGradConfig, clipByValueGradConfig, complexAbsGradConfig, concatGradConfig, conv2DBackpropInputGradConfig, conv2DGradConfig, conv3DGradConfig, cosGradConfig, coshGradConfig, cumsumGradConfig, depthwiseConv2dNativeGradConfig, dilation2dGradConfig, divGradConfig, eluGradConfig, erfGradConfig, expGradConfig, expandDimsGradConfig, expm1GradConfig, floorDivGradConfig, floorGradConfig, fusedBatchNormGradConfig, gatherGradConfig, greaterEqualGradConfig, identityGradConfig, isFiniteGradConfig, isInfGradConfig, isNanGradConfig, leakyReluGradConfig, log1pGradConfig, logGradConfig, logSoftmaxGradConfig, lrnGradConfig, maxGradConfig, maxGradConfig, maximumGradConfig, maxPool3DGradConfig, maxPoolGradConfig, meanGradConfig, minGradConfig, minimumGradConfig, mirrorPadGradConfig, modGradConfig, multiplyGradConfig, negGradConfig, oneHotGradConfig, onesLikeGradConfig, packGradConfig, padV2GradConfig, padV2GradConfig, powGradConfig, preluGradConfig, reciprocalGradConfig, relu6GradConfig, reluGradConfig, reshapeGradConfig, resizeBilinearGradConfig, resizeNearestNeighborGradConfig, reverseGradConfig, roundGradConfig, rsqrtGradConfig, selectGradConfig, seluGradConfig, sigmoidGradConfig, signGradConfig, sinGradConfig, sinhGradConfig, sliceGradConfig, softmaxGradConfig, softplusGradConfig, spaceToBatchNDGradConfig, spaceToBatchNDGradConfig, splitVGradConfig, splitVGradConfig, sqrtGradConfig, squaredDifferenceGradConfig, squareGradConfig, stepGradConfig, subGradConfig, sumGradConfig, tanGradConfig, tanhGradConfig, tileGradConfig, transposeGradConfig, unpackGradConfig, unsortedSegmentSumGradConfig, zerosLikeGradConfig];
+	var gradConfigs = [absGradConfig, acosGradConfig, acoshGradConfig, addGradConfig, addNGradConfig, argMaxGradConfig, argMinGradConfig, asinGradConfig, asinhGradConfig, atan2GradConfig, atanGradConfig, atanhGradConfig, avgPool3DGradConfig, avgPoolGradConfig, batchMatMulGradConfig, batchToSpaceNDGradConfig, broadcastToGradConfig, castGradConfig, ceilGradConfig, clipByValueGradConfig, complexAbsGradConfig, concatGradConfig, conv2DBackpropInputGradConfig, conv2DGradConfig, conv3DGradConfig, cosGradConfig, coshGradConfig, cumsumGradConfig, depthwiseConv2dNativeGradConfig, dilation2dGradConfig, divGradConfig, eluGradConfig, erfGradConfig, expGradConfig, expandDimsGradConfig, expm1GradConfig, floorDivGradConfig, floorGradConfig, fusedBatchNormGradConfig, gatherGradConfig, greaterEqualGradConfig, identityGradConfig, isFiniteGradConfig, isInfGradConfig, isNanGradConfig, leakyReluGradConfig, log1pGradConfig, logGradConfig, logSoftmaxGradConfig, lrnGradConfig, maxGradConfig, maxGradConfig, maximumGradConfig, maxPool3DGradConfig, maxPoolGradConfig, meanGradConfig, minGradConfig, minimumGradConfig, mirrorPadGradConfig, modGradConfig, multiplyGradConfig, negGradConfig, oneHotGradConfig, onesLikeGradConfig, packGradConfig, padV2GradConfig, padV2GradConfig, powGradConfig, preluGradConfig, prodGradConfig, reciprocalGradConfig, relu6GradConfig, reluGradConfig, reshapeGradConfig, resizeBilinearGradConfig, resizeNearestNeighborGradConfig, reverseGradConfig, roundGradConfig, rsqrtGradConfig, selectGradConfig, seluGradConfig, sigmoidGradConfig, signGradConfig, sinGradConfig, sinhGradConfig, sliceGradConfig, softmaxGradConfig, softplusGradConfig, spaceToBatchNDGradConfig, spaceToBatchNDGradConfig, splitVGradConfig, splitVGradConfig, sqrtGradConfig, squaredDifferenceGradConfig, squareGradConfig, stepGradConfig, subGradConfig, sumGradConfig, tanGradConfig, tanhGradConfig, tileGradConfig, transposeGradConfig, unpackGradConfig, unsortedSegmentSumGradConfig, zerosLikeGradConfig];
 
 	for (var _i = 0, _gradConfigs = gradConfigs; _i < _gradConfigs.length; _i++) {
 	  var gradientConfig = _gradConfigs[_i];
@@ -52388,6 +52960,28 @@
 	getGlobalTensorClass().prototype.erf = function () {
 	  this.throwIfDisposed();
 	  return erf(this);
+	};
+
+	/**
+	 * @license
+	 * Copyright 2021 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+
+	getGlobalTensorClass().prototype.euclideanNorm = function (axis, keepDims) {
+	  this.throwIfDisposed();
+	  return euclideanNorm(this, axis, keepDims);
 	};
 
 	/**
@@ -54442,45 +55036,6 @@
 	 * =============================================================================
 	 */
 
-	var _epsilon;
-	/**
-	 * Returns the value of the fuzz factor used in numeric expressions.
-	 */
-
-
-	function epsilon() {
-	  if (_epsilon == null) {
-	    _epsilon = backend().epsilon();
-	  }
-
-	  return _epsilon;
-	}
-	/**
-	 * Sets the value of the fuzz factor used in numeric expressions.
-	 * @param e New value of epsilon.
-	 */
-
-	function setEpsilon(e) {
-	  _epsilon = e;
-	}
-	/**
-	 * Returns the default image data format convention.
-	 */
-
-	function imageDataFormat() {
-	  return 'channelsLast';
-	}
-
-	/**
-	 * @license
-	 * Copyright 2018 Google LLC
-	 *
-	 * Use of this source code is governed by an MIT-style
-	 * license that can be found in the LICENSE file or at
-	 * https://opensource.org/licenses/MIT.
-	 * =============================================================================
-	 */
-
 	/**
 	 * Explicit error types.
 	 *
@@ -54598,6 +55153,92 @@
 
 	  return IndexError;
 	}( /*#__PURE__*/_wrapNativeSuper(Error));
+
+	/**
+	 * @license
+	 * Copyright 2022 Google LLC
+	 *
+	 * Use of this source code is governed by an MIT-style
+	 * license that can be found in the LICENSE file or at
+	 * https://opensource.org/licenses/MIT.
+	 * =============================================================================
+	 */
+
+	/**
+	 * LruCache: A mapping from the String to T. If the number of the entries is
+	 * exceeding the `maxEntries`, the LruCache will delete the least recently
+	 * used entry.
+	 */
+	var LruCache = /*#__PURE__*/function () {
+	  function LruCache(maxEntries) {
+	    this.maxEntries = maxEntries || 100;
+	    this.cache = new Map();
+	  }
+	  /**
+	   * Get the entry for the key and mark it as used recently.
+	   */
+
+
+	  var _proto = LruCache.prototype;
+
+	  _proto.get = function get(key) {
+	    var entry;
+
+	    if (this.cache.has(key)) {
+	      entry = this.cache.get(key);
+	      this.cache.delete(key);
+	      this.cache.set(key, entry);
+	    }
+
+	    return entry;
+	  }
+	  /**
+	   * Put the entry into the cache. If the key already existed, mark the key as
+	   * used recently.
+	   */
+	  ;
+
+	  _proto.put = function put(key, value) {
+	    if (this.cache.has(key)) {
+	      this.cache.delete(key);
+	    } else if (this.cache.size >= this.maxEntries) {
+	      var keyToDelete = this.cache.keys().next().value;
+	      this.cache.delete(keyToDelete);
+	    }
+
+	    this.cache.set(key, value);
+	  }
+	  /**
+	   * Get the MaxEntries of the cache.
+	   */
+	  ;
+
+	  _proto.getMaxEntries = function getMaxEntries() {
+	    return this.maxEntries;
+	  }
+	  /**
+	   * Set the MaxEntries of the cache. If the maxEntries is decreased, reduce
+	   * entries in the cache.
+	   */
+	  ;
+
+	  _proto.setMaxEntries = function setMaxEntries(maxEntries) {
+	    if (maxEntries < 0) {
+	      throw new Error("The maxEntries of LRU caches must be at least 0, but got " + maxEntries + ".");
+	    }
+
+	    if (this.maxEntries > maxEntries) {
+	      for (var i = 0; i < this.maxEntries - maxEntries; i++) {
+	        var keyToDelete = this.cache.keys().next().value;
+	        this.cache.delete(keyToDelete);
+	      }
+	    }
+
+	    this.maxEntries = maxEntries;
+	  };
+
+	  return LruCache;
+	}();
 
 	/**
 	 * If `value` is an Array, equivalent to Python's `value * numValues`.
@@ -55207,215 +55848,6 @@
 	}
 
 	/**
-	 * Helper function used by many of the Constraints to find the L2Norms.
-	 */
-
-	function calcL2Norms(w, axis) {
-	  return tidy(function () {
-	    return sqrt$3(sum$1(mul(w, w), axis, true));
-	  });
-	}
-	/**
-	 * Base class for functions that impose constraints on weight values
-	 *
-	 * @doc {
-	 *   heading: 'Constraints',
-	 *   subheading: 'Classes',
-	 *   namespace: 'constraints'
-	 * }
-	 */
-
-
-	var Constraint = /*#__PURE__*/function (_serialization$Serial) {
-	  _inheritsLoose(Constraint, _serialization$Serial);
-
-	  function Constraint() {
-	    return _serialization$Serial.apply(this, arguments) || this;
-	  }
-
-	  var _proto = Constraint.prototype;
-
-	  _proto.getConfig = function getConfig() {
-	    return {};
-	  };
-
-	  return Constraint;
-	}(Serializable);
-	var MaxNorm = /*#__PURE__*/function (_Constraint) {
-	  _inheritsLoose(MaxNorm, _Constraint);
-
-	  function MaxNorm(args) {
-	    var _this;
-
-	    _this = _Constraint.call(this) || this;
-	    _this.defaultMaxValue = 2;
-	    _this.defaultAxis = 0;
-	    _this.maxValue = args.maxValue != null ? args.maxValue : _this.defaultMaxValue;
-	    _this.axis = args.axis != null ? args.axis : _this.defaultAxis;
-	    return _this;
-	  }
-
-	  var _proto2 = MaxNorm.prototype;
-
-	  _proto2.apply = function apply(w) {
-	    var _this2 = this;
-
-	    return tidy(function () {
-	      var norms = calcL2Norms(w, _this2.axis);
-	      var desired = clipByValue(norms, 0, _this2.maxValue);
-	      return mul(w, div(desired, add$1(epsilon(), norms)));
-	    });
-	  };
-
-	  _proto2.getConfig = function getConfig() {
-	    return {
-	      maxValue: this.maxValue,
-	      axis: this.axis
-	    };
-	  };
-
-	  return MaxNorm;
-	}(Constraint);
-	/** @nocollapse */
-
-	MaxNorm.className = 'MaxNorm';
-	registerClass(MaxNorm);
-	var UnitNorm = /*#__PURE__*/function (_Constraint2) {
-	  _inheritsLoose(UnitNorm, _Constraint2);
-
-	  function UnitNorm(args) {
-	    var _this3;
-
-	    _this3 = _Constraint2.call(this) || this;
-	    _this3.defaultAxis = 0;
-	    _this3.axis = args.axis != null ? args.axis : _this3.defaultAxis;
-	    return _this3;
-	  }
-
-	  var _proto3 = UnitNorm.prototype;
-
-	  _proto3.apply = function apply(w) {
-	    var _this4 = this;
-
-	    return tidy(function () {
-	      return div(w, add$1(epsilon(), calcL2Norms(w, _this4.axis)));
-	    });
-	  };
-
-	  _proto3.getConfig = function getConfig() {
-	    return {
-	      axis: this.axis
-	    };
-	  };
-
-	  return UnitNorm;
-	}(Constraint);
-	/** @nocollapse */
-
-	UnitNorm.className = 'UnitNorm';
-	registerClass(UnitNorm);
-	var NonNeg = /*#__PURE__*/function (_Constraint3) {
-	  _inheritsLoose(NonNeg, _Constraint3);
-
-	  function NonNeg() {
-	    return _Constraint3.apply(this, arguments) || this;
-	  }
-
-	  var _proto4 = NonNeg.prototype;
-
-	  _proto4.apply = function apply(w) {
-	    return relu(w);
-	  };
-
-	  return NonNeg;
-	}(Constraint);
-	/** @nocollapse */
-
-	NonNeg.className = 'NonNeg';
-	registerClass(NonNeg);
-	var MinMaxNorm = /*#__PURE__*/function (_Constraint4) {
-	  _inheritsLoose(MinMaxNorm, _Constraint4);
-
-	  function MinMaxNorm(args) {
-	    var _this5;
-
-	    _this5 = _Constraint4.call(this) || this;
-	    _this5.defaultMinValue = 0.0;
-	    _this5.defaultMaxValue = 1.0;
-	    _this5.defaultRate = 1.0;
-	    _this5.defaultAxis = 0;
-	    _this5.minValue = args.minValue != null ? args.minValue : _this5.defaultMinValue;
-	    _this5.maxValue = args.maxValue != null ? args.maxValue : _this5.defaultMaxValue;
-	    _this5.rate = args.rate != null ? args.rate : _this5.defaultRate;
-	    _this5.axis = args.axis != null ? args.axis : _this5.defaultAxis;
-	    return _this5;
-	  }
-
-	  var _proto5 = MinMaxNorm.prototype;
-
-	  _proto5.apply = function apply(w) {
-	    var _this6 = this;
-
-	    return tidy(function () {
-	      var norms = calcL2Norms(w, _this6.axis);
-	      var desired = add$1(mul(_this6.rate, clipByValue(norms, _this6.minValue, _this6.maxValue)), mul(1.0 - _this6.rate, norms));
-	      return mul(w, div(desired, add$1(epsilon(), norms)));
-	    });
-	  };
-
-	  _proto5.getConfig = function getConfig() {
-	    return {
-	      minValue: this.minValue,
-	      maxValue: this.maxValue,
-	      rate: this.rate,
-	      axis: this.axis
-	    };
-	  };
-
-	  return MinMaxNorm;
-	}(Constraint);
-	/** @nocollapse */
-
-	MinMaxNorm.className = 'MinMaxNorm';
-	registerClass(MinMaxNorm); // Maps the JavaScript-like identifier keys to the corresponding registry
-	// symbols.
-
-	var CONSTRAINT_IDENTIFIER_REGISTRY_SYMBOL_MAP = {
-	  'maxNorm': 'MaxNorm',
-	  'minMaxNorm': 'MinMaxNorm',
-	  'nonNeg': 'NonNeg',
-	  'unitNorm': 'UnitNorm'
-	};
-	function serializeConstraint(constraint) {
-	  return serializeKerasObject(constraint);
-	}
-	function deserializeConstraint(config, customObjects) {
-	  if (customObjects === void 0) {
-	    customObjects = {};
-	  }
-
-	  return deserializeKerasObject(config, SerializationMap.getMap().classNameMap, customObjects, 'constraint');
-	}
-	function getConstraint(identifier) {
-	  if (identifier == null) {
-	    return null;
-	  }
-
-	  if (typeof identifier === 'string') {
-	    var className = identifier in CONSTRAINT_IDENTIFIER_REGISTRY_SYMBOL_MAP ? CONSTRAINT_IDENTIFIER_REGISTRY_SYMBOL_MAP[identifier] : identifier;
-	    var config = {
-	      className: className,
-	      config: {}
-	    };
-	    return deserializeConstraint(config);
-	  } else if (identifier instanceof Constraint) {
-	    return identifier;
-	  } else {
-	    return deserializeConstraint(identifier);
-	  }
-	}
-
-	/**
 	 * @license
 	 * Copyright 2018 Google LLC
 	 *
@@ -55424,54 +55856,39 @@
 	 * https://opensource.org/licenses/MIT.
 	 * =============================================================================
 	 */
+
 	/**
-	 * MaxNorm weight constraint.
-	 *
-	 * Constrains the weights incident to each hidden unit
-	 * to have a norm less than or equal to a desired value.
-	 *
-	 * References
-	 *       - [Dropout: A Simple Way to Prevent Neural Networks from Overfitting
-	 * Srivastava, Hinton, et al.
-	 * 2014](http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf)
-	 *
-	 * @doc {heading: 'Constraints',namespace: 'constraints'}
+	 * Utilities related to persistent state in the backend.
 	 */
 
-	function maxNorm(args) {
-	  return new MaxNorm(args);
-	}
 	/**
-	 * Constrains the weights incident to each hidden unit to have unit norm.
+	 * An ID to track `tf.SymbolicTensor`s and derived classes.
+	 * Required in different places in engine/topology.ts to identify unique
+	 * tensors.
+	 */
+	var _nextUniqueTensorId = 0;
+	function getNextUniqueTensorId() {
+	  return _nextUniqueTensorId++;
+	}
+	var _uidPrefixes = {};
+	/**
+	 * Provides a unique UID given a string prefix.
 	 *
-	 * @doc {heading: 'Constraints', namespace: 'constraints'}
+	 * @param prefix
 	 */
 
-	function unitNorm(args) {
-	  return new UnitNorm(args);
-	}
-	/**
-	 * Constains the weight to be non-negative.
-	 *
-	 * @doc {heading: 'Constraints', namespace: 'constraints'}
-	 */
+	function getUid(prefix) {
+	  if (prefix === void 0) {
+	    prefix = '';
+	  }
 
-	function nonNeg() {
-	  return new NonNeg();
-	}
-	/** @doc {heading: 'Constraints', namespace: 'constraints'} */
+	  if (!(prefix in _uidPrefixes)) {
+	    _uidPrefixes[prefix] = 0;
+	  }
 
-	function minMaxNorm(config) {
-	  return new MinMaxNorm(config);
+	  _uidPrefixes[prefix] += 1;
+	  return prefix + _uidPrefixes[prefix].toString();
 	}
-
-	var exports_constraints = {
-		__proto__: null,
-		maxNorm: maxNorm,
-		unitNorm: unitNorm,
-		nonNeg: nonNeg,
-		minMaxNorm: minMaxNorm
-	};
 
 	/**
 	 * @license
@@ -55777,6 +56194,45 @@
 	  }
 
 	  return out;
+	}
+
+	/**
+	 * @license
+	 * Copyright 2018 Google LLC
+	 *
+	 * Use of this source code is governed by an MIT-style
+	 * license that can be found in the LICENSE file or at
+	 * https://opensource.org/licenses/MIT.
+	 * =============================================================================
+	 */
+
+	var _epsilon;
+	/**
+	 * Returns the value of the fuzz factor used in numeric expressions.
+	 */
+
+
+	function epsilon() {
+	  if (_epsilon == null) {
+	    _epsilon = backend().epsilon();
+	  }
+
+	  return _epsilon;
+	}
+	/**
+	 * Sets the value of the fuzz factor used in numeric expressions.
+	 * @param e New value of epsilon.
+	 */
+
+	function setEpsilon(e) {
+	  _epsilon = e;
+	}
+	/**
+	 * Returns the default image data format convention.
+	 */
+
+	function imageDataFormat() {
+	  return 'channelsLast';
 	}
 
 	/**
@@ -57199,277 +57655,6 @@
 	 * https://opensource.org/licenses/MIT.
 	 * =============================================================================
 	 */
-	/**
-	 * Initializer that generates tensors initialized to 0.
-	 *
-	 * @doc {heading: 'Initializers', namespace: 'initializers'}
-	 */
-
-	function zeros$1() {
-	  return new Zeros();
-	}
-	/**
-	 * Initializer that generates tensors initialized to 1.
-	 *
-	 * @doc {heading: 'Initializers', namespace: 'initializers'}
-	 */
-
-	function ones$2() {
-	  return new Ones();
-	}
-	/**
-	 * Initializer that generates values initialized to some constant.
-	 *
-	 * @doc {heading: 'Initializers', namespace: 'initializers'}
-	 */
-
-	function constant(args) {
-	  return new Constant(args);
-	}
-	/**
-	 * Initializer that generates random values initialized to a uniform
-	 * distribution.
-	 *
-	 * Values will be distributed uniformly between the configured minval and
-	 * maxval.
-	 *
-	 * @doc {heading: 'Initializers', namespace: 'initializers'}
-	 */
-
-	function randomUniform$1(args) {
-	  return new RandomUniform(args);
-	}
-	/**
-	 * Initializer that generates random values initialized to a normal
-	 * distribution.
-	 *
-	 * @doc {heading: 'Initializers', namespace: 'initializers'}
-	 */
-
-	function randomNormal$2(args) {
-	  return new RandomNormal(args);
-	}
-	/**
-	 * Initializer that generates random values initialized to a truncated normal.
-	 * distribution.
-	 *
-	 * These values are similar to values from a `RandomNormal` except that values
-	 * more than two standard deviations from the mean are discarded and re-drawn.
-	 * This is the recommended initializer for neural network weights and filters.
-	 *
-	 * @doc {heading: 'Initializers', namespace: 'initializers'}
-	 */
-
-	function truncatedNormal$1(args) {
-	  return new TruncatedNormal(args);
-	}
-	/**
-	 * Initializer that generates the identity matrix.
-	 * Only use for square 2D matrices.
-	 *
-	 * @doc {heading: 'Initializers', namespace: 'initializers'}
-	 */
-
-	function identity(args) {
-	  return new Identity$1(args);
-	}
-	/**
-	 * Initializer capable of adapting its scale to the shape of weights.
-	 * With distribution=NORMAL, samples are drawn from a truncated normal
-	 * distribution centered on zero, with `stddev = sqrt(scale / n)` where n is:
-	 *   - number of input units in the weight tensor, if mode = FAN_IN.
-	 *   - number of output units, if mode = FAN_OUT.
-	 *   - average of the numbers of input and output units, if mode = FAN_AVG.
-	 * With distribution=UNIFORM,
-	 * samples are drawn from a uniform distribution
-	 * within [-limit, limit], with `limit = sqrt(3 * scale / n)`.
-	 *
-	 * @doc {heading: 'Initializers',namespace: 'initializers'}
-	 */
-
-	function varianceScaling(config) {
-	  return new VarianceScaling(config);
-	}
-	/**
-	 * Glorot uniform initializer, also called Xavier uniform initializer.
-	 * It draws samples from a uniform distribution within [-limit, limit]
-	 * where `limit` is `sqrt(6 / (fan_in + fan_out))`
-	 * where `fan_in` is the number of input units in the weight tensor
-	 * and `fan_out` is the number of output units in the weight tensor
-	 *
-	 * Reference:
-	 *   Glorot & Bengio, AISTATS 2010
-	 *       http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf.
-	 *
-	 * @doc {heading: 'Initializers', namespace: 'initializers'}
-	 */
-
-	function glorotUniform(args) {
-	  return new GlorotUniform(args);
-	}
-	/**
-	 * Glorot normal initializer, also called Xavier normal initializer.
-	 * It draws samples from a truncated normal distribution centered on 0
-	 * with `stddev = sqrt(2 / (fan_in + fan_out))`
-	 * where `fan_in` is the number of input units in the weight tensor
-	 * and `fan_out` is the number of output units in the weight tensor.
-	 *
-	 * Reference:
-	 *   Glorot & Bengio, AISTATS 2010
-	 *       http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf
-	 *
-	 * @doc {heading: 'Initializers', namespace: 'initializers'}
-	 */
-
-	function glorotNormal(args) {
-	  return new GlorotNormal(args);
-	}
-	/**
-	 * He normal initializer.
-	 *
-	 * It draws samples from a truncated normal distribution centered on 0
-	 * with `stddev = sqrt(2 / fanIn)`
-	 * where `fanIn` is the number of input units in the weight tensor.
-	 *
-	 * Reference:
-	 *     He et al., http://arxiv.org/abs/1502.01852
-	 *
-	 * @doc {heading: 'Initializers', namespace: 'initializers'}
-	 */
-
-	function heNormal(args) {
-	  return new HeNormal(args);
-	}
-	/**
-	 * He uniform initializer.
-	 *
-	 * It draws samples from a uniform distribution within [-limit, limit]
-	 * where `limit` is `sqrt(6 / fan_in)`
-	 * where `fanIn` is the number of input units in the weight tensor.
-	 *
-	 * Reference:
-	 *     He et al., http://arxiv.org/abs/1502.01852
-	 *
-	 * @doc {heading: 'Initializers',namespace: 'initializers'}
-	 */
-
-	function heUniform(args) {
-	  return new HeUniform(args);
-	}
-	/**
-	 * LeCun normal initializer.
-	 *
-	 * It draws samples from a truncated normal distribution centered on 0
-	 * with `stddev = sqrt(1 / fanIn)`
-	 * where `fanIn` is the number of input units in the weight tensor.
-	 *
-	 * References:
-	 *   [Self-Normalizing Neural Networks](https://arxiv.org/abs/1706.02515)
-	 *   [Efficient Backprop](http://yann.lecun.com/exdb/publis/pdf/lecun-98b.pdf)
-	 *
-	 * @doc {heading: 'Initializers', namespace: 'initializers'}
-	 */
-
-	function leCunNormal(args) {
-	  return new LeCunNormal(args);
-	}
-	/**
-	 * LeCun uniform initializer.
-	 *
-	 * It draws samples from a uniform distribution in the interval
-	 * `[-limit, limit]` with `limit = sqrt(3 / fanIn)`,
-	 * where `fanIn` is the number of input units in the weight tensor.
-	 *
-	 * @doc {heading: 'Initializers', namespace: 'initializers'}
-	 */
-
-	function leCunUniform(args) {
-	  return new LeCunUniform(args);
-	}
-	/**
-	 * Initializer that generates a random orthogonal matrix.
-	 *
-	 * Reference:
-	 * [Saxe et al., http://arxiv.org/abs/1312.6120](http://arxiv.org/abs/1312.6120)
-	 *
-	 * @doc {heading: 'Initializers', namespace: 'initializers'}
-	 */
-
-	function orthogonal(args) {
-	  return new Orthogonal(args);
-	}
-
-	var exports_initializers = {
-		__proto__: null,
-		zeros: zeros$1,
-		ones: ones$2,
-		constant: constant,
-		randomUniform: randomUniform$1,
-		randomNormal: randomNormal$2,
-		truncatedNormal: truncatedNormal$1,
-		identity: identity,
-		varianceScaling: varianceScaling,
-		glorotUniform: glorotUniform,
-		glorotNormal: glorotNormal,
-		heNormal: heNormal,
-		heUniform: heUniform,
-		leCunNormal: leCunNormal,
-		leCunUniform: leCunUniform,
-		orthogonal: orthogonal
-	};
-
-	/**
-	 * @license
-	 * Copyright 2018 Google LLC
-	 *
-	 * Use of this source code is governed by an MIT-style
-	 * license that can be found in the LICENSE file or at
-	 * https://opensource.org/licenses/MIT.
-	 * =============================================================================
-	 */
-
-	/**
-	 * Utilities related to persistent state in the backend.
-	 */
-
-	/**
-	 * An ID to track `tf.SymbolicTensor`s and derived classes.
-	 * Required in different places in engine/topology.ts to identify unique
-	 * tensors.
-	 */
-	var _nextUniqueTensorId = 0;
-	function getNextUniqueTensorId() {
-	  return _nextUniqueTensorId++;
-	}
-	var _uidPrefixes = {};
-	/**
-	 * Provides a unique UID given a string prefix.
-	 *
-	 * @param prefix
-	 */
-
-	function getUid(prefix) {
-	  if (prefix === void 0) {
-	    prefix = '';
-	  }
-
-	  if (!(prefix in _uidPrefixes)) {
-	    _uidPrefixes[prefix] = 0;
-	  }
-
-	  _uidPrefixes[prefix] += 1;
-	  return prefix + _uidPrefixes[prefix].toString();
-	}
-
-	/**
-	 * @license
-	 * Copyright 2018 Google LLC
-	 *
-	 * Use of this source code is governed by an MIT-style
-	 * license that can be found in the LICENSE file or at
-	 * https://opensource.org/licenses/MIT.
-	 * =============================================================================
-	 */
 
 	/**
 	 * Determine whether the input is an Array of Shapes.
@@ -58789,7 +58974,7 @@
 	        // TODO(cais): Restore the following and use `providedWeights`, instead
 	        // of `weights` in the error message, once the deeplearn.js bug is
 	        // fixed: https://github.com/PAIR-code/deeplearnjs/issues/498 const
-	        // providedWeights = JSON.stringify(weights).substr(0, 50);
+	        // providedWeights = JSON.stringify(weights).slice(0, 50);
 	        throw new ValueError("You called setWeights(weights) on layer \"" + _this3.name + "\" " + ("with a weight list of length " + weights.length + ", ") + ("but the layer was expecting " + params.length + " weights. ") + ("Provided weights: " + weights + "..."));
 	      }
 
@@ -59495,6 +59680,1057 @@
 	  var outputs = inputLayer.inboundNodes[0].outputTensors;
 	  return outputs[0];
 	}
+
+	/**
+	 * Helper function to check the dtype and shape compatibility of a feed value.
+	 */
+
+	function assertFeedCompatibility(key, val) {
+	  // Check dtype compatibility.
+	  if (key.dtype == null || key.dtype === val.dtype) {
+	    //  a.  If types match, return val tensor as is.
+	    return val;
+	  }
+
+	  try {
+	    //  b. Attempt to convert to expected type.
+	    return cast(val, key.dtype);
+	  } catch (err) {
+	    //  c. If conversion fails, return helpful error.
+	    throw new ValueError("The dtype of the feed (" + val.dtype + ") can not be cast to the dtype " + ("of the key '" + key.name + "' (" + key.dtype + ")."));
+	  }
+	}
+	/**
+	 * FeedDict: A mapping from unique SymbolicTensors to feed values for them.
+	 * A feed value is a concrete value represented as an `Tensor`.
+	 */
+
+
+	var FeedDict = /*#__PURE__*/function () {
+	  /**
+	   * Constructor, optionally does copy-construction.
+	   * @param feeds An Array of `Feed`s, or another `FeedDict`, in which case
+	   *   copy-construction will be performed.
+	   */
+	  function FeedDict(feeds) {
+	    this.id2Value = {};
+	    this.id2Mask = {};
+	    this.name2Id = {};
+
+	    if (feeds instanceof FeedDict) {
+	      for (var id in feeds.id2Value) {
+	        this.id2Value[id] = feeds.id2Value[id];
+
+	        if (id in feeds.id2Mask) {
+	          this.id2Mask[id] = feeds.id2Mask[id];
+	        }
+	      }
+	    } else {
+	      if (feeds == null) {
+	        return;
+	      }
+
+	      for (var _iterator = _createForOfIteratorHelperLoose(feeds), _step; !(_step = _iterator()).done;) {
+	        var feed = _step.value;
+	        this.add(feed.key, feed.value);
+	      }
+	    }
+	  }
+	  /**
+	   * Add a key-value pair to the FeedDict.
+	   *
+	   * @param key The key of the feed.
+	   * @param value The value of the tensor feed.
+	   * @param mask The value of the mask feed (optional).
+	   * @returns This `FeedDict`.
+	   * @throws ValueError: If the key `SymbolicTensor` already exists in the
+	   *   `FeedDict`.
+	   */
+
+
+	  var _proto = FeedDict.prototype;
+
+	  _proto.add = function add(key, value, mask) {
+	    if (this.id2Value[key.id] == null) {
+	      this.id2Value[key.id] = assertFeedCompatibility(key, value);
+	      this.name2Id[key.name] = key.id;
+
+	      if (mask != null) {
+	        this.id2Mask[key.id] = mask;
+	      }
+	    } else {
+	      throw new ValueError("Duplicate key: name=" + key.name + ", id=" + key.id);
+	    }
+
+	    return this;
+	  }
+	  /**
+	   * Add a Feed to the FeedDict.
+	   * @param feed The new `Feed` to add.
+	   * @returns This `FeedDict`.
+	   */
+	  ;
+
+	  _proto.addFeed = function addFeed(feed) {
+	    this.add(feed.key, feed.value);
+	  }
+	  /**
+	   * Probe whether a key already exists in the FeedDict.
+	   * @param key
+	   */
+	  ;
+
+	  _proto.hasKey = function hasKey(key) {
+	    return this.id2Value[key.id] != null;
+	  }
+	  /**
+	   * Get all the SymbolicTensor available in this FeedDict.
+	   */
+	  ;
+
+	  _proto.names = function names() {
+	    return Object.keys(this.name2Id);
+	  }
+	  /**
+	   * Get the feed value for given key.
+	   * @param key The SymbolicTensor, or its name (as a string), of which the
+	   *     value is sought.
+	   * @returns If `key` exists, the corresponding feed value.
+	   * @throws ValueError: If `key` does not exist in this `FeedDict`.
+	   */
+	  ;
+
+	  _proto.getValue = function getValue(key) {
+	    if (key instanceof SymbolicTensor) {
+	      if (this.id2Value[key.id] == null) {
+	        throw new ValueError("Nonexistent key: " + key.name);
+	      } else {
+	        return this.id2Value[key.id];
+	      }
+	    } else {
+	      var id = this.name2Id[key];
+
+	      if (id == null) {
+	        throw new ValueError("Feed dict has no SymbolicTensor name: " + key);
+	      }
+
+	      return this.id2Value[id];
+	    }
+	  }
+	  /**
+	   * Get the feed mask for given key.
+	   * @param key The SymbolicTensor, or its name (as a string), of which the
+	   *     value is sought.
+	   * @returns If `key` exists, the corresponding feed mask.
+	   * @throws ValueError: If `key` does not exist in this `FeedDict`.
+	   */
+	  ;
+
+	  _proto.getMask = function getMask(key) {
+	    if (key instanceof SymbolicTensor) {
+	      if (this.id2Value[key.id] == null) {
+	        throw new ValueError("Nonexistent key: " + key.name);
+	      } else {
+	        return this.id2Mask[key.id];
+	      }
+	    } else {
+	      var id = this.name2Id[key];
+
+	      if (id == null) {
+	        throw new ValueError("Feed dict has no SymbolicTensor name: " + key);
+	      }
+
+	      return this.id2Mask[id];
+	    }
+	  }
+	  /** Dispose all mask Tensors held by this object. */
+	  ;
+
+	  _proto.disposeMasks = function disposeMasks() {
+	    if (this.id2Mask != null) {
+	      dispose(this.id2Mask);
+	    }
+	  };
+
+	  return FeedDict;
+	}(); // Cache for topologically sorted SymbolicTensors for given execution
+	// targets (i.e., fetches).
+
+	var cachedSorted = new LruCache(); // Cache for recipient count maps for given execution targets (i.e., fetches).
+
+	var cachedRecipientCounts = new LruCache();
+	function updateCacheMaxEntries(maxEntries) {
+	  if (cachedSorted != null) {
+	    cachedSorted.setMaxEntries(maxEntries);
+	  }
+
+	  if (cachedRecipientCounts != null) {
+	    cachedRecipientCounts.setMaxEntries(maxEntries);
+	  }
+	}
+	/**
+	 * Execute a SymbolicTensor by using concrete feed values.
+	 *
+	 * A `SymbolicTensor` object is a node in a computation graph of TF.js
+	 * Layers. The object is backed by a source layer and input
+	 * `SymbolicTensor`s to the source layer. This method evaluates
+	 * the `call()` method of the source layer, using concrete values of the
+	 * inputs obtained from either
+	 * * `feedDict`, if the input key exists in `feedDict`, or else,
+	 * * a recursive call to `execute()` itself.
+	 *
+	 * @param x: The `SymbolicTensor` to execute.
+	 * @param feedDict: The feed values, as base condition of the recursion.
+	 *   execution.
+	 * @param kwargs: Optional keyword arguments.
+	 * @param probe: A probe object (of interface `ExecutionProbe`) used for
+	 *   testing memory footprint of `execute` calls.
+	 * @returns Result of the execution.
+	 * @throws ValueError: If any `SymbolicTensor`s from `InputLayer`s
+	 *   encountered during the execution lacks a feed value in `feedDict`.
+	 */
+
+	function execute(fetches, feedDict, kwargs, probe) {
+	  var training = kwargs == null ? false : kwargs['training'];
+	  var arrayFetches = Array.isArray(fetches);
+	  var fetchArray = arrayFetches ? fetches : [fetches];
+	  var outputNames = fetchArray.map(function (t) {
+	    return t.name;
+	  });
+	  var finalOutputs = [];
+	  var feedNames = feedDict.names();
+
+	  for (var _iterator2 = _createForOfIteratorHelperLoose(outputNames), _step2; !(_step2 = _iterator2()).done;) {
+	    var outputName = _step2.value;
+
+	    if (feedNames.indexOf(outputName) !== -1) {
+	      finalOutputs.push(feedDict.getValue(outputName));
+	    } else {
+	      finalOutputs.push(null);
+	    }
+	  }
+
+	  if (probe != null) {
+	    // For optional probing of memory footprint during execution.
+	    probe.maxNumTensors = -Infinity;
+	    probe.minNumTensors = Infinity;
+	  } // Check cache.
+
+
+	  var fetchAndFeedKey = outputNames.join(',') + '|' + feedDict.names().sort().join(',');
+	  var sorted = cachedSorted.get(fetchAndFeedKey);
+	  var recipientCounts;
+
+	  if (sorted == null) {
+	    // Cache doesn't contain the desired combination of fetches. Compute
+	    // topological sort for the combination for the first time.
+	    var out = getTopologicalSortAndRecipientCounts(fetchArray, feedDict);
+	    sorted = out.sorted;
+	    recipientCounts = out.recipientCounts; // Store results in cache for future use.
+
+	    cachedSorted.put(fetchAndFeedKey, sorted);
+	    cachedRecipientCounts.put(fetchAndFeedKey, recipientCounts);
+	  }
+
+	  recipientCounts = {};
+
+	  if (!training) {
+	    Object.assign(recipientCounts, cachedRecipientCounts.get(fetchAndFeedKey));
+	  }
+
+	  var internalFeedDict = new FeedDict(feedDict); // Start iterative execution on the topologically-sorted SymbolicTensors.
+
+	  for (var i = 0; i < sorted.length; ++i) {
+	    if (probe != null) {
+	      // For optional probing of memory usage during execution.
+	      var numTensors = memory().numTensors;
+
+	      if (numTensors > probe.maxNumTensors) {
+	        probe.maxNumTensors = numTensors;
+	      }
+
+	      if (numTensors < probe.minNumTensors) {
+	        probe.minNumTensors = numTensors;
+	      }
+	    }
+
+	    var symbolic = sorted[i];
+	    var srcLayer = symbolic.sourceLayer;
+
+	    if (srcLayer instanceof InputLayer) {
+	      continue;
+	    }
+
+	    var inputValues = [];
+	    var inputMasks = [];
+	    var tensorsToDispose = [];
+	    var maskExists = false;
+
+	    for (var _iterator3 = _createForOfIteratorHelperLoose(symbolic.inputs), _step3; !(_step3 = _iterator3()).done;) {
+	      var input = _step3.value;
+	      var value = internalFeedDict.getValue(input);
+	      var mask = internalFeedDict.getMask(input);
+	      inputValues.push(value);
+	      inputMasks.push(mask);
+
+	      if (mask != null) {
+	        maskExists = true;
+	      }
+
+	      if (!training) {
+	        recipientCounts[input.name]--;
+
+	        if (recipientCounts[input.name] === 0 && !feedDict.hasKey(input) && outputNames.indexOf(input.name) === -1 && !value.isDisposed && input.sourceLayer.stateful !== true) {
+	          tensorsToDispose.push(value);
+	        }
+	      }
+	    }
+
+	    if (maskExists) {
+	      kwargs = kwargs || {};
+	      kwargs['mask'] = inputMasks[0];
+	    }
+
+	    var outputTensors = toList(srcLayer.apply(inputValues, kwargs));
+	    var outputMask = null;
+
+	    if (srcLayer.supportsMasking) {
+	      outputMask = srcLayer.computeMask(inputValues, inputMasks);
+	    }
+
+	    var layerOutputs = getNodeOutputs(symbolic);
+	    var outputSymbolicTensors = Array.isArray(layerOutputs) ? layerOutputs : [layerOutputs];
+
+	    for (var _i = 0; _i < outputSymbolicTensors.length; ++_i) {
+	      if (!internalFeedDict.hasKey(outputSymbolicTensors[_i])) {
+	        internalFeedDict.add(outputSymbolicTensors[_i], outputTensors[_i], Array.isArray(outputMask) ? outputMask[0] : outputMask);
+	      }
+
+	      var index = outputNames.indexOf(outputSymbolicTensors[_i].name);
+
+	      if (index !== -1) {
+	        finalOutputs[index] = outputTensors[_i];
+	      }
+	    }
+
+	    if (!training) {
+	      // Clean up Tensors that are no longer needed.
+	      dispose(tensorsToDispose);
+	    }
+	  } // NOTE(cais): Unlike intermediate tensors, we don't discard mask
+	  // tensors as we go, because these tensors are sometimes passed over a
+	  // series of mutliple layers, i.e., not obeying the immediate input
+	  // relations in the graph. If this becomes a memory-usage concern,
+	  // we can improve this in the future.
+
+
+	  internalFeedDict.disposeMasks();
+	  return arrayFetches ? finalOutputs : finalOutputs[0];
+	}
+	/**
+	 * Sort the `SymbolicTensor`s topologically, for an array of fetches.
+	 *
+	 * This function calls getTopologicalSortAndRecipientCountsForOneFetch and
+	 * merges their results.
+	 *
+	 * @param fetch The array of fetches requested. Must be a non-empty array.
+	 * @param feedDict The dictionary of fed values.
+	 * @returns sorted: Topologically-sorted array of SymbolicTensors.
+	 *   recipientCounts: Recipient counts for all SymbolicTensors in `sorted`.
+	 */
+
+	function getTopologicalSortAndRecipientCounts(fetches, feedDict) {
+	  assert(fetches != null && fetches.length > 0, function () {
+	    return "Expected at least one fetch, got none";
+	  });
+	  var finalSorted = [];
+	  var finalRecipientMap = {};
+
+	  if (fetches.length === 1) {
+	    // Special-casing 1 fetch for efficiency.
+	    var out = getTopologicalSortAndRecipientCountsForOneFetch(fetches[0], feedDict);
+	    finalSorted = out.sorted;
+	    finalRecipientMap = out.recipientMap;
+	  } else {
+	    var visited = new Set();
+
+	    for (var _iterator4 = _createForOfIteratorHelperLoose(fetches), _step4; !(_step4 = _iterator4()).done;) {
+	      var fetch = _step4.value;
+
+	      var _getTopologicalSortAn = getTopologicalSortAndRecipientCountsForOneFetch(fetch, feedDict),
+	          sorted = _getTopologicalSortAn.sorted,
+	          recipientMap = _getTopologicalSortAn.recipientMap; // Merge sorted SymbolicTensor Arrays.
+
+
+	      for (var _iterator5 = _createForOfIteratorHelperLoose(sorted), _step5; !(_step5 = _iterator5()).done;) {
+	        var symbolicTensor = _step5.value;
+
+	        if (!visited.has(symbolicTensor.name)) {
+	          finalSorted.push(symbolicTensor);
+	          visited.add(symbolicTensor.name);
+	        }
+	      } // Merge recipient maps.
+
+
+	      var _loop = function _loop(name) {
+	        if (finalRecipientMap[name] == null) {
+	          finalRecipientMap[name] = new Set();
+	        }
+
+	        recipientMap[name].forEach(function (recipient) {
+	          return finalRecipientMap[name].add(recipient);
+	        });
+	      };
+
+	      for (var name in recipientMap) {
+	        _loop(name);
+	      }
+	    }
+	  }
+
+	  return {
+	    sorted: finalSorted,
+	    recipientCounts: recipientMap2Counts(finalRecipientMap)
+	  };
+	}
+
+	function recipientMap2Counts(recipientMap) {
+	  var recipientCounts = {};
+
+	  for (var name in recipientMap) {
+	    recipientCounts[name] = recipientMap[name].size;
+	  }
+
+	  return recipientCounts;
+	}
+	/**
+	 * Sort the `SymbolicTensor`s topologically, for a single fetch.
+	 *
+	 * This helper function processes the upstream SymbolicTensors of a single
+	 * fetch.
+	 *
+	 * @param fetch The single fetch requested.
+	 * @param feedDict The dictionary of fed values.
+	 * @returns sorted: Topologically-sorted array of SymbolicTensors.
+	 *   recipientMap: Recipient names for all SymbolicTensors in `sorted`.
+	 */
+
+
+	function getTopologicalSortAndRecipientCountsForOneFetch(fetch, feedDict) {
+	  var visited = new Set();
+	  var sorted = [];
+	  var recipientMap = {}; // Put keys of the feedDict into visited first, so they don't have to be
+	  // walked. This is needed in case where there are feeds for intermediate
+	  // SymbolicTensors of the graph.
+
+	  for (var _iterator6 = _createForOfIteratorHelperLoose(feedDict.names()), _step6; !(_step6 = _iterator6()).done;) {
+	    var key = _step6.value;
+	    visited.add(key);
+	  }
+
+	  var stack = [];
+	  var marks = []; // Initial population of stack and marks.
+
+	  stack.push(fetch);
+
+	  while (stack.length > 0) {
+	    var top = stack[stack.length - 1];
+
+	    if (visited.has(top.name)) {
+	      stack.pop();
+	      continue;
+	    }
+
+	    var topIsMarked = marks[marks.length - 1] === stack.length - 1;
+
+	    if (top.inputs.length === 0 || topIsMarked) {
+	      // Input SymbolicTensor or all children have been visited.
+	      stack.pop();
+	      sorted.push(top);
+	      visited.add(top.name);
+
+	      if (topIsMarked) {
+	        marks.pop();
+	      }
+	    } else {
+	      // A non-input SymbolicTensor whose upstream SymbolicTensors haven't
+	      // been visited yet. Push them onto the stack.
+	      marks.push(stack.length - 1);
+
+	      for (var _iterator7 = _createForOfIteratorHelperLoose(top.inputs), _step7; !(_step7 = _iterator7()).done;) {
+	        var input = _step7.value;
+
+	        // Increment the recipient count. Note that this needs to happen
+	        // regardless of whether the SymbolicTensor has been visited before.
+	        if (recipientMap[input.name] == null) {
+	          recipientMap[input.name] = new Set();
+	        }
+
+	        recipientMap[input.name].add(top.name);
+
+	        if (visited.has(input.name)) {
+	          continue; // Avoid repeated visits to the same SymbolicTensor.
+	        }
+
+	        stack.push(input);
+	      }
+	    }
+	  }
+
+	  return {
+	    sorted: sorted,
+	    recipientMap: recipientMap
+	  };
+	}
+	/**
+	 * Get the symbolic output tensors of the node to which a given fetch belongs.
+	 * @param fetch The fetched symbolic tensor.
+	 * @returns The Array of symbolic tensors output by the node to which `fetch`
+	 *   belongs.
+	 */
+
+	function getNodeOutputs(fetch) {
+	  var layerOutputs;
+
+	  if (fetch.sourceLayer.inboundNodes.length === 1) {
+	    layerOutputs = fetch.sourceLayer.output;
+	  } else {
+	    var nodeIndex = null;
+
+	    for (var i = 0; i < fetch.sourceLayer.inboundNodes.length; ++i) {
+	      for (var _iterator8 = _createForOfIteratorHelperLoose(fetch.sourceLayer.inboundNodes[i].outputTensors), _step8; !(_step8 = _iterator8()).done;) {
+	        var outputTensor = _step8.value;
+
+	        if (outputTensor.id === fetch.id) {
+	          nodeIndex = i;
+	          break;
+	        }
+	      }
+	    }
+
+	    layerOutputs = fetch.sourceLayer.getOutputAt(nodeIndex);
+	  }
+
+	  return layerOutputs;
+	}
+
+	/**
+	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	var ENV$1 = env();
+	/** The max number of entries for the caches of layers' topological sort. */
+
+	ENV$1.registerFlag('TOPOLOGICAL_SORT_CACHE_MAX_ENTRIES', function () {
+	  return 100;
+	}, updateCacheMaxEntries);
+
+	/**
+	 * Helper function used by many of the Constraints to find the L2Norms.
+	 */
+
+	function calcL2Norms(w, axis) {
+	  return tidy(function () {
+	    return sqrt$3(sum$1(mul(w, w), axis, true));
+	  });
+	}
+	/**
+	 * Base class for functions that impose constraints on weight values
+	 *
+	 * @doc {
+	 *   heading: 'Constraints',
+	 *   subheading: 'Classes',
+	 *   namespace: 'constraints'
+	 * }
+	 */
+
+
+	var Constraint = /*#__PURE__*/function (_serialization$Serial) {
+	  _inheritsLoose(Constraint, _serialization$Serial);
+
+	  function Constraint() {
+	    return _serialization$Serial.apply(this, arguments) || this;
+	  }
+
+	  var _proto = Constraint.prototype;
+
+	  _proto.getConfig = function getConfig() {
+	    return {};
+	  };
+
+	  return Constraint;
+	}(Serializable);
+	var MaxNorm = /*#__PURE__*/function (_Constraint) {
+	  _inheritsLoose(MaxNorm, _Constraint);
+
+	  function MaxNorm(args) {
+	    var _this;
+
+	    _this = _Constraint.call(this) || this;
+	    _this.defaultMaxValue = 2;
+	    _this.defaultAxis = 0;
+	    _this.maxValue = args.maxValue != null ? args.maxValue : _this.defaultMaxValue;
+	    _this.axis = args.axis != null ? args.axis : _this.defaultAxis;
+	    return _this;
+	  }
+
+	  var _proto2 = MaxNorm.prototype;
+
+	  _proto2.apply = function apply(w) {
+	    var _this2 = this;
+
+	    return tidy(function () {
+	      var norms = calcL2Norms(w, _this2.axis);
+	      var desired = clipByValue(norms, 0, _this2.maxValue);
+	      return mul(w, div(desired, add$1(epsilon(), norms)));
+	    });
+	  };
+
+	  _proto2.getConfig = function getConfig() {
+	    return {
+	      maxValue: this.maxValue,
+	      axis: this.axis
+	    };
+	  };
+
+	  return MaxNorm;
+	}(Constraint);
+	/** @nocollapse */
+
+	MaxNorm.className = 'MaxNorm';
+	registerClass(MaxNorm);
+	var UnitNorm = /*#__PURE__*/function (_Constraint2) {
+	  _inheritsLoose(UnitNorm, _Constraint2);
+
+	  function UnitNorm(args) {
+	    var _this3;
+
+	    _this3 = _Constraint2.call(this) || this;
+	    _this3.defaultAxis = 0;
+	    _this3.axis = args.axis != null ? args.axis : _this3.defaultAxis;
+	    return _this3;
+	  }
+
+	  var _proto3 = UnitNorm.prototype;
+
+	  _proto3.apply = function apply(w) {
+	    var _this4 = this;
+
+	    return tidy(function () {
+	      return div(w, add$1(epsilon(), calcL2Norms(w, _this4.axis)));
+	    });
+	  };
+
+	  _proto3.getConfig = function getConfig() {
+	    return {
+	      axis: this.axis
+	    };
+	  };
+
+	  return UnitNorm;
+	}(Constraint);
+	/** @nocollapse */
+
+	UnitNorm.className = 'UnitNorm';
+	registerClass(UnitNorm);
+	var NonNeg = /*#__PURE__*/function (_Constraint3) {
+	  _inheritsLoose(NonNeg, _Constraint3);
+
+	  function NonNeg() {
+	    return _Constraint3.apply(this, arguments) || this;
+	  }
+
+	  var _proto4 = NonNeg.prototype;
+
+	  _proto4.apply = function apply(w) {
+	    return relu(w);
+	  };
+
+	  return NonNeg;
+	}(Constraint);
+	/** @nocollapse */
+
+	NonNeg.className = 'NonNeg';
+	registerClass(NonNeg);
+	var MinMaxNorm = /*#__PURE__*/function (_Constraint4) {
+	  _inheritsLoose(MinMaxNorm, _Constraint4);
+
+	  function MinMaxNorm(args) {
+	    var _this5;
+
+	    _this5 = _Constraint4.call(this) || this;
+	    _this5.defaultMinValue = 0.0;
+	    _this5.defaultMaxValue = 1.0;
+	    _this5.defaultRate = 1.0;
+	    _this5.defaultAxis = 0;
+	    _this5.minValue = args.minValue != null ? args.minValue : _this5.defaultMinValue;
+	    _this5.maxValue = args.maxValue != null ? args.maxValue : _this5.defaultMaxValue;
+	    _this5.rate = args.rate != null ? args.rate : _this5.defaultRate;
+	    _this5.axis = args.axis != null ? args.axis : _this5.defaultAxis;
+	    return _this5;
+	  }
+
+	  var _proto5 = MinMaxNorm.prototype;
+
+	  _proto5.apply = function apply(w) {
+	    var _this6 = this;
+
+	    return tidy(function () {
+	      var norms = calcL2Norms(w, _this6.axis);
+	      var desired = add$1(mul(_this6.rate, clipByValue(norms, _this6.minValue, _this6.maxValue)), mul(1.0 - _this6.rate, norms));
+	      return mul(w, div(desired, add$1(epsilon(), norms)));
+	    });
+	  };
+
+	  _proto5.getConfig = function getConfig() {
+	    return {
+	      minValue: this.minValue,
+	      maxValue: this.maxValue,
+	      rate: this.rate,
+	      axis: this.axis
+	    };
+	  };
+
+	  return MinMaxNorm;
+	}(Constraint);
+	/** @nocollapse */
+
+	MinMaxNorm.className = 'MinMaxNorm';
+	registerClass(MinMaxNorm); // Maps the JavaScript-like identifier keys to the corresponding registry
+	// symbols.
+
+	var CONSTRAINT_IDENTIFIER_REGISTRY_SYMBOL_MAP = {
+	  'maxNorm': 'MaxNorm',
+	  'minMaxNorm': 'MinMaxNorm',
+	  'nonNeg': 'NonNeg',
+	  'unitNorm': 'UnitNorm'
+	};
+	function serializeConstraint(constraint) {
+	  return serializeKerasObject(constraint);
+	}
+	function deserializeConstraint(config, customObjects) {
+	  if (customObjects === void 0) {
+	    customObjects = {};
+	  }
+
+	  return deserializeKerasObject(config, SerializationMap.getMap().classNameMap, customObjects, 'constraint');
+	}
+	function getConstraint(identifier) {
+	  if (identifier == null) {
+	    return null;
+	  }
+
+	  if (typeof identifier === 'string') {
+	    var className = identifier in CONSTRAINT_IDENTIFIER_REGISTRY_SYMBOL_MAP ? CONSTRAINT_IDENTIFIER_REGISTRY_SYMBOL_MAP[identifier] : identifier;
+	    var config = {
+	      className: className,
+	      config: {}
+	    };
+	    return deserializeConstraint(config);
+	  } else if (identifier instanceof Constraint) {
+	    return identifier;
+	  } else {
+	    return deserializeConstraint(identifier);
+	  }
+	}
+
+	/**
+	 * @license
+	 * Copyright 2018 Google LLC
+	 *
+	 * Use of this source code is governed by an MIT-style
+	 * license that can be found in the LICENSE file or at
+	 * https://opensource.org/licenses/MIT.
+	 * =============================================================================
+	 */
+	/**
+	 * MaxNorm weight constraint.
+	 *
+	 * Constrains the weights incident to each hidden unit
+	 * to have a norm less than or equal to a desired value.
+	 *
+	 * References
+	 *       - [Dropout: A Simple Way to Prevent Neural Networks from Overfitting
+	 * Srivastava, Hinton, et al.
+	 * 2014](http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf)
+	 *
+	 * @doc {heading: 'Constraints',namespace: 'constraints'}
+	 */
+
+	function maxNorm(args) {
+	  return new MaxNorm(args);
+	}
+	/**
+	 * Constrains the weights incident to each hidden unit to have unit norm.
+	 *
+	 * @doc {heading: 'Constraints', namespace: 'constraints'}
+	 */
+
+	function unitNorm(args) {
+	  return new UnitNorm(args);
+	}
+	/**
+	 * Constains the weight to be non-negative.
+	 *
+	 * @doc {heading: 'Constraints', namespace: 'constraints'}
+	 */
+
+	function nonNeg() {
+	  return new NonNeg();
+	}
+	/** @doc {heading: 'Constraints', namespace: 'constraints'} */
+
+	function minMaxNorm(config) {
+	  return new MinMaxNorm(config);
+	}
+
+	var exports_constraints = {
+		__proto__: null,
+		maxNorm: maxNorm,
+		unitNorm: unitNorm,
+		nonNeg: nonNeg,
+		minMaxNorm: minMaxNorm
+	};
+
+	/**
+	 * @license
+	 * Copyright 2018 Google LLC
+	 *
+	 * Use of this source code is governed by an MIT-style
+	 * license that can be found in the LICENSE file or at
+	 * https://opensource.org/licenses/MIT.
+	 * =============================================================================
+	 */
+	/**
+	 * Initializer that generates tensors initialized to 0.
+	 *
+	 * @doc {heading: 'Initializers', namespace: 'initializers'}
+	 */
+
+	function zeros$1() {
+	  return new Zeros();
+	}
+	/**
+	 * Initializer that generates tensors initialized to 1.
+	 *
+	 * @doc {heading: 'Initializers', namespace: 'initializers'}
+	 */
+
+	function ones$2() {
+	  return new Ones();
+	}
+	/**
+	 * Initializer that generates values initialized to some constant.
+	 *
+	 * @doc {heading: 'Initializers', namespace: 'initializers'}
+	 */
+
+	function constant(args) {
+	  return new Constant(args);
+	}
+	/**
+	 * Initializer that generates random values initialized to a uniform
+	 * distribution.
+	 *
+	 * Values will be distributed uniformly between the configured minval and
+	 * maxval.
+	 *
+	 * @doc {heading: 'Initializers', namespace: 'initializers'}
+	 */
+
+	function randomUniform$1(args) {
+	  return new RandomUniform(args);
+	}
+	/**
+	 * Initializer that generates random values initialized to a normal
+	 * distribution.
+	 *
+	 * @doc {heading: 'Initializers', namespace: 'initializers'}
+	 */
+
+	function randomNormal$2(args) {
+	  return new RandomNormal(args);
+	}
+	/**
+	 * Initializer that generates random values initialized to a truncated normal.
+	 * distribution.
+	 *
+	 * These values are similar to values from a `RandomNormal` except that values
+	 * more than two standard deviations from the mean are discarded and re-drawn.
+	 * This is the recommended initializer for neural network weights and filters.
+	 *
+	 * @doc {heading: 'Initializers', namespace: 'initializers'}
+	 */
+
+	function truncatedNormal$1(args) {
+	  return new TruncatedNormal(args);
+	}
+	/**
+	 * Initializer that generates the identity matrix.
+	 * Only use for square 2D matrices.
+	 *
+	 * @doc {heading: 'Initializers', namespace: 'initializers'}
+	 */
+
+	function identity(args) {
+	  return new Identity$1(args);
+	}
+	/**
+	 * Initializer capable of adapting its scale to the shape of weights.
+	 * With distribution=NORMAL, samples are drawn from a truncated normal
+	 * distribution centered on zero, with `stddev = sqrt(scale / n)` where n is:
+	 *   - number of input units in the weight tensor, if mode = FAN_IN.
+	 *   - number of output units, if mode = FAN_OUT.
+	 *   - average of the numbers of input and output units, if mode = FAN_AVG.
+	 * With distribution=UNIFORM,
+	 * samples are drawn from a uniform distribution
+	 * within [-limit, limit], with `limit = sqrt(3 * scale / n)`.
+	 *
+	 * @doc {heading: 'Initializers',namespace: 'initializers'}
+	 */
+
+	function varianceScaling(config) {
+	  return new VarianceScaling(config);
+	}
+	/**
+	 * Glorot uniform initializer, also called Xavier uniform initializer.
+	 * It draws samples from a uniform distribution within [-limit, limit]
+	 * where `limit` is `sqrt(6 / (fan_in + fan_out))`
+	 * where `fan_in` is the number of input units in the weight tensor
+	 * and `fan_out` is the number of output units in the weight tensor
+	 *
+	 * Reference:
+	 *   Glorot & Bengio, AISTATS 2010
+	 *       http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf.
+	 *
+	 * @doc {heading: 'Initializers', namespace: 'initializers'}
+	 */
+
+	function glorotUniform(args) {
+	  return new GlorotUniform(args);
+	}
+	/**
+	 * Glorot normal initializer, also called Xavier normal initializer.
+	 * It draws samples from a truncated normal distribution centered on 0
+	 * with `stddev = sqrt(2 / (fan_in + fan_out))`
+	 * where `fan_in` is the number of input units in the weight tensor
+	 * and `fan_out` is the number of output units in the weight tensor.
+	 *
+	 * Reference:
+	 *   Glorot & Bengio, AISTATS 2010
+	 *       http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf
+	 *
+	 * @doc {heading: 'Initializers', namespace: 'initializers'}
+	 */
+
+	function glorotNormal(args) {
+	  return new GlorotNormal(args);
+	}
+	/**
+	 * He normal initializer.
+	 *
+	 * It draws samples from a truncated normal distribution centered on 0
+	 * with `stddev = sqrt(2 / fanIn)`
+	 * where `fanIn` is the number of input units in the weight tensor.
+	 *
+	 * Reference:
+	 *     He et al., http://arxiv.org/abs/1502.01852
+	 *
+	 * @doc {heading: 'Initializers', namespace: 'initializers'}
+	 */
+
+	function heNormal(args) {
+	  return new HeNormal(args);
+	}
+	/**
+	 * He uniform initializer.
+	 *
+	 * It draws samples from a uniform distribution within [-limit, limit]
+	 * where `limit` is `sqrt(6 / fan_in)`
+	 * where `fanIn` is the number of input units in the weight tensor.
+	 *
+	 * Reference:
+	 *     He et al., http://arxiv.org/abs/1502.01852
+	 *
+	 * @doc {heading: 'Initializers',namespace: 'initializers'}
+	 */
+
+	function heUniform(args) {
+	  return new HeUniform(args);
+	}
+	/**
+	 * LeCun normal initializer.
+	 *
+	 * It draws samples from a truncated normal distribution centered on 0
+	 * with `stddev = sqrt(1 / fanIn)`
+	 * where `fanIn` is the number of input units in the weight tensor.
+	 *
+	 * References:
+	 *   [Self-Normalizing Neural Networks](https://arxiv.org/abs/1706.02515)
+	 *   [Efficient Backprop](http://yann.lecun.com/exdb/publis/pdf/lecun-98b.pdf)
+	 *
+	 * @doc {heading: 'Initializers', namespace: 'initializers'}
+	 */
+
+	function leCunNormal(args) {
+	  return new LeCunNormal(args);
+	}
+	/**
+	 * LeCun uniform initializer.
+	 *
+	 * It draws samples from a uniform distribution in the interval
+	 * `[-limit, limit]` with `limit = sqrt(3 / fanIn)`,
+	 * where `fanIn` is the number of input units in the weight tensor.
+	 *
+	 * @doc {heading: 'Initializers', namespace: 'initializers'}
+	 */
+
+	function leCunUniform(args) {
+	  return new LeCunUniform(args);
+	}
+	/**
+	 * Initializer that generates a random orthogonal matrix.
+	 *
+	 * Reference:
+	 * [Saxe et al., http://arxiv.org/abs/1312.6120](http://arxiv.org/abs/1312.6120)
+	 *
+	 * @doc {heading: 'Initializers', namespace: 'initializers'}
+	 */
+
+	function orthogonal(args) {
+	  return new Orthogonal(args);
+	}
+
+	var exports_initializers = {
+		__proto__: null,
+		zeros: zeros$1,
+		ones: ones$2,
+		constant: constant,
+		randomUniform: randomUniform$1,
+		randomNormal: randomNormal$2,
+		truncatedNormal: truncatedNormal$1,
+		identity: identity,
+		varianceScaling: varianceScaling,
+		glorotUniform: glorotUniform,
+		glorotNormal: glorotNormal,
+		heNormal: heNormal,
+		heUniform: heUniform,
+		leCunNormal: leCunNormal,
+		leCunUniform: leCunUniform,
+		orthogonal: orthogonal
+	};
 
 	/**
 	 * Turn any Scalar values in a Logs object into actual number values.
@@ -61845,532 +63081,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$2 = '3.15.0';
-
-	/**
-	 * Helper function to check the dtype and shape compatibility of a feed value.
-	 */
-
-	function assertFeedCompatibility(key, val) {
-	  // Check dtype compatibility.
-	  if (key.dtype == null || key.dtype === val.dtype) {
-	    //  a.  If types match, return val tensor as is.
-	    return val;
-	  }
-
-	  try {
-	    //  b. Attempt to convert to expected type.
-	    return cast(val, key.dtype);
-	  } catch (err) {
-	    //  c. If conversion fails, return helpful error.
-	    throw new ValueError("The dtype of the feed (" + val.dtype + ") can not be cast to the dtype " + ("of the key '" + key.name + "' (" + key.dtype + ")."));
-	  }
-	}
-	/**
-	 * FeedDict: A mapping from unique SymbolicTensors to feed values for them.
-	 * A feed value is a concrete value represented as an `Tensor`.
-	 */
-
-
-	var FeedDict = /*#__PURE__*/function () {
-	  /**
-	   * Constructor, optionally does copy-construction.
-	   * @param feeds An Array of `Feed`s, or another `FeedDict`, in which case
-	   *   copy-construction will be performed.
-	   */
-	  function FeedDict(feeds) {
-	    this.id2Value = {};
-	    this.id2Mask = {};
-	    this.name2Id = {};
-
-	    if (feeds instanceof FeedDict) {
-	      for (var id in feeds.id2Value) {
-	        this.id2Value[id] = feeds.id2Value[id];
-
-	        if (id in feeds.id2Mask) {
-	          this.id2Mask[id] = feeds.id2Mask[id];
-	        }
-	      }
-	    } else {
-	      if (feeds == null) {
-	        return;
-	      }
-
-	      for (var _iterator = _createForOfIteratorHelperLoose(feeds), _step; !(_step = _iterator()).done;) {
-	        var feed = _step.value;
-	        this.add(feed.key, feed.value);
-	      }
-	    }
-	  }
-	  /**
-	   * Add a key-value pair to the FeedDict.
-	   *
-	   * @param key The key of the feed.
-	   * @param value The value of the tensor feed.
-	   * @param mask The value of the mask feed (optional).
-	   * @returns This `FeedDict`.
-	   * @throws ValueError: If the key `SymbolicTensor` already exists in the
-	   *   `FeedDict`.
-	   */
-
-
-	  var _proto = FeedDict.prototype;
-
-	  _proto.add = function add(key, value, mask) {
-	    if (this.id2Value[key.id] == null) {
-	      this.id2Value[key.id] = assertFeedCompatibility(key, value);
-	      this.name2Id[key.name] = key.id;
-
-	      if (mask != null) {
-	        this.id2Mask[key.id] = mask;
-	      }
-	    } else {
-	      throw new ValueError("Duplicate key: name=" + key.name + ", id=" + key.id);
-	    }
-
-	    return this;
-	  }
-	  /**
-	   * Add a Feed to the FeedDict.
-	   * @param feed The new `Feed` to add.
-	   * @returns This `FeedDict`.
-	   */
-	  ;
-
-	  _proto.addFeed = function addFeed(feed) {
-	    this.add(feed.key, feed.value);
-	  }
-	  /**
-	   * Probe whether a key already exists in the FeedDict.
-	   * @param key
-	   */
-	  ;
-
-	  _proto.hasKey = function hasKey(key) {
-	    return this.id2Value[key.id] != null;
-	  }
-	  /**
-	   * Get all the SymbolicTensor available in this FeedDict.
-	   */
-	  ;
-
-	  _proto.names = function names() {
-	    return Object.keys(this.name2Id);
-	  }
-	  /**
-	   * Get the feed value for given key.
-	   * @param key The SymbolicTensor, or its name (as a string), of which the
-	   *     value is sought.
-	   * @returns If `key` exists, the corresponding feed value.
-	   * @throws ValueError: If `key` does not exist in this `FeedDict`.
-	   */
-	  ;
-
-	  _proto.getValue = function getValue(key) {
-	    if (key instanceof SymbolicTensor) {
-	      if (this.id2Value[key.id] == null) {
-	        throw new ValueError("Nonexistent key: " + key.name);
-	      } else {
-	        return this.id2Value[key.id];
-	      }
-	    } else {
-	      var id = this.name2Id[key];
-
-	      if (id == null) {
-	        throw new ValueError("Feed dict has no SymbolicTensor name: " + key);
-	      }
-
-	      return this.id2Value[id];
-	    }
-	  }
-	  /**
-	   * Get the feed mask for given key.
-	   * @param key The SymbolicTensor, or its name (as a string), of which the
-	   *     value is sought.
-	   * @returns If `key` exists, the corresponding feed mask.
-	   * @throws ValueError: If `key` does not exist in this `FeedDict`.
-	   */
-	  ;
-
-	  _proto.getMask = function getMask(key) {
-	    if (key instanceof SymbolicTensor) {
-	      if (this.id2Value[key.id] == null) {
-	        throw new ValueError("Nonexistent key: " + key.name);
-	      } else {
-	        return this.id2Mask[key.id];
-	      }
-	    } else {
-	      var id = this.name2Id[key];
-
-	      if (id == null) {
-	        throw new ValueError("Feed dict has no SymbolicTensor name: " + key);
-	      }
-
-	      return this.id2Mask[id];
-	    }
-	  }
-	  /** Dispose all mask Tensors held by this object. */
-	  ;
-
-	  _proto.disposeMasks = function disposeMasks() {
-	    if (this.id2Mask != null) {
-	      dispose(this.id2Mask);
-	    }
-	  };
-
-	  return FeedDict;
-	}(); // Cache for topologically sorted SymbolicTensors for given execution
-	// targets (i.e., fetches).
-
-	var cachedSorted = {}; // Cache for recipient count maps for given execution targets (i.e., fetches).
-
-	var cachedRecipientCounts = {};
-	/**
-	 * Execute a SymbolicTensor by using concrete feed values.
-	 *
-	 * A `SymbolicTensor` object is a node in a computation graph of TF.js
-	 * Layers. The object is backed by a source layer and input
-	 * `SymbolicTensor`s to the source layer. This method evaluates
-	 * the `call()` method of the source layer, using concrete values of the
-	 * inputs obtained from either
-	 * * `feedDict`, if the input key exists in `feedDict`, or else,
-	 * * a recursive call to `execute()` itself.
-	 *
-	 * @param x: The `SymbolicTensor` to execute.
-	 * @param feedDict: The feed values, as base condition of the recursion.
-	 *   execution.
-	 * @param kwargs: Optional keyword arguments.
-	 * @param probe: A probe object (of interface `ExecutionProbe`) used for
-	 *   testing memory footprint of `execute` calls.
-	 * @returns Result of the execution.
-	 * @throws ValueError: If any `SymbolicTensor`s from `InputLayer`s
-	 *   encountered during the execution lacks a feed value in `feedDict`.
-	 */
-
-	function execute(fetches, feedDict, kwargs, probe) {
-	  var training = kwargs == null ? false : kwargs['training'];
-	  var arrayFetches = Array.isArray(fetches);
-	  var fetchArray = arrayFetches ? fetches : [fetches];
-	  var outputNames = fetchArray.map(function (t) {
-	    return t.name;
-	  });
-	  var finalOutputs = [];
-	  var feedNames = feedDict.names();
-
-	  for (var _iterator2 = _createForOfIteratorHelperLoose(outputNames), _step2; !(_step2 = _iterator2()).done;) {
-	    var outputName = _step2.value;
-
-	    if (feedNames.indexOf(outputName) !== -1) {
-	      finalOutputs.push(feedDict.getValue(outputName));
-	    } else {
-	      finalOutputs.push(null);
-	    }
-	  }
-
-	  if (probe != null) {
-	    // For optional probing of memory footprint during execution.
-	    probe.maxNumTensors = -Infinity;
-	    probe.minNumTensors = Infinity;
-	  } // Check cache.
-
-
-	  var fetchAndFeedKey = outputNames.join(',') + '|' + feedDict.names().join(',');
-	  var sorted;
-	  var recipientCounts;
-
-	  if (cachedSorted[fetchAndFeedKey] == null) {
-	    // Cache doesn't contain the desired combination of fetches. Compute
-	    // topological sort for the combination for the first time.
-	    var out = getTopologicalSortAndRecipientCounts(fetchArray, feedDict);
-	    sorted = out.sorted;
-	    recipientCounts = out.recipientCounts; // Store results in cache for future use.
-
-	    cachedSorted[fetchAndFeedKey] = sorted;
-	    cachedRecipientCounts[fetchAndFeedKey] = recipientCounts;
-	  }
-
-	  sorted = cachedSorted[fetchAndFeedKey];
-	  recipientCounts = {};
-
-	  if (!training) {
-	    Object.assign(recipientCounts, cachedRecipientCounts[fetchAndFeedKey]);
-	  }
-
-	  var internalFeedDict = new FeedDict(feedDict); // Start iterative execution on the topologically-sorted SymbolicTensors.
-
-	  for (var i = 0; i < sorted.length; ++i) {
-	    if (probe != null) {
-	      // For optional probing of memory usage during execution.
-	      var numTensors = memory().numTensors;
-
-	      if (numTensors > probe.maxNumTensors) {
-	        probe.maxNumTensors = numTensors;
-	      }
-
-	      if (numTensors < probe.minNumTensors) {
-	        probe.minNumTensors = numTensors;
-	      }
-	    }
-
-	    var symbolic = sorted[i];
-	    var srcLayer = symbolic.sourceLayer;
-
-	    if (srcLayer instanceof InputLayer) {
-	      continue;
-	    }
-
-	    var inputValues = [];
-	    var inputMasks = [];
-	    var tensorsToDispose = [];
-	    var maskExists = false;
-
-	    for (var _iterator3 = _createForOfIteratorHelperLoose(symbolic.inputs), _step3; !(_step3 = _iterator3()).done;) {
-	      var input = _step3.value;
-	      var value = internalFeedDict.getValue(input);
-	      var mask = internalFeedDict.getMask(input);
-	      inputValues.push(value);
-	      inputMasks.push(mask);
-
-	      if (mask != null) {
-	        maskExists = true;
-	      }
-
-	      if (!training) {
-	        recipientCounts[input.name]--;
-
-	        if (recipientCounts[input.name] === 0 && !feedDict.hasKey(input) && outputNames.indexOf(input.name) === -1 && !value.isDisposed && input.sourceLayer.stateful !== true) {
-	          tensorsToDispose.push(value);
-	        }
-	      }
-	    }
-
-	    if (maskExists) {
-	      kwargs = kwargs || {};
-	      kwargs['mask'] = inputMasks[0];
-	    }
-
-	    var outputTensors = toList(srcLayer.apply(inputValues, kwargs));
-	    var outputMask = null;
-
-	    if (srcLayer.supportsMasking) {
-	      outputMask = srcLayer.computeMask(inputValues, inputMasks);
-	    }
-
-	    var layerOutputs = getNodeOutputs(symbolic);
-	    var outputSymbolicTensors = Array.isArray(layerOutputs) ? layerOutputs : [layerOutputs];
-
-	    for (var _i = 0; _i < outputSymbolicTensors.length; ++_i) {
-	      if (!internalFeedDict.hasKey(outputSymbolicTensors[_i])) {
-	        internalFeedDict.add(outputSymbolicTensors[_i], outputTensors[_i], Array.isArray(outputMask) ? outputMask[0] : outputMask);
-	      }
-
-	      var index = outputNames.indexOf(outputSymbolicTensors[_i].name);
-
-	      if (index !== -1) {
-	        finalOutputs[index] = outputTensors[_i];
-	      }
-	    }
-
-	    if (!training) {
-	      // Clean up Tensors that are no longer needed.
-	      dispose(tensorsToDispose);
-	    }
-	  } // NOTE(cais): Unlike intermediate tensors, we don't discard mask
-	  // tensors as we go, because these tensors are sometimes passed over a
-	  // series of mutliple layers, i.e., not obeying the immediate input
-	  // relations in the graph. If this becomes a memory-usage concern,
-	  // we can improve this in the future.
-
-
-	  internalFeedDict.disposeMasks();
-	  return arrayFetches ? finalOutputs : finalOutputs[0];
-	}
-	/**
-	 * Sort the `SymbolicTensor`s topologically, for an array of fetches.
-	 *
-	 * This function calls getTopologicalSortAndRecipientCountsForOneFetch and
-	 * merges their results.
-	 *
-	 * @param fetch The array of fetches requested. Must be a non-empty array.
-	 * @param feedDict The dictionary of fed values.
-	 * @returns sorted: Topologically-sorted array of SymbolicTensors.
-	 *   recipientCounts: Recipient counts for all SymbolicTensors in `sorted`.
-	 */
-
-	function getTopologicalSortAndRecipientCounts(fetches, feedDict) {
-	  assert(fetches != null && fetches.length > 0, function () {
-	    return "Expected at least one fetch, got none";
-	  });
-	  var finalSorted = [];
-	  var finalRecipientMap = {};
-
-	  if (fetches.length === 1) {
-	    // Special-casing 1 fetch for efficiency.
-	    var out = getTopologicalSortAndRecipientCountsForOneFetch(fetches[0], feedDict);
-	    finalSorted = out.sorted;
-	    finalRecipientMap = out.recipientMap;
-	  } else {
-	    var visited = new Set();
-
-	    for (var _iterator4 = _createForOfIteratorHelperLoose(fetches), _step4; !(_step4 = _iterator4()).done;) {
-	      var fetch = _step4.value;
-
-	      var _getTopologicalSortAn = getTopologicalSortAndRecipientCountsForOneFetch(fetch, feedDict),
-	          sorted = _getTopologicalSortAn.sorted,
-	          recipientMap = _getTopologicalSortAn.recipientMap; // Merge sorted SymbolicTensor Arrays.
-
-
-	      for (var _iterator5 = _createForOfIteratorHelperLoose(sorted), _step5; !(_step5 = _iterator5()).done;) {
-	        var symbolicTensor = _step5.value;
-
-	        if (!visited.has(symbolicTensor.name)) {
-	          finalSorted.push(symbolicTensor);
-	          visited.add(symbolicTensor.name);
-	        }
-	      } // Merge recipient maps.
-
-
-	      var _loop = function _loop(name) {
-	        if (finalRecipientMap[name] == null) {
-	          finalRecipientMap[name] = new Set();
-	        }
-
-	        recipientMap[name].forEach(function (recipient) {
-	          return finalRecipientMap[name].add(recipient);
-	        });
-	      };
-
-	      for (var name in recipientMap) {
-	        _loop(name);
-	      }
-	    }
-	  }
-
-	  return {
-	    sorted: finalSorted,
-	    recipientCounts: recipientMap2Counts(finalRecipientMap)
-	  };
-	}
-
-	function recipientMap2Counts(recipientMap) {
-	  var recipientCounts = {};
-
-	  for (var name in recipientMap) {
-	    recipientCounts[name] = recipientMap[name].size;
-	  }
-
-	  return recipientCounts;
-	}
-	/**
-	 * Sort the `SymbolicTensor`s topologically, for a single fetch.
-	 *
-	 * This helper function processes the upstream SymbolicTensors of a single
-	 * fetch.
-	 *
-	 * @param fetch The single fetch requested.
-	 * @param feedDict The dictionary of fed values.
-	 * @returns sorted: Topologically-sorted array of SymbolicTensors.
-	 *   recipientMap: Recipient names for all SymbolicTensors in `sorted`.
-	 */
-
-
-	function getTopologicalSortAndRecipientCountsForOneFetch(fetch, feedDict) {
-	  var visited = new Set();
-	  var sorted = [];
-	  var recipientMap = {}; // Put keys of the feedDict into visited first, so they don't have to be
-	  // walked. This is needed in case where there are feeds for intermediate
-	  // SymbolicTensors of the graph.
-
-	  for (var _iterator6 = _createForOfIteratorHelperLoose(feedDict.names()), _step6; !(_step6 = _iterator6()).done;) {
-	    var key = _step6.value;
-	    visited.add(key);
-	  }
-
-	  var stack = [];
-	  var marks = []; // Initial population of stack and marks.
-
-	  stack.push(fetch);
-
-	  while (stack.length > 0) {
-	    var top = stack[stack.length - 1];
-
-	    if (visited.has(top.name)) {
-	      stack.pop();
-	      continue;
-	    }
-
-	    var topIsMarked = marks[marks.length - 1] === stack.length - 1;
-
-	    if (top.inputs.length === 0 || topIsMarked) {
-	      // Input SymbolicTensor or all children have been visited.
-	      stack.pop();
-	      sorted.push(top);
-	      visited.add(top.name);
-
-	      if (topIsMarked) {
-	        marks.pop();
-	      }
-	    } else {
-	      // A non-input SymbolicTensor whose upstream SymbolicTensors haven't
-	      // been visited yet. Push them onto the stack.
-	      marks.push(stack.length - 1);
-
-	      for (var _iterator7 = _createForOfIteratorHelperLoose(top.inputs), _step7; !(_step7 = _iterator7()).done;) {
-	        var input = _step7.value;
-
-	        // Increment the recipient count. Note that this needs to happen
-	        // regardless of whether the SymbolicTensor has been visited before.
-	        if (recipientMap[input.name] == null) {
-	          recipientMap[input.name] = new Set();
-	        }
-
-	        recipientMap[input.name].add(top.name);
-
-	        if (visited.has(input.name)) {
-	          continue; // Avoid repeated visits to the same SymbolicTensor.
-	        }
-
-	        stack.push(input);
-	      }
-	    }
-	  }
-
-	  return {
-	    sorted: sorted,
-	    recipientMap: recipientMap
-	  };
-	}
-	/**
-	 * Get the symbolic output tensors of the node to which a given fetch belongs.
-	 * @param fetch The fetched symbolic tensor.
-	 * @returns The Array of symbolic tensors output by the node to which `fetch`
-	 *   belongs.
-	 */
-
-	function getNodeOutputs(fetch) {
-	  var layerOutputs;
-
-	  if (fetch.sourceLayer.inboundNodes.length === 1) {
-	    layerOutputs = fetch.sourceLayer.output;
-	  } else {
-	    var nodeIndex = null;
-
-	    for (var i = 0; i < fetch.sourceLayer.inboundNodes.length; ++i) {
-	      for (var _iterator8 = _createForOfIteratorHelperLoose(fetch.sourceLayer.inboundNodes[i].outputTensors), _step8; !(_step8 = _iterator8()).done;) {
-	        var outputTensor = _step8.value;
-
-	        if (outputTensor.id === fetch.id) {
-	          nodeIndex = i;
-	          break;
-	        }
-	      }
-	    }
-
-	    layerOutputs = fetch.sourceLayer.getOutputAt(nodeIndex);
-	  }
-
-	  return layerOutputs;
-	}
+	var version$2 = '3.19.0';
 
 	/**
 	 * A Container is a directed acyclic graph of layers.
@@ -70991,7 +71702,8 @@
 	  _proto10.getConfig = function getConfig() {
 	    var config = {
 	      size: this.size,
-	      dataFormat: this.dataFormat
+	      dataFormat: this.dataFormat,
+	      interpolation: this.interpolation
 	    };
 
 	    var baseConfig = _Layer3.prototype.getConfig.call(this);
@@ -75921,8 +76633,8 @@
 	        }
 	      };
 
-	      var scale = broadcast(_this4.gamma.read());
-	      var offset = broadcast(_this4.beta.read()); // TODO(https://github.com/tensorflow/tfjs/issues/2120): The tiling below
+	      var scale = _this4.scale ? broadcast(_this4.gamma.read()) : null;
+	      var offset = _this4.center ? broadcast(_this4.beta.read()) : null; // TODO(https://github.com/tensorflow/tfjs/issues/2120): The tiling below
 	      // is a workaround for the limitation of core's batchNormalization?d don't
 	      // support broadcasting in their gradients. In addition, the tiling is
 	      // necessary to ensure correctness on the browser CPU backend regardless
@@ -75944,8 +76656,15 @@
 
 	      mean = tile(mean, momentsTiling);
 	      variance = tile(variance, momentsTiling);
-	      scale = tile(scale, scaleOffsetTiling);
-	      offset = tile(offset, scaleOffsetTiling);
+
+	      if (scale != null) {
+	        scale = tile(scale, scaleOffsetTiling);
+	      }
+
+	      if (offset != null) {
+	        offset = tile(offset, scaleOffsetTiling);
+	      }
+
 	      return batchNormalization(input, mean, variance, offset, scale, _this4.epsilon);
 	    });
 	  };
@@ -79860,10 +80579,10 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var ENV$1 = env();
+	var ENV$2 = env();
 	/** Whether to keep intermediate tensors. */
 
-	ENV$1.registerFlag('KEEP_INTERMEDIATE_TENSORS', function () {
+	ENV$2.registerFlag('KEEP_INTERMEDIATE_TENSORS', function () {
 	  return false;
 	}, function (debugValue) {
 	  if (debugValue) {
@@ -81758,6 +82477,23 @@
 	    'type': 'dtype'
 	  }]
 	}, {
+	  'tfOpName': 'TensorListConcatV2',
+	  'category': 'control',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 'tensorListId',
+	    'type': 'tensor'
+	  }],
+	  'attrs': [{
+	    'tfName': 'element_shape',
+	    'name': 'elementShape',
+	    'type': 'shape'
+	  }, {
+	    'tfName': 'element_dtype',
+	    'name': 'elementDType',
+	    'type': 'dtype'
+	  }]
+	}, {
 	  'tfOpName': 'TensorListPopBack',
 	  'category': 'control',
 	  'inputs': [{
@@ -81790,6 +82526,26 @@
 	    'tfName': 'element_dtype',
 	    'name': 'elementDType',
 	    'type': 'dtype'
+	  }]
+	}, {
+	  'tfOpName': 'TensorListLength',
+	  'category': 'control',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 'tensorListId',
+	    'type': 'tensor'
+	  }]
+	}, {
+	  'tfOpName': 'TensorListResize',
+	  'category': 'control',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 'tensorListId',
+	    'type': 'tensor'
+	  }, {
+	    'start': 1,
+	    'name': 'size',
+	    'type': 'number'
 	  }]
 	}];
 
@@ -82121,7 +82877,8 @@
 	  }, {
 	    'tfName': 'leakyrelu_alpha',
 	    'name': 'leakyreluAlpha',
-	    'type': 'number'
+	    'type': 'number',
+	    'defaultValue': 0.2
 	  }]
 	}, {
 	  'tfOpName': 'Conv2DBackpropInput',
@@ -82463,6 +83220,35 @@
 	    'tfName': 'dtype',
 	    'name': 'dtype',
 	    'type': 'dtype'
+	  }]
+	}, {
+	  'tfOpName': 'RandomStandardNormal',
+	  'category': 'creation',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 'shape',
+	    'type': 'number[]'
+	  }],
+	  'attrs': [{
+	    'tfName': 'seed',
+	    'name': 'seed',
+	    'type': 'number',
+	    'defaultValue': 0
+	  }, {
+	    'tfName': 'seed2',
+	    'name': 'seed2',
+	    'type': 'number',
+	    'defaultValue': 0,
+	    'notSupported': true
+	  }, {
+	    'tfName': 'dtype',
+	    'name': 'dtype',
+	    'type': 'dtype'
+	  }, {
+	    'tfName': 'T',
+	    'name': 'T',
+	    'type': 'number',
+	    'notSupported': true
 	  }]
 	}, {
 	  'tfOpName': 'RandomUniform',
@@ -82808,6 +83594,18 @@
 	 * =============================================================================
 	 */
 	var json$6 = [{
+	  'tfOpName': 'LowerBound',
+	  'category': 'evaluation',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 'sortedSequence',
+	    'type': 'tensor'
+	  }, {
+	    'start': 1,
+	    'name': 'values',
+	    'type': 'tensor'
+	  }]
+	}, {
 	  'tfOpName': 'TopKV2',
 	  'category': 'evaluation',
 	  'inputs': [{
@@ -82823,6 +83621,18 @@
 	    'tfName': 'sorted',
 	    'name': 'sorted',
 	    'type': 'bool'
+	  }]
+	}, {
+	  'tfOpName': 'UpperBound',
+	  'category': 'evaluation',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 'sortedSequence',
+	    'type': 'tensor'
+	  }, {
+	    'start': 1,
+	    'name': 'values',
+	    'type': 'tensor'
 	  }]
 	}, {
 	  'tfOpName': 'Unique',
@@ -83625,6 +84435,11 @@
 	    'type': 'bool',
 	    'defaultValue': false
 	  }, {
+	    'tfName': 'leakyrelu_alpha',
+	    'name': 'leakyreluAlpha',
+	    'type': 'number',
+	    'defaultValue': 0.2
+	  }, {
 	    'tfName': 'T',
 	    'name': 'dtype',
 	    'type': 'dtype',
@@ -83779,6 +84594,24 @@
 	 * =============================================================================
 	 */
 	var json$c = [{
+	  'tfOpName': 'EuclideanNorm',
+	  'category': 'normalization',
+	  'inputs': [{
+	    'start': 0,
+	    'name': 'x',
+	    'type': 'tensor'
+	  }, {
+	    'start': 1,
+	    'name': 'axis',
+	    'type': 'number[]'
+	  }],
+	  'attrs': [{
+	    'tfName': 'keep_dims',
+	    'name': 'keepDims',
+	    'type': 'bool',
+	    'defaultValue': false
+	  }]
+	}, {
 	  'tfOpName': 'FusedBatchNorm',
 	  'category': 'normalization',
 	  'inputs': [{
@@ -85159,7 +85992,7 @@
 	      op: node.op,
 	      category: mapper.category,
 	      inputNames: (node.input || []).map(function (input) {
-	        return input.startsWith('^') ? input.substr(1) : input;
+	        return input.startsWith('^') ? input.slice(1) : input;
 	      }),
 	      inputs: [],
 	      children: [],
@@ -85792,6 +86625,7 @@
 		elu: elu,
 		equal: equal,
 		erf: erf,
+		euclideanNorm: euclideanNorm,
 		exp: exp$3,
 		expandDims: expandDims,
 		expm1: expm1,
@@ -85820,6 +86654,7 @@
 		logicalNot: logicalNot,
 		logicalOr: logicalOr,
 		logicalXor: logicalXor,
+		lowerBound: lowerBound,
 		matMul: matMul,
 		max: max$5,
 		maxPool: maxPool,
@@ -85855,6 +86690,7 @@
 		rand: rand,
 		randomGamma: randomGamma,
 		randomNormal: randomNormal,
+		randomStandardNormal: randomStandardNormal,
 		randomUniform: randomUniform,
 		range: range,
 		real: real,
@@ -85914,6 +86750,7 @@
 		unique: unique,
 		unsortedSegmentSum: unsortedSegmentSum,
 		unstack: unstack,
+		upperBound: upperBound,
 		variable: variable,
 		where: where,
 		whereAsync: whereAsync,
@@ -85926,6 +86763,7 @@
 		norm: norm,
 		movingAverage: movingAverage,
 		scatterND: scatterND,
+		searchSorted: searchSorted,
 		sparseToDense: sparseToDense,
 		gatherND: gatherND,
 		dropout: dropout,
@@ -85958,66 +86796,70 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var executeOp = function executeOp(node, tensorMap, context) {
+	var executeOp = function executeOp(node, tensorMap, context, ops) {
+	  if (ops === void 0) {
+	    ops = tfOps;
+	  }
+
 	  switch (node.op) {
 	    case 'BiasAdd':
 	    case 'AddV2':
 	    case 'Add':
 	      {
-	        return [add$1(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.add(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    case 'AddN':
 	      {
-	        return [addN(getParamValue('tensors', node, tensorMap, context))];
+	        return [ops.addN(getParamValue('tensors', node, tensorMap, context))];
 	      }
 
 	    case 'FloorMod':
 	    case 'Mod':
-	      return [mod(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	      return [ops.mod(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 
 	    case 'Mul':
-	      return [mul(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	      return [ops.mul(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 
 	    case 'RealDiv':
 	    case 'Div':
 	      {
-	        return [div(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.div(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    case 'DivNoNan':
 	      {
-	        return [divNoNan(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.divNoNan(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    case 'FloorDiv':
 	      {
-	        return [floorDiv(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.floorDiv(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    case 'Sub':
 	      {
-	        return [sub(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.sub(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    case 'Minimum':
 	      {
-	        return [minimum(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.minimum(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    case 'Maximum':
 	      {
-	        return [maximum(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.maximum(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    case 'Pow':
 	      {
-	        return [pow$5(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.pow(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    case 'SquaredDifference':
 	      {
-	        return [squaredDifference(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.squaredDifference(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    default:
@@ -86042,154 +86884,158 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var executeOp$1 = function executeOp(node, tensorMap, context) {
+	var executeOp$1 = function executeOp(node, tensorMap, context, ops) {
+	  if (ops === void 0) {
+	    ops = tfOps;
+	  }
+
 	  switch (node.op) {
 	    case 'Abs':
 	    case 'ComplexAbs':
-	      return [abs$8(getParamValue('x', node, tensorMap, context))];
+	      return [ops.abs(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Acos':
-	      return [acos(getParamValue('x', node, tensorMap, context))];
+	      return [ops.acos(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Acosh':
-	      return [acosh(getParamValue('x', node, tensorMap, context))];
+	      return [ops.acosh(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Asin':
-	      return [asin(getParamValue('x', node, tensorMap, context))];
+	      return [ops.asin(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Asinh':
-	      return [asinh$1(getParamValue('x', node, tensorMap, context))];
+	      return [ops.asinh(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Atan':
-	      return [atan(getParamValue('x', node, tensorMap, context))];
+	      return [ops.atan(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Atan2':
-	      return [atan2(getParamValue('x', node, tensorMap, context), getParamValue('y', node, tensorMap, context))];
+	      return [ops.atan2(getParamValue('x', node, tensorMap, context), getParamValue('y', node, tensorMap, context))];
 
 	    case 'Atanh':
-	      return [atanh(getParamValue('x', node, tensorMap, context))];
+	      return [ops.atanh(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Ceil':
-	      return [ceil$3(getParamValue('x', node, tensorMap, context))];
+	      return [ops.ceil(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Complex':
-	      return [complex(getParamValue('real', node, tensorMap, context), getParamValue('imag', node, tensorMap, context))];
+	      return [ops.complex(getParamValue('real', node, tensorMap, context), getParamValue('imag', node, tensorMap, context))];
 
 	    case 'Cos':
-	      return [cos(getParamValue('x', node, tensorMap, context))];
+	      return [ops.cos(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Cosh':
-	      return [cosh(getParamValue('x', node, tensorMap, context))];
+	      return [ops.cosh(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Elu':
-	      return [elu(getParamValue('x', node, tensorMap, context))];
+	      return [ops.elu(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Erf':
-	      return [erf(getParamValue('x', node, tensorMap, context))];
+	      return [ops.erf(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Exp':
-	      return [exp$3(getParamValue('x', node, tensorMap, context))];
+	      return [ops.exp(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Expm1':
 	      {
-	        return [expm1(getParamValue('x', node, tensorMap, context))];
+	        return [ops.expm1(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    case 'Floor':
-	      return [floor$a(getParamValue('x', node, tensorMap, context))];
+	      return [ops.floor(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Log':
-	      return [log$a(getParamValue('x', node, tensorMap, context))];
+	      return [ops.log(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Log1p':
 	      {
-	        return [log1p(getParamValue('x', node, tensorMap, context))];
+	        return [ops.log1p(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    case 'Imag':
-	      return [imag(getParamValue('x', node, tensorMap, context))];
+	      return [ops.imag(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Neg':
-	      return [neg(getParamValue('x', node, tensorMap, context))];
+	      return [ops.neg(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Reciprocal':
 	      {
-	        return [reciprocal(getParamValue('x', node, tensorMap, context))];
+	        return [ops.reciprocal(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    case 'Real':
-	      return [real(getParamValue('x', node, tensorMap, context))];
+	      return [ops.real(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Relu':
-	      return [relu(getParamValue('x', node, tensorMap, context))];
+	      return [ops.relu(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Round':
 	      {
-	        return [round$1(getParamValue('x', node, tensorMap, context))];
+	        return [ops.round(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    case 'Selu':
-	      return [selu(getParamValue('x', node, tensorMap, context))];
+	      return [ops.selu(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Sigmoid':
-	      return [sigmoid(getParamValue('x', node, tensorMap, context))];
+	      return [ops.sigmoid(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Sin':
-	      return [sin(getParamValue('x', node, tensorMap, context))];
+	      return [ops.sin(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Sign':
 	      {
-	        return [sign(getParamValue('x', node, tensorMap, context))];
+	        return [ops.sign(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    case 'Sinh':
 	      {
-	        return [sinh(getParamValue('x', node, tensorMap, context))];
+	        return [ops.sinh(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    case 'Softplus':
 	      {
-	        return [softplus(getParamValue('x', node, tensorMap, context))];
+	        return [ops.softplus(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    case 'Sqrt':
 	      {
-	        return [sqrt$3(getParamValue('x', node, tensorMap, context))];
+	        return [ops.sqrt(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    case 'Square':
 	      {
-	        return [square(getParamValue('x', node, tensorMap, context))];
+	        return [ops.square(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    case 'Tanh':
 	      {
-	        return [tanh$1(getParamValue('x', node, tensorMap, context))];
+	        return [ops.tanh(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    case 'Tan':
-	      return [tan(getParamValue('x', node, tensorMap, context))];
+	      return [ops.tan(getParamValue('x', node, tensorMap, context))];
 
 	    case 'ClipByValue':
-	      return [clipByValue(getParamValue('x', node, tensorMap, context), getParamValue('clipValueMin', node, tensorMap, context), getParamValue('clipValueMax', node, tensorMap, context))];
+	      return [ops.clipByValue(getParamValue('x', node, tensorMap, context), getParamValue('clipValueMin', node, tensorMap, context), getParamValue('clipValueMax', node, tensorMap, context))];
 
 	    case 'Relu6':
-	      return [relu6(getParamValue('x', node, tensorMap, context))];
+	      return [ops.relu6(getParamValue('x', node, tensorMap, context))];
 
 	    case 'Rsqrt':
-	      return [rsqrt(getTensor(node.inputNames[0], tensorMap, context))];
+	      return [ops.rsqrt(getTensor(node.inputNames[0], tensorMap, context))];
 
 	    case 'Prod':
-	      return [prod(getParamValue('x', node, tensorMap, context), getParamValue('axes', node, tensorMap, context))];
+	      return [ops.prod(getParamValue('x', node, tensorMap, context), getParamValue('axes', node, tensorMap, context))];
 
 	    case 'LeakyRelu':
-	      return [leakyRelu(getParamValue('x', node, tensorMap, context), getParamValue('alpha', node, tensorMap, context))];
+	      return [ops.leakyRelu(getParamValue('x', node, tensorMap, context), getParamValue('alpha', node, tensorMap, context))];
 
 	    case 'Prelu':
-	      return [prelu(getParamValue('x', node, tensorMap, context), getParamValue('alpha', node, tensorMap, context))];
+	      return [ops.prelu(getParamValue('x', node, tensorMap, context), getParamValue('alpha', node, tensorMap, context))];
 
 	    case 'IsNan':
-	      return [isNaN$1(getTensor(node.inputNames[0], tensorMap, context))];
+	      return [ops.isNaN(getTensor(node.inputNames[0], tensorMap, context))];
 
 	    default:
 	      throw TypeError("Node type " + node.op + " is not implemented");
@@ -86768,7 +87614,14 @@
 	      throw new Error("TensorListResize input size " + size + " is greater maxNumElement " + this.maxNumElements + ".");
 	    }
 
-	    this.tensors.length = size;
+	    var destTensorList = new TensorList([], this.elementShape, this.elementDtype, this.maxNumElements);
+	    destTensorList.tensors.length = size;
+
+	    for (var i = 0; i < Math.min(this.tensors.length, size); ++i) {
+	      destTensorList.tensors[i] = this.tensors[i];
+	    }
+
+	    return destTensorList;
 	  }
 	  /**
 	   * Retrieve the element at the provided index
@@ -86914,10 +87767,11 @@
 	 * @param elementShape the shape of the future elements of the list
 	 * @param elementDtype the desired type of elements in the list
 	 * @param numElements the number of elements to reserve
+	 * @param maxNumElements the maximum number of elements in th list
 	 */
 
-	function reserve(elementShape, elementDtype, numElements) {
-	  return new TensorList([], elementShape, elementDtype, numElements);
+	function reserve(elementShape, elementDtype, numElements, maxNumElements) {
+	  return new TensorList([], elementShape, elementDtype, maxNumElements);
 	}
 	/**
 	 * Put tensors at specific indices of a stacked tensor into a TensorList.
@@ -86992,14 +87846,14 @@
 
 	var executeOp$2 = /*#__PURE__*/function () {
 	  var _ref = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2(node, tensorMap, context) {
-	    var thenFunc, elseFunc, cond, args, condValue, _ret, pred, _pred, data, inputName, _data, frameId, _data2, _data3, _data4, size, dtype, elementShape, dynamicSize, clearAfterRead, identicalElementShapes, name, tensorArray, id, index, writeTensor, writeTensorArray, readId, readIndex, readTensorArray, gatherId, gatherIndices, gatherDtype, gatherTensorArray, scatterId, scatterIndices, scatterTensor, scatterTensorArray, concatId, concatTensorArray, concatDtype, splitId, splitTensor, lengths, splitTensorArray, sizeId, sizeTensorArray, closeId, closeTensorArray, idTensor, _index, _writeTensor, tensorList, _idTensor, _readIndex, _elementShape, elementDType, _tensorList, _scatterIndices, _scatterTensor, _elementShape2, numElements, _tensorList2, _elementShape3, elementDtype, numElementsParam, _numElements, _tensorList3, _gatherId, _gatherIndices, _elementShape4, _elementDtype, _tensorList4, _idTensor2, _elementShape5, _elementDtype2, _numElements2, _tensorList5, tensor, _elementShape6, _elementDtype3, _tensorList6, _concatId, _tensorList7, _concatDtype, _elementShape7, _idTensor3, _writeTensor2, _tensorList8, _idTensor4, _elementShape8, _elementDType, _tensorList9, _splitTensor, _elementShape9, _lengths, _tensorList10;
+	    var thenFunc, elseFunc, cond, args, condValue, _ret, pred, _pred, data, inputName, _data, frameId, _data2, _data3, _data4, size, dtype, elementShape, dynamicSize, clearAfterRead, identicalElementShapes, name, tensorArray, id, index, writeTensor, writeTensorArray, readId, readIndex, readTensorArray, gatherId, gatherIndices, gatherDtype, gatherTensorArray, scatterId, scatterIndices, scatterTensor, scatterTensorArray, concatId, concatTensorArray, concatDtype, splitId, splitTensor, lengths, splitTensorArray, sizeId, sizeTensorArray, closeId, closeTensorArray, idTensor, _index, _writeTensor, tensorList, _idTensor, _readIndex, _elementShape, elementDType, _tensorList, _scatterIndices, _scatterTensor, _elementShape2, numElements, _tensorList2, _elementShape3, elementDtype, numElementsParam, _numElements, maxNumElements, _tensorList3, _gatherId, _gatherIndices, _elementShape4, _elementDtype, _tensorList4, _idTensor2, _elementShape5, _elementDtype2, _numElements2, _tensorList5, tensor, _elementShape6, _elementDtype3, _tensorList6, _concatId, _tensorList7, _concatDtype, _elementShape7, _idTensor3, _writeTensor2, _tensorList8, _idTensor4, _elementShape8, _elementDType, _tensorList9, _splitTensor, _elementShape9, _lengths, _tensorList10, _idTensor5, _tensorList11, _idTensor6, _size, srcTensorList, destTensorList;
 
 	    return regeneratorRuntime.wrap(function _callee2$(_context3) {
 	      while (1) {
 	        switch (_context3.prev = _context3.next) {
 	          case 0:
 	            _context3.t0 = node.op;
-	            _context3.next = _context3.t0 === 'If' ? 3 : _context3.t0 === 'StatelessIf' ? 3 : _context3.t0 === 'While' ? 15 : _context3.t0 === 'StatelessWhile' ? 15 : _context3.t0 === 'LoopCond' ? 19 : _context3.t0 === 'Switch' ? 21 : _context3.t0 === 'Merge' ? 32 : _context3.t0 === 'Enter' ? 37 : _context3.t0 === 'Exit' ? 41 : _context3.t0 === 'NextIteration' ? 44 : _context3.t0 === 'TensorArrayV3' ? 47 : _context3.t0 === 'TensorArrayWriteV3' ? 57 : _context3.t0 === 'TensorArrayReadV3' ? 63 : _context3.t0 === 'TensorArrayGatherV3' ? 67 : _context3.t0 === 'TensorArrayScatterV3' ? 72 : _context3.t0 === 'TensorArrayConcatV3' ? 78 : _context3.t0 === 'TensorArraySplitV3' ? 82 : _context3.t0 === 'TensorArraySizeV3' ? 88 : _context3.t0 === 'TensorArrayCloseV3' ? 91 : _context3.t0 === 'TensorListSetItem' ? 95 : _context3.t0 === 'TensorListGetItem' ? 101 : _context3.t0 === 'TensorListScatterV2' ? 107 : _context3.t0 === 'TensorListScatter' ? 107 : _context3.t0 === 'TensorListReserve' ? 114 : _context3.t0 === 'EmptyTensorList' ? 114 : _context3.t0 === 'TensorListGather' ? 121 : _context3.t0 === 'TensorListStack' ? 127 : _context3.t0 === 'TensorListFromTensor' ? 133 : _context3.t0 === 'TensorListConcat' ? 139 : _context3.t0 === 'TensorListPushBack' ? 144 : _context3.t0 === 'TensorListPopBack' ? 149 : _context3.t0 === 'TensorListSplit' ? 154 : 160;
+	            _context3.next = _context3.t0 === 'If' ? 3 : _context3.t0 === 'StatelessIf' ? 3 : _context3.t0 === 'While' ? 15 : _context3.t0 === 'StatelessWhile' ? 15 : _context3.t0 === 'LoopCond' ? 19 : _context3.t0 === 'Switch' ? 21 : _context3.t0 === 'Merge' ? 32 : _context3.t0 === 'Enter' ? 37 : _context3.t0 === 'Exit' ? 41 : _context3.t0 === 'NextIteration' ? 44 : _context3.t0 === 'TensorArrayV3' ? 47 : _context3.t0 === 'TensorArrayWriteV3' ? 57 : _context3.t0 === 'TensorArrayReadV3' ? 63 : _context3.t0 === 'TensorArrayGatherV3' ? 67 : _context3.t0 === 'TensorArrayScatterV3' ? 72 : _context3.t0 === 'TensorArrayConcatV3' ? 78 : _context3.t0 === 'TensorArraySplitV3' ? 82 : _context3.t0 === 'TensorArraySizeV3' ? 88 : _context3.t0 === 'TensorArrayCloseV3' ? 91 : _context3.t0 === 'TensorListSetItem' ? 95 : _context3.t0 === 'TensorListGetItem' ? 101 : _context3.t0 === 'TensorListScatterV2' ? 107 : _context3.t0 === 'TensorListScatter' ? 107 : _context3.t0 === 'TensorListReserve' ? 114 : _context3.t0 === 'EmptyTensorList' ? 114 : _context3.t0 === 'TensorListGather' ? 122 : _context3.t0 === 'TensorListStack' ? 128 : _context3.t0 === 'TensorListFromTensor' ? 134 : _context3.t0 === 'TensorListConcat' ? 140 : _context3.t0 === 'TensorListConcatV2' ? 140 : _context3.t0 === 'TensorListPushBack' ? 145 : _context3.t0 === 'TensorListPopBack' ? 150 : _context3.t0 === 'TensorListSplit' ? 155 : _context3.t0 === 'TensorListLength' ? 161 : _context3.t0 === 'TensorListResize' ? 164 : 170;
 	            break;
 
 	          case 3:
@@ -87306,11 +88160,12 @@
 	            }
 
 	            _numElements = getParamValue(numElementsParam, node, tensorMap, context);
-	            _tensorList3 = reserve(_elementShape3, elementDtype, _numElements);
+	            maxNumElements = node.op === 'TensorListReserve' ? -1 : _numElements;
+	            _tensorList3 = reserve(_elementShape3, elementDtype, _numElements, maxNumElements);
 	            context.addTensorList(_tensorList3);
 	            return _context3.abrupt("return", [_tensorList3.idTensor]);
 
-	          case 121:
+	          case 122:
 	            _gatherId = getParamValue('tensorListId', node, tensorMap, context);
 	            _gatherIndices = getParamValue('indices', node, tensorMap, context);
 	            _elementShape4 = getParamValue('elementShape', node, tensorMap, context);
@@ -87318,7 +88173,7 @@
 	            _tensorList4 = context.getTensorList(_gatherId.id);
 	            return _context3.abrupt("return", [_tensorList4.gather(_gatherIndices, _elementDtype, _elementShape4)]);
 
-	          case 127:
+	          case 128:
 	            _idTensor2 = getParamValue('tensorListId', node, tensorMap, context);
 	            _elementShape5 = getParamValue('elementShape', node, tensorMap, context);
 	            _elementDtype2 = getParamValue('elementDType', node, tensorMap, context);
@@ -87326,7 +88181,7 @@
 	            _tensorList5 = context.getTensorList(_idTensor2.id);
 	            return _context3.abrupt("return", [_tensorList5.stack(_elementShape5, _elementDtype2, _numElements2)]);
 
-	          case 133:
+	          case 134:
 	            tensor = getParamValue('tensor', node, tensorMap, context);
 	            _elementShape6 = getParamValue('elementShape', node, tensorMap, context);
 	            _elementDtype3 = getParamValue('elementDType', node, tensorMap, context);
@@ -87334,14 +88189,14 @@
 	            context.addTensorList(_tensorList6);
 	            return _context3.abrupt("return", [_tensorList6.idTensor]);
 
-	          case 139:
+	          case 140:
 	            _concatId = getParamValue('tensorListId', node, tensorMap, context);
 	            _tensorList7 = context.getTensorList(_concatId.id);
 	            _concatDtype = getParamValue('dtype', node, tensorMap, context);
 	            _elementShape7 = getParamValue('elementShape', node, tensorMap, context);
 	            return _context3.abrupt("return", [_tensorList7.concat(_concatDtype, _elementShape7)]);
 
-	          case 144:
+	          case 145:
 	            _idTensor3 = getParamValue('tensorListId', node, tensorMap, context);
 	            _writeTensor2 = getParamValue('tensor', node, tensorMap, context);
 	            _tensorList8 = context.getTensorList(_idTensor3.id);
@@ -87350,14 +88205,14 @@
 
 	            return _context3.abrupt("return", [_tensorList8.idTensor]);
 
-	          case 149:
+	          case 150:
 	            _idTensor4 = getParamValue('tensorListId', node, tensorMap, context);
 	            _elementShape8 = getParamValue('elementShape', node, tensorMap, context);
 	            _elementDType = getParamValue('elementDType', node, tensorMap, context);
 	            _tensorList9 = context.getTensorList(_idTensor4.id);
 	            return _context3.abrupt("return", [_tensorList9.popBack(_elementShape8, _elementDType)]);
 
-	          case 154:
+	          case 155:
 	            _splitTensor = getParamValue('tensor', node, tensorMap, context);
 	            _elementShape9 = getParamValue('elementShape', node, tensorMap, context);
 	            _lengths = getParamValue('lengths', node, tensorMap, context);
@@ -87365,10 +88220,23 @@
 	            context.addTensorList(_tensorList10);
 	            return _context3.abrupt("return", [_tensorList10.idTensor]);
 
-	          case 160:
+	          case 161:
+	            _idTensor5 = getParamValue('tensorListId', node, tensorMap, context);
+	            _tensorList11 = context.getTensorList(_idTensor5.id);
+	            return _context3.abrupt("return", [scalar(_tensorList11.size(), 'int32')]);
+
+	          case 164:
+	            _idTensor6 = getParamValue('tensorListId', node, tensorMap, context);
+	            _size = getParamValue('size', node, tensorMap, context);
+	            srcTensorList = context.getTensorList(_idTensor6.id);
+	            destTensorList = srcTensorList.resize(_size);
+	            context.addTensorList(destTensorList);
+	            return _context3.abrupt("return", [destTensorList.idTensor]);
+
+	          case 170:
 	            throw TypeError("Node type " + node.op + " is not implemented");
 
-	          case 161:
+	          case 171:
 	          case "end":
 	            return _context3.stop();
 	        }
@@ -87451,7 +88319,11 @@
 	  };
 	}
 
-	var executeOp$3 = function executeOp(node, tensorMap, context) {
+	var executeOp$3 = function executeOp(node, tensorMap, context, ops) {
+	  if (ops === void 0) {
+	    ops = tfOps;
+	  }
+
 	  switch (node.op) {
 	    case 'Conv1D':
 	      {
@@ -87459,7 +88331,7 @@
 	        var pad = getParamValue('pad', node, tensorMap, context);
 	        var dataFormat = getParamValue('dataFormat', node, tensorMap, context).toUpperCase();
 	        var dilation = getParamValue('dilation', node, tensorMap, context);
-	        return [conv1d(getParamValue('x', node, tensorMap, context), getParamValue('filter', node, tensorMap, context), stride, pad, dataFormat, dilation)];
+	        return [ops.conv1d(getParamValue('x', node, tensorMap, context), getParamValue('filter', node, tensorMap, context), stride, pad, dataFormat, dilation)];
 	      }
 
 	    case 'Conv2D':
@@ -87471,7 +88343,7 @@
 	        var _dataFormat = getParamValue('dataFormat', node, tensorMap, context).toUpperCase();
 
 	        var dilations = getParamValue('dilations', node, tensorMap, context);
-	        return [conv2d(getParamValue('x', node, tensorMap, context), getParamValue('filter', node, tensorMap, context), [_stride[1], _stride[2]], _pad, _dataFormat, [dilations[1], dilations[2]])];
+	        return [ops.conv2d(getParamValue('x', node, tensorMap, context), getParamValue('filter', node, tensorMap, context), [_stride[1], _stride[2]], _pad, _dataFormat, [dilations[1], dilations[2]])];
 	      }
 
 	    case '_FusedConv2D':
@@ -87486,7 +88358,7 @@
 	            activationFunc = _fusedConvAndDepthWis.activationFunc,
 	            leakyreluAlpha = _fusedConvAndDepthWis.leakyreluAlpha;
 
-	        return [conv2d$1({
+	        return [ops.fused.conv2d({
 	          x: getParamValue('x', node, tensorMap, context),
 	          filter: getParamValue('filter', node, tensorMap, context),
 	          strides: [_stride2[1], _stride2[2]],
@@ -87512,7 +88384,7 @@
 	            _activationFunc = _fusedConvAndDepthWis2.activationFunc,
 	            _leakyreluAlpha = _fusedConvAndDepthWis2.leakyreluAlpha;
 
-	        return [depthwiseConv2d$1({
+	        return [ops.fused.depthwiseConv2d({
 	          x: getParamValue('x', node, tensorMap, context),
 	          filter: getParamValue('filter', node, tensorMap, context),
 	          strides: [_stride3[1], _stride3[2]],
@@ -87535,7 +88407,7 @@
 
 	        var _pad4 = getPadding(node, tensorMap, context);
 
-	        return [conv2dTranspose(getParamValue('x', node, tensorMap, context), getParamValue('filter', node, tensorMap, context), shape, [_stride4[1], _stride4[2]], _pad4)];
+	        return [ops.conv2dTranspose(getParamValue('x', node, tensorMap, context), getParamValue('filter', node, tensorMap, context), shape, [_stride4[1], _stride4[2]], _pad4)];
 	      }
 
 	    case 'DepthwiseConv2dNative':
@@ -87549,7 +88421,7 @@
 
 	        var _dataFormat4 = getParamValue('dataFormat', node, tensorMap, context).toUpperCase();
 
-	        return [depthwiseConv2d(getParamValue('input', node, tensorMap, context), getParamValue('filter', node, tensorMap, context), [_stride5[1], _stride5[2]], _pad5, _dataFormat4, [_dilations3[1], _dilations3[2]])];
+	        return [ops.depthwiseConv2d(getParamValue('input', node, tensorMap, context), getParamValue('filter', node, tensorMap, context), [_stride5[1], _stride5[2]], _pad5, _dataFormat4, [_dilations3[1], _dilations3[2]])];
 	      }
 
 	    case 'Conv3D':
@@ -87562,7 +88434,7 @@
 
 	        var _dilations4 = getParamValue('dilations', node, tensorMap, context);
 
-	        return [conv3d(getParamValue('x', node, tensorMap, context), getParamValue('filter', node, tensorMap, context), [_stride6[1], _stride6[2], _stride6[3]], _pad6, _dataFormat5, [_dilations4[1], _dilations4[2], _dilations4[3]])];
+	        return [ops.conv3d(getParamValue('x', node, tensorMap, context), getParamValue('filter', node, tensorMap, context), [_stride6[1], _stride6[2], _stride6[3]], _pad6, _dataFormat5, [_dilations4[1], _dilations4[2], _dilations4[3]])];
 	      }
 
 	    case 'AvgPool':
@@ -87572,7 +88444,7 @@
 	        var _pad7 = getParamValue('pad', node, tensorMap, context);
 
 	        var kernelSize = getParamValue('kernelSize', node, tensorMap, context);
-	        return [avgPool(getParamValue('x', node, tensorMap, context), [kernelSize[1], kernelSize[2]], [_stride7[1], _stride7[2]], _pad7)];
+	        return [ops.avgPool(getParamValue('x', node, tensorMap, context), [kernelSize[1], kernelSize[2]], [_stride7[1], _stride7[2]], _pad7)];
 	      }
 
 	    case 'MaxPool':
@@ -87583,7 +88455,7 @@
 
 	        var _kernelSize = getParamValue('kernelSize', node, tensorMap, context);
 
-	        return [maxPool(getParamValue('x', node, tensorMap, context), [_kernelSize[1], _kernelSize[2]], [_stride8[1], _stride8[2]], _pad8)];
+	        return [ops.maxPool(getParamValue('x', node, tensorMap, context), [_kernelSize[1], _kernelSize[2]], [_stride8[1], _stride8[2]], _pad8)];
 	      }
 
 	    case 'MaxPoolWithArgmax':
@@ -87596,9 +88468,9 @@
 
 	        var includeBatchInIndex = getParamValue('includeBatchInIndex', node, tensorMap, context);
 
-	        var _tfOps$maxPoolWithArg = maxPoolWithArgmax(getParamValue('x', node, tensorMap, context), [_kernelSize2[1], _kernelSize2[2]], [_stride9[1], _stride9[2]], _pad9, includeBatchInIndex),
-	            result = _tfOps$maxPoolWithArg.result,
-	            indexes = _tfOps$maxPoolWithArg.indexes;
+	        var _ops$maxPoolWithArgma = ops.maxPoolWithArgmax(getParamValue('x', node, tensorMap, context), [_kernelSize2[1], _kernelSize2[2]], [_stride9[1], _stride9[2]], _pad9, includeBatchInIndex),
+	            result = _ops$maxPoolWithArgma.result,
+	            indexes = _ops$maxPoolWithArgma.indexes;
 
 	        return [result, indexes];
 	      }
@@ -87611,7 +88483,7 @@
 
 	        var _kernelSize3 = getParamValue('kernelSize', node, tensorMap, context);
 
-	        return [avgPool3d(getParamValue('x', node, tensorMap, context), [_kernelSize3[1], _kernelSize3[2], _kernelSize3[3]], [_stride10[1], _stride10[2], _stride10[3]], _pad10)];
+	        return [ops.avgPool3d(getParamValue('x', node, tensorMap, context), [_kernelSize3[1], _kernelSize3[2], _kernelSize3[3]], [_stride10[1], _stride10[2], _stride10[3]], _pad10)];
 	      }
 
 	    case 'MaxPool3D':
@@ -87622,7 +88494,7 @@
 
 	        var _kernelSize4 = getParamValue('kernelSize', node, tensorMap, context);
 
-	        return [maxPool3d(getParamValue('x', node, tensorMap, context), [_kernelSize4[1], _kernelSize4[2], _kernelSize4[3]], [_stride11[1], _stride11[2], _stride11[3]], _pad11)];
+	        return [ops.maxPool3d(getParamValue('x', node, tensorMap, context), [_kernelSize4[1], _kernelSize4[2], _kernelSize4[3]], [_stride11[1], _stride11[2], _stride11[3]], _pad11)];
 	      }
 
 	    case 'Dilation2D':
@@ -87639,7 +88511,7 @@
 
 	        var dilationHeight = _dilations5[1];
 	        var dilationWidth = _dilations5[2];
-	        return [dilation2d(getParamValue('x', node, tensorMap, context), getParamValue('filter', node, tensorMap, context), [strideHeight, strideWidth], _pad12, [dilationHeight, dilationWidth], 'NHWC'
+	        return [ops.dilation2d(getParamValue('x', node, tensorMap, context), getParamValue('filter', node, tensorMap, context), [strideHeight, strideWidth], _pad12, [dilationHeight, dilationWidth], 'NHWC'
 	        /* dataFormat */
 	        )];
 	      }
@@ -87666,14 +88538,18 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var executeOp$4 = function executeOp(node, tensorMap, context) {
+	var executeOp$4 = function executeOp(node, tensorMap, context, ops) {
+	  if (ops === void 0) {
+	    ops = tfOps;
+	  }
+
 	  switch (node.op) {
 	    case 'Fill':
 	      {
 	        var shape = getParamValue('shape', node, tensorMap, context);
 	        var dtype = getParamValue('dtype', node, tensorMap, context);
 	        var value = getParamValue('value', node, tensorMap, context);
-	        return [fill(shape, value, dtype)];
+	        return [ops.fill(shape, value, dtype)];
 	      }
 
 	    case 'LinSpace':
@@ -87681,7 +88557,7 @@
 	        var start = getParamValue('start', node, tensorMap, context);
 	        var stop = getParamValue('stop', node, tensorMap, context);
 	        var num = getParamValue('num', node, tensorMap, context);
-	        return [linspace(start, stop, num)];
+	        return [ops.linspace(start, stop, num)];
 	      }
 
 	    case 'Multinomial':
@@ -87689,7 +88565,7 @@
 	        var logits = getParamValue('logits', node, tensorMap, context);
 	        var numSamples = getParamValue('numSamples', node, tensorMap, context);
 	        var seed = getParamValue('seed', node, tensorMap, context);
-	        return [multinomial(logits, numSamples, seed)];
+	        return [ops.multinomial(logits, numSamples, seed)];
 	      }
 
 	    case 'OneHot':
@@ -87698,22 +88574,27 @@
 	        var depth = getParamValue('depth', node, tensorMap, context);
 	        var onValue = getParamValue('onValue', node, tensorMap, context);
 	        var offValue = getParamValue('offValue', node, tensorMap, context);
-	        return [oneHot(indices, depth, onValue, offValue)];
+	        return [ops.oneHot(indices, depth, onValue, offValue)];
 	      }
 
 	    case 'Ones':
 	      {
-	        return [ones$1(getParamValue('shape', node, tensorMap, context), getParamValue('dtype', node, tensorMap, context))];
+	        return [ops.ones(getParamValue('shape', node, tensorMap, context), getParamValue('dtype', node, tensorMap, context))];
 	      }
 
 	    case 'OnesLike':
 	      {
-	        return [onesLike(getParamValue('x', node, tensorMap, context))];
+	        return [ops.onesLike(getParamValue('x', node, tensorMap, context))];
+	      }
+
+	    case 'RandomStandardNormal':
+	      {
+	        return [ops.randomStandardNormal(getParamValue('shape', node, tensorMap, context), getParamValue('dtype', node, tensorMap, context), getParamValue('seed', node, tensorMap, context))];
 	      }
 
 	    case 'RandomUniform':
 	      {
-	        return [randomUniform( // tslint:disable-next-line:no-any
+	        return [ops.randomUniform( // tslint:disable-next-line:no-any
 	        getParamValue('shape', node, tensorMap, context), getParamValue('minval', node, tensorMap, context), getParamValue('maxval', node, tensorMap, context), getParamValue('dtype', node, tensorMap, context))];
 	      }
 
@@ -87724,7 +88605,7 @@
 	        var _stop = getParamValue('stop', node, tensorMap, context);
 
 	        var step = getParamValue('step', node, tensorMap, context);
-	        return [range(_start, _stop, step, getParamValue('dtype', node, tensorMap, context))];
+	        return [ops.range(_start, _stop, step, getParamValue('dtype', node, tensorMap, context))];
 	      }
 
 	    case 'TruncatedNormal':
@@ -87736,17 +88617,17 @@
 
 	        var _seed = getParamValue('seed', node, tensorMap, context);
 
-	        return [truncatedNormal(_shape, mean, stdDev, getParamValue('dtype', node, tensorMap, context), _seed)];
+	        return [ops.truncatedNormal(_shape, mean, stdDev, getParamValue('dtype', node, tensorMap, context), _seed)];
 	      }
 
 	    case 'Zeros':
 	      {
-	        return [zeros(getParamValue('shape', node, tensorMap, context), getParamValue('dtype', node, tensorMap, context))];
+	        return [ops.zeros(getParamValue('shape', node, tensorMap, context), getParamValue('dtype', node, tensorMap, context))];
 	      }
 
 	    case 'ZerosLike':
 	      {
-	        return [zerosLike(getParamValue('x', node, tensorMap, context))];
+	        return [ops.zerosLike(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    default:
@@ -87773,63 +88654,67 @@
 	}
 
 	var executeOp$5 = /*#__PURE__*/function () {
-	  var _ref = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(node, tensorMap, context) {
+	  var _ref = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(node, tensorMap, context, resourceManager, ops) {
 	    var _nmsParams, boxes, scores, maxOutputSize, iouThreshold, scoreThreshold, softNmsSigma, result, _nmsParams2, _boxes, _scores, _maxOutputSize, _iouThreshold, _scoreThreshold, padToMaxOutputSize, _result, _nmsParams3, _boxes2, _scores2, _maxOutputSize2, _iouThreshold2, _scoreThreshold2, condition, _result2;
 
 	    return regeneratorRuntime.wrap(function _callee$(_context) {
 	      while (1) {
 	        switch (_context.prev = _context.next) {
 	          case 0:
+	            if (ops === void 0) {
+	              ops = tfOps;
+	            }
+
 	            _context.t0 = node.op;
-	            _context.next = _context.t0 === 'NonMaxSuppressionV5' ? 3 : _context.t0 === 'NonMaxSuppressionV4' ? 8 : _context.t0 === 'NonMaxSuppressionV3' ? 14 : _context.t0 === 'NonMaxSuppressionV2' ? 14 : _context.t0 === 'Where' ? 19 : _context.t0 === 'ListDiff' ? 26 : 27;
+	            _context.next = _context.t0 === 'NonMaxSuppressionV5' ? 4 : _context.t0 === 'NonMaxSuppressionV4' ? 9 : _context.t0 === 'NonMaxSuppressionV3' ? 15 : _context.t0 === 'NonMaxSuppressionV2' ? 15 : _context.t0 === 'Where' ? 20 : _context.t0 === 'ListDiff' ? 27 : 28;
 	            break;
 
-	          case 3:
+	          case 4:
 	            _nmsParams = nmsParams(node, tensorMap, context), boxes = _nmsParams.boxes, scores = _nmsParams.scores, maxOutputSize = _nmsParams.maxOutputSize, iouThreshold = _nmsParams.iouThreshold, scoreThreshold = _nmsParams.scoreThreshold, softNmsSigma = _nmsParams.softNmsSigma;
-	            _context.next = 6;
-	            return image.nonMaxSuppressionWithScoreAsync(boxes, scores, maxOutputSize, iouThreshold, scoreThreshold, softNmsSigma);
+	            _context.next = 7;
+	            return ops.image.nonMaxSuppressionWithScoreAsync(boxes, scores, maxOutputSize, iouThreshold, scoreThreshold, softNmsSigma);
 
-	          case 6:
+	          case 7:
 	            result = _context.sent;
 	            return _context.abrupt("return", [result.selectedIndices, result.selectedScores]);
 
-	          case 8:
+	          case 9:
 	            _nmsParams2 = nmsParams(node, tensorMap, context), _boxes = _nmsParams2.boxes, _scores = _nmsParams2.scores, _maxOutputSize = _nmsParams2.maxOutputSize, _iouThreshold = _nmsParams2.iouThreshold, _scoreThreshold = _nmsParams2.scoreThreshold;
 	            padToMaxOutputSize = getParamValue('padToMaxOutputSize', node, tensorMap, context);
-	            _context.next = 12;
-	            return image.nonMaxSuppressionPaddedAsync(_boxes, _scores, _maxOutputSize, _iouThreshold, _scoreThreshold, padToMaxOutputSize);
+	            _context.next = 13;
+	            return ops.image.nonMaxSuppressionPaddedAsync(_boxes, _scores, _maxOutputSize, _iouThreshold, _scoreThreshold, padToMaxOutputSize);
 
-	          case 12:
+	          case 13:
 	            _result = _context.sent;
 	            return _context.abrupt("return", [_result.selectedIndices, _result.validOutputs]);
 
-	          case 14:
+	          case 15:
 	            _nmsParams3 = nmsParams(node, tensorMap, context), _boxes2 = _nmsParams3.boxes, _scores2 = _nmsParams3.scores, _maxOutputSize2 = _nmsParams3.maxOutputSize, _iouThreshold2 = _nmsParams3.iouThreshold, _scoreThreshold2 = _nmsParams3.scoreThreshold;
-	            _context.next = 17;
-	            return image.nonMaxSuppressionAsync(_boxes2, _scores2, _maxOutputSize2, _iouThreshold2, _scoreThreshold2);
+	            _context.next = 18;
+	            return ops.image.nonMaxSuppressionAsync(_boxes2, _scores2, _maxOutputSize2, _iouThreshold2, _scoreThreshold2);
 
-	          case 17:
+	          case 18:
 	            _context.t1 = _context.sent;
 	            return _context.abrupt("return", [_context.t1]);
 
-	          case 19:
-	            condition = cast(getParamValue('condition', node, tensorMap, context), 'bool');
-	            _context.next = 22;
-	            return whereAsync(condition);
+	          case 20:
+	            condition = ops.cast(getParamValue('condition', node, tensorMap, context), 'bool');
+	            _context.next = 23;
+	            return ops.whereAsync(condition);
 
-	          case 22:
+	          case 23:
 	            _context.t2 = _context.sent;
 	            _result2 = [_context.t2];
 	            condition.dispose();
 	            return _context.abrupt("return", _result2);
 
-	          case 26:
-	            return _context.abrupt("return", setdiff1dAsync(getParamValue('x', node, tensorMap, context), getParamValue('y', node, tensorMap, context)));
-
 	          case 27:
-	            throw TypeError("Node type " + node.op + " is not implemented");
+	            return _context.abrupt("return", ops.setdiff1dAsync(getParamValue('x', node, tensorMap, context), getParamValue('y', node, tensorMap, context)));
 
 	          case 28:
+	            throw TypeError("Node type " + node.op + " is not implemented");
+
+	          case 29:
 	          case "end":
 	            return _context.stop();
 	        }
@@ -87837,7 +88722,7 @@
 	    }, _callee);
 	  }));
 
-	  return function executeOp(_x, _x2, _x3) {
+	  return function executeOp(_x, _x2, _x3, _x4, _x5) {
 	    return _ref.apply(this, arguments);
 	  };
 	}();
@@ -87859,22 +88744,42 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var executeOp$6 = function executeOp(node, tensorMap, context) {
+	var executeOp$6 = function executeOp(node, tensorMap, context, ops) {
+	  if (ops === void 0) {
+	    ops = tfOps;
+	  }
+
 	  switch (node.op) {
+	    case 'LowerBound':
+	      {
+	        var sortedSequence = getParamValue('sortedSequence', node, tensorMap, context);
+	        var values = getParamValue('values', node, tensorMap, context);
+	        return [ops.lowerBound(sortedSequence, values)];
+	      }
+
 	    case 'TopKV2':
 	      {
 	        var x = getParamValue('x', node, tensorMap, context);
 	        var k = getParamValue('k', node, tensorMap, context);
 	        var sorted = getParamValue('sorted', node, tensorMap, context);
-	        var result = topk(x, k, sorted);
+	        var result = ops.topk(x, k, sorted);
 	        return [result.values, result.indices];
+	      }
+
+	    case 'UpperBound':
+	      {
+	        var _sortedSequence = getParamValue('sortedSequence', node, tensorMap, context);
+
+	        var _values = getParamValue('values', node, tensorMap, context);
+
+	        return [ops.upperBound(_sortedSequence, _values)];
 	      }
 
 	    case 'Unique':
 	      {
 	        var _x = getParamValue('x', node, tensorMap, context);
 
-	        var _result = unique(_x);
+	        var _result = ops.unique(_x);
 
 	        return [_result.values, _result.indices];
 	      }
@@ -87885,7 +88790,7 @@
 
 	        var axis = getParamValue('axis', node, tensorMap, context);
 
-	        var _result2 = unique(_x2, axis);
+	        var _result2 = ops.unique(_x2, axis);
 
 	        return [_result2.values, _result2.indices];
 	      }
@@ -87912,7 +88817,11 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var executeOp$7 = function executeOp(node, tensorMap, context) {
+	var executeOp$7 = function executeOp(node, tensorMap, context, ops) {
+	  if (ops === void 0) {
+	    ops = tfOps;
+	  }
+
 	  switch (node.op) {
 	    case 'Const':
 	      {
@@ -87946,21 +88855,21 @@
 	      return [cloneTensor(snapshot)];
 
 	    case 'Shape':
-	      return [tensor1d(getParamValue('x', node, tensorMap, context).shape, 'int32')];
+	      return [ops.tensor1d(getParamValue('x', node, tensorMap, context).shape, 'int32')];
 
 	    case 'ShapeN':
 	      return getParamValue('x', node, tensorMap, context).map(function (t) {
-	        return tensor1d(t.shape);
+	        return ops.tensor1d(t.shape);
 	      });
 
 	    case 'Size':
-	      return [scalar(getParamValue('x', node, tensorMap, context).size, 'int32')];
+	      return [ops.scalar(getParamValue('x', node, tensorMap, context).size, 'int32')];
 
 	    case 'Rank':
-	      return [scalar(getParamValue('x', node, tensorMap, context).rank, 'int32')];
+	      return [ops.scalar(getParamValue('x', node, tensorMap, context).rank, 'int32')];
 
 	    case 'NoOp':
-	      return [scalar(1)];
+	      return [ops.scalar(1)];
 
 	    case 'Print':
 	      var input = getParamValue('x', node, tensorMap, context);
@@ -88264,7 +89173,11 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var executeOp$9 = function executeOp(node, tensorMap, context) {
+	var executeOp$9 = function executeOp(node, tensorMap, context, ops) {
+	  if (ops === void 0) {
+	    ops = tfOps;
+	  }
+
 	  switch (node.op) {
 	    case 'ResizeBilinear':
 	      {
@@ -88272,7 +89185,7 @@
 	        var size = getParamValue('size', node, tensorMap, context);
 	        var alignCorners = getParamValue('alignCorners', node, tensorMap, context);
 	        var halfPixelCenters = getParamValue('halfPixelCenters', node, tensorMap, context);
-	        return [image.resizeBilinear(images, [size[0], size[1]], alignCorners, halfPixelCenters)];
+	        return [ops.image.resizeBilinear(images, [size[0], size[1]], alignCorners, halfPixelCenters)];
 	      }
 
 	    case 'ResizeNearestNeighbor':
@@ -88285,18 +89198,18 @@
 
 	        var _halfPixelCenters = getParamValue('halfPixelCenters', node, tensorMap, context);
 
-	        return [image.resizeNearestNeighbor(_images, [_size[0], _size[1]], _alignCorners, _halfPixelCenters)];
+	        return [ops.image.resizeNearestNeighbor(_images, [_size[0], _size[1]], _alignCorners, _halfPixelCenters)];
 	      }
 
 	    case 'CropAndResize':
 	      {
-	        var image$1 = getParamValue('image', node, tensorMap, context);
+	        var image = getParamValue('image', node, tensorMap, context);
 	        var boxes = getParamValue('boxes', node, tensorMap, context);
 	        var boxInd = getParamValue('boxInd', node, tensorMap, context);
 	        var cropSize = getParamValue('cropSize', node, tensorMap, context);
 	        var method = getParamValue('method', node, tensorMap, context);
 	        var extrapolationValue = getParamValue('extrapolationValue', node, tensorMap, context);
-	        return [image.cropAndResize(image$1, boxes, boxInd, cropSize, method, extrapolationValue)];
+	        return [ops.image.cropAndResize(image, boxes, boxInd, cropSize, method, extrapolationValue)];
 	      }
 
 	    case 'ImageProjectiveTransformV3':
@@ -88308,7 +89221,7 @@
 	        var fillValue = getParamValue('fillValue', node, tensorMap, context);
 	        var interpolation = getParamValue('interpolation', node, tensorMap, context);
 	        var fillMode = getParamValue('fillMode', node, tensorMap, context);
-	        return [image.transform(_images2, transforms, interpolation.toLowerCase(), fillMode.toLowerCase(), fillValue, outputShape)];
+	        return [ops.image.transform(_images2, transforms, interpolation.toLowerCase(), fillMode.toLowerCase(), fillValue, outputShape)];
 	      }
 
 	    default:
@@ -88333,57 +89246,61 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var executeOp$a = function executeOp(node, tensorMap, context) {
+	var executeOp$a = function executeOp(node, tensorMap, context, ops) {
+	  if (ops === void 0) {
+	    ops = tfOps;
+	  }
+
 	  switch (node.op) {
 	    case 'Equal':
 	      {
-	        return [equal(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.equal(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    case 'NotEqual':
 	      {
-	        return [notEqual(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.notEqual(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    case 'Greater':
 	      {
-	        return [greater(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.greater(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    case 'GreaterEqual':
 	      {
-	        return [greaterEqual(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.greaterEqual(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    case 'Less':
 	      {
-	        return [less(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.less(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    case 'LessEqual':
 	      {
-	        return [lessEqual(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.lessEqual(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    case 'LogicalAnd':
 	      {
-	        return [logicalAnd(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.logicalAnd(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    case 'LogicalNot':
 	      {
-	        return [logicalNot(getParamValue('a', node, tensorMap, context))];
+	        return [ops.logicalNot(getParamValue('a', node, tensorMap, context))];
 	      }
 
 	    case 'LogicalOr':
 	      {
-	        return [logicalOr(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.logicalOr(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    case 'Select':
 	    case 'SelectV2':
 	      {
-	        return [where(getParamValue('condition', node, tensorMap, context), getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
+	        return [ops.where(getParamValue('condition', node, tensorMap, context), getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context))];
 	      }
 
 	    default:
@@ -88408,18 +89325,24 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var executeOp$b = function executeOp(node, tensorMap, context) {
+	var executeOp$b = function executeOp(node, tensorMap, context, ops) {
+	  var _ops;
+
+	  if (ops === void 0) {
+	    ops = tfOps;
+	  }
+
 	  switch (node.op) {
 	    case 'BatchMatMul':
 	    case 'BatchMatMulV2':
 	    case 'MatMul':
-	      return [matMul(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context), getParamValue('transposeA', node, tensorMap, context), getParamValue('transposeB', node, tensorMap, context))];
+	      return [ops.matMul(getParamValue('a', node, tensorMap, context), getParamValue('b', node, tensorMap, context), getParamValue('transposeA', node, tensorMap, context), getParamValue('transposeB', node, tensorMap, context))];
 
 	    case 'Einsum':
-	      return [einsum.apply(tfOps, [getParamValue('equation', node, tensorMap, context)].concat(getParamValue('tensors', node, tensorMap, context)))];
+	      return [(_ops = ops).einsum.apply(_ops, [getParamValue('equation', node, tensorMap, context)].concat(getParamValue('tensors', node, tensorMap, context)))];
 
 	    case 'Transpose':
-	      return [transpose(getParamValue('x', node, tensorMap, context), getParamValue('perm', node, tensorMap, context))];
+	      return [ops.transpose(getParamValue('x', node, tensorMap, context), getParamValue('perm', node, tensorMap, context))];
 
 	    case '_FusedMatMul':
 	      var _getParamValue = getParamValue('fusedOps', node, tensorMap, context),
@@ -88445,7 +89368,7 @@
 	          biasArg = _getParamValue2[0],
 	          preluArg = _getParamValue2[1];
 
-	      return [matMul$1({
+	      return [ops.fused.matMul({
 	        a: getParamValue('a', node, tensorMap, context),
 	        b: getParamValue('b', node, tensorMap, context),
 	        transposeA: getParamValue('transposeA', node, tensorMap, context),
@@ -88478,37 +89401,44 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var executeOp$c = function executeOp(node, tensorMap, context) {
+	var executeOp$c = function executeOp(node, tensorMap, context, ops) {
+	  if (ops === void 0) {
+	    ops = tfOps;
+	  }
+
 	  switch (node.op) {
+	    case 'EuclideanNorm':
+	      return [ops.euclideanNorm(getParamValue('x', node, tensorMap, context), getParamValue('axis', node, tensorMap, context), getParamValue('keepDims', node, tensorMap, context))];
+
 	    case 'FusedBatchNorm':
 	    case 'FusedBatchNormV2':
 	      {
-	        return [batchNorm(getParamValue('x', node, tensorMap, context), getParamValue('mean', node, tensorMap, context), getParamValue('variance', node, tensorMap, context), getParamValue('offset', node, tensorMap, context), getParamValue('scale', node, tensorMap, context), getParamValue('epsilon', node, tensorMap, context))];
+	        return [ops.batchNorm(getParamValue('x', node, tensorMap, context), getParamValue('mean', node, tensorMap, context), getParamValue('variance', node, tensorMap, context), getParamValue('offset', node, tensorMap, context), getParamValue('scale', node, tensorMap, context), getParamValue('epsilon', node, tensorMap, context))];
 	      }
 
 	    case 'FusedBatchNormV3':
 	      {
-	        return [batchNorm(getParamValue('x', node, tensorMap, context), getParamValue('mean', node, tensorMap, context), getParamValue('variance', node, tensorMap, context), getParamValue('offset', node, tensorMap, context), getParamValue('scale', node, tensorMap, context), getParamValue('epsilon', node, tensorMap, context))];
+	        return [ops.batchNorm(getParamValue('x', node, tensorMap, context), getParamValue('mean', node, tensorMap, context), getParamValue('variance', node, tensorMap, context), getParamValue('offset', node, tensorMap, context), getParamValue('scale', node, tensorMap, context), getParamValue('epsilon', node, tensorMap, context))];
 	      }
 
 	    case 'LRN':
 	      {
-	        return [localResponseNormalization(getParamValue('x', node, tensorMap, context), getParamValue('radius', node, tensorMap, context), getParamValue('bias', node, tensorMap, context), getParamValue('alpha', node, tensorMap, context), getParamValue('beta', node, tensorMap, context))];
+	        return [ops.localResponseNormalization(getParamValue('x', node, tensorMap, context), getParamValue('radius', node, tensorMap, context), getParamValue('bias', node, tensorMap, context), getParamValue('alpha', node, tensorMap, context), getParamValue('beta', node, tensorMap, context))];
 	      }
 
 	    case 'Softmax':
 	      {
-	        return [softmax(getParamValue('x', node, tensorMap, context))];
+	        return [ops.softmax(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    case 'LogSoftmax':
 	      {
-	        return [logSoftmax(getParamValue('x', node, tensorMap, context))];
+	        return [ops.logSoftmax(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    case 'SparseToDense':
 	      {
-	        return [sparseToDense(getParamValue('sparseIndices', node, tensorMap, context), getParamValue('outputShape', node, tensorMap, context), getParamValue('sparseValues', node, tensorMap, context), getParamValue('defaultValue', node, tensorMap, context))];
+	        return [ops.sparseToDense(getParamValue('sparseIndices', node, tensorMap, context), getParamValue('outputShape', node, tensorMap, context), getParamValue('sparseValues', node, tensorMap, context), getParamValue('defaultValue', node, tensorMap, context))];
 	      }
 
 	    default:
@@ -88533,13 +89463,17 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var executeOp$d = function executeOp(node, tensorMap, context) {
+	var executeOp$d = function executeOp(node, tensorMap, context, ops) {
+	  if (ops === void 0) {
+	    ops = tfOps;
+	  }
+
 	  switch (node.op) {
 	    case 'Max':
 	      {
 	        var axis = getParamValue('axis', node, tensorMap, context);
 	        var keepDims = getParamValue('keepDims', node, tensorMap, context);
-	        return [max$5(getParamValue('x', node, tensorMap, context), axis, keepDims)];
+	        return [ops.max(getParamValue('x', node, tensorMap, context), axis, keepDims)];
 	      }
 
 	    case 'Mean':
@@ -88548,7 +89482,7 @@
 
 	        var _keepDims = getParamValue('keepDims', node, tensorMap, context);
 
-	        return [mean(getParamValue('x', node, tensorMap, context), _axis, _keepDims)];
+	        return [ops.mean(getParamValue('x', node, tensorMap, context), _axis, _keepDims)];
 	      }
 
 	    case 'Min':
@@ -88557,7 +89491,7 @@
 
 	        var _keepDims2 = getParamValue('keepDims', node, tensorMap, context);
 
-	        return [min$9(getParamValue('x', node, tensorMap, context), _axis2, _keepDims2)];
+	        return [ops.min(getParamValue('x', node, tensorMap, context), _axis2, _keepDims2)];
 	      }
 
 	    case 'Sum':
@@ -88566,7 +89500,7 @@
 
 	        var _keepDims3 = getParamValue('keepDims', node, tensorMap, context);
 
-	        return [sum$1(getParamValue('x', node, tensorMap, context), _axis3, _keepDims3)];
+	        return [ops.sum(getParamValue('x', node, tensorMap, context), _axis3, _keepDims3)];
 	      }
 
 	    case 'All':
@@ -88575,7 +89509,7 @@
 
 	        var _keepDims4 = getParamValue('keepDims', node, tensorMap, context);
 
-	        return [all(getParamValue('x', node, tensorMap, context), _axis4, _keepDims4)];
+	        return [ops.all(getParamValue('x', node, tensorMap, context), _axis4, _keepDims4)];
 	      }
 
 	    case 'Any':
@@ -88584,21 +89518,21 @@
 
 	        var _keepDims5 = getParamValue('keepDims', node, tensorMap, context);
 
-	        return [any(getParamValue('x', node, tensorMap, context), _axis5, _keepDims5)];
+	        return [ops.any(getParamValue('x', node, tensorMap, context), _axis5, _keepDims5)];
 	      }
 
 	    case 'ArgMax':
 	      {
 	        var _axis6 = getParamValue('axis', node, tensorMap, context);
 
-	        return [argMax(getParamValue('x', node, tensorMap, context), _axis6)];
+	        return [ops.argMax(getParamValue('x', node, tensorMap, context), _axis6)];
 	      }
 
 	    case 'ArgMin':
 	      {
 	        var _axis7 = getParamValue('axis', node, tensorMap, context);
 
-	        return [argMin(getParamValue('x', node, tensorMap, context), _axis7)];
+	        return [ops.argMin(getParamValue('x', node, tensorMap, context), _axis7)];
 	      }
 
 	    case 'Prod':
@@ -88607,7 +89541,7 @@
 
 	        var _keepDims6 = getParamValue('keepDims', node, tensorMap, context);
 
-	        return [prod(getParamValue('x', node, tensorMap, context), _axis8, _keepDims6)];
+	        return [ops.prod(getParamValue('x', node, tensorMap, context), _axis8, _keepDims6)];
 	      }
 
 	    case 'Cumprod':
@@ -88616,7 +89550,7 @@
 
 	        var exclusive = getParamValue('exclusive', node, tensorMap, context);
 	        var reverse = getParamValue('reverse', node, tensorMap, context);
-	        return [cumprod(getParamValue('x', node, tensorMap, context), _axis9, exclusive, reverse)];
+	        return [ops.cumprod(getParamValue('x', node, tensorMap, context), _axis9, exclusive, reverse)];
 	      }
 
 	    case 'Cumsum':
@@ -88627,14 +89561,14 @@
 
 	        var _reverse = getParamValue('reverse', node, tensorMap, context);
 
-	        return [cumsum(getParamValue('x', node, tensorMap, context), _axis10, _exclusive, _reverse)];
+	        return [ops.cumsum(getParamValue('x', node, tensorMap, context), _axis10, _exclusive, _reverse)];
 	      }
 
 	    case 'Bincount':
 	      var x = getParamValue('x', node, tensorMap, context);
 	      var weights = getParamValue('weights', node, tensorMap, context);
 	      var size = getParamValue('size', node, tensorMap, context);
-	      return [bincount(x, weights, size)];
+	      return [ops.bincount(x, weights, size)];
 
 	    case 'DenseBincount':
 	      {
@@ -88645,7 +89579,7 @@
 	        var _size = getParamValue('size', node, tensorMap, context);
 
 	        var binaryOutput = getParamValue('binaryOutput', node, tensorMap, context);
-	        return [denseBincount(_x, _weights, _size, binaryOutput)];
+	        return [ops.denseBincount(_x, _weights, _size, binaryOutput)];
 	      }
 
 	    default:
@@ -88670,7 +89604,11 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var executeOp$e = function executeOp(node, tensorMap, context) {
+	var executeOp$e = function executeOp(node, tensorMap, context, ops) {
+	  if (ops === void 0) {
+	    ops = tfOps;
+	  }
+
 	  switch (node.op) {
 	    case 'ConcatV2':
 	    case 'Concat':
@@ -88679,14 +89617,14 @@
 	        var axis = getParamValue('axis', node, tensorMap, context);
 	        var inputs = getParamValue('tensors', node, tensorMap, context);
 	        inputs = inputs.slice(0, n);
-	        return [concat(inputs, axis)];
+	        return [ops.concat(inputs, axis)];
 	      }
 
 	    case 'Gather':
 	      {
 	        var input = getParamValue('x', node, tensorMap, context);
 	        var indices = getParamValue('indices', node, tensorMap, context);
-	        return [gather(input, cast(indices, 'int32'), 0)];
+	        return [ops.gather(input, ops.cast(indices, 'int32'), 0)];
 	      }
 
 	    case 'GatherV2':
@@ -88699,7 +89637,7 @@
 
 	        var _indices = getParamValue('indices', node, tensorMap, context);
 
-	        return [gather(_input, cast(_indices, 'int32'), _axis, batchDims)];
+	        return [ops.gather(_input, ops.cast(_indices, 'int32'), _axis, batchDims)];
 	      }
 
 	    case 'Reverse':
@@ -88715,7 +89653,7 @@
 
 	        var _input2 = getParamValue('x', node, tensorMap, context);
 
-	        return [reverse(_input2, _axis2)];
+	        return [ops.reverse(_input2, _axis2)];
 	      }
 
 	    case 'ReverseV2':
@@ -88724,7 +89662,7 @@
 
 	        var _input3 = getParamValue('x', node, tensorMap, context);
 
-	        return [reverse(_input3, _axis3)];
+	        return [ops.reverse(_input3, _axis3)];
 	      }
 
 	    case 'Slice':
@@ -88733,7 +89671,7 @@
 	        var begin = getParamValue('begin', node, tensorMap, context); // tslint:disable-next-line:no-any
 
 	        var size = getParamValue('size', node, tensorMap, context);
-	        return [slice$2(getParamValue('x', node, tensorMap, context), begin, size)];
+	        return [ops.slice(getParamValue('x', node, tensorMap, context), begin, size)];
 	      }
 
 	    case 'StridedSlice':
@@ -88748,7 +89686,7 @@
 	        var newAxisMask = getParamValue('newAxisMask', node, tensorMap, context);
 	        var shrinkAxisMask = getParamValue('shrinkAxisMask', node, tensorMap, context);
 	        var tensor = getParamValue('x', node, tensorMap, context);
-	        return [stridedSlice(tensor, _begin, end, strides, beginMask, endMask, ellipsisMask, newAxisMask, shrinkAxisMask)];
+	        return [ops.stridedSlice(tensor, _begin, end, strides, beginMask, endMask, ellipsisMask, newAxisMask, shrinkAxisMask)];
 	      }
 
 	    case 'Pack':
@@ -88759,17 +89697,17 @@
 	          // match.
 
 	          var shape = tensors[0].shape;
-	          var squeezedShape = squeeze(tensors[0]).shape;
+	          var squeezedShape = ops.squeeze(tensors[0]).shape;
 	          var mapped = tensors.map(function (tensor) {
 	            var sameShape = arraysEqual(tensor.shape, shape);
 
-	            if (!sameShape && !arraysEqual(squeeze(tensor).shape, squeezedShape)) {
+	            if (!sameShape && !arraysEqual(ops.squeeze(tensor).shape, squeezedShape)) {
 	              throw new Error('the input tensors shape does not match');
 	            }
 
-	            return sameShape ? tensor : reshape(tensor, shape);
+	            return sameShape ? tensor : ops.reshape(tensor, shape);
 	          });
-	          return [stack(mapped, axis)];
+	          return [ops.stack(mapped, axis)];
 	        });
 	      }
 
@@ -88779,13 +89717,13 @@
 
 	        var _tensor = getParamValue('tensor', node, tensorMap, context);
 
-	        return unstack(_tensor, _axis4);
+	        return ops.unstack(_tensor, _axis4);
 	      }
 
 	    case 'Tile':
 	      {
 	        var reps = getParamValue('reps', node, tensorMap, context);
-	        return [tile(getParamValue('x', node, tensorMap, context), reps)];
+	        return [ops.tile(getParamValue('x', node, tensorMap, context), reps)];
 	      }
 
 	    case 'Split':
@@ -88797,7 +89735,7 @@
 
 	        var _tensor2 = getParamValue('x', node, tensorMap, context);
 
-	        return split$1(_tensor2, numOrSizeSplits, _axis5);
+	        return ops.split(_tensor2, numOrSizeSplits, _axis5);
 	      }
 
 	    case 'ScatterNd':
@@ -88806,7 +89744,7 @@
 
 	        var values = getParamValue('values', node, tensorMap, context);
 	        var shape = getParamValue('shape', node, tensorMap, context);
-	        return [scatterND(_indices2, values, shape)];
+	        return [ops.scatterND(_indices2, values, shape)];
 	      }
 
 	    case 'GatherNd':
@@ -88815,7 +89753,7 @@
 
 	        var _indices3 = getParamValue('indices', node, tensorMap, context);
 
-	        return [gatherND(x, _indices3)];
+	        return [ops.gatherND(x, _indices3)];
 	      }
 
 	    case 'SparseToDense':
@@ -88826,7 +89764,7 @@
 
 	        var sparseValues = getParamValue('sparseValues', node, tensorMap, context);
 	        var defaultValue = getParamValue('defaultValue', node, tensorMap, context);
-	        return [sparseToDense(_indices4, sparseValues, _shape, sparseValues.dtype === defaultValue.dtype ? defaultValue : cast(defaultValue, sparseValues.dtype))];
+	        return [ops.sparseToDense(_indices4, sparseValues, _shape, sparseValues.dtype === defaultValue.dtype ? defaultValue : ops.cast(defaultValue, sparseValues.dtype))];
 	      }
 
 	    default:
@@ -88851,37 +89789,41 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var executeOp$f = function executeOp(node, tensorMap, context) {
+	var executeOp$f = function executeOp(node, tensorMap, context, ops) {
+	  if (ops === void 0) {
+	    ops = tfOps;
+	  }
+
 	  switch (node.op) {
 	    case 'SparseFillEmptyRows':
 	      {
-	        var _tfOps$sparse$sparseF = sparse.sparseFillEmptyRows(getParamValue('indices', node, tensorMap, context), getParamValue('values', node, tensorMap, context), getParamValue('denseShape', node, tensorMap, context), getParamValue('defaultValue', node, tensorMap, context)),
-	            outputIndices = _tfOps$sparse$sparseF.outputIndices,
-	            outputValues = _tfOps$sparse$sparseF.outputValues,
-	            emptyRowIndicator = _tfOps$sparse$sparseF.emptyRowIndicator,
-	            reverseIndexMap = _tfOps$sparse$sparseF.reverseIndexMap;
+	        var _ops$sparse$sparseFil = ops.sparse.sparseFillEmptyRows(getParamValue('indices', node, tensorMap, context), getParamValue('values', node, tensorMap, context), getParamValue('denseShape', node, tensorMap, context), getParamValue('defaultValue', node, tensorMap, context)),
+	            outputIndices = _ops$sparse$sparseFil.outputIndices,
+	            outputValues = _ops$sparse$sparseFil.outputValues,
+	            emptyRowIndicator = _ops$sparse$sparseFil.emptyRowIndicator,
+	            reverseIndexMap = _ops$sparse$sparseFil.reverseIndexMap;
 
 	        return [outputIndices, outputValues, emptyRowIndicator, reverseIndexMap];
 	      }
 
 	    case 'SparseReshape':
 	      {
-	        var _tfOps$sparse$sparseR = sparse.sparseReshape(getParamValue('inputIndices', node, tensorMap, context), getParamValue('inputShape', node, tensorMap, context), getParamValue('newShape', node, tensorMap, context)),
-	            _outputIndices = _tfOps$sparse$sparseR.outputIndices,
-	            outputShape = _tfOps$sparse$sparseR.outputShape;
+	        var _ops$sparse$sparseRes = ops.sparse.sparseReshape(getParamValue('inputIndices', node, tensorMap, context), getParamValue('inputShape', node, tensorMap, context), getParamValue('newShape', node, tensorMap, context)),
+	            _outputIndices = _ops$sparse$sparseRes.outputIndices,
+	            outputShape = _ops$sparse$sparseRes.outputShape;
 
 	        return [_outputIndices, outputShape];
 	      }
 
 	    case 'SparseSegmentMean':
 	      {
-	        var outputData = sparse.sparseSegmentMean(getParamValue('data', node, tensorMap, context), getParamValue('indices', node, tensorMap, context), getParamValue('segmentIds', node, tensorMap, context));
+	        var outputData = ops.sparse.sparseSegmentMean(getParamValue('data', node, tensorMap, context), getParamValue('indices', node, tensorMap, context), getParamValue('segmentIds', node, tensorMap, context));
 	        return [outputData];
 	      }
 
 	    case 'SparseSegmentSum':
 	      {
-	        var _outputData = sparse.sparseSegmentSum(getParamValue('data', node, tensorMap, context), getParamValue('indices', node, tensorMap, context), getParamValue('segmentIds', node, tensorMap, context));
+	        var _outputData = ops.sparse.sparseSegmentSum(getParamValue('data', node, tensorMap, context), getParamValue('indices', node, tensorMap, context), getParamValue('segmentIds', node, tensorMap, context));
 
 	        return [_outputData];
 	      }
@@ -88908,26 +89850,30 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var executeOp$g = function executeOp(node, tensorMap, context) {
+	var executeOp$g = function executeOp(node, tensorMap, context, ops) {
+	  if (ops === void 0) {
+	    ops = tfOps;
+	  }
+
 	  switch (node.op) {
 	    case 'FFT':
 	      {
-	        return [fft(getParamValue('x', node, tensorMap, context))];
+	        return [ops.fft(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    case 'IFFT':
 	      {
-	        return [ifft(getParamValue('x', node, tensorMap, context))];
+	        return [ops.ifft(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    case 'RFFT':
 	      {
-	        return [rfft(getParamValue('x', node, tensorMap, context))];
+	        return [ops.rfft(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    case 'IRFFT':
 	      {
-	        return [irfft(getParamValue('x', node, tensorMap, context))];
+	        return [ops.irfft(getParamValue('x', node, tensorMap, context))];
 	      }
 
 	    default:
@@ -88952,30 +89898,34 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var executeOp$h = function executeOp(node, tensorMap, context) {
+	var executeOp$h = function executeOp(node, tensorMap, context, ops) {
+	  if (ops === void 0) {
+	    ops = tfOps;
+	  }
+
 	  switch (node.op) {
 	    case 'StringNGrams':
 	      {
-	        var _tfOps$string$stringN = string.stringNGrams(getParamValue('data', node, tensorMap, context), getParamValue('dataSplits', node, tensorMap, context), getParamValue('separator', node, tensorMap, context), getParamValue('nGramWidths', node, tensorMap, context), getParamValue('leftPad', node, tensorMap, context), getParamValue('rightPad', node, tensorMap, context), getParamValue('padWidth', node, tensorMap, context), getParamValue('preserveShortSequences', node, tensorMap, context)),
-	            nGrams = _tfOps$string$stringN.nGrams,
-	            nGramsSplits = _tfOps$string$stringN.nGramsSplits;
+	        var _ops$string$stringNGr = ops.string.stringNGrams(getParamValue('data', node, tensorMap, context), getParamValue('dataSplits', node, tensorMap, context), getParamValue('separator', node, tensorMap, context), getParamValue('nGramWidths', node, tensorMap, context), getParamValue('leftPad', node, tensorMap, context), getParamValue('rightPad', node, tensorMap, context), getParamValue('padWidth', node, tensorMap, context), getParamValue('preserveShortSequences', node, tensorMap, context)),
+	            nGrams = _ops$string$stringNGr.nGrams,
+	            nGramsSplits = _ops$string$stringNGr.nGramsSplits;
 
 	        return [nGrams, nGramsSplits];
 	      }
 
 	    case 'StringSplit':
 	      {
-	        var _tfOps$string$stringS = string.stringSplit(getParamValue('input', node, tensorMap, context), getParamValue('delimiter', node, tensorMap, context), getParamValue('skipEmpty', node, tensorMap, context)),
-	            indices = _tfOps$string$stringS.indices,
-	            values = _tfOps$string$stringS.values,
-	            shape = _tfOps$string$stringS.shape;
+	        var _ops$string$stringSpl = ops.string.stringSplit(getParamValue('input', node, tensorMap, context), getParamValue('delimiter', node, tensorMap, context), getParamValue('skipEmpty', node, tensorMap, context)),
+	            indices = _ops$string$stringSpl.indices,
+	            values = _ops$string$stringSpl.values,
+	            shape = _ops$string$stringSpl.shape;
 
 	        return [indices, values, shape];
 	      }
 
 	    case 'StringToHashBucketFast':
 	      {
-	        var output = string.stringToHashBucketFast(getParamValue('input', node, tensorMap, context), getParamValue('numBuckets', node, tensorMap, context));
+	        var output = ops.string.stringToHashBucketFast(getParamValue('input', node, tensorMap, context), getParamValue('numBuckets', node, tensorMap, context));
 	        return [output];
 	      }
 
@@ -89001,47 +89951,51 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var executeOp$i = function executeOp(node, tensorMap, context) {
+	var executeOp$i = function executeOp(node, tensorMap, context, ops) {
+	  if (ops === void 0) {
+	    ops = tfOps;
+	  }
+
 	  switch (node.op) {
 	    case 'Cast':
 	      {
-	        return [cast(getParamValue('x', node, tensorMap, context), getParamValue('dtype', node, tensorMap, context))];
+	        return [ops.cast(getParamValue('x', node, tensorMap, context), getParamValue('dtype', node, tensorMap, context))];
 	      }
 
 	    case 'ExpandDims':
 	      {
 	        var axis = getParamValue('axis', node, tensorMap, context);
-	        return [expandDims(getParamValue('x', node, tensorMap, context), axis)];
+	        return [ops.expandDims(getParamValue('x', node, tensorMap, context), axis)];
 	      }
 
 	    case 'Squeeze':
 	      {
 	        var _axis = getParamValue('axis', node, tensorMap, context);
 
-	        return [squeeze(getParamValue('x', node, tensorMap, context), _axis)];
+	        return [ops.squeeze(getParamValue('x', node, tensorMap, context), _axis)];
 	      }
 
 	    case 'Reshape':
 	      {
-	        return [reshape(getParamValue('x', node, tensorMap, context), getParamValue('shape', node, tensorMap, context))];
+	        return [ops.reshape(getParamValue('x', node, tensorMap, context), getParamValue('shape', node, tensorMap, context))];
 	      }
 
 	    case 'MirrorPad':
 	      {
-	        return [mirrorPad(getParamValue('x', node, tensorMap, context), getParamValue('padding', node, tensorMap, context), getParamValue('mode', node, tensorMap, context))];
+	        return [ops.mirrorPad(getParamValue('x', node, tensorMap, context), getParamValue('padding', node, tensorMap, context), getParamValue('mode', node, tensorMap, context))];
 	      }
 
 	    case 'PadV2':
 	    case 'Pad':
 	      {
-	        return [pad(getParamValue('x', node, tensorMap, context), getParamValue('padding', node, tensorMap, context), getParamValue('constantValue', node, tensorMap, context))];
+	        return [ops.pad(getParamValue('x', node, tensorMap, context), getParamValue('padding', node, tensorMap, context), getParamValue('constantValue', node, tensorMap, context))];
 	      }
 
 	    case 'SpaceToBatchND':
 	      {
 	        var blockShape = getParamValue('blockShape', node, tensorMap, context);
 	        var paddings = getParamValue('paddings', node, tensorMap, context);
-	        return [spaceToBatchND(getParamValue('x', node, tensorMap, context), blockShape, paddings)];
+	        return [ops.spaceToBatchND(getParamValue('x', node, tensorMap, context), blockShape, paddings)];
 	      }
 
 	    case 'BatchToSpaceND':
@@ -89049,24 +90003,24 @@
 	        var _blockShape = getParamValue('blockShape', node, tensorMap, context);
 
 	        var crops = getParamValue('crops', node, tensorMap, context);
-	        return [batchToSpaceND(getParamValue('x', node, tensorMap, context), _blockShape, crops)];
+	        return [ops.batchToSpaceND(getParamValue('x', node, tensorMap, context), _blockShape, crops)];
 	      }
 
 	    case 'DepthToSpace':
 	      {
 	        var blockSize = getParamValue('blockSize', node, tensorMap, context);
 	        var dataFormat = getParamValue('dataFormat', node, tensorMap, context).toUpperCase();
-	        return [depthToSpace(getParamValue('x', node, tensorMap, context), blockSize, dataFormat)];
+	        return [ops.depthToSpace(getParamValue('x', node, tensorMap, context), blockSize, dataFormat)];
 	      }
 
 	    case 'BroadcastTo':
 	      {
-	        return [broadcastTo(getParamValue('x', node, tensorMap, context), getParamValue('shape', node, tensorMap, context))];
+	        return [ops.broadcastTo(getParamValue('x', node, tensorMap, context), getParamValue('shape', node, tensorMap, context))];
 	      }
 
 	    case 'BroadcastArgs':
 	      {
-	        return [broadcastArgs(getParamValue('s0', node, tensorMap, context), getParamValue('s1', node, tensorMap, context))];
+	        return [ops.broadcastArgs(getParamValue('s0', node, tensorMap, context), getParamValue('s1', node, tensorMap, context))];
 	      }
 
 	    default:
@@ -89099,16 +90053,20 @@
 	 * @param resourceManager Optional. Contains global resources of the model.
 	 */
 
-	function executeOp$j(node, tensorMap, context, resourceManager) {
+	function executeOp$j(node, tensorMap, context, resourceManager, tidy$1) {
+	  if (tidy$1 === void 0) {
+	    tidy$1 = tidy;
+	  }
+
 	  var value = function (node, tensorMap, context) {
 	    switch (node.category) {
 	      case 'arithmetic':
-	        return tidy(function () {
+	        return tidy$1(function () {
 	          return executeOp(node, tensorMap, context);
 	        });
 
 	      case 'basic_math':
-	        return tidy(function () {
+	        return tidy$1(function () {
 	          return executeOp$1(node, tensorMap, context);
 	        });
 
@@ -89116,12 +90074,12 @@
 	        return executeOp$2(node, tensorMap, context);
 
 	      case 'convolution':
-	        return tidy(function () {
+	        return tidy$1(function () {
 	          return executeOp$3(node, tensorMap, context);
 	        });
 
 	      case 'creation':
-	        return tidy(function () {
+	        return tidy$1(function () {
 	          return executeOp$4(node, tensorMap, context);
 	        });
 
@@ -89129,62 +90087,62 @@
 	        return executeOp$5(node, tensorMap, context);
 
 	      case 'evaluation':
-	        return tidy(function () {
+	        return tidy$1(function () {
 	          return executeOp$6(node, tensorMap, context);
 	        });
 
 	      case 'image':
-	        return tidy(function () {
+	        return tidy$1(function () {
 	          return executeOp$9(node, tensorMap, context);
 	        });
 
 	      case 'graph':
-	        return tidy(function () {
+	        return tidy$1(function () {
 	          return executeOp$7(node, tensorMap, context);
 	        });
 
 	      case 'logical':
-	        return tidy(function () {
+	        return tidy$1(function () {
 	          return executeOp$a(node, tensorMap, context);
 	        });
 
 	      case 'matrices':
-	        return tidy(function () {
+	        return tidy$1(function () {
 	          return executeOp$b(node, tensorMap, context);
 	        });
 
 	      case 'normalization':
-	        return tidy(function () {
+	        return tidy$1(function () {
 	          return executeOp$c(node, tensorMap, context);
 	        });
 
 	      case 'reduction':
-	        return tidy(function () {
+	        return tidy$1(function () {
 	          return executeOp$d(node, tensorMap, context);
 	        });
 
 	      case 'slice_join':
-	        return tidy(function () {
+	        return tidy$1(function () {
 	          return executeOp$e(node, tensorMap, context);
 	        });
 
 	      case 'sparse':
-	        return tidy(function () {
+	        return tidy$1(function () {
 	          return executeOp$f(node, tensorMap, context);
 	        });
 
 	      case 'spectral':
-	        return tidy(function () {
+	        return tidy$1(function () {
 	          return executeOp$g(node, tensorMap, context);
 	        });
 
 	      case 'string':
-	        return tidy(function () {
+	        return tidy$1(function () {
 	          return executeOp$h(node, tensorMap, context);
 	        });
 
 	      case 'transformation':
-	        return tidy(function () {
+	        return tidy$1(function () {
 	          return executeOp$i(node, tensorMap, context);
 	        });
 
@@ -90504,14 +91462,19 @@
 	   * @param onProgress Optional, progress callback function, fired periodically
 	   * before the load is completed.
 	   */
-	  function GraphModel(modelUrl, loadOptions) {
+	  function GraphModel(modelUrl, loadOptions, tfio) {
 	    if (loadOptions === void 0) {
 	      loadOptions = {};
+	    }
+
+	    if (tfio === void 0) {
+	      tfio = io;
 	    }
 
 	    this.modelUrl = modelUrl;
 	    this.loadOptions = loadOptions;
 	    this.version = 'n/a';
+	    this.io = tfio;
 
 	    if (loadOptions == null) {
 	      this.loadOptions = {};
@@ -90530,14 +91493,14 @@
 	      // Path is an IO Handler.
 	      this.handler = path;
 	    } else if (this.loadOptions.requestInit != null) {
-	      this.handler = browserHTTPRequest(path, this.loadOptions);
+	      this.handler = this.io.browserHTTPRequest(path, this.loadOptions);
 	    } else {
-	      var handlers = getLoadHandlers(path, this.loadOptions);
+	      var handlers = this.io.getLoadHandlers(path, this.loadOptions);
 
 	      if (handlers.length === 0) {
 	        // For backward compatibility: if no load handler can be found,
 	        // assume it is a relative http path.
-	        handlers.push(browserHTTPRequest(path, this.loadOptions));
+	        handlers.push(this.io.browserHTTPRequest(path, this.loadOptions));
 	      } else if (handlers.length > 1) {
 	        throw new Error("Found more than one (" + handlers.length + ") load handlers for " + ("URL '" + [path] + "'"));
 	      }
@@ -90551,46 +91514,25 @@
 	   */
 	  ;
 
-	  _proto.load =
-	  /*#__PURE__*/
-	  function () {
-	    var _load = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee() {
-	      var artifacts;
-	      return regeneratorRuntime.wrap(function _callee$(_context) {
-	        while (1) {
-	          switch (_context.prev = _context.next) {
-	            case 0:
-	              this.findIOHandler();
+	  _proto.load = function load() {
+	    var _this = this;
 
-	              if (!(this.handler.load == null)) {
-	                _context.next = 3;
-	                break;
-	              }
+	    this.findIOHandler();
 
-	              throw new Error('Cannot proceed with model loading because the IOHandler provided ' + 'does not have the `load` method implemented.');
-
-	            case 3:
-	              _context.next = 5;
-	              return this.handler.load();
-
-	            case 5:
-	              artifacts = _context.sent;
-	              return _context.abrupt("return", this.loadSync(artifacts));
-
-	            case 7:
-	            case "end":
-	              return _context.stop();
-	          }
-	        }
-	      }, _callee, this);
-	    }));
-
-	    function load() {
-	      return _load.apply(this, arguments);
+	    if (this.handler.load == null) {
+	      throw new Error('Cannot proceed with model loading because the IOHandler provided ' + 'does not have the `load` method implemented.');
 	    }
 
-	    return load;
-	  }()
+	    var loadResult = this.handler.load();
+
+	    if (isPromise(loadResult)) {
+	      return loadResult.then(function (artifacts) {
+	        return _this.loadSync(artifacts);
+	      });
+	    }
+
+	    return this.loadSync(loadResult);
+	  }
 	  /**
 	   * Synchronously construct the in memory weight map and
 	   * compile the inference graph. Also initialize hashtable if any.
@@ -90602,18 +91544,23 @@
 	  _proto.loadSync = function loadSync(artifacts) {
 	    this.artifacts = artifacts;
 	    var graph = this.artifacts.modelTopology;
-	    var signature;
+	    var signature = this.artifacts.signature;
 
-	    if (this.artifacts.userDefinedMetadata != null && this.artifacts.userDefinedMetadata.signature != null) {
-	      signature = // tslint:disable-next-line:no-any
-	      this.artifacts.userDefinedMetadata.signature;
-	    } else {
-	      signature = this.artifacts.signature;
+	    if (this.artifacts.userDefinedMetadata != null) {
+	      var metadata = this.artifacts.userDefinedMetadata;
+
+	      if (metadata.signature != null) {
+	        signature = metadata.signature;
+	      }
+
+	      if (metadata.structuredOutputKeys != null) {
+	        this.structuredOutputKeys = metadata.structuredOutputKeys;
+	      }
 	    }
 
 	    this.signature = signature;
 	    this.version = graph.versions.producer + "." + graph.versions.minConsumer;
-	    var weightMap = decodeWeights(this.artifacts.weightData, this.artifacts.weightSpecs);
+	    var weightMap = this.io.decodeWeights(this.artifacts.weightData, this.artifacts.weightSpecs);
 	    this.executor = new GraphExecutor(OperationMapper.Instance.transformGraph(graph, this.signature));
 	    this.executor.weightMap = this.convertTensorMapToTensorsMap(weightMap); // Attach a model-level resourceManager to each executor to share resources,
 	    // such as `HashTable`.
@@ -90682,21 +91629,21 @@
 	  _proto.save =
 	  /*#__PURE__*/
 	  function () {
-	    var _save = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2(handlerOrURL, config) {
+	    var _save = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(handlerOrURL, config) {
 	      var handlers;
-	      return regeneratorRuntime.wrap(function _callee2$(_context2) {
+	      return regeneratorRuntime.wrap(function _callee$(_context) {
 	        while (1) {
-	          switch (_context2.prev = _context2.next) {
+	          switch (_context.prev = _context.next) {
 	            case 0:
 	              if (!(typeof handlerOrURL === 'string')) {
-	                _context2.next = 9;
+	                _context.next = 9;
 	                break;
 	              }
 
-	              handlers = getSaveHandlers(handlerOrURL);
+	              handlers = this.io.getSaveHandlers(handlerOrURL);
 
 	              if (!(handlers.length === 0)) {
-	                _context2.next = 6;
+	                _context.next = 6;
 	                break;
 	              }
 
@@ -90704,7 +91651,7 @@
 
 	            case 6:
 	              if (!(handlers.length > 1)) {
-	                _context2.next = 8;
+	                _context.next = 8;
 	                break;
 	              }
 
@@ -90715,21 +91662,21 @@
 
 	            case 9:
 	              if (!(handlerOrURL.save == null)) {
-	                _context2.next = 11;
+	                _context.next = 11;
 	                break;
 	              }
 
 	              throw new Error('GraphModel.save() cannot proceed because the IOHandler ' + 'provided does not have the `save` attribute defined.');
 
 	            case 11:
-	              return _context2.abrupt("return", handlerOrURL.save(this.artifacts));
+	              return _context.abrupt("return", handlerOrURL.save(this.artifacts));
 
 	            case 12:
 	            case "end":
-	              return _context2.stop();
+	              return _context.stop();
 	          }
 	        }
-	      }, _callee2, this);
+	      }, _callee, this);
 	    }));
 
 	    function save(_x, _x2) {
@@ -90766,20 +91713,34 @@
 	   * If we are provide a batched data of 100 images, the input tensor should be
 	   * in the shape of [100, 244, 244, 3].
 	   *
-	   * @param config Prediction configuration for specifying the batch size and
-	   * output node names. Currently the batch size option is ignored for graph
-	   * model.
+	   * @param config Prediction configuration for specifying the batch size.
+	   * Currently the batch size option is ignored for graph model.
 	   *
-	   * @returns Inference result tensors. The output would be single `tf.Tensor`
-	   * if model has single output node, otherwise Tensor[] or NamedTensorMap[]
-	   * will be returned for model with multiple outputs.
+	   * @returns Inference result tensors. If the model is converted and it
+	   * originally had structured_outputs in tensorflow, then a NamedTensorMap
+	   * will be returned matching the structured_outputs. If no structured_outputs
+	   * are present, the output will be single `tf.Tensor` if the model has single
+	   * output node, otherwise Tensor[].
 	   *
 	   * @doc {heading: 'Models', subheading: 'Classes'}
 	   */
 	  ;
 
 	  _proto.predict = function predict(inputs, config) {
-	    return this.execute(inputs, this.outputNodes);
+	    var _this2 = this;
+
+	    var outputTensors = this.execute(inputs, this.outputNodes);
+
+	    if (this.structuredOutputKeys) {
+	      var outputTensorsArray = outputTensors instanceof Tensor ? [outputTensors] : outputTensors;
+	      var outputTensorMap = {};
+	      outputTensorsArray.forEach(function (outputTensor, i) {
+	        return outputTensorMap[_this2.structuredOutputKeys[i]] = outputTensor;
+	      });
+	      return outputTensorMap;
+	    }
+
+	    return outputTensors;
 	  };
 
 	  _proto.normalizeInputs = function normalizeInputs(inputs) {
@@ -90849,27 +91810,27 @@
 	  _proto.executeAsync =
 	  /*#__PURE__*/
 	  function () {
-	    var _executeAsync = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee3(inputs, outputs) {
+	    var _executeAsync = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2(inputs, outputs) {
 	      var result;
-	      return regeneratorRuntime.wrap(function _callee3$(_context3) {
+	      return regeneratorRuntime.wrap(function _callee2$(_context2) {
 	        while (1) {
-	          switch (_context3.prev = _context3.next) {
+	          switch (_context2.prev = _context2.next) {
 	            case 0:
 	              inputs = this.normalizeInputs(inputs);
 	              outputs = this.normalizeOutputs(outputs);
-	              _context3.next = 4;
+	              _context2.next = 4;
 	              return this.executor.executeAsync(inputs, outputs);
 
 	            case 4:
-	              result = _context3.sent;
-	              return _context3.abrupt("return", result.length > 1 ? result : result[0]);
+	              result = _context2.sent;
+	              return _context2.abrupt("return", result.length > 1 ? result : result[0]);
 
 	            case 6:
 	            case "end":
-	              return _context3.stop();
+	              return _context2.stop();
 	          }
 	        }
-	      }, _callee3, this);
+	      }, _callee2, this);
 	    }));
 
 	    function executeAsync(_x3, _x4) {
@@ -90964,6 +91925,11 @@
 	    get: function get() {
 	      return this.signature;
 	    }
+	  }, {
+	    key: "modelStructuredOutputKeys",
+	    get: function get() {
+	      return this.structuredOutputKeys;
+	    }
 	  }]);
 
 	  return GraphModel;
@@ -90982,8 +91948,8 @@
 	 * model.predict(zeros).print();
 	 * ```
 	 *
-	 * Example of loading MobileNetV2 from a TF Hub URL and making a prediction with
-	 * a zeros input:
+	 * Example of loading MobileNetV2 from a TF Hub URL and making a prediction
+	 * with a zeros input:
 	 *
 	 * ```js
 	 * const modelUrl =
@@ -90993,69 +91959,97 @@
 	 * model.predict(zeros).print();
 	 * ```
 	 * @param modelUrl The url or an `io.IOHandler` that loads the model.
-	 * @param options Options for the HTTP request, which allows to send credentials
+	 * @param options Options for the HTTP request, which allows to send
+	 *     credentials
 	 *    and custom headers.
 	 *
 	 * @doc {heading: 'Models', subheading: 'Loading'}
 	 */
 
-	function loadGraphModel(_x5, _x6) {
+	function loadGraphModel(_x5, _x6, _x7) {
 	  return _loadGraphModel.apply(this, arguments);
 	}
+	/**
+	 * Load a graph model given a synchronous IO handler with a 'load' method.
+	 *
+	 * @param modelSource The `io.IOHandlerSync` that loads the model.
+	 *
+	 * @doc {heading: 'Models', subheading: 'Loading'}
+	 */
 
 	function _loadGraphModel() {
-	  _loadGraphModel = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee4(modelUrl, options) {
+	  _loadGraphModel = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee3(modelUrl, options, tfio) {
 	    var model;
-	    return regeneratorRuntime.wrap(function _callee4$(_context4) {
+	    return regeneratorRuntime.wrap(function _callee3$(_context3) {
 	      while (1) {
-	        switch (_context4.prev = _context4.next) {
+	        switch (_context3.prev = _context3.next) {
 	          case 0:
 	            if (options === void 0) {
 	              options = {};
 	            }
 
+	            if (tfio === void 0) {
+	              tfio = io;
+	            }
+
 	            if (!(modelUrl == null)) {
-	              _context4.next = 3;
+	              _context3.next = 4;
 	              break;
 	            }
 
 	            throw new Error('modelUrl in loadGraphModel() cannot be null. Please provide a url ' + 'or an IOHandler that loads the model');
 
-	          case 3:
+	          case 4:
 	            if (options == null) {
 	              options = {};
 	            }
 
-	            if (options.fromTFHub) {
-	              if (modelUrl.load == null) {
-	                if (!modelUrl.endsWith('/')) {
-	                  modelUrl = modelUrl + '/';
-	                }
-
-	                modelUrl = "" + modelUrl + DEFAULT_MODEL_NAME + TFHUB_SEARCH_PARAM;
-	              }
+	            if (options.fromTFHub && typeof modelUrl === 'string') {
+	              modelUrl = getTFHubUrl(modelUrl);
 	            }
 
-	            model = new GraphModel(modelUrl, options);
-	            _context4.next = 8;
+	            model = new GraphModel(modelUrl, options, tfio);
+	            _context3.next = 9;
 	            return model.load();
 
-	          case 8:
-	            return _context4.abrupt("return", model);
-
 	          case 9:
+	            return _context3.abrupt("return", model);
+
+	          case 10:
 	          case "end":
-	            return _context4.stop();
+	            return _context3.stop();
 	        }
 	      }
-	    }, _callee4);
+	    }, _callee3);
 	  }));
 	  return _loadGraphModel.apply(this, arguments);
 	}
 
+	function loadGraphModelSync(modelSource) {
+	  if (modelSource == null) {
+	    throw new Error('modelUrl in loadGraphModelSync() cannot be null. Please provide a ' + 'url or an IOHandler that loads the model');
+	  }
+
+	  if (!modelSource.load) {
+	    throw new Error("modelUrl IO Handler " + modelSource + " has no load function");
+	  }
+
+	  var model = new GraphModel(modelSource);
+	  model.load();
+	  return model;
+	}
+
+	function getTFHubUrl(modelUrl) {
+	  if (!modelUrl.endsWith('/')) {
+	    modelUrl = modelUrl + '/';
+	  }
+
+	  return "" + modelUrl + DEFAULT_MODEL_NAME + TFHUB_SEARCH_PARAM;
+	}
+
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$3 = '3.15.0';
+	var version$3 = '3.19.0';
 
 	/**
 	 * @license
@@ -96912,7 +97906,7 @@
 	// input.
 	// tslint:disable-next-line:no-any
 	function isLocalPath(source) {
-	  return typeof source === 'string' && source.substr(0, 7) === 'file://';
+	  return typeof source === 'string' && source.slice(0, 7) === 'file://';
 	}
 
 	/**
@@ -96956,7 +97950,7 @@
 	              if (isLocalPath(this.input) && env().get('IS_NODE')) {
 	                // tslint:disable-next-line:no-require-imports
 	                fs = require('fs');
-	                this.input = fs.readFileSync(this.input.substr(7));
+	                this.input = fs.readFileSync(this.input.slice(7));
 	              } // TODO(kangyizhang): Add LocalFileChunkIterator to split local streaming
 	              // with file in browser.
 
@@ -97374,7 +98368,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$4 = '3.15.0';
+	var version$4 = '3.19.0';
 
 	/**
 	 * @license
@@ -97465,7 +98459,7 @@
 	      this.firstUse = false;
 
 	      if (env().get('IS_NODE')) {
-	        warn('\n============================\n' + 'Hi there 👋. Looks like you are running TensorFlow.js in ' + 'Node.js. To speed things up dramatically, install our node ' + 'backend, which binds to TensorFlow C++, by running ' + 'npm i @tensorflow/tfjs-node, ' + 'or npm i @tensorflow/tfjs-node-gpu if you have CUDA. ' + 'Then call require(\'@tensorflow/tfjs-node\'); (-gpu ' + 'suffix for CUDA) at the start of your program. ' + 'Visit https://github.com/tensorflow/tfjs-node for more details.' + '\n============================');
+	        warn('\n============================\n' + 'Hi, looks like you are running TensorFlow.js in ' + 'Node.js. To speed things up dramatically, install our node ' + 'backend, visit https://github.com/tensorflow/tfjs-node for more details. ' + '\n============================');
 	      }
 	    }
 
@@ -97584,25 +98578,24 @@
 
 	  _proto.bufferSync = function bufferSync(t) {
 	    var data = this.readSync(t.dataId);
-	    var decodedData = data;
 
 	    if (t.dtype === 'string') {
 	      try {
 	        // Decode the bytes into string.
-	        decodedData = data.map(function (d) {
+	        var strings = data.map(function (d) {
 	          return decodeString(d);
 	        });
+	        return buffer(t.shape, t.dtype, strings);
 	      } catch (_a) {
 	        throw new Error('Failed to decode encoded string bytes into utf-8');
 	      }
 	    }
 
-	    return buffer(t.shape, t.dtype, decodedData);
+	    return buffer(t.shape, t.dtype, data);
 	  };
 
 	  _proto.makeOutput = function makeOutput(values, shape, dtype) {
-	    var dataId = this.write(values, shape, dtype);
-	    return engine().makeTensorFromDataId(dataId, shape, dtype, this);
+	    return engine().makeTensorFromTensorInfo(this.makeTensorInfo(shape, dtype, values), this);
 	  }
 	  /**
 	   * Dispose the memory if the dataId has 0 refCount. Return true if the memory
@@ -99343,6 +100336,67 @@
 	/**
 	 * @license
 	 * Copyright 2020 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function scatterImpl(indices, updates, shape, outputSize, sliceSize, numUpdates, sliceRank, strides, defaultValue, sumDupeIndices) {
+	  var flattenShape = [outputSize / sliceSize, sliceSize];
+	  var indicesData = indices.values;
+	  var updatesData = updates.values;
+
+	  if (outputSize === 0) {
+	    return buffer(shape, updates.dtype);
+	  }
+
+	  var outBuf = buffer(flattenShape, updates.dtype);
+
+	  if (typeof defaultValue === 'string') {
+	    outBuf.values.fill(defaultValue);
+	  } else if (typeof defaultValue === 'number') {
+	    outBuf.values.fill(defaultValue);
+	  } else if (typeof defaultValue === 'boolean') {
+	    outBuf.values.fill(+defaultValue);
+	  }
+
+	  for (var i = 0; i < numUpdates; i++) {
+	    var index = [];
+	    var flattenIndex = 0;
+
+	    for (var j = 0; j < sliceRank; j++) {
+	      var dim = indicesData[i * sliceRank + j];
+	      index.push(dim);
+	      flattenIndex += dim * strides[j];
+	    }
+
+	    if (flattenIndex < 0 || flattenIndex >= outputSize / sliceSize) {
+	      throw new Error("Invalid indices: " + index + " does not index into " + shape);
+	    }
+
+	    for (var k = 0; k < sliceSize; k++) {
+	      if (sumDupeIndices) {
+	        outBuf.values[flattenIndex * sliceSize + k] += updatesData[i * sliceSize + k];
+	      } else {
+	        outBuf.values[flattenIndex * sliceSize + k] = updates.rank === 0 ? updatesData[0] : updatesData[i * sliceSize + k];
+	      }
+	    }
+	  }
+
+	  return outBuf;
+	}
+
+	/**
+	 * @license
+	 * Copyright 2020 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the License);
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -100679,7 +101733,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$5 = '3.15.0';
+	var version$5 = '3.19.0';
 
 	/**
 	 * @license
@@ -105653,20 +106707,66 @@
 	  });
 
 	  if (bias) {
-	    var resultOld = result;
-	    result = add$4({
-	      inputs: {
-	        a: result,
-	        b: bias
-	      },
-	      backend: backend
-	    });
+	    var resultOld = result; // For NCHW format, if bias is a 1-D tensor, it is supposed to be aligned
+	    // to the channel of the conv2d's result; if the bias is a scalar, the
+	    // bias_add is computed as if the bias was broadcasted to the shape of the
+	    // conv2d's result.
+
+	    if (dataFormat === 'NCHW' && bias.shape.length === 1 && bias.shape[0] !== 1) {
+	      var reshapedBias = reshape$2({
+	        inputs: {
+	          x: bias
+	        },
+	        backend: backend,
+	        attrs: {
+	          shape: [bias.shape[0], 1, 1]
+	        }
+	      });
+	      result = add$4({
+	        inputs: {
+	          a: result,
+	          b: reshapedBias
+	        },
+	        backend: backend
+	      });
+	      backend.disposeIntermediateTensorInfo(reshapedBias);
+	    } else {
+	      // This condition handles NHWC and NCHW (scalar case). The only other case
+	      // for NCHW (1D case) is handled above.
+	      result = add$4({
+	        inputs: {
+	          a: result,
+	          b: bias
+	        },
+	        backend: backend
+	      });
+	    }
+
 	    backend.disposeIntermediateTensorInfo(resultOld);
 	  }
 
 	  if (activation) {
-	    var _resultOld = result;
-	    result = applyActivation$1(backend, result, activation, preluActivationWeights, leakyreluAlpha);
+	    var _resultOld = result; // For NCHW format, if PReLu activation weights is a 1-D tensor, it is
+	    // supposed to be aligned with the channel of the conv2d's result. For other
+	    // cases, whether NCHW or NHWC data format, the conv2d result is
+	    // already aligned with the activation weights.
+
+	    if (dataFormat === 'NCHW' && activation === 'prelu' && preluActivationWeights.shape.length === 1 && preluActivationWeights.shape[0] !== 1) {
+	      var reshapedAlpha = reshape$2({
+	        inputs: {
+	          x: preluActivationWeights
+	        },
+	        backend: backend,
+	        attrs: {
+	          shape: [preluActivationWeights.shape[0], 1, 1]
+	        }
+	      });
+	      result = applyActivation$1(backend, result, activation, reshapedAlpha, leakyreluAlpha);
+	      backend.disposeIntermediateTensorInfo(reshapedAlpha);
+	    } else {
+	      result = applyActivation$1(backend, result, activation, preluActivationWeights, leakyreluAlpha);
+	    }
+
 	    backend.disposeIntermediateTensorInfo(_resultOld);
 	  }
 
@@ -108335,60 +109435,6 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	function scatterImpl(indices, updates, shape, outputSize, sliceSize, numUpdates, sliceRank, strides, defaultValue, sumDupeIndices) {
-	  var flattenShape = [outputSize / sliceSize, sliceSize];
-	  var indicesData = indices.values;
-	  var updatesData = updates.values;
-
-	  if (outputSize === 0) {
-	    return buffer(shape, updates.dtype);
-	  }
-
-	  var outBuf = buffer(flattenShape, updates.dtype);
-	  outBuf.values.fill(defaultValue);
-
-	  for (var i = 0; i < numUpdates; i++) {
-	    var index = [];
-	    var flattenIndex = 0;
-
-	    for (var j = 0; j < sliceRank; j++) {
-	      var dim = indicesData[i * sliceRank + j];
-	      index.push(dim);
-	      flattenIndex += dim * strides[j];
-	    }
-
-	    if (flattenIndex < 0 || flattenIndex >= outputSize / sliceSize) {
-	      throw new Error("Invalid indices: " + index + " does not index into " + shape);
-	    }
-
-	    for (var k = 0; k < sliceSize; k++) {
-	      if (sumDupeIndices) {
-	        outBuf.values[flattenIndex * sliceSize + k] += updatesData[i * sliceSize + k];
-	      } else {
-	        outBuf.values[flattenIndex * sliceSize + k] = updates.rank === 0 ? updatesData[0] : updatesData[i * sliceSize + k];
-	      }
-	    }
-	  }
-
-	  return outBuf;
-	}
-
-	/**
-	 * @license
-	 * Copyright 2020 Google LLC. All Rights Reserved.
-	 * Licensed under the Apache License, Version 2.0 (the "License");
-	 * you may not use this file except in compliance with the License.
-	 * You may obtain a copy of the License at
-	 *
-	 * http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 * =============================================================================
-	 */
 	function scatterNd(args) {
 	  var inputs = args.inputs,
 	      backend = args.backend,
@@ -108416,6 +109462,108 @@
 	  kernelName: ScatterNd,
 	  backendName: 'cpu',
 	  kernelFunc: scatterNd
+	};
+
+	/**
+	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+
+	function lowerBound$1(array, value) {
+	  var left = 0;
+	  var right = array.length;
+	  var mid = 0;
+
+	  while (left < right) {
+	    mid = Math.floor((left + right) / 2);
+
+	    if (array[mid] < value) {
+	      left = mid + 1;
+	    } else {
+	      right = mid;
+	    }
+	  }
+
+	  return right;
+	}
+
+	function upperBound$1(array, value) {
+	  var left = 0;
+	  var right = array.length;
+	  var mid = 0;
+
+	  while (left < right) {
+	    mid = Math.floor((left + right) / 2);
+
+	    if (array[mid] <= value) {
+	      left = mid + 1;
+	    } else {
+	      right = mid;
+	    }
+	  }
+
+	  return right;
+	}
+
+	function searchSortedImpl(sortedInputs, values, batchSize, numInputs, numValues, side) {
+	  var output = getArrayFromDType('int32', batchSize * numValues);
+
+	  for (var b = 0; b < batchSize; ++b) {
+	    var sortedInputsSlice = sortedInputs.slice(b * numInputs, (b + 1) * numInputs);
+	    var outputOffset = b * numValues;
+
+	    for (var i = 0; i < numValues; ++i) {
+	      output[outputOffset + i] = side === 'left' ? lowerBound$1(sortedInputsSlice, values[i + outputOffset]) : upperBound$1(sortedInputsSlice, values[i + outputOffset]);
+	    }
+	  }
+
+	  return output;
+	}
+
+	/**
+	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function searchSorted$1(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend,
+	      attrs = args.attrs;
+	  var sortedSequence = inputs.sortedSequence,
+	      values = inputs.values;
+	  var side = attrs.side;
+	  var $sortedSequence = backend.data.get(sortedSequence.dataId).values;
+	  var $values = backend.data.get(values.dataId).values;
+	  var output = searchSortedImpl($sortedSequence, $values, sortedSequence.shape[0], sortedSequence.shape[1], values.shape[1], side);
+	  return backend.makeTensorInfo(values.shape, 'int32', output);
+	}
+	var searchSortedConfig = {
+	  kernelName: SearchSorted,
+	  backendName: 'cpu',
+	  kernelFunc: searchSorted$1
 	};
 
 	/**
@@ -108975,9 +110123,49 @@
 
 	  var sumDupeIndices = false;
 	  var indicesBuf = backend.bufferSync(sparseIndices);
-	  var updatesBuf = backend.bufferSync(sparseValues);
-	  var $defaultValue = backend.data.get(defaultValue.dataId).values[0];
-	  var outBuf = scatterImpl(indicesBuf, updatesBuf, outputShape, outputSize, sliceSize, numUpdates, sliceRank, strides, $defaultValue, sumDupeIndices);
+	  var outBuf;
+
+	  switch (sparseValues.dtype) {
+	    case 'bool':
+	      {
+	        var updatesBuf = backend.bufferSync(sparseValues);
+	        var $defaultValue = Boolean(backend.data.get(defaultValue.dataId).values[0]);
+	        outBuf = scatterImpl(indicesBuf, updatesBuf, outputShape, outputSize, sliceSize, numUpdates, sliceRank, strides, $defaultValue, sumDupeIndices);
+	        break;
+	      }
+
+	    case 'float32':
+	      {
+	        var _updatesBuf = backend.bufferSync(sparseValues);
+
+	        var _$defaultValue = backend.data.get(defaultValue.dataId).values[0];
+	        outBuf = scatterImpl(indicesBuf, _updatesBuf, outputShape, outputSize, sliceSize, numUpdates, sliceRank, strides, _$defaultValue, sumDupeIndices);
+	        break;
+	      }
+
+	    case 'int32':
+	      {
+	        var _updatesBuf2 = backend.bufferSync(sparseValues);
+
+	        var _$defaultValue2 = backend.data.get(defaultValue.dataId).values[0];
+	        outBuf = scatterImpl(indicesBuf, _updatesBuf2, outputShape, outputSize, sliceSize, numUpdates, sliceRank, strides, _$defaultValue2, sumDupeIndices);
+	        break;
+	      }
+
+	    case 'string':
+	      {
+	        var _updatesBuf3 = backend.bufferSync(sparseValues);
+
+	        var _$defaultValue3 = decodeString(backend.data.get(defaultValue.dataId).values[0]);
+
+	        outBuf = scatterImpl(indicesBuf, _updatesBuf3, outputShape, outputSize, sliceSize, numUpdates, sliceRank, strides, _$defaultValue3, sumDupeIndices);
+	        break;
+	      }
+
+	    default:
+	      throw new Error("Unsupported type " + sparseValues.dtype);
+	  }
+
 	  return backend.makeTensorInfo(outputShape, outBuf.dtype, outBuf.values);
 	}
 	var sparseToDenseConfig = {
@@ -109921,7 +111109,7 @@
 	 * =============================================================================
 	 */
 
-	var kernelConfigs = [_fusedMatMulConfig, absConfig, acosConfig, acoshConfig, addConfig, addNConfig, allConfig, anyConfig, argMaxConfig, argMinConfig, asinConfig, asinhConfig, atanConfig, atan2Config, atanhConfig, avgPoolConfig, avgPool3DConfig, avgPool3DGradConfig$1, avgPoolGradConfig$1, batchMatMulConfig, batchNormConfig, batchToSpaceNDConfig, bincountConfig, broadcastArgsConfig, castConfig, ceilConfig, clipByValueConfig, complexConfig, complexAbsConfig, concatConfig, conv2DConfig, conv2DBackpropFilterConfig, conv2DBackpropInputConfig, conv3DConfig, conv3DBackpropFilterV2Config, conv3DBackpropInputV2Config, cosConfig, coshConfig, cropAndResizeConfig, cumprodConfig, cumsumConfig, denseBincountConfig, depthToSpaceConfig, depthwiseConv2dNativeConfig, depthwiseConv2dNativeBackpropFilterConfig, depthwiseConv2dNativeBackpropInputConfig, diagConfig, dilation2DConfig, dilation2DBackpropFilterConfig, dilation2DBackpropInputConfig, einsumConfig, eluConfig, eluGradConfig$1, equalConfig, erfConfig, expConfig, expandDimsConfig, expm1Config, fftConfig, fillConfig, flipLeftRightConfig, floorConfig, floorDivConfig, fusedConv2DConfig, fusedDepthwiseConv2DConfig, gatherNdConfig, gatherV2Config, greaterConfig, greaterEqualConfig, identityConfig, ifftConfig, imagConfig, isFiniteConfig, isInfConfig, isNaNConfig, leakyReluConfig, lessConfig, lessEqualConfig, linSpaceConfig, logConfig, log1pConfig, logicalAndConfig, logicalNotConfig, logicalOrConfig, LRNConfig, LRNGradConfig, maxConfig, maximumConfig, maxPoolConfig, maxPool3DConfig, maxPool3DGradConfig$1, maxPoolGradConfig$1, maxPoolWithArgmaxConfig, meanConfig, minConfig, minimumConfig, mirrorPadConfig, modConfig, multinomialConfig, multiplyConfig, negConfig, nonMaxSuppressionV3Config, nonMaxSuppressionV4Config, nonMaxSuppressionV5Config, notEqualConfig, oneHotConfig, onesLikeConfig, packConfig, padV2Config, powConfig, preluConfig, prodConfig, rangeConfig, realConfig, realDivConfig, reciprocalConfig, reluConfig, relu6Config, reshapeConfig, resizeBilinearConfig, resizeBilinearGradConfig$1, resizeNearestNeighborConfig, resizeNearestNeighborGradConfig$1, reverseConfig, rotateWithOffsetConfig, roundConfig, rsqrtConfig, scatterNdConfig, selectConfig, seluConfig, sigmoidConfig, signConfig, sinConfig, sinhConfig, sliceConfig, softmaxConfig, softplusConfig, spaceToBatchNDConfig, sparseFillEmptyRowsConfig, sparseReshapeConfig, sparseSegmentMeanConfig, sparseSegmentSumConfig, sparseToDenseConfig, splitVConfig, sqrtConfig, squareConfig, squaredDifferenceConfig, stepConfig, stridedSliceConfig, stringNGramsConfig, stringSplitConfig, stringToHashBucketFastConfig, subConfig, sumConfig, tanConfig, tanhConfig, tileConfig, topKConfig, transformConfig, transposeConfig, uniqueConfig, unpackConfig, unsortedSegmentSumConfig, zerosLikeConfig];
+	var kernelConfigs = [_fusedMatMulConfig, absConfig, acosConfig, acoshConfig, addConfig, addNConfig, allConfig, anyConfig, argMaxConfig, argMinConfig, asinConfig, asinhConfig, atanConfig, atan2Config, atanhConfig, avgPoolConfig, avgPool3DConfig, avgPool3DGradConfig$1, avgPoolGradConfig$1, batchMatMulConfig, batchNormConfig, batchToSpaceNDConfig, bincountConfig, broadcastArgsConfig, castConfig, ceilConfig, clipByValueConfig, complexConfig, complexAbsConfig, concatConfig, conv2DConfig, conv2DBackpropFilterConfig, conv2DBackpropInputConfig, conv3DConfig, conv3DBackpropFilterV2Config, conv3DBackpropInputV2Config, cosConfig, coshConfig, cropAndResizeConfig, cumprodConfig, cumsumConfig, denseBincountConfig, depthToSpaceConfig, depthwiseConv2dNativeConfig, depthwiseConv2dNativeBackpropFilterConfig, depthwiseConv2dNativeBackpropInputConfig, diagConfig, dilation2DConfig, dilation2DBackpropFilterConfig, dilation2DBackpropInputConfig, einsumConfig, eluConfig, eluGradConfig$1, equalConfig, erfConfig, expConfig, expandDimsConfig, expm1Config, fftConfig, fillConfig, flipLeftRightConfig, floorConfig, floorDivConfig, fusedConv2DConfig, fusedDepthwiseConv2DConfig, gatherNdConfig, gatherV2Config, greaterConfig, greaterEqualConfig, identityConfig, ifftConfig, imagConfig, isFiniteConfig, isInfConfig, isNaNConfig, leakyReluConfig, lessConfig, lessEqualConfig, linSpaceConfig, logConfig, log1pConfig, logicalAndConfig, logicalNotConfig, logicalOrConfig, LRNConfig, LRNGradConfig, maxConfig, maximumConfig, maxPoolConfig, maxPool3DConfig, maxPool3DGradConfig$1, maxPoolGradConfig$1, maxPoolWithArgmaxConfig, meanConfig, minConfig, minimumConfig, mirrorPadConfig, modConfig, multinomialConfig, multiplyConfig, negConfig, nonMaxSuppressionV3Config, nonMaxSuppressionV4Config, nonMaxSuppressionV5Config, notEqualConfig, oneHotConfig, onesLikeConfig, packConfig, padV2Config, powConfig, preluConfig, prodConfig, rangeConfig, realConfig, realDivConfig, reciprocalConfig, reluConfig, relu6Config, reshapeConfig, resizeBilinearConfig, resizeBilinearGradConfig$1, resizeNearestNeighborConfig, resizeNearestNeighborGradConfig$1, reverseConfig, rotateWithOffsetConfig, roundConfig, rsqrtConfig, scatterNdConfig, searchSortedConfig, selectConfig, seluConfig, sigmoidConfig, signConfig, sinConfig, sinhConfig, sliceConfig, softmaxConfig, softplusConfig, spaceToBatchNDConfig, sparseFillEmptyRowsConfig, sparseReshapeConfig, sparseSegmentMeanConfig, sparseSegmentSumConfig, sparseToDenseConfig, splitVConfig, sqrtConfig, squareConfig, squaredDifferenceConfig, stepConfig, stridedSliceConfig, stringNGramsConfig, stringSplitConfig, stringToHashBucketFastConfig, subConfig, sumConfig, tanConfig, tanhConfig, tileConfig, topKConfig, transformConfig, transposeConfig, uniqueConfig, unpackConfig, unsortedSegmentSumConfig, zerosLikeConfig];
 
 	for (var _i$1 = 0, _kernelConfigs = kernelConfigs; _i$1 < _kernelConfigs.length; _i$1++) {
 	  var kernelConfig = _kernelConfigs[_i$1];
@@ -110916,7 +112104,7 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	var ENV$2 = env();
+	var ENV$3 = env();
 	/**
 	 * This file contains WebGL-specific flag registrations.
 	 */
@@ -110925,12 +112113,12 @@
 	 * True if WebGL is supported.
 	 */
 
-	ENV$2.registerFlag('HAS_WEBGL', function () {
-	  return ENV$2.getNumber('WEBGL_VERSION') > 0;
+	ENV$3.registerFlag('HAS_WEBGL', function () {
+	  return ENV$3.getNumber('WEBGL_VERSION') > 0;
 	});
 	/** 0: No WebGL, 1: WebGL 1.0, 2: WebGL 2.0. */
 
-	ENV$2.registerFlag('WEBGL_VERSION', function () {
+	ENV$3.registerFlag('WEBGL_VERSION', function () {
 	  if (isWebGLVersionEnabled(2)) {
 	    return 2;
 	  } else if (isWebGLVersionEnabled(1)) {
@@ -110941,86 +112129,86 @@
 	});
 	/** Whether to check for numerical representation problems. */
 
-	ENV$2.registerFlag('WEBGL_CHECK_NUMERICAL_PROBLEMS', function () {
+	ENV$3.registerFlag('WEBGL_CHECK_NUMERICAL_PROBLEMS', function () {
 	  return false;
 	});
-	ENV$2.registerFlag('WEBGL_BUFFER_SUPPORTED', function () {
-	  return ENV$2.get('WEBGL_VERSION') === 2;
+	ENV$3.registerFlag('WEBGL_BUFFER_SUPPORTED', function () {
+	  return ENV$3.get('WEBGL_VERSION') === 2;
 	});
 	/** Whether the WebGL backend will sometimes forward ops to the CPU. */
 
-	ENV$2.registerFlag('WEBGL_CPU_FORWARD', function () {
+	ENV$3.registerFlag('WEBGL_CPU_FORWARD', function () {
 	  return true;
 	});
 	/** Whether the WebGL backend will always use f16 textures for rendering. */
 
-	ENV$2.registerFlag('WEBGL_FORCE_F16_TEXTURES', function () {
+	ENV$3.registerFlag('WEBGL_FORCE_F16_TEXTURES', function () {
 	  return false;
 	});
 	/** Whether to turn all packing related flags on. */
 
-	ENV$2.registerFlag('WEBGL_PACK', function () {
-	  return ENV$2.getBool('HAS_WEBGL');
+	ENV$3.registerFlag('WEBGL_PACK', function () {
+	  return ENV$3.getBool('HAS_WEBGL');
 	});
 	/** Whether we will pack the batchnormalization op. */
 
-	ENV$2.registerFlag('WEBGL_PACK_NORMALIZATION', function () {
-	  return ENV$2.getBool('WEBGL_PACK');
+	ENV$3.registerFlag('WEBGL_PACK_NORMALIZATION', function () {
+	  return ENV$3.getBool('WEBGL_PACK');
 	});
 	/** Whether we will pack the clip op. */
 
-	ENV$2.registerFlag('WEBGL_PACK_CLIP', function () {
-	  return ENV$2.getBool('WEBGL_PACK');
+	ENV$3.registerFlag('WEBGL_PACK_CLIP', function () {
+	  return ENV$3.getBool('WEBGL_PACK');
 	});
 	/** Whether we will pack the depthwise conv op. */
 
-	ENV$2.registerFlag('WEBGL_PACK_DEPTHWISECONV', function () {
-	  return ENV$2.getBool('WEBGL_PACK');
+	ENV$3.registerFlag('WEBGL_PACK_DEPTHWISECONV', function () {
+	  return ENV$3.getBool('WEBGL_PACK');
 	});
 	/** Whether we will pack binary ops. */
 
-	ENV$2.registerFlag('WEBGL_PACK_BINARY_OPERATIONS', function () {
-	  return ENV$2.getBool('WEBGL_PACK');
+	ENV$3.registerFlag('WEBGL_PACK_BINARY_OPERATIONS', function () {
+	  return ENV$3.getBool('WEBGL_PACK');
 	});
 	/** Whether we will pack unary ops. */
 
-	ENV$2.registerFlag('WEBGL_PACK_UNARY_OPERATIONS', function () {
-	  return ENV$2.getBool('WEBGL_PACK');
+	ENV$3.registerFlag('WEBGL_PACK_UNARY_OPERATIONS', function () {
+	  return ENV$3.getBool('WEBGL_PACK');
 	});
 	/** Whether we will pack array ops. */
 
-	ENV$2.registerFlag('WEBGL_PACK_ARRAY_OPERATIONS', function () {
-	  return ENV$2.getBool('WEBGL_PACK');
+	ENV$3.registerFlag('WEBGL_PACK_ARRAY_OPERATIONS', function () {
+	  return ENV$3.getBool('WEBGL_PACK');
 	});
 	/** Whether we will pack image ops. */
 
-	ENV$2.registerFlag('WEBGL_PACK_IMAGE_OPERATIONS', function () {
-	  return ENV$2.getBool('WEBGL_PACK');
+	ENV$3.registerFlag('WEBGL_PACK_IMAGE_OPERATIONS', function () {
+	  return ENV$3.getBool('WEBGL_PACK');
 	});
 	/** Whether we will pack reduce ops. */
 
-	ENV$2.registerFlag('WEBGL_PACK_REDUCE', function () {
-	  return ENV$2.getBool('WEBGL_PACK');
+	ENV$3.registerFlag('WEBGL_PACK_REDUCE', function () {
+	  return ENV$3.getBool('WEBGL_PACK');
 	});
 	/** Whether packed WebGL kernels lazily unpack their outputs. */
 
-	ENV$2.registerFlag('WEBGL_LAZILY_UNPACK', function () {
-	  return ENV$2.getBool('WEBGL_PACK');
+	ENV$3.registerFlag('WEBGL_LAZILY_UNPACK', function () {
+	  return ENV$3.getBool('WEBGL_PACK');
 	});
 	/** Whether we will use the im2col algorithm to speed up convolutions. */
 
-	ENV$2.registerFlag('WEBGL_CONV_IM2COL', function () {
-	  return ENV$2.getBool('WEBGL_PACK');
+	ENV$3.registerFlag('WEBGL_CONV_IM2COL', function () {
+	  return ENV$3.getBool('WEBGL_PACK');
 	});
 	/** The maximum texture dimension. */
 
-	ENV$2.registerFlag('WEBGL_MAX_TEXTURE_SIZE', function () {
-	  return getWebGLMaxTextureSize(ENV$2.getNumber('WEBGL_VERSION'));
+	ENV$3.registerFlag('WEBGL_MAX_TEXTURE_SIZE', function () {
+	  return getWebGLMaxTextureSize(ENV$3.getNumber('WEBGL_VERSION'));
 	});
 	/** The maximum texture dimension. */
 
-	ENV$2.registerFlag('WEBGL_MAX_TEXTURES_IN_SHADER', function () {
-	  return getMaxTexturesInShader(ENV$2.getNumber('WEBGL_VERSION'));
+	ENV$3.registerFlag('WEBGL_MAX_TEXTURES_IN_SHADER', function () {
+	  return getMaxTexturesInShader(ENV$3.getNumber('WEBGL_VERSION'));
 	});
 	/**
 	 * The disjoint_query_timer extension version.
@@ -111031,8 +112219,8 @@
 	 * WebGL 1.0 extension.
 	 */
 
-	ENV$2.registerFlag('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION', function () {
-	  var webGLVersion = ENV$2.getNumber('WEBGL_VERSION');
+	ENV$3.registerFlag('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION', function () {
+	  var webGLVersion = ENV$3.getNumber('WEBGL_VERSION');
 
 	  if (webGLVersion === 0) {
 	    return 0;
@@ -111045,47 +112233,47 @@
 	 * timing information that is reliable.
 	 */
 
-	ENV$2.registerFlag('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_RELIABLE', function () {
-	  return ENV$2.getNumber('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION') > 0 && !isMobile();
+	ENV$3.registerFlag('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_RELIABLE', function () {
+	  return ENV$3.getNumber('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION') > 0 && !isMobile();
 	});
 	/**
 	 * Whether the device is physically capable of rendering to float32 textures.
 	 */
 
-	ENV$2.registerFlag('WEBGL_RENDER_FLOAT32_CAPABLE', function () {
-	  return isCapableOfRenderingToFloatTexture(ENV$2.getNumber('WEBGL_VERSION'));
+	ENV$3.registerFlag('WEBGL_RENDER_FLOAT32_CAPABLE', function () {
+	  return isCapableOfRenderingToFloatTexture(ENV$3.getNumber('WEBGL_VERSION'));
 	});
 	/**
 	 * Whether rendering to float32 textures is enabled. If disabled, renders to
 	 * float16 textures.
 	 */
 
-	ENV$2.registerFlag('WEBGL_RENDER_FLOAT32_ENABLED', function () {
-	  return ENV$2.getBool('WEBGL_FORCE_F16_TEXTURES') ? false : ENV$2.getBool('WEBGL_RENDER_FLOAT32_CAPABLE');
+	ENV$3.registerFlag('WEBGL_RENDER_FLOAT32_ENABLED', function () {
+	  return ENV$3.getBool('WEBGL_FORCE_F16_TEXTURES') ? false : ENV$3.getBool('WEBGL_RENDER_FLOAT32_CAPABLE');
 	});
 	/**
 	 * Whether downloading float textures is enabled (16 or 32 bit). If disabled,
 	 * uses IEEE 754 encoding of the float32 values to 4 uint8 when downloading.
 	 */
 
-	ENV$2.registerFlag('WEBGL_DOWNLOAD_FLOAT_ENABLED', function () {
-	  return isDownloadFloatTextureEnabled(ENV$2.getNumber('WEBGL_VERSION'));
+	ENV$3.registerFlag('WEBGL_DOWNLOAD_FLOAT_ENABLED', function () {
+	  return isDownloadFloatTextureEnabled(ENV$3.getNumber('WEBGL_VERSION'));
 	});
 	/** Whether the fence API is available. */
 
-	ENV$2.registerFlag('WEBGL_FENCE_API_ENABLED', function () {
-	  return isWebGLFenceEnabled(ENV$2.getNumber('WEBGL_VERSION'));
+	ENV$3.registerFlag('WEBGL_FENCE_API_ENABLED', function () {
+	  return isWebGLFenceEnabled(ENV$3.getNumber('WEBGL_VERSION'));
 	});
 	/**
 	 * Tensors with size <= than this will be uploaded as uniforms, not textures.
 	 */
 
-	ENV$2.registerFlag('WEBGL_SIZE_UPLOAD_UNIFORM', function () {
+	ENV$3.registerFlag('WEBGL_SIZE_UPLOAD_UNIFORM', function () {
 	  // Use uniform uploads only when 32bit floats are supported. In
 	  // 16bit
 	  // environments there are problems with comparing a 16bit texture value
 	  // with a 32bit uniform value.
-	  var useUniforms = ENV$2.getBool('WEBGL_RENDER_FLOAT32_ENABLED');
+	  var useUniforms = ENV$3.getBool('WEBGL_RENDER_FLOAT32_ENABLED');
 	  return useUniforms ? 4 : 0;
 	});
 	/**
@@ -111096,7 +112284,7 @@
 	 * Default value -1 indicates that we will never aggressively delete textures.
 	 */
 
-	ENV$2.registerFlag('WEBGL_DELETE_TEXTURE_THRESHOLD', function () {
+	ENV$3.registerFlag('WEBGL_DELETE_TEXTURE_THRESHOLD', function () {
 	  return -1;
 	}, function (threshold) {
 	  if (threshold < 0 && threshold !== -1) {
@@ -111113,7 +112301,7 @@
 	 * we will not enforce manual flush and depend on system default flush schedule.
 	 */
 
-	ENV$2.registerFlag('WEBGL_FLUSH_THRESHOLD', function () {
+	ENV$3.registerFlag('WEBGL_FLUSH_THRESHOLD', function () {
 	  return isMobile() ? 1 : -1;
 	}, function (threshold) {
 	  if (threshold < 0 && threshold !== -1) {
@@ -111127,12 +112315,12 @@
 	 * Default value is 128.
 	 */
 
-	ENV$2.registerFlag('CPU_HANDOFF_SIZE_THRESHOLD', function () {
+	ENV$3.registerFlag('CPU_HANDOFF_SIZE_THRESHOLD', function () {
 	  return 128;
 	});
 	/** Whether we will use shapes uniforms. */
 
-	ENV$2.registerFlag('WEBGL_USE_SHAPES_UNIFORMS', function () {
+	ENV$3.registerFlag('WEBGL_USE_SHAPES_UNIFORMS', function () {
 	  return false;
 	});
 	/**
@@ -111143,7 +112331,7 @@
 	 * Default value is 100000.
 	 */
 
-	ENV$2.registerFlag('TOPK_LAST_DIM_CPU_HANDOFF_SIZE_THRESHOLD', function () {
+	ENV$3.registerFlag('TOPK_LAST_DIM_CPU_HANDOFF_SIZE_THRESHOLD', function () {
 	  return 100000;
 	});
 	/**
@@ -111154,7 +112342,7 @@
 	 * Default value is 128.
 	 */
 
-	ENV$2.registerFlag('TOPK_K_CPU_HANDOFF_THRESHOLD', function () {
+	ENV$3.registerFlag('TOPK_K_CPU_HANDOFF_THRESHOLD', function () {
 	  return 128;
 	});
 
@@ -114001,6 +115189,7 @@
 	    prodImplCPU = prodImpl,
 	    rangeImplCPU = rangeImpl,
 	    rsqrtImplCPU = rsqrtImpl,
+	    scatterImplCPU = scatterImpl,
 	    sigmoidImplCPU = sigmoidImpl,
 	    simpleAbsImplCPU = simpleAbsImpl,
 	    sliceImplCPU = sliceImpl,
@@ -115023,7 +116212,7 @@
 
 	    var tmpTarget = this.decode(dataId, options.customTexShape); // Make engine track this tensor, so that we can dispose it later.
 
-	    var tensorRef = engine().makeTensorFromDataId(tmpTarget.dataId, tmpTarget.shape, tmpTarget.dtype);
+	    var tensorRef = engine().makeTensorFromTensorInfo(tmpTarget);
 	    var tmpData = this.texData.get(tmpTarget.dataId);
 	    return Object.assign({
 	      tensorRef: tensorRef
@@ -115032,20 +116221,20 @@
 
 	  _proto.bufferSync = function bufferSync(t) {
 	    var data = this.readSync(t.dataId);
-	    var decodedData = data;
 
 	    if (t.dtype === 'string') {
 	      try {
 	        // Decode the bytes into string.
-	        decodedData = data.map(function (d) {
+	        var strings = data.map(function (d) {
 	          return decodeString(d);
 	        });
+	        return buffer(t.shape, t.dtype, strings);
 	      } catch (_a) {
 	        throw new Error('Failed to decode encoded string bytes into utf-8');
 	      }
 	    }
 
-	    return buffer(t.shape, t.dtype, decodedData);
+	    return buffer(t.shape, t.dtype, data);
 	  };
 
 	  _proto.checkNumericalProblems = function checkNumericalProblems(values) {
@@ -115394,7 +116583,7 @@
 	  _proto.packedUnaryOp = function packedUnaryOp(x, op, dtype) {
 	    var program = new UnaryOpPackedProgram(x.shape, op);
 	    var outInfo = this.compileAndRun(program, [x], dtype);
-	    return engine().makeTensorFromDataId(outInfo.dataId, outInfo.shape, outInfo.dtype);
+	    return engine().makeTensorFromTensorInfo(outInfo);
 	  } // TODO(msoulanille) remove this once the backend has been modularized
 	  // a copy is needed here to break a circular dependency.
 	  // Also remove the op from unary_op.
@@ -115413,7 +116602,7 @@
 
 	    var program = new UnaryOpProgram(x.shape, ABS);
 	    var outInfo = this.compileAndRun(program, [x]);
-	    return engine().makeTensorFromDataId(outInfo.dataId, outInfo.shape, outInfo.dtype);
+	    return engine().makeTensorFromTensorInfo(outInfo);
 	  };
 
 	  _proto.makeTensorInfo = function makeTensorInfo(shape, dtype, values) {
@@ -115437,10 +116626,7 @@
 	  };
 
 	  _proto.makeOutput = function makeOutput(shape, dtype, values) {
-	    var _this$makeTensorInfo = this.makeTensorInfo(shape, dtype, values),
-	        dataId = _this$makeTensorInfo.dataId;
-
-	    return engine().makeTensorFromDataId(dataId, shape, dtype, this);
+	    return engine().makeTensorFromTensorInfo(this.makeTensorInfo(shape, dtype, values), this);
 	  };
 
 	  _proto.unpackTensor = function unpackTensor(input) {
@@ -116043,7 +117229,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$6 = '3.15.0';
+	var version$6 = '3.19.0';
 
 	/**
 	 * @license
@@ -120040,15 +121226,23 @@
 	    return outInfo;
 	  }
 
-	  if (inputs.length > env().getNumber('WEBGL_MAX_TEXTURES_IN_SHADER')) {
-	    var midIndex = Math.floor(inputs.length / 2);
-	    var leftSide = concatImpl$1(inputs.slice(0, midIndex), axis, backend);
-	    var rightSide = concatImpl$1(inputs.slice(midIndex), axis, backend);
+	  var maxTexturesInShader = env().getNumber('WEBGL_MAX_TEXTURES_IN_SHADER');
 
-	    var _result2 = concatImpl$1([leftSide, rightSide], axis, backend);
+	  if (inputs.length > maxTexturesInShader) {
+	    var reducedInputs = [];
 
-	    backend.disposeIntermediateTensorInfo(leftSide);
-	    backend.disposeIntermediateTensorInfo(rightSide);
+	    for (var i = 0; i < inputs.length; i += maxTexturesInShader) {
+	      var subArray = inputs.slice(i, i + maxTexturesInShader);
+	      reducedInputs.push(concatImpl$1(subArray, axis, backend));
+	    }
+
+	    var _result2 = concatImpl$1(reducedInputs, axis, backend);
+
+	    for (var _i = 0, _reducedInputs = reducedInputs; _i < _reducedInputs.length; _i++) {
+	      var _i2 = _reducedInputs[_i];
+	      backend.disposeIntermediateTensorInfo(_i2);
+	    }
+
 	    return _result2;
 	  }
 
@@ -120290,7 +121484,7 @@
 	  this.packedOutput = true;
 	  this.customUniforms = [{
 	    name: 'inputShape',
-	    type: 'ivec3'
+	    type: 'ivec4'
 	  }, {
 	    name: 'pad',
 	    type: 'ivec2'
@@ -120315,18 +121509,18 @@
 	  var dataFormat = convInfo.dataFormat;
 	  var glsl = getGlslDifferences();
 	  var isChannelsLast = dataFormat === 'channelsLast';
-	  var rowDim = isChannelsLast ? 0 : 1;
-	  var colDim = isChannelsLast ? 1 : 2;
-	  var boundsCheckingSnippet = this.enableShapeUniforms ? 'if(blockIndex < outShape[1] && pos < outShape[0]) {' : "if(blockIndex < " + outputShape[1] + " && pos < " + outputShape[0] + ") {";
+	  var rowDim = isChannelsLast ? 1 : 2;
+	  var colDim = isChannelsLast ? 2 : 3;
+	  var boundsCheckingSnippet = this.enableShapeUniforms ? 'if(blockIndex < outShape[2] && pos < outShape[1]) {' : "if(blockIndex < " + outputShape[2] + " && pos < " + outputShape[1] + ") {";
 	  var unrolled = "";
 
 	  for (var row = 0; row <= 1; row++) {
 	    for (var col = 0; col <= 1; col++) {
-	      unrolled += "\n          blockIndex = rc.y + " + col + ";\n          pos = rc.x + " + row + ";\n\n          " + boundsCheckingSnippet + "\n            offsetY = int(blockIndex / outWidth) * stride[0] - pad[0];\n            d0 = offsetY + dilation[0] * (pos / itemsPerBlockRow);\n\n            if(d0 < inputShape[" + rowDim + "] && d0 >= 0) {\n              // Use custom imod instead mod. On Intel GPU, mod may generate\n              // unexpected value.\n              // https://github.com/tensorflow/tfjs/issues/5447\n              offsetX = imod(blockIndex, outWidth) * stride[1] - pad[1];\n              d1 = offsetX + dilation[1] * (imod(pos, itemsPerBlockRow) /\n                  inChannels);\n\n              if(d1 < inputShape[" + colDim + "] && d1 >= 0) {\n\n                ch = imod(pos, inChannels);\n\n                if (" + isChannelsLast + ") {\n                  innerDims = vec2(d1, ch);\n                  result[" + (row * 2 + col) + "] = getChannel(\n                    getA(d0, int(innerDims.x),\n                    int(innerDims.y)), innerDims);\n                } else {\n                  innerDims = vec2(d0, d1);\n                  result[" + (row * 2 + col) + "] = getChannel(\n                    getA(ch, int(innerDims.x),\n                    int(innerDims.y)), innerDims);\n                }\n              }\n            }\n          }\n        ";
+	      unrolled += "\n          blockIndex = rc.z + " + col + ";\n          pos = rc.y + " + row + ";\n\n          " + boundsCheckingSnippet + "\n            offsetY = int(blockIndex / outWidth) * stride[0] - pad[0];\n            d0 = offsetY + dilation[0] * (pos / itemsPerBlockRow);\n\n            if(d0 < inputShape[" + rowDim + "] && d0 >= 0) {\n              // Use custom imod instead mod. On Intel GPU, mod may generate\n              // unexpected value.\n              // https://github.com/tensorflow/tfjs/issues/5447\n              offsetX = imod(blockIndex, outWidth) * stride[1] - pad[1];\n              d1 = offsetX + dilation[1] * (imod(pos, itemsPerBlockRow) /\n                  inChannels);\n\n              if(d1 < inputShape[" + colDim + "] && d1 >= 0) {\n\n                ch = imod(pos, inChannels);\n\n                if (" + isChannelsLast + ") {\n                  innerDims = vec2(d1, ch);\n                  result[" + (row * 2 + col) + "] = getChannel(\n                    getA(rc.x, d0, int(innerDims.x),\n                    int(innerDims.y)), innerDims);\n                } else {\n                  innerDims = vec2(d0, d1);\n                  result[" + (row * 2 + col) + "] = getChannel(\n                    getA(rc.x, ch, int(innerDims.x),\n                    int(innerDims.y)), innerDims);\n                }\n              }\n            }\n          }\n        ";
 	    }
 	  }
 
-	  this.userCode = "\n      void main() {\n        ivec2 rc = getOutputCoords();\n\n        vec4 result = vec4(0);\n\n        int blockIndex, pos, offsetY, d0, offsetX, d1, ch;\n        vec2 innerDims;\n\n        " + unrolled + "\n\n        " + glsl.output + " = result;\n      }\n    ";
+	  this.userCode = "\n      void main() {\n        ivec3 rc = getOutputCoords();\n\n        vec4 result = vec4(0);\n\n        int blockIndex, pos, offsetY, d0, offsetX, d1, ch;\n        vec2 innerDims;\n\n        " + unrolled + "\n\n        " + glsl.output + " = result;\n      }\n    ";
 	};
 
 	/**
@@ -120345,8 +121539,44 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
+	// dimension to compute batchMatMul, so bias and activation weights are also
+	// supposed to fuse the two dimensions into one.
+	//
+	// This function computes the target shape for fusing height and width
+	// dimensions. Returning null means the shape is already compatible.
+	//
+	// Even though the bias is not supposed to be a 3-D or a 4-D (including
+	// batch) tensor and PReLU activiation weights is not supposed to be a 4-D
+	// tensor, we still need to support them, because we haven't disabled
+	// them for NHWC format.
+	// https://github.com/tensorflow/tfjs/blob/b53bd47e880367ae57493f0ea628abaf08db2d5d/tfjs-core/src/ops/fused/conv2d.ts#L181-L196
+
+	function getShapeForBatchMatMul(shape, isChannelsLast) {
+	  var length = shape.length;
+
+	  if (length >= 3) {
+	    return isChannelsLast ? [].concat(shape.slice(0, -3), [
+	    /* batch */
+	    shape[length - 3] * shape[length - 2]
+	    /* height * width */
+	    , shape[length - 1]
+	    /* channel */
+	    ]) : [].concat(shape.slice(0, -3), [
+	    /* batch */
+	    shape[length - 3]
+	    /* channel */
+	    , shape[length - 2] * shape[length - 1]
+	    /* height * width */
+	    ]);
+	  } else if (!isChannelsLast && length === 1 && shape[0] > 1) {
+	    return [shape[0], 1];
+	  } else {
+	    return null;
+	  }
+	} // For 1x1 kernels that iterate through every point in the input, convolution
 	// can be expressed as matrix multiplication (without need for memory
 	// remapping).
+
 
 	function conv2dByMatMul(_ref) {
 	  var x = _ref.x,
@@ -120372,8 +121602,43 @@
 	  var transposeA = false;
 	  var transposeB = false;
 	  var out;
-	  var intermediates = []; // TODO: Once reduction ops are packed, batchMatMul will always be packed
+	  var intermediates = [];
+
+	  if (preluActivationWeights != null) {
+	    var targetShape = getShapeForBatchMatMul(preluActivationWeights.shape, isChannelsLast);
+
+	    if (targetShape != null) {
+	      preluActivationWeights = reshape$3({
+	        inputs: {
+	          x: preluActivationWeights
+	        },
+	        backend: backend,
+	        attrs: {
+	          shape: targetShape
+	        }
+	      });
+	      intermediates.push(preluActivationWeights);
+	    }
+	  }
+
+	  if (bias != null) {
+	    var _targetShape = getShapeForBatchMatMul(bias.shape, isChannelsLast);
+
+	    if (_targetShape != null) {
+	      bias = reshape$3({
+	        inputs: {
+	          x: bias
+	        },
+	        backend: backend,
+	        attrs: {
+	          shape: _targetShape
+	        }
+	      });
+	      intermediates.push(bias);
+	    }
+	  } // TODO: Once reduction ops are packed, batchMatMul will always be packed
 	  // and we can remove this condition.
+
 
 	  var batchMatMulWillBeUnpacked = (outerShapeX === 1 || outerShapeFilter === 1) && sharedMatMulDim > MATMUL_SHARED_DIM_THRESHOLD; // The algorithm in the if condition assumes (1) the output will be packed,
 	  // (2) x is packed, (3) x isChannelsLast, (4)  x's packed texture is already
@@ -120389,10 +121654,11 @@
 	    // it is for next even col. We make the odd-cols tensor to look like
 	    // even-cols tensor before the operation and, after the batchMatMul,
 	    // fix the even-cols result to have odd number of cols.
-	    var targetShape = xShape[0] * xShape[1] * (xShape[2] + 1);
+	    var _targetShape2 = xShape[0] * xShape[1] * (xShape[2] + 1);
+
 	    var xReshaped = {
 	      dataId: x.dataId,
-	      shape: [1, targetShape, convInfo.inChannels],
+	      shape: [1, _targetShape2, convInfo.inChannels],
 	      dtype: x.dtype
 	    }; // xTexData.shape gets referenced from GPGPUBinary.inShapeInfos.
 	    // Decrementing col count, after batchMatMul->...->compileProgram leads to
@@ -120448,7 +121714,7 @@
 	    out.shape = convInfo.outShape;
 	    intermediates.push(pointwiseConv);
 	  } else {
-	    var _targetShape = isChannelsLast ? xShape[0] * xShape[1] * xShape[2] : xShape[0] * xShape[2] * xShape[3];
+	    var numCols = convInfo.outHeight * convInfo.outWidth;
 
 	    var _xReshaped = reshape$3({
 	      inputs: {
@@ -120456,7 +121722,7 @@
 	      },
 	      backend: backend,
 	      attrs: {
-	        shape: [1, _targetShape, convInfo.inChannels]
+	        shape: isChannelsLast ? [convInfo.batchSize, numCols, convInfo.inChannels] : [convInfo.batchSize, convInfo.inChannels, numCols]
 	      }
 	    });
 
@@ -120471,9 +121737,9 @@
 	    });
 
 	    var result = batchMatMulImpl({
-	      a: _xReshaped,
-	      b: _filterReshaped,
-	      transposeA: transposeA,
+	      a: isChannelsLast ? _xReshaped : _filterReshaped,
+	      b: isChannelsLast ? _filterReshaped : _xReshaped,
+	      transposeA: !isChannelsLast,
 	      transposeB: transposeB,
 	      backend: backend,
 	      bias: bias,
@@ -120532,19 +121798,45 @@
 	  var isChannelsLast = dataFormat === 'channelsLast';
 	  var sharedDim = filterWidth * filterHeight * inChannels;
 	  var numCols = outHeight * outWidth;
-	  var x2ColShape = [sharedDim, numCols];
+	  var x2ColShape = [convInfo.batchSize, sharedDim, numCols];
 	  var transposeA = true;
 	  var transposeB = false;
 	  var intermediates = [];
-	  var xSqueezed = reshape$3({
-	    inputs: {
-	      x: x
-	    },
-	    backend: backend,
-	    attrs: {
-	      shape: x.shape.slice(1)
+
+	  if (preluActivationWeights != null) {
+	    var targetShape = getShapeForBatchMatMul(preluActivationWeights.shape, isChannelsLast);
+
+	    if (targetShape != null) {
+	      preluActivationWeights = reshape$3({
+	        inputs: {
+	          x: preluActivationWeights
+	        },
+	        backend: backend,
+	        attrs: {
+	          shape: targetShape
+	        }
+	      });
+	      intermediates.push(preluActivationWeights);
 	    }
-	  });
+	  }
+
+	  if (bias != null) {
+	    var _targetShape3 = getShapeForBatchMatMul(bias.shape, isChannelsLast);
+
+	    if (_targetShape3 != null) {
+	      bias = reshape$3({
+	        inputs: {
+	          x: bias
+	        },
+	        backend: backend,
+	        attrs: {
+	          shape: _targetShape3
+	        }
+	      });
+	      intermediates.push(bias);
+	    }
+	  }
+
 	  var w2Row = reshape$3({
 	    inputs: {
 	      x: filter
@@ -120554,18 +121846,17 @@
 	      shape: [1, sharedDim, sizeFromShape(filter.shape) / sharedDim]
 	    }
 	  });
-	  intermediates.push(xSqueezed);
 	  intermediates.push(w2Row);
 	  var im2ColProgram = new Im2ColPackedProgram(x2ColShape, convInfo);
-	  var customValues = [xSqueezed.shape, [convInfo.padInfo.top, convInfo.padInfo.left], [convInfo.strideHeight, convInfo.strideWidth], [convInfo.dilationHeight, convInfo.dilationWidth], [convInfo.inChannels], [convInfo.filterWidth * convInfo.inChannels], [convInfo.outWidth]];
-	  var im2Col = backend.runWebGLProgram(im2ColProgram, [xSqueezed], 'float32', customValues);
+	  var customValues = [x.shape, [convInfo.padInfo.top, convInfo.padInfo.left], [convInfo.strideHeight, convInfo.strideWidth], [convInfo.dilationHeight, convInfo.dilationWidth], [convInfo.inChannels], [convInfo.filterWidth * convInfo.inChannels], [convInfo.outWidth]];
+	  var im2Col = backend.runWebGLProgram(im2ColProgram, [x], 'float32', customValues);
 	  var im2ColReshaped = reshape$3({
 	    inputs: {
 	      x: im2Col
 	    },
 	    backend: backend,
 	    attrs: {
-	      shape: [1, x2ColShape[0], x2ColShape[1]]
+	      shape: x2ColShape
 	    }
 	  });
 	  intermediates.push(im2Col);
@@ -120574,8 +121865,8 @@
 	  var hasPreluActivationWeights = preluActivationWeights != null;
 	  var hasLeakyreluAlpha = activation === 'leakyrelu';
 	  var fusedActivation = activation ? mapActivationToShaderProgram(activation, true) : null;
-	  var matmulProgram = new MatMulPackedProgram(im2ColReshaped.shape, w2Row.shape, [1, numCols, convInfo.outChannels], transposeA, transposeB, hasBias, fusedActivation, hasPreluActivationWeights, hasLeakyreluAlpha);
-	  var inputs = [im2ColReshaped, w2Row];
+	  var matmulProgram = new MatMulPackedProgram(isChannelsLast ? im2ColReshaped.shape : w2Row.shape, isChannelsLast ? w2Row.shape : im2ColReshaped.shape, isChannelsLast ? [convInfo.batchSize, numCols, convInfo.outChannels] : [convInfo.batchSize, convInfo.outChannels, numCols], transposeA, transposeB, hasBias, fusedActivation, hasPreluActivationWeights, hasLeakyreluAlpha);
+	  var inputs = isChannelsLast ? [im2ColReshaped, w2Row] : [w2Row, im2ColReshaped];
 
 	  if (bias) {
 	    inputs.push(bias);
@@ -120592,14 +121883,13 @@
 	  }
 
 	  var product = backend.runWebGLProgram(matmulProgram, inputs, 'float32');
-	  var outShape = isChannelsLast ? [1, outHeight, outWidth, convInfo.outChannels] : [1, convInfo.outChannels, outHeight, outWidth];
 	  var out = reshape$3({
 	    inputs: {
 	      x: product
 	    },
 	    backend: backend,
 	    attrs: {
-	      shape: outShape
+	      shape: convInfo.outShape
 	    }
 	  });
 	  intermediates.push(product);
@@ -120652,7 +121942,7 @@
 	      convInfo: convInfo,
 	      backend: backend
 	    });
-	  } else if (env().getBool('WEBGL_CONV_IM2COL') && x.shape[0] === 1) {
+	  } else if (env().getBool('WEBGL_CONV_IM2COL')) {
 	    out = conv2dWithIm2Row({
 	      x: x,
 	      filter: filter,
@@ -121074,18 +122364,27 @@
 	  kernelFunc: cropAndResize$2
 	};
 
-	var CumProdProgram = function CumProdProgram(shape, exclusive, reverse) {
+	var CumOpType;
+
+	(function (CumOpType) {
+	  CumOpType["Prod"] = "*";
+	  CumOpType["Sum"] = "+";
+	})(CumOpType || (CumOpType = {}));
+
+	var CumProgram = function CumProgram(op, outputShape, exclusive, reverse) {
+	  this.op = op;
+	  this.outputShape = outputShape;
 	  this.variableNames = ['x'];
 	  this.customUniforms = [{
 	    name: 'index',
 	    type: 'float'
 	  }];
-	  this.outputShape = shape;
-	  var rank = shape.length;
-	  var val = exclusive ? '1.0' : "getX(" + getCoords$1(rank, 'coords') + ")";
-	  var length = shape[shape.length - 1];
+	  var rank = this.outputShape.length;
+	  var initVal = this.op === CumOpType.Prod ? '1.0' : '0.0';
+	  var val = exclusive ? initVal : "getX(" + getCoords$1(rank, 'coords', this.op) + ")";
+	  var length = this.outputShape[this.outputShape.length - 1];
 	  var condition = '';
-	  var idxString = ''; // When exclusive is set, the cumprod op becomes roll op that copies the
+	  var idxString = ''; // When exclusive is set, the cum op becomes roll op that copies the
 	  // value from the previous index based on the direction specified by the
 	  // reverse flag.
 
@@ -121097,10 +122396,10 @@
 	    idxString = reverse ? 'end + pow2' : 'end - pow2';
 	  }
 
-	  this.userCode = "\n      void main() {\n        " + getCoordsDataType(rank) + " coords = getOutputCoords();\n        int end = " + getFinalCoord(rank, 'coords') + ";\n        float val = " + val + ";\n        int pow2 = int(pow(2.0, index));\n        if (" + condition + ") {\n          int idx = " + idxString + ";\n          " + getFinalCoord(rank, 'coords') + " = idx;\n          val *= getX(" + getCoords$1(rank, 'coords') + ");\n        }\n        setOutput(val);\n      }\n    ";
+	  this.userCode = "\n      void main() {\n        " + getCoordsDataType(rank) + " coords = getOutputCoords();\n        int end = " + getFinalCoord(rank, 'coords', this.op) + ";\n        float val = " + val + ";\n        int pow2 = int(pow(2.0, index));\n        if (" + condition + ") {\n          int idx = " + idxString + ";\n          " + getFinalCoord(rank, 'coords', this.op) + " = idx;\n          val " + this.op + "= getX(" + getCoords$1(rank, 'coords', this.op) + ");\n        }\n        setOutput(val);\n      }\n    ";
 	};
 
-	function getCoords$1(rank, name) {
+	function getCoords$1(rank, name, op) {
 	  if (rank === 1) {
 	    return "" + name;
 	  } else if (rank === 2) {
@@ -121110,11 +122409,11 @@
 	  } else if (rank === 4) {
 	    return name + ".x, " + name + ".y, " + name + ".z, " + name + ".w";
 	  } else {
-	    throw Error("Cumulative product for rank " + rank + " is not yet supported");
+	    throw new Error("Cumulative " + op + " for rank " + rank + " is not yet supported");
 	  }
 	}
 
-	function getFinalCoord(rank, name) {
+	function getFinalCoord(rank, name, op) {
 	  if (rank === 1) {
 	    return "" + name;
 	  } else if (rank === 2) {
@@ -121124,7 +122423,7 @@
 	  } else if (rank === 4) {
 	    return name + ".w";
 	  } else {
-	    throw Error("Cumulative product for rank " + rank + " is not yet supported");
+	    throw new Error("Cumulative " + op + " for rank " + rank + " is not yet supported");
 	  }
 	}
 
@@ -121144,14 +122443,7 @@
 	 * limitations under the License.
 	 * =============================================================================
 	 */
-	function cumprod$2(args) {
-	  var inputs = args.inputs,
-	      backend = args.backend,
-	      attrs = args.attrs;
-	  var x = inputs.x;
-	  var axis = attrs.axis,
-	      exclusive = attrs.exclusive,
-	      reverse = attrs.reverse;
+	function cumImpl(op, x, backend, axis, exclusive, reverse) {
 	  var xRank = x.shape.length;
 	  var permutation = getAxesPermutation([axis], xRank);
 	  var permutedX = x;
@@ -121180,23 +122472,23 @@
 	      x: permutedX
 	    },
 	    backend: backend
-	  }); // Use cumprod parallel algorithm, inspired by:
+	  }); // Use cum parallel algorithm, inspired by:
 	  // https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
 	  // Note: although the algorithm is called sum, it works for any associtative
 	  // operator with an identity.
 
 	  for (var i = 0; i <= Math.ceil(Math.log2(size)) - 1; i++) {
-	    var program = new CumProdProgram(permutedX.shape, false, reverse);
+	    var program = new CumProgram(op, permutedX.shape, false, reverse);
 	    var customValues = [[i]];
 	    var prevResult = result;
 	    result = backend.runWebGLProgram(program, [result], result.dtype, customValues);
 	    backend.disposeIntermediateTensorInfo(prevResult);
-	  } // For exclusive cumprod, shift the end result in the direction of product
-	  // and add 1 to the front index.
+	  } // For exclusive cum, shift the end result in the direction of product or sum
+	  // and add 1 for product or 0 for sum to the front index.
 
 
 	  if (exclusive) {
-	    var _program = new CumProdProgram(permutedX.shape, exclusive, reverse);
+	    var _program = new CumProgram(op, permutedX.shape, exclusive, reverse);
 
 	    var _prevResult = result;
 	    result = backend.runWebGLProgram(_program, [result], result.dtype);
@@ -121221,69 +122513,42 @@
 
 	  return result;
 	}
+
+	/**
+	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function cumprod$2(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend,
+	      attrs = args.attrs;
+	  var x = inputs.x;
+	  var axis = attrs.axis,
+	      exclusive = attrs.exclusive,
+	      reverse = attrs.reverse;
+	  return cumImpl(CumOpType.Prod, x, backend, axis, exclusive, reverse);
+	}
 	var cumprodConfig$1 = {
 	  kernelName: Cumprod,
 	  backendName: 'webgl',
 	  kernelFunc: cumprod$2
 	};
 
-	var CumSumProgram = function CumSumProgram(shape, exclusive, reverse) {
-	  this.variableNames = ['x'];
-	  this.customUniforms = [{
-	    name: 'index',
-	    type: 'float'
-	  }];
-	  this.outputShape = shape;
-	  var rank = shape.length;
-	  var val = exclusive ? '0.0' : "getX(" + getCoords$2(rank, 'coords') + ")";
-	  var length = shape[shape.length - 1];
-	  var condition = '';
-	  var idxString = ''; // When exclusive is set, the cumsum op becomes roll op that copies the
-	  // value from the previous index based on the direction specified by the
-	  // reverse flag.
-
-	  if (exclusive) {
-	    condition = reverse ? "end != " + (length - 1) : 'end != 0';
-	    idxString = reverse ? 'end + 1' : 'end - 1';
-	  } else {
-	    condition = reverse ? "end + pow2 < " + length : 'end >= pow2';
-	    idxString = reverse ? 'end + pow2' : 'end - pow2';
-	  }
-
-	  this.userCode = "\n      void main() {\n        " + getCoordsDataType(rank) + " coords = getOutputCoords();\n        int end = " + getFinalCoord$1(rank, 'coords') + ";\n        float val = " + val + ";\n        int pow2 = int(pow(2.0, index));\n        if (" + condition + ") {\n          int idx = " + idxString + ";\n          " + getFinalCoord$1(rank, 'coords') + " = idx;\n          val += getX(" + getCoords$2(rank, 'coords') + ");\n        }\n        setOutput(val);\n      }\n    ";
-	};
-
-	function getCoords$2(rank, name) {
-	  if (rank === 1) {
-	    return "" + name;
-	  } else if (rank === 2) {
-	    return name + ".x, " + name + ".y";
-	  } else if (rank === 3) {
-	    return name + ".x, " + name + ".y, " + name + ".z";
-	  } else if (rank === 4) {
-	    return name + ".x, " + name + ".y, " + name + ".z, " + name + ".w";
-	  } else {
-	    throw Error("Cumulative sum for rank " + rank + " is not yet supported");
-	  }
-	}
-
-	function getFinalCoord$1(rank, name) {
-	  if (rank === 1) {
-	    return "" + name;
-	  } else if (rank === 2) {
-	    return name + ".y";
-	  } else if (rank === 3) {
-	    return name + ".z";
-	  } else if (rank === 4) {
-	    return name + ".w";
-	  } else {
-	    throw Error("Cumulative sum for rank " + rank + " is not yet supported");
-	  }
-	}
-
 	/**
 	 * @license
-	 * Copyright 2020 Google LLC. All Rights Reserved.
+	 * Copyright 2022 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
 	 * You may obtain a copy of the License at
@@ -121305,72 +122570,7 @@
 	  var axis = attrs.axis,
 	      exclusive = attrs.exclusive,
 	      reverse = attrs.reverse;
-	  var xRank = x.shape.length;
-	  var permutation = getAxesPermutation([axis], xRank);
-	  var permutedX = x;
-
-	  if (permutation != null) {
-	    permutedX = transpose$2({
-	      inputs: {
-	        x: x
-	      },
-	      backend: backend,
-	      attrs: {
-	        perm: permutation
-	      }
-	    });
-	  }
-
-	  var permutedAxis = getInnerMostAxes(1, xRank)[0];
-
-	  if (permutedAxis !== xRank - 1) {
-	    throw new Error("WebGL cumsum shader expects an inner-most axis=" + (x.shape.length - 1) + " " + ("but got axis=" + axis));
-	  }
-
-	  var size = permutedX.shape[permutedAxis];
-	  var result = identity$2({
-	    inputs: {
-	      x: permutedX
-	    },
-	    backend: backend
-	  }); // Use cumsum parallel algorithm, ref:
-	  // https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
-
-	  for (var i = 0; i <= Math.ceil(Math.log2(size)) - 1; i++) {
-	    var program = new CumSumProgram(permutedX.shape, false, reverse);
-	    var customValues = [[i]];
-	    var prevResult = result;
-	    result = backend.runWebGLProgram(program, [result], result.dtype, customValues);
-	    backend.disposeIntermediateTensorInfo(prevResult);
-	  } // For exclusive cumsum, shift the end result in the direction of sum
-	  // and add 0 to the front index.
-
-
-	  if (exclusive) {
-	    var _program = new CumSumProgram(permutedX.shape, exclusive, reverse);
-
-	    var _prevResult = result;
-	    result = backend.runWebGLProgram(_program, [result], result.dtype);
-	    backend.disposeIntermediateTensorInfo(_prevResult);
-	  }
-
-	  if (permutation != null) {
-	    var reversePermutation = getUndoAxesPermutation(permutation);
-	    var reverseTransposedResult = transpose$2({
-	      inputs: {
-	        x: result
-	      },
-	      backend: backend,
-	      attrs: {
-	        perm: reversePermutation
-	      }
-	    });
-	    backend.disposeIntermediateTensorInfo(result);
-	    backend.disposeIntermediateTensorInfo(permutedX);
-	    return reverseTransposedResult;
-	  }
-
-	  return result;
+	  return cumImpl(CumOpType.Sum, x, backend, axis, exclusive, reverse);
 	}
 	var cumsumConfig$1 = {
 	  kernelName: Cumsum,
@@ -122979,7 +124179,7 @@
 	      preluActivationWeights: preluActivationWeights,
 	      leakyreluAlpha: leakyreluAlpha
 	    });
-	  } else if (env().getBool('WEBGL_CONV_IM2COL') && x.shape[0] === 1) {
+	  } else if (env().getBool('WEBGL_CONV_IM2COL')) {
 	    out = conv2dWithIm2Row({
 	      x: x,
 	      filter: filter,
@@ -122996,14 +124196,38 @@
 	    var hasLeakyreluAlpha = activation === 'leakyrelu';
 	    var fusedActivation = activation ? mapActivationToShaderProgram(activation, false) : null;
 	    var program = new Conv2DProgram(convInfo, hasBias, fusedActivation, hasPreluActivationWeights, hasLeakyreluAlpha);
-	    var _inputs = [x, filter];
+	    var _inputs = [x, filter]; // If the input is a 1-D tensor, align it with the channels.
+	    //
+	    // For fusedConv2d, the inputs (x, W, bias, preluActivationWeights) are
+	    // supposed to be aligned with the dataFormat. The 4-D tensor inputs or
+	    // scalar inputs are originally aligned, but the 1-D tensor inputs are
+	    // supposed to be aligned with the channels (only bias and PReLU activation
+	    // weights could be a 1-D tensor).
 
-	    if (bias) {
-	      _inputs.push(bias);
+	    var alignInputWithDataFormat = function alignInputWithDataFormat(input, dataFormat) {
+	      if (dataFormat === 'NCHW' && input.shape.length === 1 && input.shape[0] !== 1) {
+	        var alignedInput = reshape$3({
+	          inputs: {
+	            x: input
+	          },
+	          backend: backend,
+	          attrs: {
+	            shape: [input.shape[0], 1, 1]
+	          }
+	        });
+	        intermediates.push(alignedInput);
+	        return alignedInput;
+	      }
+
+	      return input;
+	    };
+
+	    if (hasBias) {
+	      _inputs.push(alignInputWithDataFormat(bias, dataFormat));
 	    }
 
-	    if (preluActivationWeights) {
-	      _inputs.push(preluActivationWeights);
+	    if (hasPreluActivationWeights) {
+	      _inputs.push(alignInputWithDataFormat(preluActivationWeights, dataFormat));
 	    }
 
 	    if (hasLeakyreluAlpha) {
@@ -123123,15 +124347,18 @@
 	  kernelFunc: fusedDepthwiseConv2D$1
 	};
 
-	var GatherNDProgram = function GatherNDProgram(sliceDim, strides, shape) {
+	var GatherNDProgram = function GatherNDProgram(sliceDim, strides, shape, paramsShape) {
 	  this.sliceDim = sliceDim;
 	  this.strides = strides;
+	  this.paramsShape = paramsShape;
 	  this.variableNames = ['x', 'indices'];
 	  this.outputShape = shape;
 	  var stridesType = getCoordsDataType(strides.length);
 	  var dtype = getCoordsDataType(shape.length);
 	  var strideString = this.sliceDim > 1 ? 'strides[j]' : 'strides';
-	  this.userCode = "\n        " + stridesType + " strides = " + stridesType + "(" + this.strides + ");\n         void main() {\n          " + dtype + " coords = getOutputCoords();\n          int flattenIndex = 0;\n          for (int j = 0; j < " + this.sliceDim + "; j++) {\n            int index = round(getIndices(coords[0], j));\n            flattenIndex += index * " + strideString + ";\n          }\n          setOutput(getX(flattenIndex, coords[1]));\n        }\n      ";
+	  var paramsShapeType = getCoordsDataType(paramsShape.length);
+	  var paramsShapeString = paramsShape.length > 1 ? 'paramsShape[j]' : 'paramsShape';
+	  this.userCode = "\n        " + stridesType + " strides = " + stridesType + "(" + this.strides + ");\n        " + paramsShapeType + " paramsShape = " + paramsShapeType + "(" + this.paramsShape + ");\n         void main() {\n          " + dtype + " coords = getOutputCoords();\n          int flattenIndex = 0;\n          bool out_of_bounds = false;\n          for (int j = 0; j < " + this.sliceDim + "; j++) {\n            int index = round(getIndices(coords[0], j));\n            out_of_bounds = out_of_bounds || index < 0;\n            out_of_bounds = out_of_bounds || index >= " + paramsShapeString + ";\n            flattenIndex += index * " + strideString + ";\n          }\n          setOutput(out_of_bounds ? 0.0 : getX(flattenIndex, coords[1]));\n        }\n      ";
 	};
 
 	/**
@@ -123191,7 +124418,7 @@
 	    return backend.makeTensorInfo(resultShape, params.dtype, outValue.values);
 	  }
 
-	  var program = new GatherNDProgram(sliceRank, strides, [numSlices, sliceSize]);
+	  var program = new GatherNDProgram(sliceRank, strides, [numSlices, sliceSize], params.shape);
 	  var res = backend.runWebGLProgram(program, [flattenX, flattenIndices], flattenX.dtype);
 	  var reshaped = reshape$3({
 	    inputs: {
@@ -126781,6 +128008,72 @@
 
 	/**
 	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	var SearchSortedProgram = function SearchSortedProgram(batchSize, numInputs, numValues, side) {
+	  this.variableNames = ['sortedSequence', 'values'];
+	  this.customUniforms = [{
+	    name: 'numInputs',
+	    type: 'int'
+	  }];
+	  this.outputShape = [batchSize, numValues];
+	  var webGL2LoopHead = 'while (left < right) {'; // WebGL1 doesn't accept non constant loop conditions, so upper bound loop
+	  // iterations.
+
+	  var webGL1LoopHead = "for (int i = 0; i < " + Math.ceil(Math.log2(numInputs + 1)) + "; ++i) { if (left >= right) break;";
+	  var loopHead = env().getNumber('WEBGL_VERSION') === 2 ? webGL2LoopHead : webGL1LoopHead; // left corresponds to lower bound and right to upper bound.
+
+	  var boundComparator = side === 'left' ? '<' : '<=';
+	  this.userCode = "\n       int findBound(int batch, float value) {\n         int left = 0;\n         int right = numInputs;\n         int mid;\n         " + loopHead + "\n           mid = (left + right) / 2;\n           if (getSortedSequence(batch, mid) " + boundComparator + " value) {\n             left = mid + 1;\n           } else {\n             right = mid;\n           }\n         }\n         return right;\n       }\n\n       void main() {\n         ivec2 coords = getOutputCoords();\n         int batch = coords[0];\n         int valueIndex = coords[1];\n\n         float value = getValues(batch, valueIndex);\n\n         setOutput(float(findBound(batch, value)));\n       }\n     ";
+	};
+
+	/**
+	 * @license
+	 * Copyright 2022 Google LLC. All Rights Reserved.
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 * http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 * =============================================================================
+	 */
+	function searchSorted$2(args) {
+	  var inputs = args.inputs,
+	      backend = args.backend,
+	      attrs = args.attrs;
+	  var sortedSequence = inputs.sortedSequence,
+	      values = inputs.values;
+	  var side = attrs.side;
+	  var program = new SearchSortedProgram(sortedSequence.shape[0], sortedSequence.shape[1], values.shape[1], side);
+	  var customValues = [[sortedSequence.shape[1]]];
+	  return backend.runWebGLProgram(program, [sortedSequence, values], 'int32', customValues);
+	}
+	var searchSortedConfig$1 = {
+	  kernelName: SearchSorted,
+	  backendName: 'webgl',
+	  kernelFunc: searchSorted$2
+	};
+
+	/**
+	 * @license
 	 * Copyright 2017 Google LLC. All Rights Reserved.
 	 * Licensed under the Apache License, Version 2.0 (the "License");
 	 * you may not use this file except in compliance with the License.
@@ -127355,10 +128648,20 @@
 	  var _backend_util$calcula = calculateShapes(sparseValues, sparseIndices, outputShape),
 	      sliceRank = _backend_util$calcula.sliceRank,
 	      numUpdates = _backend_util$calcula.numUpdates,
+	      sliceSize = _backend_util$calcula.sliceSize,
 	      strides = _backend_util$calcula.strides,
 	      outputSize = _backend_util$calcula.outputSize;
 
 	  var sumDupeIndices = false;
+
+	  if (sparseValues.dtype === 'string') {
+	    var indicesBuf = backend.bufferSync(sparseIndices);
+	    var updatesBuf = backend.bufferSync(sparseValues);
+	    var $defaultValue = decodeString(backend.readSync(defaultValue.dataId)[0]);
+	    var outBuf = scatterImplCPU(indicesBuf, updatesBuf, outputShape, outputSize, sliceSize, numUpdates, sliceRank, strides, $defaultValue, sumDupeIndices);
+	    return backend.makeTensorInfo(outputShape, outBuf.dtype, outBuf.values);
+	  }
+
 	  var program = new ScatterProgram(numUpdates, sliceRank, sparseIndices.shape.length, sparseValues.shape.length, strides, [outputSize, 1], sumDupeIndices);
 	  var res = backend.runWebGLProgram(program, [sparseValues, sparseIndices, defaultValue], sparseValues.dtype);
 	  var reshaped = reshape$3({
@@ -128667,7 +129970,7 @@
 	 * =============================================================================
 	 */
 
-	var kernelConfigs$1 = [_fusedMatMulConfig$1, absConfig$1, acosConfig$1, acoshConfig$1, addConfig$1, addNConfig$1, allConfig$1, anyConfig$1, argMaxConfig$1, argMinConfig$1, asinConfig$1, asinhConfig$1, atanConfig$1, atan2Config$1, atanhConfig$1, avgPoolConfig$1, avgPool3DConfig$1, avgPool3DGradConfig$2, avgPoolGradConfig$2, batchMatMulConfig$1, batchNormConfig$1, batchToSpaceNDConfig$1, bincountConfig$1, broadcastArgsConfig$1, castConfig$1, ceilConfig$1, clipByValueConfig$1, complexConfig$1, complexAbsConfig$1, concatConfig$1, conv2DConfig$1, conv2DBackpropFilterConfig$1, conv2DBackpropInputConfig$1, conv3DConfig$1, conv3DBackpropFilterV2Config$1, conv3DBackpropInputConfig, cosConfig$1, coshConfig$1, cropAndResizeConfig$1, cumprodConfig$1, cumsumConfig$1, denseBincountConfig$1, depthToSpaceConfig$1, depthwiseConv2dNativeConfig$1, depthwiseConv2dNativeBackpropFilterConfig$1, depthwiseConv2dNativeBackpropInputConfig$1, diagConfig$1, dilation2DConfig$1, einsumConfig$1, eluConfig$1, eluGradConfig$2, equalConfig$1, erfConfig$1, expConfig$1, expandDimsConfig$1, expm1Config$1, fftConfig$1, fillConfig$1, flipLeftRightConfig$1, floorConfig$1, floorDivConfig$1, fromPixelsConfig, fusedConv2DConfig$1, fusedDepthwiseConv2DConfig$1, gatherNdConfig$1, gatherV2Config$1, greaterConfig$1, greaterEqualConfig$1, identityConfig$1, ifftConfig$1, imagConfig$1, isFiniteConfig$1, isInfConfig$1, isNaNConfig$1, leakyReluConfig$1, lessConfig$1, lessEqualConfig$1, linSpaceConfig$1, logConfig$1, log1pConfig$1, logicalAndConfig$1, logicalNotConfig$1, logicalOrConfig$1, LRNConfig$1, LRNGradConfig$1, maxConfig$1, maximumConfig$1, maxPoolConfig$1, maxPool3DConfig$1, maxPool3DGradConfig$2, maxPoolGradConfig$2, maxPoolWithArgmaxConfig$1, meanConfig$1, minConfig$1, minimumConfig$1, mirrorPadConfig$1, modConfig$1, multinomialConfig$1, multiplyConfig$1, negConfig$1, nonMaxSuppressionV3Config$1, nonMaxSuppressionV4Config$1, nonMaxSuppressionV5Config$1, notEqualConfig$1, oneHotConfig$1, onesLikeConfig$1, packConfig$1, padV2Config$1, powConfig$1, preluConfig$1, prodConfig$1, rangeConfig$1, realConfig$1, realDivConfig$1, reciprocalConfig$1, reluConfig$1, relu6Config$1, reshapeConfig$1, resizeBilinearConfig$1, resizeBilinearGradConfig$2, resizeNearestNeighborConfig$1, resizeNearestNeighborGradConfig$2, reverseConfig$1, rotateWithOffsetConfig$1, roundConfig$1, rsqrtConfig$1, scatterNdConfig$1, selectConfig$1, seluConfig$1, sigmoidConfig$1, signConfig$1, sinConfig$1, sinhConfig$1, sliceConfig$1, softmaxConfig$1, softplusConfig$1, spaceToBatchNDConfig$1, sparseFillEmptyRowsConfig$1, sparseReshapeConfig$1, sparseSegmentMeanConfig$1, sparseSegmentSumConfig$1, sparseToDenseConfig$1, splitVConfig$1, sqrtConfig$1, squareConfig$1, squaredDifferenceConfig$1, stepConfig$1, stridedSliceConfig$1, stringNGramsConfig$1, stringSplitConfig$1, stringToHashBucketFastConfig$1, subConfig$1, sumConfig$1, tanConfig$1, tanhConfig$1, tileConfig$1, topKConfig$1, transformConfig$1, transposeConfig$1, uniqueConfig$1, unpackConfig$1, unsortedSegmentSumConfig$1, zerosLikeConfig$1];
+	var kernelConfigs$1 = [_fusedMatMulConfig$1, absConfig$1, acosConfig$1, acoshConfig$1, addConfig$1, addNConfig$1, allConfig$1, anyConfig$1, argMaxConfig$1, argMinConfig$1, asinConfig$1, asinhConfig$1, atanConfig$1, atan2Config$1, atanhConfig$1, avgPoolConfig$1, avgPool3DConfig$1, avgPool3DGradConfig$2, avgPoolGradConfig$2, batchMatMulConfig$1, batchNormConfig$1, batchToSpaceNDConfig$1, bincountConfig$1, broadcastArgsConfig$1, castConfig$1, ceilConfig$1, clipByValueConfig$1, complexConfig$1, complexAbsConfig$1, concatConfig$1, conv2DConfig$1, conv2DBackpropFilterConfig$1, conv2DBackpropInputConfig$1, conv3DConfig$1, conv3DBackpropFilterV2Config$1, conv3DBackpropInputConfig, cosConfig$1, coshConfig$1, cropAndResizeConfig$1, cumprodConfig$1, cumsumConfig$1, denseBincountConfig$1, depthToSpaceConfig$1, depthwiseConv2dNativeConfig$1, depthwiseConv2dNativeBackpropFilterConfig$1, depthwiseConv2dNativeBackpropInputConfig$1, diagConfig$1, dilation2DConfig$1, einsumConfig$1, eluConfig$1, eluGradConfig$2, equalConfig$1, erfConfig$1, expConfig$1, expandDimsConfig$1, expm1Config$1, fftConfig$1, fillConfig$1, flipLeftRightConfig$1, floorConfig$1, floorDivConfig$1, fromPixelsConfig, fusedConv2DConfig$1, fusedDepthwiseConv2DConfig$1, gatherNdConfig$1, gatherV2Config$1, greaterConfig$1, greaterEqualConfig$1, identityConfig$1, ifftConfig$1, imagConfig$1, isFiniteConfig$1, isInfConfig$1, isNaNConfig$1, leakyReluConfig$1, lessConfig$1, lessEqualConfig$1, linSpaceConfig$1, logConfig$1, log1pConfig$1, logicalAndConfig$1, logicalNotConfig$1, logicalOrConfig$1, LRNConfig$1, LRNGradConfig$1, maxConfig$1, maximumConfig$1, maxPoolConfig$1, maxPool3DConfig$1, maxPool3DGradConfig$2, maxPoolGradConfig$2, maxPoolWithArgmaxConfig$1, meanConfig$1, minConfig$1, minimumConfig$1, mirrorPadConfig$1, modConfig$1, multinomialConfig$1, multiplyConfig$1, negConfig$1, nonMaxSuppressionV3Config$1, nonMaxSuppressionV4Config$1, nonMaxSuppressionV5Config$1, notEqualConfig$1, oneHotConfig$1, onesLikeConfig$1, packConfig$1, padV2Config$1, powConfig$1, preluConfig$1, prodConfig$1, rangeConfig$1, realConfig$1, realDivConfig$1, reciprocalConfig$1, reluConfig$1, relu6Config$1, reshapeConfig$1, resizeBilinearConfig$1, resizeBilinearGradConfig$2, resizeNearestNeighborConfig$1, resizeNearestNeighborGradConfig$2, reverseConfig$1, rotateWithOffsetConfig$1, roundConfig$1, rsqrtConfig$1, scatterNdConfig$1, searchSortedConfig$1, selectConfig$1, seluConfig$1, sigmoidConfig$1, signConfig$1, sinConfig$1, sinhConfig$1, sliceConfig$1, softmaxConfig$1, softplusConfig$1, spaceToBatchNDConfig$1, sparseFillEmptyRowsConfig$1, sparseReshapeConfig$1, sparseSegmentMeanConfig$1, sparseSegmentSumConfig$1, sparseToDenseConfig$1, splitVConfig$1, sqrtConfig$1, squareConfig$1, squaredDifferenceConfig$1, stepConfig$1, stridedSliceConfig$1, stringNGramsConfig$1, stringSplitConfig$1, stringToHashBucketFastConfig$1, subConfig$1, sumConfig$1, tanConfig$1, tanhConfig$1, tileConfig$1, topKConfig$1, transformConfig$1, transposeConfig$1, uniqueConfig$1, unpackConfig$1, unsortedSegmentSumConfig$1, zerosLikeConfig$1];
 
 	for (var _i$2 = 0, _kernelConfigs$1 = kernelConfigs$1; _i$2 < _kernelConfigs$1.length; _i$2++) {
 	  var kernelConfig$1 = _kernelConfigs$1[_i$2];
@@ -128693,7 +129996,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$7 = '3.15.0';
+	var version$7 = '3.19.0';
 
 	/**
 	 * @license
@@ -128842,6 +130145,8 @@
 	exports.LogicalAnd = LogicalAnd;
 	exports.LogicalNot = LogicalNot;
 	exports.LogicalOr = LogicalOr;
+	exports.LogicalXor = LogicalXor;
+	exports.LowerBound = LowerBound;
 	exports.Max = Max;
 	exports.MaxPool = MaxPool;
 	exports.MaxPool3D = MaxPool3D;
@@ -128892,6 +130197,7 @@
 	exports.Rsqrt = Rsqrt;
 	exports.SGDOptimizer = SGDOptimizer;
 	exports.ScatterNd = ScatterNd;
+	exports.SearchSorted = SearchSorted;
 	exports.Select = Select;
 	exports.Selu = Selu;
 	exports.Sequential = Sequential;
@@ -128931,6 +130237,7 @@
 	exports.Unique = Unique;
 	exports.Unpack = Unpack;
 	exports.UnsortedSegmentSum = UnsortedSegmentSum;
+	exports.UpperBound = UpperBound;
 	exports.Variable = Variable;
 	exports.ZerosLike = ZerosLike;
 	exports._FusedMatMul = _FusedMatMul;
@@ -129014,6 +130321,7 @@
 	exports.env = env;
 	exports.equal = equal;
 	exports.erf = erf;
+	exports.euclideanNorm = euclideanNorm;
 	exports.exp = exp$3;
 	exports.expandDims = expandDims;
 	exports.expm1 = expm1;
@@ -129056,6 +130364,7 @@
 	exports.linalg = linalg;
 	exports.linspace = linspace;
 	exports.loadGraphModel = loadGraphModel;
+	exports.loadGraphModelSync = loadGraphModelSync;
 	exports.loadLayersModel = loadLayersModel;
 	exports.localResponseNormalization = localResponseNormalization;
 	exports.log = log$a;
@@ -129068,6 +130377,7 @@
 	exports.logicalOr = logicalOr;
 	exports.logicalXor = logicalXor;
 	exports.losses = losses;
+	exports.lowerBound = lowerBound;
 	exports.matMul = matMul;
 	exports.math = math;
 	exports.max = max$5;
@@ -129113,6 +130423,7 @@
 	exports.rand = rand;
 	exports.randomGamma = randomGamma;
 	exports.randomNormal = randomNormal;
+	exports.randomStandardNormal = randomStandardNormal;
 	exports.randomUniform = randomUniform;
 	exports.range = range;
 	exports.ready = ready;
@@ -129139,6 +130450,7 @@
 	exports.scalar = scalar;
 	exports.scatterND = scatterND;
 	exports.scatter_util = scatter_nd_util;
+	exports.searchSorted = searchSorted;
 	exports.selu = selu;
 	exports.separableConv2d = separableConv2d;
 	exports.sequential = sequential;
@@ -129199,6 +130511,7 @@
 	exports.unsortedSegmentSum = unsortedSegmentSum;
 	exports.unstack = unstack;
 	exports.upcastType = upcastType;
+	exports.upperBound = upperBound;
 	exports.util = util;
 	exports.valueAndGrad = valueAndGrad;
 	exports.valueAndGrads = valueAndGrads;
