@@ -1,9 +1,6 @@
 include(ExternalProject)
 
-#add_subdirectory(csound)
-#add_subdirectory(liblo/cmake)
 #add_subdirectory(libmusicxml/build)
-#add_subdirectory(portaudio)
 
 ExternalProject_Add(libsndfile
     SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libsndfile"

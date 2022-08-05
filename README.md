@@ -1,45 +1,23 @@
-# csound-extended
-![GitHub All Releases (total)](https://img.shields.io/github/downloads/gogins/csound-extended/total.svg)<br>
+# csound-ac
+![GitHub All Releases (total)](https://img.shields.io/github/downloads/gogins/csound-ac/total.svg)<br>
 Michael Gogins<br>
 https://github.com/gogins<br>
 http://michaelgogins.tumblr.com
 
 ## Introduction
 
-This repository contains various extensions to Csound that have been moved
-out of the core Csound Git repository at https://github.com/csound/csound,
-or collected from older projects of mine. These extensions include:
+This repository contains:
 
-1.  CsoundAC, an algorithmic composition library designed to be used with
-    Csound. CsoundAC is written in C++ and has C++, JavaScript, and Python 
-    interfaces.
-
-2.  A port of the algorithmic composition program CMask by Andre Bartetzki
-    to WebAssembly and to a Linux Csound plugin opcode.
-
-3.  Silencio, a JavaScript algorithmic composition library designed to work
-    with all Csound/HTML5 environments. __PLEASE NOTE: This library is now 
-    deprecated, please use the WebAssembly build of CsoundAC instead.__
-  
-4.  Some plugin opcodes for Csound, including cmask and MVerb.
+1.  CsoundAC, an algorithmic composition library designed to be used with 
+    Csound. CsoundAC is written in C++ and has C++ and Python interfaces.
     
-With regret I must announce that CsoundVST and the vst4cs opcodes are no longer
-maintained here. This is due to efforts by Steinberg to force developers to move
-to the VST3 SDK. **However, CsoundVST and the vst4cs opcodes are still avaiable 
-from me as freeware binaries from https://michaelgogins.tumblr.com/csound_extended.** 
-
-As an alternative to the vst4cs opcodes, I recommend using Rory Walsh's 
-[Cabbage](https://github.com/rorywalsh/cabbage) system for creating VST 
-plugins using Csound. Or, consider using my 
-[csound-vst3-opcodes](https://github.com/gogins/csound-vst3-opcodes) that provide 
-VST3 plugin support for Csound on Linux, and soon on Mac OS and Windows. 
-
-New extensions may be added by me in the future. If you would like to add your
-own extensions, enter an issue in this repository or submit a pull request.
-
-This repository uses the core Csound packages, and some other third-party
-dependencies, as Git submodules, packages, or direct source downloads. For each
-platform, there is one build system.
+2.  My computer music playpen, designed to facilitate algorithmic composition 
+    with Csound and CsoundAC by extended standard text editors.
+    
+3.  silencio, a JavaScript library for algorithmic composition similar to 
+    CsoundAC.
+    
+4.  patches, a library of Csound instrument definitions.
 
 Please log any bug reports or requests for enhancements at
 https://github.com/gogins/csound-extended/issues.
@@ -76,11 +54,6 @@ log.
     the directory containing the CsoundAC shared library to your binary search 
     path.
 
-3.  CsoundAC and other Linux binaries and other resources are installed from
-    the Debian package released from this repository, e.g.
-    `sudo apt install ./csound-extended-dev-version-Linux.deb`.  Please note,
-    this package conflicts with the system packages for CsoundAC.
-    
 You may also install locally by first building from sources, as described
 below. You may then install the software by running `sudo make install` in
 the build-linux directory. However, be warned that this installs the
