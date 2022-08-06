@@ -49,7 +49,8 @@ jobs:
           # OPTIONAL: Specify a platform version
           platform_version: 11
           # OPTIONAL: Specify a custom install location
-          # boost_install_dir: /home/runner/some_directory
+          # Should be $GITHUB_WORKSPACE
+          boost_install_dir: ${{ env.GITHUB_WORKSPACE }}
           # OPTIONAL: Specify a toolset
           toolset: clang    
 
@@ -65,7 +66,7 @@ jobs:
           # OPTIONAL: Specify a platform version
           platform_version: 20.04
           # OPTIONAL: Specify a custom install location
-          # boost_install_dir: /home/runner/some_directory
+          boost_install_dir: /home/runner/work/csound-ac/csound-ac
           # OPTIONAL: Specify a toolset
           toolset: gcc    
 
@@ -81,7 +82,7 @@ jobs:
           # OPTIONAL: Specify a platform version
           platform_version: 2022
           # OPTIONAL: Specify a custom install location
-          # boost_install_dir: /home/runner/some_directory
+          boost_install_dir: D:\a\csound-ac\csound-ac
           # OPTIONAL: Specify a toolset
           toolset: msvc    
           link: shared      
@@ -94,10 +95,10 @@ jobs:
           brew update
           brew install graphviz
           brew install doxygen
-          brew install libsndfile
-          brew install csound
-          brew install eigen
           brew install opencv
+          git clone "https://github.com/csound/csound.git"
+          git clone "https://gitlab.com/libeigen/eigen.git"
+          ls -ll
           echo "Updating all git submodules..."
           git submodule update --init --recursive
           git submodule status --recursive
@@ -129,11 +130,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install graphviz
           sudo apt-get install doxygen
-          sudo apt-get install libsndfile1-dev
-          sudo apt-get install csound
-          sudo apt-get install libcsound64-dev
-          sudo apt-get install libcsnd6-6.0v5
           sudo apt-get install libopencv-dev
+          git clone "https://github.com/csound/csound.git"
+          git clone "https://gitlab.com/libeigen/eigen.git"
+          ls -ll
           echo "Environment:"
           env
           echo "Trying to find csdl.h..."
@@ -170,18 +170,14 @@ jobs:
           choco install graphviz -y
           choco install doxygen -y
           echo "Installing dependencies..."
-          vcpkg install --triplet x64-windows libsndfile
-          choco install --triplet x64-windows opencv
+          choco install opencv -y
+          git clone "https://github.com/csound/csound.git"
+          git clone "https://gitlab.com/libeigen/eigen.git"
+          dir
           echo "Environment:"
           env
           git clone "https://github.com/csound/csound.git"
-          cd csound
-          mkdir -p build
-          cd build
-          cmake .. -DUSE_VCPKG=YES -DVCPKG_TRIPLET=x64-windows
-          make
-          cd ..
-          cd ..
+          git clone "https://gitlab.com/libeigen/eigen.git"
           pwd
           dir C:\"Program Files"\doxygen
           refreshenv
