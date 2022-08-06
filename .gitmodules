@@ -1,18 +1,9 @@
 [submodule "dependencies/libmusicxml"]
 	path = dependencies/libmusicxml
 	url = https://github.com/grame-cncm/libmusicxml.git
-[submodule "dependencies/link"]
-	path = dependencies/link
-	url = https://github.com/Ableton/link.git
-[submodule "dependencies/stk"]
-	path = dependencies/stk
-	url = https://github.com/thestk/stk.git
 [submodule "dependencies/cmask"]
 	path = dependencies/cmask
 	url = https://github.com/gogins/cmask.git
-[submodule "dependencies/--force"]
-	path = dependencies/--force
-	url = https://github.com/ormf/fomus.git
-[submodule "dependencies/bformdec2"]
-	path = dependencies/bformdec2
-	url = https://github.com/pzinemanas/bformdec2.git
+[submodule "dependencies/portsmf"]
+	path = dependencies/portsmf
+	url = https://github.com/rbdannenberg/portsmf.git
