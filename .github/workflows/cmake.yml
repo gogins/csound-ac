@@ -6,6 +6,7 @@ on:
       - master
   pull_request:
     branches: 
+      - master
       - develop
 
 env:
@@ -20,19 +21,19 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        - name: "macOS Latest Clang"
-          os: macos-latest
-          cc: "clang"
-          cxx: "clang++"
+        #- name: "macOS Latest Clang"
+        #  os: macos-latest
+        #  cc: "clang"
+        #  cxx: "clang++"
         - name: "Ubuntu Latest GCC"
           os: ubuntu-latest
           cc: "gcc"
           cxx: "g++"
-        - name: "Windows Latest MSVC"
-          os: windows-latest
-          cc: "cl"
-          cxx: "cl"
-          environment_script: "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
+        #- name: "Windows Latest MSVC"
+        #  os: windows-latest
+        #  cc: "cl"
+        #  cxx: "cl"
+        #  environment_script: "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
@@ -50,7 +51,7 @@ jobs:
           platform_version: 11
           # OPTIONAL: Specify a custom install location
           # Should be $GITHUB_WORKSPACE
-          boost_install_dir: ${{ env.GITHUB_WORKSPACE }}
+          # boost_install_dir: ${{ env.GITHUB_WORKSPACE }}
           # OPTIONAL: Specify a toolset
           toolset: clang    
 
@@ -66,7 +67,7 @@ jobs:
           # OPTIONAL: Specify a platform version
           platform_version: 20.04
           # OPTIONAL: Specify a custom install location
-          boost_install_dir: /home/runner/work/csound-ac/csound-ac
+          # boost_install_dir: /home/runner/work/csound-ac/csound-ac
           # OPTIONAL: Specify a toolset
           toolset: gcc    
 
@@ -82,7 +83,7 @@ jobs:
           # OPTIONAL: Specify a platform version
           platform_version: 2022
           # OPTIONAL: Specify a custom install location
-          boost_install_dir: D:\a\csound-ac\csound-ac
+          # boost_install_dir: D:\a\csound-ac\csound-ac
           # OPTIONAL: Specify a toolset
           toolset: msvc    
           link: shared      
@@ -131,7 +132,9 @@ jobs:
           sudo apt-get install graphviz
           sudo apt-get install doxygen
           sudo apt-get install libopencv-dev
-          git clone "https://github.com/csound/csound.git"
+          sudo apt-get install libsndfile1-dev
+          sudo apt-get install libcsound64-dev
+          sudo apt-get install libcsnd6-6.0v5
           git clone "https://gitlab.com/libeigen/eigen.git"
           ls -ll
           echo "Environment:"
