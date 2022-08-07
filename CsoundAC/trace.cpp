@@ -1,5 +1,6 @@
 // trace.cpp -- debugging print function
-//
+// Reimplemented by MKG for CsoundAC in cross-platform style.
+
 // (I think this was created to provide a generic print function
 // for use in non-command-line Windows applications where printf
 // does not work. Currently, it is not used, but kept around for

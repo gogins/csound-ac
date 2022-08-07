@@ -65,17 +65,12 @@ find_package(Csound REQUIRED)
 message("CSOUND_LIBRARIES: ${CSOUND_LIBRARIES}")
 find_library(LIBSNDFILE_LIBRARY sndfile REQUIRED)
 find_library(CSND6_LIBRARY csnd6 REQUIRED)
-#find_package(Eigen3 REQUIRED CONFIG)
-# checking property of the target
-#get_target_property(inc_dir Eigen3::Eigen INTERFACE_INCLUDE_DIRECTORIES)
-#message("[DEBUG] inc_dir: ${inc_dir}")
-# or checking the Eigen variable
+set(EIGEN3_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/eigen")
 message("[DEBUG] EIGEN3_INCLUDE_DIRS: ${EIGEN3_INCLUDE_DIRS}")
 find_package(OpenCV REQUIRED)
 find_package(Boost REQUIRED)
 message("[DEBUG] Boost_INCLUDE_DIR: ${Boost_INCLUDE_DIR}")
 message("[DEBUG] Boost_COMPONENTS: ${Boost_COMPONENTS}")
-#find_package(PORTSMF)
 find_package(Python3 COMPONENTS Interpreter Development)
 find_package(SWIG)
 include(UseSWIG)
@@ -85,9 +80,6 @@ find_package(SWIG)
 include_directories("${CSOUND_INCLUDE_DIR}")
 include_directories("${CSOUND_INCLUDE_DIR}/csound")
 include_directories("${CSOUND_SOURCE_HOME}/interfaces")
-if (MUSICXML_FOUND)
-    include_directories("${MUSICXML_INCLUDE_DIRS}")
-endif()
 
 # Copied from dependencies/csound/CMakeLists.txt:
 
@@ -129,7 +121,6 @@ add_custom_target(doxygen_reference
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/doc")
 
 add_subdirectory(dependencies/libmusicxml/build)
-add_subdirectory(dependencies/portsmf)
 add_subdirectory(CsoundAC)
 
 # These are the real targets: the packages.
