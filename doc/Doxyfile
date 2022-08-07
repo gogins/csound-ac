@@ -900,8 +900,6 @@ WARN_LOGFILE           =
 
 INPUT                  = ../README.md \
                          ../CsoundAC \
-                         ../Opcodes/cmask \
-                         ../Opcodes/MVerb \
                          .
 
 # This tag can be used to specify the character encoding of the source files
@@ -954,24 +952,8 @@ RECURSIVE              = NO
 
 EXCLUDE                = ../CsoundAC/ChordSpace_gmp.hpp \
                          ../CsoundAC/ChordSpace.hpp.mkg \
-                         ../CsoundAC/ChordSpace.current.hpp \
-                         ../CsoundAC/allegro.cpp \
-                         ../CsoundAC/allegro.h \
-                         ../CsoundAC/allegrord.cpp \
-                         ../CsoundAC/allegrord.h \
-                         ../CsoundAC/allegrowr.cpp \
-                         ../CsoundAC/algsmfrd.cpp \
-                         ../CsoundAC/algsmfrd.cpp \
-                         ../CsoundAC/algsmfwr.cpp \
-                         ../CsoundAC/allegrosmfwr.cpp \
-                         ../CsoundAC/algsmfrd_internal.h \
-                         ../CsoundAC/algrd_internal.h \
-                         ../CsoundAC/strparse.cpp \
-                         ../CsoundAC/strparse.h \
-                         ../CsoundAC/trace.cpp \
-                         ../CsoundAC/trace.h \
-                         ../CsoundAC/dkm.h
-
+                         ../CsoundAC/ChordSpace.current.hpp 
+                         
 # The EXCLUDE_SYMLINKS tag can be used to select whether or not files or
 # directories that are symbolic links (a Unix file system feature) are excluded
 # from the input.

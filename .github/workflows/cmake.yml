@@ -29,11 +29,11 @@ jobs:
           os: ubuntu-latest
           cc: "gcc"
           cxx: "g++"
-        #- name: "Windows Latest MSVC"
-        #  os: windows-latest
-        #  cc: "cl"
-        #  cxx: "cl"
-        #  environment_script: "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
+        - name: "Windows Latest MSVC"
+          os: windows-latest
+          cc: "cl"
+          cxx: "cl"
+          environment_script: "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
@@ -155,7 +155,9 @@ jobs:
           # Build with CMake.
           cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} 
           echo "Documenting..."
+          cd doc
           doxygen
+          cd ..
           echo "Packaging..."
           cd build
           cpack -V

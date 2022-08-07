@@ -118,7 +118,7 @@ endfunction(check_deps)
 add_custom_target(doxygen_reference
     ALL
     COMMAND doxygen
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/doc")
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/doc")
 
 add_subdirectory(dependencies/libmusicxml/build)
 add_subdirectory(CsoundAC)
