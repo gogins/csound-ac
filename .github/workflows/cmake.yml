@@ -97,7 +97,7 @@ jobs:
           brew install graphviz
           brew install doxygen
           brew install opencv
-          git clone "https://github.com/csound/csound.git"
+          brew install csound
           git clone "https://gitlab.com/libeigen/eigen.git"
           ls -ll
           echo "Updating all git submodules..."
@@ -182,7 +182,7 @@ jobs:
           git clone "https://github.com/csound/csound.git"
           git clone "https://gitlab.com/libeigen/eigen.git"
           pwd
-          dir C:\"Program Files"\doxygen
+          #dir C:\"Program Files"\doxygen
           refreshenv
           echo "Updating all git submodules..."
           git submodule update --init --recursive

@@ -41,14 +41,7 @@ log.
 1.  You must first install Csound on your system, e.g. as instructed at 
     `https://github.com/csound/csound`.
     
-2.  CsoundAC can both import and export MusicXML scores. To enable this,
-    you must be first clone the master branch of libmusicxml from 
-    `https://github.com/grame-cncm/libmusicxml/tree/dev/build` and then 
-    build according to `https://github.com/grame-cncm/libmusicxml/tree/dev/build` 
-    but with this command `cmake -DCMAKE_C_FLAGS="-fPIC -flto" -DCMAKE_CXX_FLAGS="-fPIC -flto"`, 
-    and finally `sudo make install`.
-    
-3.  There are prebuilt binary releases for this package available at 
+2.  There are prebuilt binary releases for this package available at 
     https://github.com/gogins/csound-extended/releases. These can be downloaded,
     unzipped in your home directory, and used from there. You will need to add 
     the directory containing the CsoundAC shared library to your binary search 
@@ -77,89 +70,31 @@ these files to your home directory or other places.
 - `silencio`: Create a symbolic link to this directory in every directory in 
   which you are writing or running a piece that uses the Silencio library.
 
-## Building
+## Building On Your Local Computer
 
-Currently, the supported platform is Linux. The code is generally 
-"cross-platform" in nature and this build system could be adapted to build for 
-Windows or OS X.
+The following instructions are for macOS. Linux and Windows are similar. For 
+more information, look at `./github/cmake.yaml`.
 
-### Build and Install Csound
+1.  Clone this Git repository.
 
-The system packages for Csound are out of date, so you must perform a local 
-build and installation of Csound. Clone the Csound Git repository from 
-`https://github.com/csound/csound`, and build and install Csound according to 
-the instructions there. 
-
-### Build, Package, and Install csound-extended
-
-First clone the Git repository at https://github.com/gogins/csound-extended.
-
-Then copy the Custom.cmake.ex file to Custom.cmake and customize it for your 
-system. It is _essential_ to set a CMake variable CSOUND_SOURCE_HOME to the 
-root directory for the Csound source code, which could be as simple as "~/csound".
-
-#### Building on Linux
-
-The build is highly automated. Many dependencies are local. Most dependencies 
-are fetched automatically. Most targets are built for release with debug 
-information. I have tried to keep configuration options, and manual 
-configuration steps, to an absolute minimum, all controlled by environment 
-variables in `build-env.sh`.
-
-When the build is complete, all targets have been built and the package 
-files have been generated.
-
-Manual configuration steps include, but are not necessarily limited to:
-
-1.  Lance Putnum's Gamma library for C++ audio signal 
-    processing must be cloned from GitHub, built with the addition of the 
-    `-fPIC` compiler option, and installed (CMake should be able to find it in 
-    the `/usr/local` tree).
-
-2.  CsoundAC can both import and export MusicXML scores. To enable this,
-    in the `csound-extended/dependencies/libmusicxml` directory,  
-    build according to `https://github.com/grame-cncm/libmusicxml/tree/dev/build` 
-    and finally `sudo make install`.
-
-3. The following environment variables MUST be set before building, perhaps in
-your `.profile` script. Obviously, modify the paths as required to suit your
-home directory and installation details. These are exported in `build-env.sh` 
-which you can source in your `.profile` script.
-
+2.  Install prerequisites as follows from the repository root directory:
 ```
-OPCODE6DIR64=/usr/local/lib/csound/plugins64-6.0
-RAWWAVE_PATH=/home/mkg/stk/rawwaves
-
+    brew update
+    brew install graphviz
+    brew install doxygen
+    brew install opencv
+    brew install csound
+    git clone "https://gitlab.com/libeigen/eigen.git"
 ```
 
-The very first time you build csound-extended, go to about line 260 in 
-CMakeLists.txt and do as it says there:
+3.  Execute `bash update-dependencies.sh`.
+ 
+4.  Build like this:
 ```
-# For your first build on your system, set this to "OFF", build, and install.
-# Then, set this to "ON", rebuild, and reinstall. This is a workaround for a 
-# bug in how CPack interacts with shlibdeps.
-set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS "ON")
+    mkdir -p build-macos
+    cd build-macos
+    rm -f CMakeCache.txt
+    cmake -Wno-dev .. -DCMAKE_PREFIX_PATH=/usr/local:/usr 
+    make -j6 VERBOSE=1
+    sudo make install
 ```
-Change to your csound-extended repository and execute
-```
-bash fresh-build-linux-release.sh`
-```
-
-during which sudo may prompt you for your password. This script does the 
-following:
-
-1.  Execute `bash update-dependencies.sh`. Do this periodically or whenever
-    you think a dependency has changed.
-
-2.  Execute `bash build-linux.sh`. The build compiles all targets and creates
-    all packages.
-
-Subsequently, you can perform these steps independently.
-
-To make clean, execute `bash clean-linux.sh`.
-
-To install, change to build-linux and execute `sudo install
-./csound-extended-dev-{version}-Linux.deb --reinstall`.
-
-
-

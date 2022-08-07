@@ -7,29 +7,18 @@ set(CMAKE_CXX_STANDARD 17)
 add_definitions(-fPIC)
 add_compile_options(-Wno-c++11-narrowing)
 
-# TODO: These will need something more sophisticated.
-# For now I am hard-coding them to the Csound Debian control values.
-
 set(CMAKE_INCLUDE_CURRENT_DIR "On")
 
 option(BUILD_CSOUND_AC "Build CsoundAC extension module for Csound with algorithmic composition (needs C++ interface)" ON)
 option(BUILD_CSOUND_AC_PYTHON_INTERFACE "Build the Csound AC Python interface" ON)
-option(USE_SYSTEM_PORTSMF ON)
 
-find_PACKAGE(MUSICXML)
-if (MUSICXML_FOUND)
-    add_compile_definitions(MUSICXML_FOUND)
-endif()
-
-find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(SWIG)
 find_package (Python3 COMPONENTS Interpreter Development)
 message(STATUS "Python libraries:  ${PYTHONLIBS_VERSION_STRING}")
-find_library(PORTSMF_LIBRARY portSMF)
 
 # Prefer the static MusicXML library as there is no system package for it.
 
-find_library(MUSICXML_LIBRARY_A libmusicxml2.a libmusicxml)
+set(${MUSICXML2_LIBRARY} "${CMAKE_SOURCE_DIR}/dependencies/build/lib/libmusicxml2.a")
 
 list(APPEND CMAKE_SWIG_FLAGS
 "-I${CMAKE_SOURCE_DIR}/dependencies/csound/interfaces")
@@ -63,20 +52,17 @@ if(BUILD_CSOUND_AC)
         System.cpp
         Voicelead.cpp
         VoiceleadingNode.cpp
-        ExternalNode.cpp)
-    if(NOT USE_SYSTEM_PORTSMF)
-        list(APPEND libcsoundac_SRCS
-            allegro.cpp
-            allegrord.cpp
-            allegroserial.cpp
-            allegrosmfrd.cpp
-            allegrosmfwr.cpp
-            allegrowr.cpp
-            mfmidi.cpp
-            strparse.cpp
-            trace.cpp)
-    endif()
-    
+        ExternalNode.cpp
+        ../dependencies/portsmf/allegro.cpp
+        ../dependencies/portsmf/allegrord.cpp
+        ../dependencies/portsmf/allegroserial.cpp
+        ../dependencies/portsmf/allegrosmfrd.cpp
+        ../dependencies/portsmf/allegrosmfwr.cpp
+        ../dependencies/portsmf/allegrowr.cpp
+        ../dependencies/portsmf/mfmidi.cpp
+        ../dependencies/portsmf/strparse.cpp
+        trace.cpp)
+     
     message(STATUS "libcsoundac_SRCS: " ${libcsoundac_SRCS})
 
     if (MSVC)
@@ -89,6 +75,7 @@ if(BUILD_CSOUND_AC)
     target_include_directories(libCsoundAC SYSTEM PRIVATE ${CSOUND_INCLUDE_PATH})
     target_include_directories(libCsoundAC PRIVATE ${EIGEN3_INCLUDE_DIRS})
     target_include_directories(libCsoundAC PRIVATE ${Boost_INCLUDE_DIR})
+    target_include_directories(libCsoundAC PRIVATE ../dependencies/portsmf)
     if (MUSICXML_FOUND)
         target_include_directories(libCsoundAC PRIVATE ${MUSICXML_INCLUDE_DIRS})
     endif()
@@ -100,11 +87,8 @@ if(BUILD_CSOUND_AC)
         LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
         ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}")
 
-    target_link_libraries(libCsoundAC PRIVATE ${CSOUND_LIBRARIES} ${OpenCV_LIBRARIES} ${LIBSNDFILE_LIBRARY})
-    if(USE_SYSTEM_PORTSMF)
-        target_link_libraries(libCsoundAC PRIVATE ${PORTSMF_LIBRARY})
-    endif()
-
+    target_link_libraries(libCsoundAC PRIVATE ${MUSICXML2_LIBRARY} ${CSND6_LIBRARY} ${CSOUND_LIBRARIES} ${OpenCV_LIBRARIES} ${LIBSNDFILE_LIBRARY})
+ 
     if(WIN32) # for MSYS2/mingw64
         #  mingw64 needs this to create a valid .pyd.
         if(NOT MSVC AND CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -116,10 +100,6 @@ if(BUILD_CSOUND_AC)
     if(HAVE_UNISTD_H)
         set_target_properties(libCsoundAC PROPERTIES
         COMPILE_FLAGS "-DHAVE_UNISTD_H")
-    endif()
-
-    if(MUSICXML_FOUND)
-        target_link_libraries(libCsoundAC PRIVATE ${CSND6_LIBRARY} ${CSOUND_LIBRARIES} ${OpenCV_LIBS} ${LIBSNDFILE_LIBRARY} ${MUSICXML_LIBRARY_A})
     endif()
 
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIRECTORY}"
@@ -151,14 +131,10 @@ if(BUILD_CSOUND_AC)
         swig_add_library(CsoundAC 
             LANGUAGE python 
             SOURCES CsoundAC.i)
-        swig_link_libraries(CsoundAC libCsoundAC ${CSND6_LIBRARY} ${CSOUND_LIBRARIES} ${OpenCV_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
+        swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_LIBRARY} ${CSND6_LIBRARY} ${CSOUND_LIBRARIES} ${OpenCV_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
         target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} PRIVATE ${EIGEN3_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${CSOUND_SOURCE_HOME}/include)
         set_property(TARGET ${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTY SWIG_INCLUDE_DIRECTORIES ${EIGEN3_INCLUDE_DIRS} ${Boost_INCLUDE_DIR})
  
-        if(MUSICXML_FOUND)
-            swig_link_libraries(CsoundAC libCsoundAC ${CSND6_LIBRARY} ${CSOUND_LIBRARIES} ${OpenCV_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${MUSICXML_LIBRARY_A} ${Python3_LIBRARIES})
-        endif()
-
         if(APPLE)
             set_target_properties(${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTIES
                 LINK_FLAGS "-undefined dynamic_lookup")
