@@ -140,7 +140,9 @@ install(FILES ${CMAKE_SOURCE_DIR}/copyright.txt
     DESTINATION share/doc/${CPACK_PACKAGE_NAME}
     RENAME copyright)
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/doc/html
-    DESTINATION share/doc/${CPACK_DEBIAN_PACKAGE_NAME})
+    DESTINATION share/doc/${CPACK_PACKAGE_NAME})
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/patches
+    DESTINATION share/doc/${CPACK_PACKAGE_NAME})
 
 # And all the README.md files, renamed to not conflict...
 
@@ -148,7 +150,7 @@ install(FILES "README.md"
     DESTINATION share/doc/${CPACK_DEBIAN_PACKAGE_NAME})
 install(FILES "REALTIME-AUDIO.md"
     DESTINATION share/doc/${CPACK_DEBIAN_PACKAGE_NAME})
-install(FILES "silencio/patches/README.md"
+install(FILES "patches/README.md"
     DESTINATION share/doc/${CPACK_DEBIAN_PACKAGE_NAME}
     RENAME "README-CSOUND-PATCHES.md")
 install(FILES "silencio/README.md"
