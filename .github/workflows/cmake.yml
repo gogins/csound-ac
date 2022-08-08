@@ -115,7 +115,9 @@ jobs:
           doxygen
           echo "Packaging..."
           cd build
-          sudo cpack -V
+          pwd
+          sudo cpack -V -G ZIP
+          ls -ll
 
       - name: Build on Linux
         if: runner.os == 'Linux'
@@ -159,7 +161,9 @@ jobs:
           cd ..
           echo "Packaging..."
           cd build
-          sudo cpack -V
+          pwd
+          sudo cpack -V -G ZIP
+          ls -ll
 
       - name: Build on Windows
         if: runner.os == 'Windows'
@@ -192,8 +196,9 @@ jobs:
           C:\"Program Files"\doxygen\bin\doxygen
           echo "Packaging..."
           cd build
-          sudo cpack -V
-          dir 
+          pwd
+          sudo cpack -V -G ZIP
+          dir
 
       - uses: "marvinpinto/action-automatic-releases@latest"
         if: runner.os == 'macOS'
