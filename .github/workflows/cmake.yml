@@ -107,6 +107,8 @@ jobs:
           env
           echo "Finished updating all git submodules."
           brew list csound
+          ls -ll /usr/local/opt
+          ls -ll /usr/local/opt/csound
           # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
           cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBOOST_ROOT=${{ steps.install-boost-macos.outputs.BOOST_ROOT }}
           # Build with CMake.
