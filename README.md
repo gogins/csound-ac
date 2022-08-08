@@ -25,7 +25,7 @@ https://github.com/gogins/csound-extended/issues.
 ## Examples
 
 Examples (some of which can also serve as tests) for the various aspects of 
-csound-extended are maintained in my separate 
+csound-acare maintained in my separate 
 [csound-examples](https://github.com/gogins/csound-examples) 
 repository. Some of the examples there will run in WebBrowsers using 
 WebAssembly, and these can be viewed at 
@@ -33,7 +33,7 @@ https://gogins.github.io/csound-examples.
 
 ## Changes
 
-See https://github.com/gogins/csound-extended/commits/develop for the commit
+See https://github.com/gogins/csound-ac/commits/develop for the commit
 log.
 
 ## Installation
@@ -42,7 +42,7 @@ log.
     `https://github.com/csound/csound`.
     
 2.  There are prebuilt binary releases for this package available at 
-    https://github.com/gogins/csound-extended/releases. These can be downloaded,
+    https://github.com/gogins/csound-ac/releases. These can be downloaded,
     unzipped in your home directory, and used from there. You will need to add 
     the directory containing the CsoundAC shared library to your binary search 
     path.
@@ -60,7 +60,7 @@ these files to your home directory or other places.
   build and runtime environment on Linux. You may need to copy and modify this 
   script.
   
-- Create a symbolic link from `csound-extended/playpen/.SciTEUser.properties` to your 
+- Create a symbolic link from `csound-ac/playpen/.SciTEUser.properties` to your 
   home directory, to create custom commands and editor features in the SciTE 
   text editor. This makes it possible to run various kinds of Csound pieces, 
   and even to build C++ pieces and plugin opcodes, from the editor. Believe 
@@ -69,6 +69,9 @@ these files to your home directory or other places.
 
 - `silencio`: Create a symbolic link to this directory in every directory in 
   which you are writing or running a piece that uses the Silencio library.
+  
+- `patches`: Include the full path of this directory in your Csound 
+  environment variable `INCDIR`.
 
 ## Building On Your Local Computer
 
