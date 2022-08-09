@@ -77,7 +77,6 @@ include(UseSWIG)
 find_package(SWIG)
 
 ###include_directories(".")
-include_directories("${LIBSNDFILE_INCLUDE_DIR}")
 include_directories("${CSOUND_INCLUDE_DIR}")
 include_directories("${CSOUND_INCLUDE_DIR}/csound")
 include_directories("${CSOUND_SOURCE_HOME}/interfaces")

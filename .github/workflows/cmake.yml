@@ -110,7 +110,7 @@ jobs:
           ls -ll /usr/local/opt
           ls -ll /usr/local/opt/csound/
           # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBOOST_ROOT=${{ steps.install-boost-macos.outputs.BOOST_ROOT }} -DCSOUND_INCLUDE_DIR=/usr/local/opt/csound/include -DCSOUND_LIBRARY=/usr/local/opt/csound/Frameworks/CsoundLib64.framework -DLIBSNDFILE_INCLUDE_DIR=/usr/local/opt/libsndfile  -DLIBSNDFILE_LIBRARY=/usr/local/opt/libsndfile/lib/libsndfile.dylib 
+          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBOOST_ROOT=${{ steps.install-boost-macos.outputs.BOOST_ROOT }} -DCSOUND_INCLUDE_DIR=/usr/local/opt/csound/include -DCSOUND_LIBRARY=/usr/local/opt/csound/Frameworks/CsoundLib64.framework -DCMAKE_INCLUDE_PATH=/usr/local/opt/libsndfile  -DLIBSNDFILE_LIBRARY=/usr/local/opt/libsndfile/lib/libsndfile.dylib 
           # Build with CMake.
           cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
           echo "Documenting..."
@@ -178,8 +178,9 @@ jobs:
           wget -v https://github.com/csound/csound/releases/download/6.17.0/csound-6.17.0-windows-x64-installer.zip
           echo "Unpacking Windows Csound installer..."
           unzip csound-6.17.0-windows-x64-installer.zip
+          dir 
           echo "Running Windows Csound installer..."
-          csound-windows_x86_64-6.17.0-916.exe /S
+          ./csound-windows_x86_64-6.17.0-916.exe /S
           echo "Testing Csound installation..."
           csound
           echo "Installing dependencies..."
@@ -199,7 +200,7 @@ jobs:
           git submodule status --recursive
           echo "Finished updating all git submodules."
           # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBOOST_ROOT=${{ steps.install-boost-windows.outputs.BOOST_ROOT }}
+          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBOOST_ROOT=${{ steps.install-boost-windows.outputs.BOOST_ROOT }} -DCMAKE_INCLUDE_PATH=
           # Build with CMake.
           cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
           dir ${{github.workspace}}/build/Release
