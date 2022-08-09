@@ -88,20 +88,6 @@ jobs:
           toolset: msvc    
           link: shared      
 
-      - name: Download and install Csound on Windows
-        # You may pin to the exact commit or the version.
-        # uses: gamedev-thingy/Download-Extract@20063b5f6b2b847425c9e3ff02830b19bcb66d70
-        uses: gamedev-thingy/Download-Extract@done
-        id: install-csound-windows
-        if: runner.os == 'Windows' 
-        with:
-          # The URL to download from
-          url: https://github.com/csound/csound/releases/download/6.17.0/csound-6.17.0-windows-x64-installer.zip
-          # Where the files will be extracted to
-          destination: ${{github.workspace}}/csound
-          # Name of the downloaded ZIP file
-          ZIPname: csound-6.17.0-windows-x64-installer.zip
-          
       - name: Build on Mac OS
         # Most homebrew packages can be found in ${HOMEBREW_PREFIX}/opt.
         if: runner.os == 'macOS'
@@ -184,6 +170,12 @@ jobs:
       - name: Build on Windows
         if: runner.os == 'Windows'
         run: |
+          echo "Downloading Windows Csound installer..."
+          wget -v https://github.com/csound/csound/releases/download/6.17.0/csound-6.17.0-windows-x64-installer.zip
+          echo "Unpacking Windows Csound installer..."
+          unzip csound-6.17.0-windows-x64-installer.zip
+          echo "Running Windows Csound installer..."
+          csound-windows_x86_64-6.17.0-916.exe
           echo "Testing Csound installation..."
           csound
           echo "Installing tools..."
