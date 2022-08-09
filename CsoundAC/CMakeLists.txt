@@ -70,6 +70,10 @@ if(BUILD_CSOUND_AC)
     else()
         add_library(libCsoundAC SHARED ${libcsoundac_SRCS})
     endif()
+    
+    if(DARWIN)
+        target_include_directories(libCsoundAC SYSTEM PRIVATE ${LIBSNDFILE_INCLUDE_DIR})
+    endif()
 
     target_include_directories(libCsoundAC SYSTEM PRIVATE ${Python3_INCLUDE_DIRS})
     target_include_directories(libCsoundAC SYSTEM PRIVATE ${CSOUND_INCLUDE_PATH})
