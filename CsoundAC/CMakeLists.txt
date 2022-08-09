@@ -71,7 +71,7 @@ if(BUILD_CSOUND_AC)
         add_library(libCsoundAC SHARED ${libcsoundac_SRCS})
     endif()
     
-    if(DARWIN)
+    if(APPLE)
         target_include_directories(libCsoundAC SYSTEM PRIVATE ${LIBSNDFILE_INCLUDE_DIR})
     endif()
 
