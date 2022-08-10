@@ -21,14 +21,14 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        - name: "macOS Latest Clang"
-          os: macos-latest
-          cc: "clang"
-          cxx: "clang++"
-        - name: "Ubuntu Latest GCC"
-          os: ubuntu-latest
-          cc: "gcc"
-          cxx: "g++"
+        #~ - name: "macOS Latest Clang"
+          #~ os: macos-latest
+          #~ cc: "clang"
+          #~ cxx: "clang++"
+        #~ - name: "Ubuntu Latest GCC"
+          #~ os: ubuntu-latest
+          #~ cc: "gcc"
+          #~ cxx: "g++"
         - name: "Windows Latest MSVC"
           os: windows-latest
           cc: "cl"
@@ -200,7 +200,7 @@ jobs:
           choco install opencv -y
           git clone "https://github.com/csound/csound.git"
           git clone "https://gitlab.com/libeigen/eigen.git"
-          dir
+          dir "C:/Program*"
           echo "Environment:"
           env
           echo "${PATH}"
