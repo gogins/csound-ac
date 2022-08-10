@@ -181,35 +181,23 @@ jobs:
           choco install wget -y
           choco install graphviz -y
           choco install doxygen -y
+          choco install opencv -y
+          git clone "https://gitlab.com/libeigen/eigen.git"
           # Windows installer doesn't seem to do anything on the Windows 
-          # GitHub runner, so we download a consistent set of binaries and \
+          # GitHub runner, so we download a consistent set of binaries and 
           # sources from the Csound repository.
           echo "Downloading Csound binaries..."
           wget -v https://github.com/csound/csound/releases/download/6.17.0/csound-6.17.0-windows-x64-binaries.zip
           unzip csound-6.17.0-windows-x64-binaries.zip -dCsound6
-          echo "Downloading Csound sources..."
-          wget -v https://github.com/csound/csound/archive/refs/tags/6.17.0.zip
-          unzip 6.17.0.zip -d Csound6
+          #echo "Downloading Csound sources..."
+          #wget -v https://github.com/csound/csound/archive/refs/tags/6.17.0.zip
+          #unzip 6.17.0.zip -d Csound6
           dir 
           dir Csound6
           refreshenv
           echo "Current environment:"
           env
           echo "Current PATH:"
-          echo "${PATH}"
-          echo "Program files directories:"
-          dir "C:\Program Files (x86)\*"
-          dir "C:\Program Files\*"
-          dir "${{ github.workspace }}"
-          # D: doesn't exist.
-          # dir "D:\Program Files (x86)\*"
-          # dir "D:\Program Files\*"
-          echo "Installing other dependencies..."
-          choco install opencv -y
-          git clone "https://gitlab.com/libeigen/eigen.git"
-          dir "C:/Program*"
-          echo "Environment:"
-          env
           echo "${PATH}"
           pwd
           #dir C:\"Program Files"\doxygen
@@ -219,7 +207,7 @@ jobs:
           git submodule status --recursive
           echo "Finished updating all git submodules."
           # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBOOST_ROOT=${{ steps.install-boost-windows.outputs.BOOST_ROOT }} -DCMAKE_INCLUDE_PATH=
+          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBOOST_ROOT=${{ steps.install-boost-windows.outputs.BOOST_ROOT }} -DCSOUND_INCLUDE_DIR=${{github.workspace}}/Csound6/include -DCSOUND_LIBRARY=${{github.workspace}}/Csound6/lib
           # Build with CMake.
           cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
           dir ${{github.workspace}}/build/Release
