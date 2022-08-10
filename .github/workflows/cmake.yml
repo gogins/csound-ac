@@ -181,17 +181,14 @@ jobs:
           choco install wget -y
           choco install graphviz -y
           choco install doxygen -y
-          echo "Downloading Windows Csound installer..."
-          wget -v https://github.com/csound/csound/releases/download/6.17.0/csound-6.17.0-windows-x64-installer.zip
-          echo "Unpacking Windows Csound installer..."
-          unzip csound-6.17.0-windows-x64-installer.zip
+          # Windows installer doesn't seem to do anything on the Windows GitHub runner.
+          echo "Downloading Csound binaries..."
+          wget -v https://github.com/csound/csound/releases/download/6.17.0/csound-6.17.0-windows-x64-binaries.zip
+          unzip csound-6.17.0-windows-x64-binaries.zip
+          echo "Downloading Csound sources..."
+          wget -v https://github.com/csound/csound/archive/refs/tags/6.17.0.zip
+          unzip 6.17.0.zip
           dir 
-          dir ..
-          echo "Running Windows Csound installer..."
-          "./csound-windows_x86_64-6.17.0-916.exe /?"
-          "./csound-windows_x86_64-6.17.0-916.exe"
-          "./csound-windows_x86_64-6.17.0-916.exe /S /V4 /D${{ github.workspace }}/Csound6"
-          7z e csound-windows_x86_64-6.17.0-916.exe -oCsound6 -r
           refreshenv
           echo "Current environment:"
           env
@@ -206,7 +203,6 @@ jobs:
           # dir "D:\Program Files\*"
           echo "Installing other dependencies..."
           choco install opencv -y
-          git clone "https://github.com/csound/csound.git"
           git clone "https://gitlab.com/libeigen/eigen.git"
           dir "C:/Program*"
           echo "Environment:"
