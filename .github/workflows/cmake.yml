@@ -190,11 +190,8 @@ jobs:
           echo "Downloading Csound binaries..."
           wget -v https://github.com/csound/csound/releases/download/6.17.0/csound-6.17.0-windows-x64-binaries.zip
           unzip csound-6.17.0-windows-x64-binaries.zip -dCsound6
-          dir 
-          cd Csound6 
-          dir /s /b
-          cd ..
           refreshenv
+          ls -r Csound6
           echo "Current environment:"
           env
           echo "Current PATH:"
