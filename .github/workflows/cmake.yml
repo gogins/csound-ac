@@ -196,6 +196,8 @@ jobs:
           echo "Program files directories:"
           dir "C:\Program Files (x86)\*"
           dir "C:\Program Files\*"
+          dir "D:\Program Files (x86)\*"
+          dir "D:\Program Files\*"
           echo "Installing other dependencies..."
           choco install opencv -y
           git clone "https://github.com/csound/csound.git"
@@ -204,8 +206,6 @@ jobs:
           echo "Environment:"
           env
           echo "${PATH}"
-          git clone "https://github.com/csound/csound.git"
-          git clone "https://gitlab.com/libeigen/eigen.git"
           pwd
           #dir C:\"Program Files"\doxygen
           refreshenv
