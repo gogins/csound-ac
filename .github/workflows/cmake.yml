@@ -191,6 +191,7 @@ jobs:
           "./csound-windows_x86_64-6.17.0-916.exe /?"
           "./csound-windows_x86_64-6.17.0-916.exe"
           "./csound-windows_x86_64-6.17.0-916.exe /S /V4 /D${{ github.workspace }}/Csound6"
+          7z -e csound-windows_x86_64-6.17.0-916.exe
           refreshenv
           echo "Current environment:"
           env
