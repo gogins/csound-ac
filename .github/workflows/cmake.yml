@@ -182,18 +182,16 @@ jobs:
           choco install graphviz -y
           choco install doxygen -y
           choco install opencv -y
+          choco install libsndfile -y
           git clone "https://gitlab.com/libeigen/eigen.git"
-          # Windows installer doesn't seem to do anything on the Windows 
+          # The Windows installer doesn't seem to do anything on the Windows 
           # GitHub runner, so we download a consistent set of binaries and 
-          # sources from the Csound repository.
+          # headers from the Csound repository.
           echo "Downloading Csound binaries..."
           wget -v https://github.com/csound/csound/releases/download/6.17.0/csound-6.17.0-windows-x64-binaries.zip
           unzip csound-6.17.0-windows-x64-binaries.zip -dCsound6
-          #echo "Downloading Csound sources..."
-          #wget -v https://github.com/csound/csound/archive/refs/tags/6.17.0.zip
-          #unzip 6.17.0.zip -d Csound6
           dir 
-          dir /S Csound6
+          dir /s /b Csound6
           refreshenv
           echo "Current environment:"
           env
