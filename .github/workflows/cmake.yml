@@ -194,8 +194,8 @@ jobs:
           echo "Current PATH:"
           echo "${PATH}"
           echo "Program files directories:"
-          dir "C:\Program Files (x86)"
-          dir "C:\Program Files"
+          dir "C:\Program Files (x86)\*"
+          dir "C:\Program Files\*"
           echo "Installing other dependencies..."
           choco install opencv -y
           git clone "https://github.com/csound/csound.git"
