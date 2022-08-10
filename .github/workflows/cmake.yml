@@ -181,6 +181,7 @@ jobs:
           choco install wget -y
           choco install graphviz -y
           choco install doxygen -y
+          echo "Installing dependencies..."
           choco install opencv -y
           choco install libsndfile -y
           ls -r "C:\Program Files\libsndfile"
