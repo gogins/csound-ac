@@ -186,6 +186,7 @@ jobs:
           echo "Unpacking Windows Csound installer..."
           unzip csound-6.17.0-windows-x64-installer.zip
           dir 
+          dir ..
           echo "Running Windows Csound installer..."
           "./csound-windows_x86_64-6.17.0-916.exe /?"
           "./csound-windows_x86_64-6.17.0-916.exe"
