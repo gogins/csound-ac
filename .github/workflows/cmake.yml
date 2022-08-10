@@ -196,8 +196,10 @@ jobs:
           echo "Program files directories:"
           dir "C:\Program Files (x86)\*"
           dir "C:\Program Files\*"
-          dir "D:\Program Files (x86)\*"
-          dir "D:\Program Files\*"
+          dir "${{ github.workspace }}
+          # D: doesn't exist.
+          # dir "D:\Program Files (x86)\*"
+          # dir "D:\Program Files\*"
           echo "Installing other dependencies..."
           choco install opencv -y
           git clone "https://github.com/csound/csound.git"
