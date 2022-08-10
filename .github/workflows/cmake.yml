@@ -189,13 +189,13 @@ jobs:
           echo "Running Windows Csound installer..."
           ./csound-windows_x86_64-6.17.0-916.exe /S /V4
           refreshenv
-          echo "Listing Csound installation..."
-          echo "Environment:"
+          echo "Current environment:"
           env
           echo "Current PATH:"
           echo "${PATH}"
-          echo "Should be Csound's installation directory:"
-          dir "/c/Program Files/Csound6"
+          echo "Program files directories:"
+          dir "C:\Program Files (x86)"
+          dir "C:\Program Files"
           echo "Installing other dependencies..."
           choco install opencv -y
           git clone "https://github.com/csound/csound.git"
