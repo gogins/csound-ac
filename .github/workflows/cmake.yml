@@ -187,7 +187,7 @@ jobs:
           unzip csound-6.17.0-windows-x64-installer.zip
           dir 
           echo "Running Windows Csound installer..."
-          ./csound-windows_x86_64-6.17.0-916.exe /S /V4
+          ./csound-windows_x86_64-6.17.0-916.exe /S /V4 /D${{ github.workspace }}/Csound6
           refreshenv
           echo "Current environment:"
           env
