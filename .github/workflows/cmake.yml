@@ -196,7 +196,7 @@ jobs:
           echo "Program files directories:"
           dir "C:\Program Files (x86)\*"
           dir "C:\Program Files\*"
-          dir "${{ github.workspace }}
+          dir "${{ github.workspace }}"
           # D: doesn't exist.
           # dir "D:\Program Files (x86)\*"
           # dir "D:\Program Files\*"
