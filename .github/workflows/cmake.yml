@@ -191,7 +191,7 @@ jobs:
           wget -v https://github.com/csound/csound/releases/download/6.17.0/csound-6.17.0-windows-x64-binaries.zip
           unzip csound-6.17.0-windows-x64-binaries.zip -dCsound6
           dir 
-          dir Csound6 /s /b
+          dir Csound6 /s
           refreshenv
           echo "Current environment:"
           env
