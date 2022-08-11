@@ -188,9 +188,9 @@ jobs:
           refreshenv
           echo "Current env..."
           env
-          echo "dir.."
+          echo "dir..."
           dir "${{github.workspace}}"
-          dir "${{github.workspace}}\opencv\"
+          ls -r "${{github.workspace}}\opencv\"
           echo "info opencv..."
           choco info opencv 
           echo "info libsndfile..."
