@@ -190,7 +190,7 @@ jobs:
           env
           echo "dir..."
           dir "${{github.workspace}}"
-          ls -r "${{github.workspace}}\opencv\"
+          ls -r "C:\tools"
           echo "info opencv..."
           choco info opencv 
           echo "info libsndfile..."
