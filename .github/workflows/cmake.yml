@@ -225,11 +225,13 @@ jobs:
           cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
           # dir ${{github.workspace}}/build/Release
           echo "Documenting..."
+          cd ${{github.workspace}}/doc
           doxygen
+          cd ..
           echo "Packaging..."
           cd build
           pwd
-          sudo cpack -V -G ZIP
+          cpack -V -G ZIP
           dir
 
       - uses: "marvinpinto/action-automatic-releases@latest"
