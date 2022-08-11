@@ -184,7 +184,7 @@ jobs:
           echo "Installing dependencies..."
           choco install opencv -y
           choco install libsndfile -y
-          choco info opencv
+          choco info opencv /Environment
           choco info libsndfile
           ls -r "C:\Program Files\libsndfile"
           git clone "https://gitlab.com/libeigen/eigen.git"
