@@ -182,9 +182,9 @@ jobs:
           choco install graphviz -y
           choco install doxygen -y
           echo "Installing dependencies..."
-          choco install opencv -y
+          choco install opencv -y /Environment
           choco install libsndfile -y
-          choco info opencv /Environment
+          choco info opencv 
           choco info libsndfile
           ls -r "C:\Program Files\libsndfile"
           git clone "https://gitlab.com/libeigen/eigen.git"
@@ -208,7 +208,7 @@ jobs:
           git submodule status --recursive
           echo "Finished updating all git submodules."
           # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBOOST_ROOT=${{ steps.install-boost-windows.outputs.BOOST_ROOT }} -DCSOUND_INCLUDE_DIR=${{github.workspace}}/Csound6/include -DCSOUND_LIBRARY=${{github.workspace}}/Csound6/build/Release/csound64.lib -DLIBSNDFILE_LIBRARY="C:\Program Files\libsndfile\lib\sndfile.lib" -DCSND6_LIBRARY=${{github.workspace}}/Csound6/build/Release/csnd6.dll
+          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBOOST_ROOT=${{ steps.install-boost-windows.outputs.BOOST_ROOT }} -DCSOUND_INCLUDE_DIR=${{github.workspace}}/Csound6/include -DCSOUND_LIBRARY=${{github.workspace}}/Csound6/build/Release/csound64.lib -DLIBSNDFILE_LIBRARY="C:\Program Files\libsndfile\lib\sndfile.lib" -DCSND6_LIBRARY=${{github.workspace}}/Csound6/build/Release/csnd6.dll -DOpenCV_ROOT="${OpenCV_ROOT}"
           # Build with CMake.
           cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
           dir ${{github.workspace}}/build/Release
