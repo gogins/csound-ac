@@ -213,7 +213,6 @@ jobs:
           echo "Current PATH:"
           echo "${PATH}"
           pwd
-          #dir C:\"Program Files"\doxygen
           refreshenv
           echo "Updating all git submodules..."
           git submodule update --init --recursive
