@@ -190,12 +190,12 @@ jobs:
           env
           echo "dir..."
           dir "${{github.workspace}}"
-          ls -r "C:\tools"
+          #ls -r "C:\tools"
           echo "info opencv..."
           choco info opencv 
           echo "info libsndfile..."
           choco info libsndfile
-          ls -r "C:\Program Files\libsndfile"
+          #ls -r "C:\Program Files\libsndfile"
           git clone "https://gitlab.com/libeigen/eigen.git"
           # The Windows installer doesn't seem to do anything on the Windows 
           # GitHub runner, so we download a consistent set of binaries and 
@@ -203,8 +203,11 @@ jobs:
           echo "Downloading Csound binaries..."
           wget -v https://github.com/csound/csound/releases/download/6.17.0/csound-6.17.0-windows-x64-binaries.zip
           unzip csound-6.17.0-windows-x64-binaries.zip -dCsound6
+          wget -v https://github.com/csound/csound/archive/refs/tags/6.17.0.zip
+          unzip csound-6.17.0.zip -dcsound
           refreshenv
           ls -r Csound6
+          ls -r csound
           echo "Current environment:"
           env
           echo "Current PATH:"
@@ -220,7 +223,7 @@ jobs:
           cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBOOST_ROOT=${{ steps.install-boost-windows.outputs.BOOST_ROOT }} -DCSOUND_INCLUDE_DIR=${{github.workspace}}/Csound6/include -DCSOUND_LIBRARY=${{github.workspace}}/Csound6/build/Release/csound64.lib -DLIBSNDFILE_LIBRARY="C:\Program Files\libsndfile\lib\sndfile.lib" -DCSND6_LIBRARY=${{github.workspace}}/Csound6/build/Release/csnd6.dll -DOpenCV_DIR="C:\tools\opencv\build"
           # Build with CMake.
           cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
-          dir ${{github.workspace}}/build/Release
+          # dir ${{github.workspace}}/build/Release
           echo "Documenting..."
           C:\"Program Files"\doxygen\bin\doxygen
           echo "Packaging..."
