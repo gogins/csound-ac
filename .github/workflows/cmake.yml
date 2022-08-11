@@ -186,7 +186,7 @@ jobs:
           choco install libsndfile -y
           refreshenv
           env
-          dir "${{github.workspace}}
+          dir "${{github.workspace}}"
           dir "${{github.workspace}}\opencv"
 
           choco info opencv 
