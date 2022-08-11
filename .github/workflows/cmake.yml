@@ -230,7 +230,7 @@ jobs:
           echo "Packaging..."
           cd build
           pwd
-          cpack -V -G ZIP
+          cpack -V -G TGZ
           dir
 
       - uses: "marvinpinto/action-automatic-releases@latest"
