@@ -204,7 +204,7 @@ jobs:
           wget -v https://github.com/csound/csound/releases/download/6.17.0/csound-6.17.0-windows-x64-binaries.zip
           unzip csound-6.17.0-windows-x64-binaries.zip -dCsound6
           wget -v https://github.com/csound/csound/archive/refs/tags/6.17.0.zip
-          unzip csound-6.17.0.zip -dcsound
+          unzip 6.17.0.zip -dcsound
           refreshenv
           ls -r Csound6
           ls -r csound
