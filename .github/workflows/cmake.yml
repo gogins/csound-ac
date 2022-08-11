@@ -225,7 +225,7 @@ jobs:
           cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
           # dir ${{github.workspace}}/build/Release
           echo "Documenting..."
-          C:\"Program Files"\doxygen\bin\doxygen
+          doxygen
           echo "Packaging..."
           cd build
           pwd
