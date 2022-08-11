@@ -14,7 +14,7 @@ message("CSOUND_AC_CUSTOM_CONFIGURATION: ${CSOUND_AC_CUSTOM_CONFIGURATION}")
 include(ExternalProject)
 
 set(CMAKE_CXX_STANDARD 17)
-if(CMAKE_C_COMPILER_ID != "MSVC")
+if(CMAKE_C_COMPILER_ID NOT EQUAL "MSVC")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wno-sign-compare -Wno-unknown-pragmas -Wno-misleading-indentation")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 endif()

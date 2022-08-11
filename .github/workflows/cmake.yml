@@ -182,7 +182,7 @@ jobs:
           choco install graphviz -y
           choco install doxygen -y
           echo "Installing dependencies..."
-          choco install opencv -y --verbose --environment
+          choco install opencv -y 
           choco install libsndfile -y
           echo "Refreshing env..."
           refreshenv
