@@ -184,7 +184,8 @@ jobs:
           echo "Installing dependencies..."
           choco install opencv -y
           choco install libsndfile -y
-          ls "C:\Program Files\"
+          choco info opencv
+          choco info libsndfile
           ls -r "C:\Program Files\libsndfile"
           git clone "https://gitlab.com/libeigen/eigen.git"
           # The Windows installer doesn't seem to do anything on the Windows 
