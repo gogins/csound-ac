@@ -182,11 +182,11 @@ jobs:
           choco install graphviz -y
           choco install doxygen -y
           echo "Installing dependencies..."
-          choco install opencv -y --verbose --install-directory="${{github.workspace}}"
+          choco install opencv -y --verbose
           choco install libsndfile -y
           refreshenv
           env
-          dir
+          dir "${{github.workspace}}
           dir "${{github.workspace}}\opencv"
 
           choco info opencv 
