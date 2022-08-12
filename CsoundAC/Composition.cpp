@@ -121,9 +121,9 @@ bool Composition::getConformPitches() const
 std::string Composition::getOutputDirectory() const
 {
 #if defined(WIN32) 
-    int max_path = MAX_PATH;
+    static int max_path = 260;
 #else
-    int max_path = PATH_MAX;
+    static int max_path = PATH_MAX;
 #endif
     if (output_directory.empty() == true) {
         char buffer[max_path];
@@ -597,7 +597,9 @@ int Composition::translateToNotation(const std::vector<std::string> partNames, s
             stream << buffer;
         }
     }
+#if !defined(WIN32)
     stream.close();
+#endif
     std::sprintf(buffer, "fomus --verbose -i %s -o %s.xml", getFomusfileFilepath().c_str(), getTitle().c_str());
     int errorStatus = std::system(buffer);
     return errorStatus;
