@@ -120,9 +120,14 @@ bool Composition::getConformPitches() const
 #pragma GCC diagnostic ignored "-Wunused-result"
 std::string Composition::getOutputDirectory() const
 {
+#if defined(WIN32) 
+    int max_path = MAX_PATH;
+#else
+    int max_path = PATH_MAX;
+#endif
     if (output_directory.empty() == true) {
-        char buffer[PATH_MAX];
-        getcwd(buffer, PATH_MAX);
+        char buffer[max_path];
+        getcwd(buffer, max_path);
         return buffer;
     }
     return output_directory;
