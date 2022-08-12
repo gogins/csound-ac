@@ -22,6 +22,7 @@
 
 #if (defined(WIN32) || defined(_WIN32)) && !defined(SWIG) && !defined(_MSC_VER)
 #  define SILENCE_PUBLIC __declspec(dllexport)
+#  define _USE_MATH_DEFINES
 #elif defined(__GNUC__) && (__GNUC__ >= 4) /* && !defined(__MACH__) */
 #  define SILENCE_PUBLIC        __attribute__ ( (visibility("default")) )
 #else
