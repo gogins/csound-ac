@@ -87,7 +87,7 @@ endif()
 # both `WIN32` and `linux`.
 if(UNISTD_WIN32_INCLUDE_DIR)
     include_directories("${UNISTD_WIN32_INCLUDE_DIR}")
-endif
+endif()
 include_directories("${CSOUND_INCLUDE_DIR}")
 include_directories("${CSOUND_INCLUDE_DIR}/csound")
 include_directories("${CSOUND_SOURCE_HOME}/interfaces")
