@@ -83,6 +83,11 @@ find_package(SWIG)
 if(LIBSNDFILE_INCLUDE_DIR)
     include_directories("${LIBSNDFILE_INCLUDE_DIR}")
 endif()
+# Boost conflicts with GitHub's Windows runner which #defines 
+# both `WIN32` and `linux`.
+if(UNISTD_WIN32_INCLUDE_DIR)
+    include_directories("${UNISTD_WIN32_INCLUDE_DIR}")
+endif
 include_directories("${CSOUND_INCLUDE_DIR}")
 include_directories("${CSOUND_INCLUDE_DIR}/csound")
 include_directories("${CSOUND_SOURCE_HOME}/interfaces")
