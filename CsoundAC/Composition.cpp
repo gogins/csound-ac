@@ -120,14 +120,12 @@ bool Composition::getConformPitches() const
 #pragma GCC diagnostic ignored "-Wunused-result"
 std::string Composition::getOutputDirectory() const
 {
-#if defined(WIN32) 
-    static int max_path = 260;
-#else
-    static int max_path = PATH_MAX;
-#endif
+    #if defined(WIN32) 
+        #define PATH_MAX MAX_PATH
+    #endif
     if (output_directory.empty() == true) {
         char buffer[max_path];
-        getcwd(buffer, max_path);
+        getcwd(buffer, PATH_MAX);
         return buffer;
     }
     return output_directory;
@@ -597,9 +595,7 @@ int Composition::translateToNotation(const std::vector<std::string> partNames, s
             stream << buffer;
         }
     }
-#if !defined(WIN32)
     stream.close();
-#endif
     std::sprintf(buffer, "fomus --verbose -i %s -o %s.xml", getFomusfileFilepath().c_str(), getTitle().c_str());
     int errorStatus = std::system(buffer);
     return errorStatus;
