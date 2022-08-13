@@ -30,11 +30,6 @@ namespace csound {
 #      define SILENCE_PUBLIC
 #    endif
 #  endif
-#elif defined(__linux__)
-#  if defined(__GNUC__)
-#    pragma message "Platform.hpp: Linux with gcc." 
-#    define SILENCE_PUBLIC __attribute__ ( (visibility("default")) )
-#  endif
 #elif defined(_WIN64)
 #  if defined(_MSC_VER)
 #    pragma message "Platform.hpp: Windows with MSVC." 
@@ -43,6 +38,16 @@ namespace csound {
 #      define PATH_MAX _MAX_PATH
 #    endif
 #    define _CRT_SECURE_NO_WARNINGS
+#    if !defined(SWIG)
+#      define SILENCE_PUBLIC __declspec(dllexport)
+#    else
+#      define SILENCE_PUBLIC 
+#    endif
+#  endif
+#elif defined(__linux__)
+#  if defined(__GNUC__)
+#    pragma message "Platform.hpp: Linux with gcc." 
+#    define SILENCE_PUBLIC __attribute__ ( (visibility("default")) )
 #  endif
 #else
 #  define SILENCE_PUBLIC
