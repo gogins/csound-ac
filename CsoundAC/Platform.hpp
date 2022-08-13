@@ -25,14 +25,14 @@
 #  define _USE_MATH_DEFINES
 #elif defined(__GNUC__) && (__GNUC__ >= 4) /* && !defined(__MACH__) */
 #  define SILENCE_PUBLIC        __attribute__ ( (visibility("default")) )
+#elif defined(_MSC_VER)
+#  define _USE_MATH_DEFINES
+#  ifndef PATH_MAX
+#    define PATH_MAX _MAX_PATH
+#  endif
+#  define _CRT_SECURE_NO_WARNINGS
 #else
 #  define SILENCE_PUBLIC
-#endif
-
-#ifdef _MSC_VER
-#ifndef PATH_MAX
-#define PATH_MAX _MAX_PATH
-#endif
 #endif
 
 #endif
