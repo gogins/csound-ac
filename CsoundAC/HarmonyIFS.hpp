@@ -636,7 +636,7 @@ namespace csound {
              * affine transformation matrices of the Hutchinson operator.
              */
             virtual void set_rotation(int transformation, int dimension1, int dimension2, double degrees) {
-                auto radians = degrees * M_PI / 180.;
+                double radians = degrees * M_PI / 180.;
                 hutchinson_operator[transformation](dimension1,dimension1) =  std::cos(radians);
                 hutchinson_operator[transformation](dimension1,dimension2) = -std::sin(radians);
                 hutchinson_operator[transformation](dimension2,dimension1) =  std::sin(radians);
