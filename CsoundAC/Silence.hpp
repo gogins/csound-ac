@@ -53,6 +53,7 @@
 %include "typemaps.i"
 %include "std_vector.i"
 %{
+#include "System.hpp"
 #include <csound.h>
 #include <string>
 #include <vector>
@@ -65,8 +66,8 @@
 #include <map>
 #include <Eigen/Dense>
 #endif
-#include "Conversions.hpp"
 #include "System.hpp"
+#include "Conversions.hpp"
 #include "Event.hpp"
 #include "Midifile.hpp"
 #include "Score.hpp"

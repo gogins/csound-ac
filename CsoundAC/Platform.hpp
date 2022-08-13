@@ -19,21 +19,36 @@
 * License along with this software; if not, write to the Free Software
 * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
-
-#if (defined(WIN32) || defined(_WIN32)) && !defined(SWIG) && !defined(_MSC_VER)
-#  define SILENCE_PUBLIC __declspec(dllexport)
-#  define _USE_MATH_DEFINES
-#elif defined(__GNUC__) && (__GNUC__ >= 4) /* && !defined(__MACH__) */
-#  define SILENCE_PUBLIC        __attribute__ ( (visibility("default")) )
-#elif defined(_MSC_VER)
-#  define _USE_MATH_DEFINES
-#  ifndef PATH_MAX
-#    define PATH_MAX _MAX_PATH
+namespace csound {
+    
+#if defined(__APPLE__) && defined(__MACH__)
+#  if defined(__clang__)
+#    pragma message "Platform.hpp: macOS with Clang." 
+#    if !defined(SWIG)
+#      define SILENCE_PUBLIC //__attribute__ ( (visibility("default")) )
+#    else
+#      define SILENCE_PUBLIC
+#    endif
 #  endif
-#  define _CRT_SECURE_NO_WARNINGS
+#elif defined(__linux__)
+#  if defined(__GNUC__)
+#    pragma message "Platform.hpp: Linux with gcc." 
+#    define SILENCE_PUBLIC __attribute__ ( (visibility("default")) )
+#  endif
+#elif defined(_WIN64)
+#  if defined(_MSC_VER)
+#    pragma message "Platform.hpp: Windows with MSVC." 
+#    define _USE_MATH_DEFINES
+#    if !defined(PATH_MAX)
+#      define PATH_MAX _MAX_PATH
+#    endif
+#    define _CRT_SECURE_NO_WARNINGS
+#  endif
 #else
 #  define SILENCE_PUBLIC
 #endif
+
+};
 
 #endif
 
