@@ -40,7 +40,7 @@
 #define PATH_MAX _MAX_PATH
 #endif
 #else
-#include_next <limits.h>
+#include <limits.h>
 #endif
 #endif
 
