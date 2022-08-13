@@ -30,7 +30,7 @@ namespace csound {
 #      define SILENCE_PUBLIC
 #    endif
 #  endif
-#elif defined(_WIN64)
+#elif defined(_WIN32)
 #  if defined(_MSC_VER)
 #    pragma message "Platform.hpp: Windows with MSVC." 
 #    define _USE_MATH_DEFINES
