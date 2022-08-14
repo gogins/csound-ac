@@ -51,7 +51,9 @@
 %}
 %feature("autodoc", "1");
 %include "typemaps.i"
+%include "std_string.i"
 %include "std_vector.i"
+%include "std_map.i"
 %{
 #include "System.hpp"
 #include <csound.h>
@@ -60,6 +62,7 @@
 #include <map>
 #include <Eigen/Dense>
 %}
+%template(StringMap) std::map<std::string, std::string>;
 #else
 #include <string>
 #include <vector>
