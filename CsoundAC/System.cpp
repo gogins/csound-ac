@@ -686,7 +686,7 @@ namespace csound {
     }
 
     SILENCE_PUBLIC void System::beep() {
-        beep();
+        std::fprintf(stderr, "System::beep not implemented on this platform.\n");
     }
 
 #endif

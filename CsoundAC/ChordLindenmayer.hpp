@@ -344,7 +344,7 @@ public:
      * <li> Overlapping and abutting notes in the score are again joined.</li>
      * </ol>
      */
-    virtual void generate();
+    virtual void generateLocally();
     virtual void generate(Score &score);
     virtual double getAngle() const;
     virtual std::string getAxiom() const;

@@ -57,8 +57,8 @@ processing is automatically performed:
       and/or additional processing.
 
 '''
-print __doc__
-print 'IMPORTING REQUIRED MODULES...'
+print(__doc__)
+print('IMPORTING REQUIRED MODULES...')
 print
 import csnd6
 import CsoundAC
@@ -66,14 +66,6 @@ import datetime
 import math
 import numpy
 import os
-try:
-    import psyco
-    psyco.full()
-    print 'Using psyco.'
-    print
-except:
-    print 'Psyco not available.'
-    print
 import random
 import signal
 import string
@@ -93,44 +85,44 @@ class CsoundComposition(object):
         else:
             self.dacName = 'dac'
     def createGlobalObjects(self):
-        print 'CREATING GLOBAL OBJECTS...'
-        print
+        print('CREATING GLOBAL OBJECTS...')
+        print()
         self.model = CsoundAC.MusicModel()
         self.csound = self.model.getCppSound()
         self.csound.setPythonMessageCallback()  
         self.score = self.model.getScore()
     def createFilenames(self):
-        print 'CREATING FILENAMES...'
-        print
+        print('CREATING FILENAMES...')
+        print()
         self.composer = 'Michael_Gogins'
-        print 'Composer:                %s' % self.composer
+        print('Composer:                %s' % self.composer)
         self.scriptPathname = os.path.realpath(sys.argv[0])
-        print 'Full script pathname:    %s' % self.scriptPathname
+        print('Full script pathname:    %s' % self.scriptPathname)
         self.title, self.ext = os.path.splitext(os.path.basename(self.scriptPathname))
-        print 'Title:                   %s' % self.title
+        print('Title:                   %s' % self.title)
         self.copyright = 'Copr._%d_%s' % (self.timestamp.year, self.composer)
-        print 'Copyright:               %s' % self.copyright
+        print('Copyright:               %s' % self.copyright)
         self.directory = os.path.dirname(self.scriptPathname)
         if len(self.directory):
             os.chdir(self.directory)
-        print 'Working directory:       %s' % self.directory
+        print('Working directory:       %s' % self.directory)
         self.orcFilename = self.scriptPathname + '.orc'
-        print 'Csound orchestra:        %s' % self.orcFilename
+        print('Csound orchestra:        %s' % self.orcFilename)
         self.scoFilename =  self.scriptPathname + '.sco'
-        print 'Csound score:            %s' % self.scoFilename
+        print('Csound score:            %s' % self.scoFilename)
         self.midiFilename =  self.scriptPathname + '.mid'
-        print 'MIDI file:               %s' % self.midiFilename
+        print('MIDI file:               %s' % self.midiFilename)
         self.xmlFilename =  self.scriptPathname + '.xml'
-        print 'MusicXML2 file:          %s' % self.xmlFilename
+        print('MusicXML2 file:          %s' % self.xmlFilename)
         self.csoundOutputSoundfile = self.scriptPathname + '.output.wav'
-        print 'Output soundfile:        %s' % self.csoundOutputSoundfile
+        print('Output soundfile:        %s' % self.csoundOutputSoundfile)
         self.rescaledSoundfile =  self.scriptPathname + '.wav'
-        print 'Rescaled soundfile:      %s' % self.rescaledSoundfile
+        print('Rescaled soundfile:      %s' % self.rescaledSoundfile)
         self.cdTrackSoundfile =  self.scriptPathname + '.cd.wav'
-        print 'CD track soundfile:      %s' % self.cdTrackSoundfile
+        print('CD track soundfile:      %s' % self.cdTrackSoundfile)
         self.mp3Soundfile =  self.scriptPathname + '.mp3'
-        print 'MP3 soundfile:           %s' % self.mp3Soundfile
-        print 'Audio output name:       %s' % self.dacName
+        print('MP3 soundfile:           %s' % self.mp3Soundfile)
+        print('Audio output name:       %s' % self.dacName)
         self.createCsoundCommands()
         if os.name == 'posix':
             self.soundfileScaler = '/home/mkg/csound5/scale'
@@ -145,16 +137,16 @@ class CsoundComposition(object):
             self.soundfilePlayer = r'D:/utah/opt/audacity/audacity'
             self.midifilePlayer = r'C:/utah/opt/Pianoteq-3.5/Pianoteq35.exe'
         self.rescalerCommand = r'%s -P 75 -o %s %s' % (self.soundfileScaler, self.rescaledSoundfile, self.csoundOutputSoundfile)
-        print 'Rescaler command:        %s' % self.rescalerCommand
+        print('Rescaler command:        %s' % self.rescalerCommand)
         self.cdTrackCommand = r'%s -pcm16 %s %s' % (self.formatConverter, self.rescaledSoundfile, self.cdTrackSoundfile)
-        print 'CD track command:        %s' % self.cdTrackCommand
+        print('CD track command:        %s' % self.cdTrackCommand)
         self.encoderCommand = r'%s -b 192 --tt %s --ta %s --tc %s %s %s' % (self.mp3encoder, self.title, self.composer, self.copyright, self.cdTrackSoundfile, self.mp3Soundfile)
-        print 'Encoder command:         %s' % self.encoderCommand
+        print('Encoder command:         %s' % self.encoderCommand)
         self.playerCommand = r'%s %s' % (self.soundfilePlayer, self.rescaledSoundfile)
-        print 'Player command:          %s' % self.playerCommand
+        print('Player command:          %s' % self.playerCommand)
         self.midifilePlayerCommand = r'%s %s' % (self.midifilePlayer, self.midiFilename)
-        print 'MIDI player command:     %s' % self.midifilePlayerCommand
-        print
+        print('MIDI player command:     %s' % self.midifilePlayerCommand)
+        print()
     def createCsoundCommands(self):
         self.commandsForRendering = {
             'preview':  r'csound -g -m163 -W -f -R -K -r 44100 -k 441   --midi-key=4 --midi-velocity=5 -+id_artist=%s -+id_copyright=Copyright_2007_by_%s -+id_title=%s -o %s %s %s' % (self.composer, self.composer, self.title, self.csoundOutputSoundfile, self.orcFilename, self.scoFilename),
@@ -165,26 +157,26 @@ class CsoundComposition(object):
             'midi':     r'csound -g -m163 -h -r 44100 -k 100 --midi-key=4 --midi-velocity=5 -M0 -o %s %s %s' % (self.dacName, self.orcFilename, self.scoFilename)
         }    
         self.csoundCommand = self.commandsForRendering[self.renderingMode]
-        print 'Csound command line:     %s' % self.csoundCommand
-        print
+        print('Csound command line:     %s' % self.csoundCommand)
+        print()
     def renderCsound(self):
-        print 'RENDERING WITH CSOUND...'
-        print
+        print('RENDERING WITH CSOUND...')
+        print()
         self.model.setCsoundCommand(self.csoundCommand)
         self.createMusicModel()
         self.model.generate()
         self.createScore()
         self.ended = time.clock()
         self.elapsed = self.ended - self.began
-        print 'Finished rendering at               %s' % time.strftime('%Y-%b-%d %A %H:%M:%S')
-        print 'Elapsed time:                        %-9.2f seconds.' % self.elapsed
+        print('Finished rendering at               %s' % time.strftime('%Y-%b-%d %A %H:%M:%S'))
+        print('Elapsed time:                        %-9.2f seconds.' % self.elapsed)
         self.csound.perform()
         print
         self.ended = time.clock()
         self.elapsed = self.ended - self.began
-        print 'Finished rendering at                %s' % time.strftime('%Y-%b-%d %A %H:%M:%S')
-        print 'Elapsed time:                        %-9.2f seconds.' % self.elapsed
-        print
+        print('Finished rendering at                %s' % time.strftime('%Y-%b-%d %A %H:%M:%S'))
+        print('Elapsed time:                        %-9.2f seconds.' % self.elapsed)
+        print()
         if self.renderingMode == 'audio':
             exit(0)
         self.normalizeOutputSoundfile()
@@ -193,56 +185,56 @@ class CsoundComposition(object):
         if self.playback == True:
             self.openOutputSoundfile()
     def renderMidiScore(self):
-        print 'GENERATING MIDI SCORE FOR PREVIEW...'
-        print
+        print('GENERATING MIDI SCORE FOR PREVIEW...')
+        print()
         self.createMusicModel()
         self.model.generate()
         self.createScore()
         self.ended = time.clock()
         self.elapsed = self.ended - self.began
-        print 'Finished generating at               %s' % time.strftime('%Y-%b-%d %A %H:%M:%S')
-        print 'Elapsed time:                        %-9.2f seconds.' % self.elapsed
+        print('Finished generating at               %s' % time.strftime('%Y-%b-%d %A %H:%M:%S'))
+        print('Elapsed time:                        %-9.2f seconds.' % self.elapsed)
         self.ended = time.clock()
         self.elapsed = self.ended - self.began
-        print 'Finished rendering at                %s' % time.strftime('%Y-%b-%d %A %H:%M:%S')
-        print 'Elapsed time:                        %-9.2f seconds.' % self.elapsed
-        print
+        print('Finished rendering at                %s' % time.strftime('%Y-%b-%d %A %H:%M:%S'))
+        print('Elapsed time:                        %-9.2f seconds.' % self.elapsed)
+        print()
         self.playMidifile()
         exit()
     def renderMidiVirtualTest(self):
         self.createScore()
-        print 'PLAY VIRTUAL KEYBOARD FOR CSOUND ORCHESTRA TEST...'
-        print
+        print('PLAY VIRTUAL KEYBOARD FOR CSOUND ORCHESTRA TEST...')
+        print()
         self.csound.perform()
         exit()
     def renderMidiActualTest(self):
         self.createScore()
-        print 'PLAY ACTUAL MIDI KEYBOARD FOR CSOUND ORCHESTRA TEST...'
-        print
+        print('PLAY ACTUAL MIDI KEYBOARD FOR CSOUND ORCHESTRA TEST...')
+        print()
         self.csound.perform()
         exit()
     def createScore(self):
-        print 'CREATING SCORE...'
-        print
+        print('CREATING SCORE...')
+        print()
         self.createCsoundOrchestra()
         self.createCsoundArrangement()
         self.model.createCsoundScore()
         print
-        print 'Saving MIDI file %s...' % self.midiFilename
-        print
+        print('Saving MIDI file %s...' % self.midiFilename)
+        print()
         self.score.save(self.midiFilename)
-        print
+        print()
     def playMidifile(self):
-        print 'PLAYING MIDI FILE...'
-        print
+        print('PLAYING MIDI FILE...')
+        print()
         try:
             status = subprocess.call(self.midifilePlayerCommand, shell=True)
         except:
             traceback.print_exc()
         print
     def normalizeOutputSoundfile(self):
-        print 'NORMALIZING OUTPUT SOUNDFILE...'
-        print
+        print('NORMALIZING OUTPUT SOUNDFILE...')
+        print()
         try:
             status = subprocess.call(self.rescalerCommand, shell=True)
             os.remove(self.csoundOutputSoundfile)
@@ -250,38 +242,38 @@ class CsoundComposition(object):
             traceback.print_exc()
         print
     def createCdAudioTrack(self):
-        print 'PREPARING CD-AUDIO TRACK...'
-        print
+        print('PREPARING CD-AUDIO TRACK...')
+        print()
         try:
             status = subprocess.call(self.cdTrackCommand, shell=True)
         except:
             traceback.print_exc()
         print
     def createMp3Soundfile(self):
-        print 'ENCODING TO MP3...'
-        print
+        print('ENCODING TO MP3...')
+        print()
         try:
             status = subprocess.call(self.encoderCommand, shell=True)
         except:
             traceback.print_exc()
         print
     def openOutputSoundfile(self):
-        print 'OPENING OUTPUT SOUNDFILE...'
-        print
+        print('OPENING OUTPUT SOUNDFILE...')
+        print()
         try:
             popen = subprocess.call(self.playerCommand, shell=True)
         except:
             traceback.print_exc()
         print
     def render(self):
-        print 'RENDERING OPTIONS...'
-        print
-        print 'Rendering mode:          %s' % self.renderingMode
-        print 'Playback:                %s' % self.playback
-        print
+        print('RENDERING OPTIONS...')
+        print()
+        print('Rendering mode:          %s' % self.renderingMode)
+        print('Playback:                %s' % self.playback)
+        print()
         self.began = time.clock()
         self.timestamp = datetime.datetime.now()
-        print 'Timestamp:               %s' % self.timestamp
+        print('Timestamp:               %s' % self.timestamp)
         self.createGlobalObjects()
         self.createFilenames()
         self.createCsoundCommands()
@@ -294,8 +286,8 @@ class CsoundComposition(object):
         else:
             self.renderCsound()
     def createCsoundOrchestra(self):
-        print 'CREATING CSOUND ORCHESTRA...'
-        print
+        print('CREATING CSOUND ORCHESTRA...')
+        print()
         self.csoundOrchestra = \
 '''
 <CsoundSynthesizer>
@@ -550,9 +542,9 @@ aright 	   JackoAudioIn 	"rightin"
         self.lindenmayer.rules['b'] = 'AC K Q5 WN b +NNt1 +NRk1 WN [ +NRk5 c ] b +NNt1 -NRk1 +NNt1 WN [ +NRk12 c ] b'
         self.lindenmayer.rules['c'] = '*SNt.95 *SNd.95 *SRk1.02 +NNt0.5 WN c +NNt1 +NRk1 WN [ +NRk5 c ] c +NNt1 -NRk1 +NNt1 WN c'
         self.lindenmayer.iterationCount = 6
-        self.lindenmayer.generate()
-        print self.lindenmayer.score.toString()
-        print
+        self.lindenmayer.generateLocally()
+        print(self.lindenmayer.score.toString())
+        print()
         self.aeolus = subprocess.Popen(string.split('aeolus -t'))
         time.sleep(1.0)
         self.rescale = CsoundAC.Rescale()
@@ -563,7 +555,7 @@ aright 	   JackoAudioIn 	"rightin"
         self.rescale.setRescale( CsoundAC.Event.PAN,        True, True,  -0.9,           1.8   )
         self.rescale.addChild(self.lindenmayer)
         self.model.addChild(self.rescale)
-        print
+        print()
 
 csoundComposition = CsoundComposition()
 if len(sys.argv) > 1:
@@ -576,7 +568,7 @@ csoundComposition.render()
 try:
     time.sleep(1.0)
     csoundComposition.aeolus.kill()
-    print 'Killed aeolus...'
-    print
+    print('Killed aeolus...')
+    print()
 except:
     traceback.print_exc()

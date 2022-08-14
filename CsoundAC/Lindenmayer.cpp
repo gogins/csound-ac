@@ -54,7 +54,7 @@ std::string Lindenmayer::getReplacement(std::string word)
     }
 }
 
-void Lindenmayer::generate()
+void Lindenmayer::generateLocally()
 {
     std::string word;
     std::string replacement;

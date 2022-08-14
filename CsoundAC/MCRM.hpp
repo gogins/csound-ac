@@ -55,7 +55,7 @@
         void resize(size_t transformations);
         void setTransformationElement(size_t index, size_t row, size_t column, double value);
         void setWeight(size_t precursor, size_t successor, double weight);
-        virtual void generate();
+        virtual void generateLocally();
         // Node overrides.
         virtual void generate(Score &score);
     };
@@ -99,7 +99,7 @@
         KMeansMCRM();
         virtual ~KMeansMCRM();
         virtual void iterate(int depth, size_t p, const Event &event, double weight);
-        virtual void generate();
+        virtual void generateLocally();
         virtual void random_algorithm();
         virtual void deterministic_algorithm();
         virtual void means_to_notes();

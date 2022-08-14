@@ -137,9 +137,9 @@ std::string Composition::getOutputDirectory() const
 }
 #pragma GCC diagnostic pop
 
-void Composition::setOutputDirectory(std::string output_directory)
+void Composition::setOutputDirectory(std::string output_directory_)
 {
-    output_directory = output_directory;
+    output_directory = output_directory_;
 }
 
 std::string Composition::getFilename() const

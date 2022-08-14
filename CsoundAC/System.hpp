@@ -957,10 +957,6 @@ namespace csound {
         csoundSleep((int)(milliseconds + 0.999));
     }
 
-    inline SILENCE_PUBLIC void System::beep() {
-        beep();
-    }
-
 #endif
 #endif
 

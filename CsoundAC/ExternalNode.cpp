@@ -87,7 +87,7 @@ static void parse_line(std::string line, Score &score) {
 
 // TODO: This is POSIX-specific.
 
-void ExternalNode::generate()
+void ExternalNode::generateLocally()
 {
     score.clear();
     char script_filename[] = "/tmp/externalXXXXXX.py";
@@ -95,20 +95,20 @@ void ExternalNode::generate()
     if (file_descriptor == -1) {
         System::error("ExternalNode::generate: Error: Could not create remporary file.\n");
     }
-    System::inform("ExternalNode::generate: Created temporary script file: %s\n", script_filename);
+    System::inform("ExternalNode::generateLocally: Created temporary script file: %s\n", script_filename);
     auto script_file = fdopen(file_descriptor, "w+");
     rewind(script_file);
     auto bytes_written = fwrite(getScript().c_str(), sizeof(getScript().front()), getScript().length(), script_file);
     std::fclose(script_file);
-    System::inform("ExternalNode::generate: Wrote %d bytes.\n", bytes_written);
+    System::inform("ExternalNode::generateLocally: Wrote %d bytes.\n", bytes_written);
     boost::process::ipstream stdout_stream;
     char command_line[0x500];
     std::sprintf(command_line, "%s %s", getCommand().c_str(), script_filename);
-    System::inform("ExternalNode::generate: Executing: %s\n", command_line);
+    System::inform("ExternalNode::generateLocally: Executing: %s\n", command_line);
     boost::process::child child_process(const_cast<const char *>(command_line), boost::process::std_out > stdout_stream);
     std::string line;
     while (stdout_stream && std::getline(stdout_stream, line)) {
-        System::debug("ExternalNode::generate: parsing: %s\n", line.c_str());
+        System::debug("ExternalNode::generateLocally: parsing: %s\n", line.c_str());
         parse_line(line, score);
     }
     child_process.wait();
@@ -120,7 +120,7 @@ void ExternalNode::generate()
 
 void ExternalNode::generate(Score &collectingScore)
 {
-    generate();
+    generateLocally();
     for (int i = 0, n = score.size(); i < n; ++i) {
         collectingScore.push_back(score[i]);
         // TODO fix this hack... much work!

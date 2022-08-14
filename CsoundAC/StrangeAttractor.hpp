@@ -212,7 +212,7 @@ public:
     virtual bool searchForAttractor();
     virtual bool evaluateAttractor();
     virtual void iterate();
-    virtual void generate();
+    virtual void generateLocally();
     virtual void render (int N, double X, double Y, double Z, double W);
     virtual void setDimensionCount(int D);
     virtual int getDimensionCount() const;

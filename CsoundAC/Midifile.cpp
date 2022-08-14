@@ -288,7 +288,7 @@ MidiEvent &MidiEvent::operator = (const MidiEvent &a)
     return *this;
 }
 
-void MidiEvent::write(std::ostream &stream, const MidiFile &midiFile, int lastTick) const
+void MidiEvent::writeOut(std::ostream &stream, const MidiFile &midiFile, int lastTick) const
 {
     int deltaTicks = ticks - lastTick;
     MidiFile::writeVariableLength(stream, deltaTicks);
@@ -456,13 +456,13 @@ MidiTrack &MidiTrack::operator = (const MidiTrack &a)
     return *this;
 }
 
-void MidiTrack::readFrom(std::istream &stream, MidiFile &midiFile)
+void MidiTrack::readIn(std::istream &stream, MidiFile &midiFile)
 {
     Chunk::read(stream);
     for(int eventCount = 0; ; eventCount++)
     {
         MidiEvent midiEvent;
-        midiEvent.readFrom(stream, midiFile);
+        midiEvent.readIn(stream, midiFile);
         push_back(midiEvent);
         if(stream.eof())
         {
@@ -475,7 +475,7 @@ void MidiTrack::readFrom(std::istream &stream, MidiFile &midiFile)
     }
 }
 
-void MidiEvent::readFrom(std::istream &stream, MidiFile &midiFile)
+void MidiEvent::readIn(std::istream &stream, MidiFile &midiFile)
 {
     ticks = MidiFile::readVariableLength(stream);
     midiFile.currentTick += ticks;
@@ -587,14 +587,14 @@ void MidiEvent::readFrom(std::istream &stream, MidiFile &midiFile)
     System::inform("%s\n", toString().c_str());
 }
 
-void MidiTrack::write(std::ostream &stream, MidiFile &midiFile)
+void MidiTrack::writeOut(std::ostream &stream, MidiFile &midiFile)
 {
     Chunk::write(stream);
     int lastTick = 0;
     for(std::vector<MidiEvent>::iterator it = begin(); it != end(); ++it)
     {
         MidiEvent &event = (*it);
-        event.write(stream, midiFile, lastTick);
+        event.writeOut(stream, midiFile, lastTick);
         lastTick = event.ticks;
     }
     Chunk::markChunkEnd(stream);
@@ -642,7 +642,7 @@ void MidiFile::read(std::istream &stream)
         currentTick = 0;
         currentTime = 0;
         MidiTrack midiTrack;
-        midiTrack.readFrom(stream, *this);
+        midiTrack.readIn(stream, *this);
         midiTracks.push_back(midiTrack);
     }
 }
@@ -652,7 +652,7 @@ void MidiFile::write(std::ostream &stream)
     midiHeader.write(stream);
     for(int i = 0; i < midiHeader.trackCount; i++)
     {
-        midiTracks[i].write(stream, *this);
+        midiTracks[i].writeOut(stream, *this);
     }
 }
 
