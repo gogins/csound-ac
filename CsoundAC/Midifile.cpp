@@ -352,7 +352,7 @@ size_t MidiEvent::getMetaSize() const
     return (size() - 2);
 }
 
-unsigned char MidiEvent::read(std::istream &stream)
+unsigned char MidiEvent::readByte(std::istream &stream)
 {
     char c;
     stream.get(c);
@@ -498,7 +498,7 @@ void MidiEvent::read(std::istream &stream, MidiFile &midiFile)
     }
     else
     {
-        read(stream);
+        readByte(stream);
         midiFile.lastStatus = getStatus();
         System::debug("Status:         %x\n", getStatus());
     }
@@ -510,14 +510,14 @@ void MidiEvent::read(std::istream &stream, MidiFile &midiFile)
     case MidiFile::CHANNEL_CONTROL_CHANGE:
     case MidiFile::CHANNEL_PITCH_BEND:
     {
-        read(stream);
-        read(stream);
+        readByte(stream);
+        readByte(stream);
     }
     break;
     case MidiFile::CHANNEL_PROGRAM_CHANGE:
     case MidiFile::CHANNEL_AFTER_TOUCH:
     {
-        read(stream);
+        readByte(stream);
     }
     break;
     case MidiFile::SYSTEM_EXCLUSIVE:
@@ -525,18 +525,18 @@ void MidiEvent::read(std::istream &stream, MidiFile &midiFile)
         switch(getStatus())
         {
         case MidiFile::SYSTEM_EXCLUSIVE:
-            while(read(stream) != 0xf7);
+            while(readByte(stream) != 0xf7);
             break;
         case MidiFile::META_EVENT:
         {
             //      Type.
-            read(stream);
+            readByte(stream);
             //      Size.
             int n = MidiFile::readVariableLength(stream);
             //      Data.
             for(int i = 0; i < n; i++)
             {
-                read(stream);
+                readByte(stream);
             }
              System::inform("Meta event %d (%d bytes):\n");
             switch(getMetaType())

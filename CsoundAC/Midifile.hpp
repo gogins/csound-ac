@@ -117,7 +117,7 @@ public:
     virtual int getMetaType() const;
     virtual unsigned char getMetaData(int i) const;
     virtual size_t getMetaSize() const;
-    virtual unsigned char read(std::istream &stream);
+    virtual unsigned char readByte(std::istream &stream);
     virtual bool isChannelVoiceMessage() const;
     virtual bool isNoteOn() const;
     virtual bool isNoteOff() const;
