@@ -456,13 +456,13 @@ MidiTrack &MidiTrack::operator = (const MidiTrack &a)
     return *this;
 }
 
-void MidiTrack::read(std::istream &stream, MidiFile &midiFile)
+void MidiTrack::readFrom(std::istream &stream, MidiFile &midiFile)
 {
     Chunk::read(stream);
     for(int eventCount = 0; ; eventCount++)
     {
         MidiEvent midiEvent;
-        midiEvent.read(stream, midiFile);
+        midiEvent.readFrom(stream, midiFile);
         push_back(midiEvent);
         if(stream.eof())
         {
@@ -475,7 +475,7 @@ void MidiTrack::read(std::istream &stream, MidiFile &midiFile)
     }
 }
 
-void MidiEvent::read(std::istream &stream, MidiFile &midiFile)
+void MidiEvent::readFrom(std::istream &stream, MidiFile &midiFile)
 {
     ticks = MidiFile::readVariableLength(stream);
     midiFile.currentTick += ticks;
@@ -642,7 +642,7 @@ void MidiFile::read(std::istream &stream)
         currentTick = 0;
         currentTime = 0;
         MidiTrack midiTrack;
-        midiTrack.read(stream, *this);
+        midiTrack.readFrom(stream, *this);
         midiTracks.push_back(midiTrack);
     }
 }
