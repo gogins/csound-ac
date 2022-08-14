@@ -390,29 +390,29 @@ aright 	   JackoAudioIn 	"rightin"
         self.model.setCsoundCommand(self.csoundCommand)
         instruments = self.model.getCppSound().getCsoundFile().getInstrumentNames()
         for number, name in instruments.items():
-            print 'Instr %4d: %s' % (number, name)
+            print('Instr %4d: %s' % (number, name))
         print
     def createCsoundArrangement(self):
-        print 'CREATING CSOUND ARRANGEMENT...'
+        print('CREATING CSOUND ARRANGEMENT...')
         #~ #                 CsoundAC,   Csound,                                                       level (+-dB),  pan (-1.0 through +1.0)
         self.score.setDuration(5 * 60)        
         print
     def testCommand(self, command, reinitialize = True):
-        print 'Testing command: %s' % command
+        print('Testing command: %s' % command)
         if reinitialize == True:
             self.lindenmayer.turtle.initialize()
-        print self.lindenmayer.turtle
+        print(self.lindenmayer.turtle)
         self.lindenmayer.interpret(command)
-        print self.lindenmayer.turtle
-        print
+        print(self.lindenmayer.turtle)
+        print()
     def createMusicModel(self):
-        print 'UNIT TESTS FOR CsoundAC.ChordLindenmayer...'
+        print('UNIT TESTS FOR CsoundAC.ChordLindenmayer...')
         self.lindenmayer = CsoundAC.ChordLindenmayer()
-        print self.lindenmayer
-        print self.lindenmayer.turtle
-        print
-        print 'TESTING EACH TURTLE COMMAND...'
-        print
+        print(self.lindenmayer)
+        print(self.lindenmayer.turtle)
+        print()
+        print('TESTING EACH TURTLE COMMAND...')
+        print()
         self.testCommand('=CO"CM9"')
         self.testCommand('=NNv60')
         #self.testCommand('=CO(1,2,3,4)')
@@ -446,61 +446,61 @@ aright 	   JackoAudioIn 	"rightin"
         self.testCommand('TN2', False)
         self.testCommand('IN6', False)
         self.testCommand('KN', False)
-        print
-        print 'TESTING NOTE TIEING...'
-        print
+        print()
+        print('TESTING NOTE TIEING...')
+        print()
         self.testCommand('=CO"CM9"')
         self.testCommand('=MO"CM9"', False)
         self.testCommand('=NNd2', False)
         self.testCommand('=NNv60', False)
         self.testCommand('WN', False)
         self.testCommand('=NNk3', False)
-        print self.lindenmayer.score.toString()
+        print(self.lindenmayer.score.toString())
         self.testCommand('+NNt1', False)
         self.testCommand('WN', False)
         self.testCommand('+NNt1', False)
         self.testCommand('WN', False)
-        print self.lindenmayer.score.toString()
+        print(self.lindenmayer.score.toString())
         self.lindenmayer.tieOverlappingNotes()
         self.lindenmayer.fixStatus()
-        print self.lindenmayer.score.toString()
-        print
-        print 'TESTING CHORD WRITING...'
-        print
+        print(self.lindenmayer.score.toString())
+        print()
+        print('TESTING CHORD WRITING...')
+        print()
         self.testCommand('=CO"CM9"')
         self.testCommand('=MO"CM9"', False)
         self.testCommand('=NNd2', False)
         self.testCommand('=NNv60', False)
         self.testCommand('WN', False)
         self.testCommand('=NNk3', False)
-        print self.lindenmayer.score.toString()
+        print(self.lindenmayer.score.toString())
         self.testCommand('+NNt1', False)
         self.testCommand('WN', False)
         self.testCommand('+NNt1', False)
         self.testCommand('WCV', False)
         self.testCommand('+NNt1', False)
         self.testCommand('WCNV', False)
-        print self.lindenmayer.score.toString()
+        print(self.lindenmayer.score.toString())
         self.testCommand('+NNt1', False)
         self.testCommand('WCV', False)
         self.lindenmayer.tieOverlappingNotes()
         self.lindenmayer.fixStatus()
-        print self.lindenmayer.score.toString()
-        print
-        print 'TESTING CHORD VOICING...'
-        print
+        print(self.lindenmayer.score.toString())
+        print()
+        print('TESTING CHORD VOICING...')
+        print()
         self.testCommand('=CO"CM9"')
         for i in xrange(20):
             self.testCommand('+NNt2', False)
             self.testCommand('+V1', False)
             self.testCommand('WCV', False)
         self.lindenmayer.fixStatus()
-        print self.lindenmayer.score.toString()
+        print(self.lindenmayer.score.toString())
         self.lindenmayer.tieOverlappingNotes()
-        print self.lindenmayer.score.toString()
-        print
-        print 'TESTING APPLICATION OPERATIONS...'
-        print
+        print(self.lindenmayer.score.toString())
+        print()
+        print('TESTING APPLICATION OPERATIONS...')
+        print()
         self.testCommand('=CO"CM9"')
         for i in xrange(20):
             self.testCommand('+NNt2', False)
@@ -517,14 +517,14 @@ aright 	   JackoAudioIn 	"rightin"
             self.testCommand('+V1', False)
             self.testCommand('WCV', False)
         self.lindenmayer.fixStatus()
-        print self.lindenmayer.score.toString()
+        print(self.lindenmayer.score.toString())
         self.lindenmayer.tieOverlappingNotes()
         self.lindenmayer.applyVoiceleadingOperations()
         self.lindenmayer.tieOverlappingNotes()
-        print self.lindenmayer.score.toString()
-        print
-        print 'TESTING STEP AND ORIENTATION...'
-        print
+        print(self.lindenmayer.score.toString())
+        print()
+        print('TESTING STEP AND ORIENTATION...')
+        print()
         self.testCommand('ROtk0.5')
         self.testCommand('F1', False)
         self.testCommand('F1', False)
@@ -534,9 +534,9 @@ aright 	   JackoAudioIn 	"rightin"
         self.testCommand('F1', False)
         self.testCommand('F2', False)
         exit(0)
-        print
-        print 'TESTING SCORE GENERATION...'
-        print
+        print()
+        print('TESTING SCORE GENERATION...')
+        print()
         self.lindenmayer.axiom = '=NNd1 =NNv60 =CO"CM7" =MO"CM7" [ a ] +NNt1.5 +NRk7 b'
         self.lindenmayer.rules['a'] = 'WN a +NNt1 +NRk1 WN [ +NRk5 c ] a +NNt1 -NRk1 +NNt1 WN [ +NRk12 c ] a'
         self.lindenmayer.rules['b'] = 'AC K Q5 WN b +NNt1 +NRk1 WN [ +NRk5 c ] b +NNt1 -NRk1 +NNt1 WN [ +NRk12 c ] b'
