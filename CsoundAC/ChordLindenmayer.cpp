@@ -62,7 +62,7 @@ std::string ChordLindenmayer::getReplacement(std::string word)
     }
 }
 
-void ChordLindenmayer::generate()
+void ChordLindenmayer::generateLocally()
 {
     System::inform("ChordLindenmayer::generate...\n");
     System::inform("ChordLindenmayer::initialize...\n");
@@ -787,7 +787,7 @@ void ChordLindenmayer::clear()
 
 void ChordLindenmayer::generate(Score &collectingScore)
 {
-    generate();
+    generateLocally();
     collectingScore.insert(collectingScore.end(), score.begin(), score.end());
 }
 

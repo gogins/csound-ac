@@ -64,7 +64,7 @@ protected:
     std::string command;
     std::string script;
 public:
-    virtual void generate();
+    virtual void generateLocally();
     virtual void generate(Score &collectingScore);
     virtual void setCommand(std::string command_);
     virtual std::string getCommand() const;

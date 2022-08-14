@@ -125,7 +125,7 @@ public:
      * notes.
      */
     virtual void processImage();
-    virtual void generate();
+    virtual void generateLocally();
 };
 
 /**

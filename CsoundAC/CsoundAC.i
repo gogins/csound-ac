@@ -31,6 +31,11 @@
 * License along with this software; if not, write to the Free Software
 * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
+
+#pragma SWIG nowarn=401
+#pragma SWIG nowarn=362
+#pragma SWIG nowarn=503
+
 #if defined(SWIGPYTHON)
 
 %begin %{

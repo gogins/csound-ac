@@ -117,7 +117,7 @@
         virtual void setAxiom(std::string axiom);
         virtual void addRule(std::string command, std::string replacement);
         virtual std::string getReplacement(std::string command);
-        virtual void generate();
+        virtual void generateLocally();
         virtual void clear();
     };
     

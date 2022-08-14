@@ -24,7 +24,7 @@ int main(int argc, const char **argv)
     csound::ExternalNode externalNode;
     externalNode.setCommand("/usr/bin/python3.9");
     externalNode.setScript(script);
-    externalNode.generate();
+    externalNode.generateLocally();
     std::cout << "Generated:" << std::endl;
     std::cout << externalNode.getScore().getCsoundScore() << std::endl;
     return 0;

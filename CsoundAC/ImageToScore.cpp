@@ -209,8 +209,8 @@ namespace csound {
         event_.setVelocity(velocity);
     }
 
-    void ImageToScore2::generate() {
-        System::inform("ImageToScore2::generate...\n");
+    void ImageToScore2::generateLocally() {
+        System::inform("ImageToScore2::generateLocally...\n");
         // Processing the image before translating can reduce the number
         // of salient notes.
         processImage();
@@ -300,7 +300,7 @@ namespace csound {
             // salient ones.
             score.sort();
         }
-        System::inform("ImageToScore2::generate with %d events.\n", score.size());
+        System::inform("ImageToScore2::generateLocally with %d events.\n", score.size());
     }
 
 }

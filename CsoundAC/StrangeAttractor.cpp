@@ -719,7 +719,7 @@ bool StrangeAttractor::searchForAttractor ()
     return true;
 }
 
-void StrangeAttractor::generate ()
+void StrangeAttractor::generateLocally()
 {
     for (N = 1; evaluateAttractor (); )
     {

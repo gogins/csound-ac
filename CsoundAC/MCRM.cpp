@@ -96,7 +96,7 @@ void MCRM::iterate(int d, size_t p, const Event &event, double weight)
     }
 }
 
-void MCRM::generate()
+void MCRM::generateLocally()
 {
     Event event;
     event.setStatus(144);
@@ -109,7 +109,7 @@ void MCRM::generate()
 
 void MCRM::generate(Score &score)
 {
-    generate();
+    generateLocally();
     ScoreNode::generate(score);
 
 }
@@ -125,7 +125,7 @@ KMeansMCRM::~KMeansMCRM()
 {
 }
 
-void KMeansMCRM::generate()
+void KMeansMCRM::generateLocally()
 {
     System::inform("KMeansMCRM::generate...\n");
     auto start_time = System::startTiming();
