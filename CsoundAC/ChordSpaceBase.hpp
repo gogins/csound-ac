@@ -1248,7 +1248,7 @@ typedef enum {
     EQUIVALENCE_RELATION_RPTgI,
 } EQUIVALENCE_RELATIONS;
 
-static const char* namesForEquivalenceRelations[] = {
+static const char* namesForEquivalenceRelations[15] = {
     "r",
     "R",
     "P",
