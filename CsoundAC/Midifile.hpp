@@ -107,7 +107,7 @@ public:
 #if __cpplusplus >= 201103L
     MidiEvent &operator = (MidiEvent &&a) = default;
 #endif
-    virtual void read(std::istream &stream, MidiFile &midiFile);
+    virtual void readFrom(std::istream &stream, MidiFile &midiFile);
     virtual void write(std::ostream &stream, const MidiFile &midiFile, int lastTick) const;
     virtual int getStatus() const;
     virtual int getStatusNybble() const;
@@ -134,7 +134,7 @@ public:
     MidiTrack(const MidiTrack &other) = default;
 #endif
     virtual ~MidiTrack();
-    virtual void read(std::istream &stream, MidiFile &midiFile);
+    virtual void readFrom(std::istream &stream, MidiFile &midiFile);
     virtual void write(std::ostream &stream, MidiFile &midiFile);
     MidiTrack &operator = (const MidiTrack &a);
 #if __cpplusplus >= 201103L
