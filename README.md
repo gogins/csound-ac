@@ -8,8 +8,9 @@ http://michaelgogins.tumblr.com
 
 This repository contains:
 
-1.  CsoundAC, an algorithmic composition library designed to be used with 
-    Csound. CsoundAC is written in C++ and has C++ and Python interfaces.
+1.  CsoundAC, an algorithmic composition library, designed to be used with 
+    Csound. CsoundAC is written in C++, and has both C++ and Python 
+    interfaces.
     
 2.  My computer music playpen, designed to facilitate algorithmic composition 
     with Csound and CsoundAC by extending standard text editors.
@@ -19,43 +20,61 @@ This repository contains:
     
 4.  patches, a library of Csound instrument definitions.
 
+Currently, CsoundAC is supported on macOS and Linux.
+
 Please log any bug reports or requests for enhancements at
 https://github.com/gogins/csound-extended/issues.
-
-## Examples
-
-Examples (some of which can also serve as tests) for the various aspects of 
-csound-acare maintained in my separate 
-[csound-examples](https://github.com/gogins/csound-examples) 
-repository. Some of the examples there will run in WebBrowsers using 
-WebAssembly, and these can be viewed at 
-https://gogins.github.io/csound-examples.
 
 ## Changes
 
 See https://github.com/gogins/csound-ac/commits/develop for the commit
 log.
 
+## Using
+
+CsoundAC can be used both as a C++ library, and as a Python extension module.
+Python is easier to use, but C++ offers considerably more power and speed. I 
+use both.
+
+Examples (some of which can also serve as tests) for the various aspects of 
+csound-ac are maintained in my separate 
+[csound-examples](https://github.com/gogins/csound-examples) 
+repository. Some of the examples there will run in WebBrowsers using 
+WebAssembly, and these can be viewed at 
+https://gogins.github.io/csound-examples.
+
 ## Installation
 
-1.  You must first install Csound on your system, e.g. as instructed at 
-    `https://github.com/csound/csound`.
+1.  You must first install the following pre-requisites on your system:
+
+    1.1  [Libsndfile](http://libsndfile.github.io/libsndfile/) for reading and 
+         writing most any format of soundfile.
+
+    1.2  [Csound](https://github.com/csound/csound) for sound synthesis.
+    
+    1.3  The [Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page) 
+         header-file-only library for linear algebra.
+         
+    1.4  The [Boost C++ Libraries](https://www.boost.org/). Only the header 
+         files are used.
+    
+    1.5  The [OpenCV](https://opencv.org/) library for image processing.
+    
+    1.6  The [Python](https://www.python.org/) programming language, version 
+         3.9 or higher.
     
 2.  There are prebuilt binary releases for this package available at 
     https://github.com/gogins/csound-ac/releases. These can be downloaded,
     unzipped in your home directory, and used from there. You will need to add 
     the directory containing the CsoundAC shared library to your binary search 
-    path. You willk probably also need to install pre-requisites, including 
-    the Boost C++ libraries, the OpenCV image processing libraries, Python, and 
-    the Eigen header file library for linear algebra.
-
-You may also install locally by first building from sources, as described
-below. You may then install the software by running `sudo make install` in
-the build-linux directory. However, be warned that this installs the
-software in /usr/local. 
+    path, the directory containing the CsoundAC include files to your 
+    compiler's header search path, and the directory containing the CsoundAC 
+    shared library and CsoundAC.py to your Python path.
+    
+## Helpers
 
 There are files and directories in the Git repository and in the packages that 
-can be used as helpers for csound-extended. You can create symbolic links from 
+can be used as helpers for csound-ac. You can create symbolic links from 
 these files to your home directory or other places.
 
 - `build-env.sh`: Source this to set useful environment variables for the 

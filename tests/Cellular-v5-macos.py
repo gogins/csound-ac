@@ -45,7 +45,7 @@ model.setYear("2020")
 model.generateAllNames()
 soundfile_name = model.getOutputSoundfileFilepath()
 print('Soundfile name:         %s' % soundfile_name)
-dac_name = 'dac1'
+dac_name = 'dac'
 print('Audio output name:      %s' % dac_name)
 print
 
@@ -283,10 +283,8 @@ connect "ReverbSC", "outright", "MasterOutput", "inright"
 
 gk_PianoNotePianoteq_midi_dynamic_range chnexport "gk_PianoNotePianoteq_midi_dynamic_range", 3 ;  20
 gk_PianoNotePianoteq_midi_dynamic_range init 20
+
 instr PianoNotePianoteq
-if p3 == -1 then
-  p3 = 1000000
-endif
 i_instrument = p1
 i_time = p2
 i_duration = p3
@@ -304,8 +302,8 @@ i_midi_key = p4
 i_midi_velocity = p5
 i_homogeneity = p11
 instances active p1
-i_note_id vst3note gi_Pianoteq, 0, i_midi_key, i_midi_velocity, i_duration
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+i_result vst3note gi_Pianoteq, 0, i_midi_key, i_midi_velocity, i_duration
 endin
 
 gk_ZakianFlute_midi_dynamic_range init 80
@@ -539,7 +537,7 @@ a_out_left, a_out_right pan2 a_signal, k_space_left_to_right
 outleta "outleft", a_out_left
 outleta "outright", a_out_right
 #endif
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 
 //////////////////////////////////////////////
@@ -588,7 +586,7 @@ a_signal = a_signal * i_amplitude * a_envelope * k_gain
 a_out_left, a_out_right pan2 a_signal, k_space_left_to_right
 outleta "outleft", a_out_left
 outleta "outright", a_out_right
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 ; printks "FMWaterBell    i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d l%9.4f r%9.4f\\n", 1, p1, p2, p3, p4, p5, p7, active(p1), dbamp(rms(a_out_left)), dbamp(rms(a_out_right))
 endin
 
@@ -640,7 +638,7 @@ outleta "outleft", a_out_left
 outleta "outright", a_out_right
 #endif
 ;printks "Harpsichord      %9.4f   %9.4f\\n", 0.5, a_out_left, a_out_right
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 
 gk_ChebyshevMelody_level init 0
@@ -727,7 +725,7 @@ a_out_left, a_out_right pan2 a_signal, k_space_left_to_right
 outleta "outleft", a_out_left
 outleta "outright", a_out_right
 #endif
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 printks "ChebyshevMelody i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d l%9.4f r%9.4f\\n", .1, p1, p2, p3, p4, p5, p7, active(p1), dbamp(rms(a_out_left)), dbamp(rms(a_out_right))
 endin
 
@@ -771,35 +769,35 @@ i_release = 0.01
 xtratim i_attack + i_release
 a_declicking linsegr 0, i_attack, 1, i_sustain, 1, i_release, 0
 a_signal = a_signal * a_declicking * k_gain
+#ifdef USE_SPATIALIZATION
+a_spatial_reverb_send init 0
+a_bsignal[] init 16
+a_bsignal, a_spatial_reverb_send Spatialize a_signal, k_space_front_to_back, k_space_left_to_right, k_space_bottom_to_top
+outletv "outbformat", a_bsignal
+outleta "out", a_spatial_reverb_send
+#else
 a_out_left, a_out_right pan2 a_signal, k_space_left_to_right
 outleta "outleft", a_out_left
 outleta "outright", a_out_right
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+#endif
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 
 gk_PianoOutPianoteq_level chnexport "gk_PianoOutPianoteq_level", 3 ;  0
-gi_PianoOutPianoteq_print chnexport "gi_PianoOutPianoteq_print", 3 ;  1
 gk_PianoOutPianoteq_front_to_back chnexport "gk_PianoOutPianoteq_front_to_back", 3 ;  0
 gk_PianoOutPianoteq_left_to_right chnexport "gk_PianoOutPianoteq_left_to_right", 3 ;  0.5
 gk_PianoOutPianoteq_bottom_to_top chnexport "gk_PianoOutPianoteq_bottom_to_top", 3 ;  0
+
 gk_PianoOutPianoteq_level init 0
-gi_PianoOutPianoteq_print init 1
 gk_PianoOutPianoteq_front_to_back init 0
 gk_PianoOutPianoteq_left_to_right init 0.5
 gk_PianoOutPianoteq_bottom_to_top init 0
+
 instr PianoOutPianoteq
-vstprogset gi_Pianoteq, 3
-; Sustain off.
-vstparamset gi_Pianoteq, 6, 1
-; Reverb switch off.
-vstparamset gi_Pianoteq, 93, 0
 k_gain = ampdb(gk_PianoOutPianoteq_level)
 i_overall_amps = 87
 i_normalization = ampdb(-i_overall_amps) * 2
 i_amplitude = ampdb(80) * i_normalization
-if gi_PianoOutPianoteq_print == 1 then
-  vstinfo gi_PianoOutPianoteq_print
-endif
 i_instrument = p1
 i_time = p2
 i_duration = p3
@@ -807,20 +805,21 @@ i_midi_key = p4
 i_midi_velocity = p5
 ainleft init 0
 ainright init 0
-aoutleft, aoutright vst3audio gi_Pianoteq 
+aoutleft, aoutright vst3audio gi_Pianoteq
 a_signal = aoutleft + aoutright
 a_signal *= k_gain
 a_signal *= i_amplitude
 a_out_left, a_out_right pan2 a_signal, gk_PianoOutPianoteq_left_to_right
+
+kx = gk_PianoOutPianoteq_front_to_back
+ky = gk_PianoOutPianoteq_left_to_right
+kz = gk_PianoOutPianoteq_bottom_to_top
+
+a_out_left, a_out_right pan2 a_signal, ky
 outleta "outleft", a_out_left
 outleta "outright", a_out_right
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
-gk_PianoOutPianoteq_level init 0
-gi_PianoOutPianoteq_print init 1
-gk_PianoOutPianoteq_front_to_back init 0
-gk_PianoOutPianoteq_left_to_right init 1/7
-gk_PianoOutPianoteq_bottom_to_top init 0
 
 gk_Reverb_feedback init 0.875
 gk_Reverb_wet init 0.5
@@ -839,7 +838,7 @@ aleftoutmix = aleftin * gk_Reverb_dry + aleftout * gk_Reverb_wet
 arightoutmix = arightin * gk_Reverb_dry + arightout * gk_Reverb_wet
 outleta "outleft", aleftoutmix
 outleta "outright", arightoutmix
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 
 gk_MasterOutput_level init 0
@@ -862,14 +861,14 @@ filename_exists:
 prints sprintf("Output filename: %s\\n", gS_MasterOutput_filename)
 fout gS_MasterOutput_filename, 18, aleft * i_amplitude_adjustment, aright * i_amplitude_adjustment
 filename_endif:
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 
 ; It is important for levels to be evenly balanced _on average_! This 
 ; enables instruments to come forward and recede according to their 
 ; response to MIDI velocity.
 
-gk_PianoOutPianoteq_level init  -1 
+gk_PianoOutPianoteq_level init  26 
 gk_ZakianFlute_level init       19
 gk_FMWaterBell_level init       24;16
 gk_ChebyshevMelody_level init   28;19
