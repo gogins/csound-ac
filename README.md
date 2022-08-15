@@ -102,7 +102,7 @@ more information, look at `./github/cmake.yaml`.
 1.  Clone this Git repository.
 
 2.  Install prerequisites as follows from the repository root directory:
-    ```
+```
     brew update
     brew install graphviz
     brew install doxygen
