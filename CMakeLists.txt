@@ -163,17 +163,17 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/playpen
 # And all the README.md files, renamed to not conflict...
 
 install(FILES "README.md"
-    DESTINATION share/doc/${CPACK_DEBIAN_PACKAGE_NAME})
+    DESTINATION share/doc/${CPACK_PACKAGE_NAME})
 install(FILES "REALTIME-AUDIO.md"
-    DESTINATION share/doc/${CPACK_DEBIAN_PACKAGE_NAME})
+    DESTINATION share/doc/${CPACK_PACKAGE_NAME})
 install(FILES "patches/README.md"
-    DESTINATION share/doc/${CPACK_DEBIAN_PACKAGE_NAME}
+    DESTINATION share/doc/${CPACK_PACKAGE_NAME}
     RENAME "README-CSOUND-PATCHES.md")
 install(FILES "silencio/README.md"
-    DESTINATION share/doc/${CPACK_DEBIAN_PACKAGE_NAME}
+    DESTINATION share/doc/${CPACK_PACKAGE_NAME}
     RENAME "README-SILENCIO.md")
 install(FILES "playpen/README.md"
-    DESTINATION share/doc/${CPACK_DEBIAN_PACKAGE_NAME}
+    DESTINATION share/doc/${CPACK_PACKAGE_NAME}
     RENAME "README-PLAYPEN.md")
 
 include (CPack)
