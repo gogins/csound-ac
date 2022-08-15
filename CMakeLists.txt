@@ -155,6 +155,10 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/doc/html
     DESTINATION share/doc/${CPACK_PACKAGE_NAME})
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/patches
     DESTINATION share/doc/${CPACK_PACKAGE_NAME})
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/patches
+    DESTINATION share/doc/${CPACK_PACKAGE_NAME})
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/playpen
+    DESTINATION share/doc/${CPACK_PACKAGE_NAME})
 
 # And all the README.md files, renamed to not conflict...
 
