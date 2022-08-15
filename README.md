@@ -45,7 +45,9 @@ log.
     https://github.com/gogins/csound-ac/releases. These can be downloaded,
     unzipped in your home directory, and used from there. You will need to add 
     the directory containing the CsoundAC shared library to your binary search 
-    path.
+    path. You willk probably also need to install pre-requisites, including 
+    the Boost C++ libraries, the OpenCV image processing libraries, Python, and 
+    the Eigen header file library for linear algebra.
 
 You may also install locally by first building from sources, as described
 below. You may then install the software by running `sudo make install` in
@@ -75,7 +77,7 @@ these files to your home directory or other places.
 
 ## Building On Your Local Computer
 
-The following instructions are for macOS. Linux and Windows are similar. For 
+The following instructions are for macOS. Linux is similar. For 
 more information, look at `./github/cmake.yaml`.
 
 1.  Clone this Git repository.
