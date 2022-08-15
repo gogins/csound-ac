@@ -1248,7 +1248,8 @@ typedef enum {
     EQUIVALENCE_RELATION_RPTgI,
 } EQUIVALENCE_RELATIONS;
 
-static const char* namesForEquivalenceRelations[15] = {
+#if !defined(SWIG)
+static const char* namesForEquivalenceRelations[] = {
     "r",
     "R",
     "P",
@@ -1271,6 +1272,7 @@ static const char* namesForEquivalenceRelations[15] = {
     "RPTI",
     "RPTgI",
 };
+#endif
 
 SILENCE_PUBLIC double factorial(double n);
 
