@@ -99,7 +99,6 @@ jobs:
           echo "Installing dependencies..."
           brew install opencv
           brew install csound
-          git clone "https://gitlab.com/libeigen/eigen.git"
           ls -ll
           echo "Updating all git submodules..."
           git submodule update --init --recursive
@@ -140,7 +139,6 @@ jobs:
           sudo apt-get install libcsound64-dev
           sudo apt-get install libcsnd6-6.0v5
           sudo apt-get install libcsnd-dev
-          git clone "https://gitlab.com/libeigen/eigen.git"
           ls -ll
           echo "Environment:"
           env
@@ -196,7 +194,6 @@ jobs:
           echo "info libsndfile..."
           choco info libsndfile
           #ls -r "C:\Program Files\libsndfile"
-          git clone "https://gitlab.com/libeigen/eigen.git"
           # The Windows installer doesn't seem to do anything on the Windows 
           # GitHub runner, so we download a consistent set of binaries and 
           # headers from the Csound repository.

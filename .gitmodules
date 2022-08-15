@@ -7,3 +7,6 @@
 [submodule "dependencies/portsmf"]
 	path = dependencies/portsmf
 	url = https://github.com/rbdannenberg/portsmf.git
+[submodule "dependencies/eigen"]
+	path = dependencies/eigen
+	url = https://gitlab.com/libeigen/eigen.git
