@@ -124,7 +124,7 @@ if(BUILD_CSOUND_AC)
     if(BUILD_CSOUND_AC_PYTHON_INTERFACE)
         message(STATUS "Building CsoundAC Python interface.")
         message(STATUS "Python3_SITEARCH: ${Python3_SITEARCH}")
-        message(STATUS "Python3_SITEARCH: ${Python3_INCLUDE}")
+        message(STATUS "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
         include_directories(${Python3_INCLUDE_DIRS})
         # Had: 	    SWIG_FLAGS "-threads"
         set_source_files_properties(CsoundAC.i
@@ -155,10 +155,15 @@ if(BUILD_CSOUND_AC)
 
         install(TARGETS ${SWIG_MODULE_CsoundAC_REAL_NAME}
             LIBRARY DESTINATION "${Python3_SITEARCH}"
+            ARCHIVE DESTINATION "${Python3_SITEARCH}"
+            DESTINATION "${Python3_SITEARCH}"
             DESTINATION "site-packages")
             
         install(FILES "${BUILD_DIR}/CsoundAC.py"
-            DESTINATION ${Python3_SITEARCH}
+            DESTINATION "${Python3_SITEARCH}"
+            DESTINATION "site-packages")
+            
+        install(FILES "${BUILD_DIR}/_CsoundAC.so"
             DESTINATION "site-packages")
      endif()
 
