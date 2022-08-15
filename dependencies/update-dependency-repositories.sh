@@ -14,11 +14,15 @@ git branch
 cd ..
 cd portsmf
 echo "Pulling from `pwd`..."
+git checkout main
+git pull
+git branch
+cd ..
+cd eigen
+echo "Pulling from `pwd`..."
 git checkout master
 git pull
 git branch
 cd ..
-echo "Finished pulling from submodule repositories."
 echo "Back in `pwd`."
-git branch
-
+echo "Finished pulling from submodule repositories."
