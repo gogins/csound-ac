@@ -4,7 +4,7 @@ Michael Gogins<br>
 https://github.com/gogins<br>
 http://michaelgogins.tumblr.com
 
-This computer music playpen is an integrated development environment 
+This computer music playpen is a simple integrated development environment 
 __specifically designed to support my particular style of algorithmic music 
 composition__.
 
@@ -130,7 +130,7 @@ environment.
 Requirements for composing with CsoundAC (usable from C++, Python, or 
 JavaScript). These requirements also apply to composing with C++:
 
-9.  CsoundAC is part of my [csound-extended](https://github.com/gogins/csound-extended)
+9.  CsoundAC is part of this [csound-ac](https://github.com/gogins/csound-extended)
     repository. CsoundAC has advanced features for algorithmic composition, 
     including support for tonal harmony and counterpoint. Install if you can 
     or build if you must, according to instructions 
