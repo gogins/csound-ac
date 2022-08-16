@@ -163,7 +163,16 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/playpen
 # And all the README.md files, renamed to not conflict...
 
 install(FILES "README.md"
+    DESTINATION .
+    RENAME "README-CSOUND-AC.md")
+install(FILES "README.md"
+    DESTINATION share/doc/${CPACK_PACKAGE_NAME}
+    RENAME "README-CSOUND-AC.md")
+install(FILES "LICENSE"
     DESTINATION share/doc/${CPACK_PACKAGE_NAME})
+install(FILES "LICENSE"
+    DESTINATION .
+    RENAME "LICENSE-CSOUND-AC")
 install(FILES "REALTIME-AUDIO.md"
     DESTINATION share/doc/${CPACK_PACKAGE_NAME})
 install(FILES "patches/README.md"
