@@ -10,7 +10,10 @@ This repository contains:
 
 1.  CsoundAC, an algorithmic composition library, designed to be used with 
     Csound. CsoundAC is written in C++, and has both C++ and Python 
-    interfaces.
+    interfaces. CsoundAC implements _music models_, which are kind of like 
+    scene graphs for pieces. CsoundAC has sophisticated facilities for 
+    working with tonal and non-tonal chords, progressions, and scales, and 
+    for implementing classical-style voice-leading in generated scores.
     
 2.  My computer music playpen, designed to facilitate algorithmic composition 
     with Csound and CsoundAC by extending standard text editors.
