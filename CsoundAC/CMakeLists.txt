@@ -153,18 +153,19 @@ if(BUILD_CSOUND_AC)
             LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
             ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}")
 
-        install(TARGETS ${SWIG_MODULE_CsoundAC_REAL_NAME}
-            LIBRARY DESTINATION "${Python3_SITEARCH}"
-            ARCHIVE DESTINATION "${Python3_SITEARCH}"
-            DESTINATION "${Python3_SITEARCH}"
+        message(STATUS "SWIG_MODULE_CsoundAC_REAL_NAME: ${SWIG_MODULE_CsoundAC_REAL_NAME}")
+        install(TARGETS "${SWIG_MODULE_CsoundAC_REAL_NAME}"
+            DESTINATION "${Python3_SITEARCH}")
+            
+        install(FILES "${BUILD_DIR}/CsoundAC.py"
+            DESTINATION "${Python3_SITEARCH}")
+            
+        install(TARGETS "${SWIG_MODULE_CsoundAC_REAL_NAME}"
             DESTINATION "site-packages")
             
         install(FILES "${BUILD_DIR}/CsoundAC.py"
-            DESTINATION "${Python3_SITEARCH}"
             DESTINATION "site-packages")
             
-        install(FILES "${BUILD_DIR}/_CsoundAC.so"
-            DESTINATION "site-packages")
-     endif()
+    endif()
 
 endif()
