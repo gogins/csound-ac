@@ -22,7 +22,7 @@ import os
 import random
 # Using the same random seed for each performance makes the performance 
 # deterministic, not random.
-random.seed(221)
+random.seed(330394)
 import signal
 import string
 import sys
@@ -231,13 +231,13 @@ instruments_used = instruments_used + 1
 build_voice(voiceleading_node, sequence, 2, initial_bass + 0, time_offset * (instruments_used - 1), (instruments_used / (total_instruments + 1)))
 # 3 FMWaterBell.
 instruments_used = instruments_used + 1
-build_voice(voiceleading_node, sequence, 3, initial_bass + 0, time_offset * (instruments_used - 1), (instruments_used / (total_instruments + 1)))
+build_voice(voiceleading_node, sequence, 3, initial_bass + 1, time_offset * (instruments_used - 1), (instruments_used / (total_instruments + 1)))
 # 4 Harpsichord.
 instruments_used = instruments_used + 1
 build_voice(voiceleading_node, sequence, 4, initial_bass + 0, time_offset * (instruments_used - 1), (instruments_used / (total_instruments + 1)))
 # 5 ChebyshevMelody.
 instruments_used = instruments_used + 1
-build_voice(voiceleading_node, sequence, 5, initial_bass + 0, time_offset * (instruments_used - 1), (instruments_used / (total_instruments + 1)))
+build_voice(voiceleading_node, sequence, 5, initial_bass + 2, time_offset * (instruments_used - 1), (instruments_used / (total_instruments + 1)))
 # 6 Rhodes.
 instruments_used = instruments_used + 1
 build_voice(voiceleading_node, sequence, 6, initial_bass + 4, time_offset * (instruments_used - 1), (instruments_used / (total_instruments + 1)))
