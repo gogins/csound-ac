@@ -68,7 +68,7 @@ https://gogins.github.io/csound-examples.
     unzipped in your home directory, and used from there. You will need to add 
     the directory containing the CsoundAC shared library to your binary search 
     path, the directory containing the CsoundAC include files to your 
-    compiler's header search path, and the directory containing the CsoundAC 
+    compiler's header search path, and the directory containing the _CsoundAC 
     shared library and CsoundAC.py to your Python path.
     
 ## Helpers
