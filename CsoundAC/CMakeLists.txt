@@ -33,7 +33,6 @@ if(BUILD_CSOUND_AC)
         CounterpointMain.cpp
         CounterpointNode.cpp
         Event.cpp
-        ImageToScore.cpp
         Lindenmayer.cpp
         MCRM.cpp
         Midifile.cpp
@@ -61,7 +60,9 @@ if(BUILD_CSOUND_AC)
         ../dependencies/portsmf/mfmidi.cpp
         ../dependencies/portsmf/strparse.cpp
         trace.cpp)
-     
+if(OPENCV_FOUND)
+    list(APPEND libcsoundac_SRCS "ImageToScore.cpp")
+endif()
     message(STATUS "libcsoundac_SRCS: " ${libcsoundac_SRCS})
 
     if (MSVC)
