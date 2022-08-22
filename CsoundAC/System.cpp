@@ -35,7 +35,7 @@ namespace csound {
     }
 
     MessageCallbackType &message_callback() {
-#if !defined(EMSCRIPTEN)
+#if !defined(__EMSCRIPTEN__)
         static MessageCallbackType message_callback_ = nullptr;
 #else
         static emscripten::val message_callback_ = emscripten::val::undefined();
@@ -105,7 +105,7 @@ namespace csound {
         return user_data();
     }
 
-#if !defined(EMSCRIPTEN)
+#if !defined(__EMSCRIPTEN__)
 
     SILENCE_PUBLIC void System::error(CSOUND *csound, const char *format,...) {
         if((ERROR_LEVEL & message_level(-1)) == ERROR_LEVEL) {
@@ -317,7 +317,7 @@ namespace csound {
     }
 
     SILENCE_PUBLIC int System::openLibrary(void **library, std::string filename) {
-#if !defined(EMSCRIPTEN)
+#if !defined(__EMSCRIPTEN__)
         return csoundOpenLibrary(library, filename.c_str());
 #else
         *library = dlopen(filename.c_str(), RTLD_NOW | RTLD_GLOBAL);
@@ -327,7 +327,7 @@ namespace csound {
 
     SILENCE_PUBLIC void *System::getSymbol(void *library, std::string name) {
         void *procedureAddress = 0;
-#if !defined(EMSCRIPTEN)
+#if !defined(__EMSCRIPTEN__)
         procedureAddress = csoundGetLibrarySymbol(library, name.c_str());
 #else
         procedureAddress = dlsym(library, name.c_str());
@@ -336,7 +336,7 @@ namespace csound {
     }
 
     SILENCE_PUBLIC void System::closeLibrary(void *library) {
-#if !defined(EMSCRIPTEN)
+#if !defined(__EMSCRIPTEN__)
         csoundCloseLibrary(library);
 #else
         dlclose(library);
@@ -351,7 +351,7 @@ namespace csound {
         return log_file();
     }
 
-#if defined(WIN32)
+#if defined(_WIN32)
 
 #include <process.h>
 #include <windows.h>
