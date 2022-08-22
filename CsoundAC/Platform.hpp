@@ -23,7 +23,7 @@ namespace csound {
     
 #if defined(__APPLE__) && defined(__MACH__)
 #  if defined(__clang__)
-//#    pragma message "Platform.hpp: macOS with Clang." 
+#    pragma message "Platform.hpp: macOS with Clang." 
 #    if !defined(SWIG)
 #      define SILENCE_PUBLIC //__attribute__ ( (visibility("default")) )
 #    else
@@ -32,7 +32,7 @@ namespace csound {
 #  endif
 #elif defined(_WIN32)
 #  if defined(_MSC_VER)
-//#    pragma message "Platform.hpp: Windows with MSVC." 
+#    pragma message "Platform.hpp: Windows with MSVC." 
 #    define _USE_MATH_DEFINES
 #    if !defined(PATH_MAX)
 #      define PATH_MAX _MAX_PATH
@@ -46,11 +46,15 @@ namespace csound {
 #  endif
 #elif defined(__linux__)
 #  if defined(__GNUC__)
-//#    pragma message "Platform.hpp: Linux with gcc." 
+#    pragma message "Platform.hpp: Linux with gcc." 
 #    define SILENCE_PUBLIC __attribute__ ( (visibility("default")) )
 #  endif
+#elif defined(__EMSCRIPTEN__)
+#    pragma message "Platform.hpp: Emscripten." 
+#    define SILENCE_PUBLIC __attribute__ ( (visibility("default")) )
 #else
-#  define SILENCE_PUBLIC
+#    pragma message "Platform.hpp: No platform was detected." 
+#    define SILENCE_PUBLIC
 #endif
 
 };
