@@ -291,7 +291,7 @@ namespace csound {
             static void error_text(std::string text) {
                 error(text.c_str());
             }
-    };
+     };
 
     /**
      * Encapsulates a thread monitor, such as a Windows event handle.
@@ -324,6 +324,5 @@ namespace csound {
              */
             virtual void endWait();
     };
-    
-}
+};
 #endif
