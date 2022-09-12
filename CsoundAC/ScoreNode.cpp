@@ -39,6 +39,11 @@ void ScoreNode::generate(Score &collectingScore)
     if (duration != 0.0) {
         score.setDuration(duration);
     }
+    auto header = score.getCsoundScoreHeader();
+    if (header.empty() == false) {
+        collectingScore.appendToCsoundScoreHeader(header);
+        collectingScore.appendToCsoundScoreHeader("\n");
+    }
     for (int i = 0, n = score.size(); i < n; ++i) {
         collectingScore.push_back(score[i]);
         // TODO fix this hack... much work!
