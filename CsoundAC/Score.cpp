@@ -592,6 +592,7 @@ void Score::initialize()
     scaleTargetRanges[Event::HOMOGENEITY] = 0;
     rescaleRanges[Event::STATUS] = false;
     rescaleRanges[Event::HOMOGENEITY] = false;
+    csound_score_header.clear();
 }
 
 void Score::add(double time_, double duration, double status, double instrument, double key, double velocity, double phase, double pan, double depth, double height, double pitches) 
@@ -702,7 +703,8 @@ void Score::rescale(int dimension, bool rescaleMinimum, double minimum, bool res
 
 std::string Score::getBlueScore(double tonesPerOctave, bool conformPitches)
 {
-    std::string csoundScore;
+    std::string csoundScore = csound_score_header;
+    csoundScore.append("\n");
     sort();
     for( Score::iterator it = begin(); it != end(); ++it ) {
         int oldInstrument = int( std::floor( it->getInstrument() ) );
@@ -729,10 +731,10 @@ std::string Score::getBlueScore(double tonesPerOctave, bool conformPitches)
     return csoundScore;
 }
 
-
 std::string Score::getCsoundScore(double tonesPerOctave, bool conformPitches)
 {
-    std::string csoundScore;
+    std::string csoundScore = csound_score_header;
+    csoundScore.append("\n");
     sort();
     for( Score::iterator it = begin(); it != end(); ++it ) {
         int oldInstrument = int( std::floor( it->getInstrument() ) );
@@ -1525,5 +1527,16 @@ std::string Score::toJson() {
     return stream.str();
 }
 
-
+void Score::setCsoundScoreHeader(const std::string &text) {
+    csound_score_header = text;
 }
+
+void Score::appendToCsoundScoreHeader(const std::string &text) {
+    csound_score_header.append(text);
+}
+
+std::string Score::getCsoundScoreHeader() const {
+    return csound_score_header;
+}
+
+};

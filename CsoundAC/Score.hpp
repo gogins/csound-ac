@@ -64,6 +64,11 @@ public:
     std::map<int, double> reassignments;
     std::map<int, double> gains;
     std::map<int, double> pans;
+    /**
+     * Arbitrary text that is prepended to the Csound score. Should normally 
+     * be Csound comments or "f" statements, or pre-composed Csound events.
+     */
+    std::string csound_score_header;
     Score();
     virtual ~Score();
     void initialize();
@@ -424,6 +429,9 @@ public:
      * context of a Web page for display using WebGL or Three.js.
      */
     virtual std::string toJson();
+    virtual void setCsoundScoreHeader(const std::string &text);
+    virtual void appendToCsoundScoreHeader(const std::string &text);
+    virtual std::string getCsoundScoreHeader() const;
 };
 
 }
