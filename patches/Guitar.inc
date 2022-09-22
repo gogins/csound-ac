@@ -5,9 +5,14 @@ gk_Guitar_level init 0
 
 instr Guitar
 ; Michael Gogins
+; Considerably cleaned up upon closer listening and testing.
 i_instrument = p1
 i_time = p2
+if p3 == -1 then
+i_duration = 20
+else
 i_duration = p3
+endif
 i_midi_key = p4
 i_midi_dynamic_range = i(gk_Guitar_midi_dynamic_range)
 i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.5 - i_midi_dynamic_range / 2)
@@ -17,28 +22,26 @@ k_space_bottom_to_top = p8
 i_phase = p9
 i_frequency = cpsmidinn(i_midi_key)
 ; Adjust the following value until "overall amps" at the end of performance is about -6 dB.
-i_level_correction = 80.275
+i_level_correction = 74
 i_normalization = ampdb(-i_level_correction) / 2
 i_amplitude = ampdb(i_midi_velocity) * i_normalization
 k_gain = ampdb(gk_Guitar_level)
-acomp pluck i_amplitude, 440.0, 440.0, 0, 1, .1
 i_frequency2 = i_frequency / 2.0
-kHz = k(i_frequency)
-iattack = 0.004
-isustain = p3
-irelease = 0.05
-xtratim iattack + irelease
-asigcomp pluck 1.0, 440, 440, 0, 1
-asig pluck 1.0, i_frequency, i_frequency, 0, 1
-af1 reson asig, 110, 80
-af2 reson asig, 220, 100
-af3 reson asig, 440, 80
-aout balance 0.6 * af1 + af2 + 0.6 * af3 + 0.4 * asig, asigcomp
-aexp expseg 1.0, iattack, 2.0, isustain, 1.0, irelease, 1.0
-aenv = aexp - 1.0
-a_signal = aout * aenv
-a_declicking linsegr 0, iattack, 1, isustain, 1, irelease, 0
-a_signal = a_signal * i_amplitude * a_declicking * k_gain
+i_attack = 0.003
+i_release = 20.
+a_signal pluck 1.0, i_frequency, i_frequency, 0, 1
+;;;a_signal dcblock2 a_signal
+a_f1 reson a_signal, 110, 80
+a_f2 reson a_signal, 220, 100
+a_f3 reson a_signal, 440, 80
+a_signal = (.6 * a_f1 + .8 * a_f2 + .6 * a_f3 + .4 * a_signal) * .001
+; As with most instruments that are based upon an impulse delivered to a 
+; resonator, there are two envelopes, one for the physical decay with a 
+; fixed release ending at zero, and one with a release segment to remove 
+; clicks from the attack and release.
+a_envelope transeg 0, i_attack, 3, 1, i_duration, -6, 0
+a_declicking cossegr 0, .005, 1, i_duration, 1, .005, 0
+a_signal = a_signal * i_amplitude * a_envelope * a_declicking * k_gain
 
 #ifdef USE_SPATIALIZATION
 a_spatial_reverb_send init 0
