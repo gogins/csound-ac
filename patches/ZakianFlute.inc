@@ -28,7 +28,11 @@ instr ZakianFlute
 ; Adapted by: Michael Gogins
 i_instrument = p1
 i_time = p2
+if p3 == -1 then
+i_duration = 1000
+else
 i_duration = p3
+endif
 i_midi_key = p4
 i_midi_velocity = p5
 k_space_front_to_back = p6
@@ -41,16 +45,13 @@ i_midi_dynamic_range = i(gk_ZakianFlute_midi_dynamic_range)
 i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.5 - i_midi_dynamic_range / 2)
 i_amplitude = ampdb(i_midi_velocity) * i_normalization
 k_gain = ampdb(gk_ZakianFlute_level)
-;;;iattack = .002
-;;;isustain = p3
-;;;irelease = .3
 ;;;xtratim iattack + irelease
 iHz = cpsmidinn(i_midi_key)
 kHz = k(iHz)
 // Bug?
 // aenvelope transeg 1.0, 20.0, -10.0, 0.05
 aenvelope transegr 1.0, 20.0, -10.0, 0.05
-ip3 = (p3 < 3.0 ? p3 : 3.0)
+ip3 = 3;;; (p3 < 3.0 ? p3 : 3.0)
 ; parameters
 ; p4 overall amplitude scaling factor
 ip4 init i_amplitude
@@ -83,8 +84,8 @@ gi_ZakianFLute_seed = frac(gi_ZakianFLute_seed*105.947)
 ifiltcut tablei ip9, gi_ZakianFLute_f2 ; lowpass filter cutoff frequency
 iattack = (iattack < 6/kr ? 6/kr : iattack) ; minimal attack length
 idecay = (idecay < 6/kr ? 6/kr : idecay) ; minimal decay length
-isustain = p3 - iattack - idecay
-p3 = (isustain < 5/kr ? iattack+idecay+5/kr : p3) ; minimal sustain length
+isustain = i_duration - iattack - idecay
+;;;p3 = (isustain < 5/kr ? iattack+idecay+5/kr : i_duration) ; minimal sustain length
 isustain = (isustain < 5/kr ? 5/kr : isustain)
 iatt = iattack/6
 isus = isustain/4
@@ -103,12 +104,12 @@ gi_ZakianFLute_seed = frac(gi_ZakianFLute_seed*105.947)
 ivibr2 = gi_ZakianFLute_seed
 gi_ZakianFLute_seed = frac(gi_ZakianFLute_seed*105.947)
 if ip6 < 0 goto vibrato1
-kvibrate linseg 2.5+ivibr1, p3, 4.5+ivibr2 ; if p6 positive vibrato gets faster
+kvibrate linseg 2.5+ivibr1, isustain, 4.5+ivibr2 ; if p6 positive vibrato gets faster
 goto vibrato2
 vibrato1:
 ivibr3 = gi_ZakianFLute_seed
 gi_ZakianFLute_seed = frac(gi_ZakianFLute_seed*105.947)
-kvibrate linseg 3.5+ivibr1, .1, 4.5+ivibr2, p3-.1, 2.5+ivibr3 ; if p6 negative vibrato gets slower
+kvibrate linseg 3.5+ivibr1, .1, 4.5+ivibr2,isustain-.1, 2.5+ivibr3 ; if p6 negative vibrato gets slower
 vibrato2:
 kvibrater randi .1*kvibrate, 5, gi_ZakianFLute_seed ; up to 10% vibrato rate variation
 gi_ZakianFLute_seed = frac(gi_ZakianFLute_seed*105.947)
@@ -220,10 +221,10 @@ kcut linseg 0, iattack, ifiltcut, isustain, ifiltcut, idecay, 0 ; lowpass filter
 afilt tone asig, kcut
 a_signal balance afilt, asig
 i_attack = .002
-i_sustain = p3
+i_sustain = i_duration
 i_release = 0.01
 xtratim i_attack + i_release
-a_declicking linseg 0, i_attack, 1, i_sustain, 1, i_release, 0
+a_declicking linsegr 0, i_attack, 1, i_sustain, 1, i_release, 0
 a_signal = a_signal * i_amplitude * a_declicking * k_gain
 
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
