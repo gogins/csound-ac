@@ -2,6 +2,12 @@ gk_Guitar_midi_dynamic_range chnexport "gk_Guitar_midi_dynamic_range", 3 ; 127
 gk_Guitar_midi_dynamic_range init 127
 gk_Guitar_level chnexport "gk_Guitar_level", 3
 gk_Guitar_level init 0
+gk_Guitar_space_left_to_right chnexport "gk_Guitar_space_left_to_right", 3
+gk_Guitar_space_left_to_right init -1
+
+massign 1, 1
+massign 2, 1
+massign 3, 1
 
 instr Guitar
 ; Michael Gogins
@@ -22,7 +28,11 @@ i_midi_key = p4
 i_midi_dynamic_range = i(gk_Guitar_midi_dynamic_range)
 i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.5 - i_midi_dynamic_range / 2)
 k_space_front_to_back = p6
+if gk_Guitar_space_left_to_right == -1 then
+k_space_left_to_right = .5
+else
 k_space_left_to_right = p7
+endif
 k_space_bottom_to_top = p8
 i_phase = p9
 i_frequency = cpsmidinn(i_midi_key)
