@@ -90,6 +90,9 @@ import threading
 import time
 import traceback
 
+# repeatable "random" segment so renderings can be compared.
+random.seed(119480)
+
 if len(sys.argv) < 2:
     print(__doc__)
     exit(0)
@@ -509,14 +512,14 @@ def generate_standard_score():
         key = random.choice(range(24, 112, 1))
         velocity = random.choice([80, 80-6, 80-12, 80-18]) / 3
         score += 'i  1    %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, duration, key, 60)
-    time_ += 2
+    time_ += 4
     # Generate notes to calibrate loudness.
     for duration in [0.125, .25, 2]:
         for key in range(24,108,3):
-            time_ = time_ + duration * 1.5
+            time_ = time_ + (2 * duration + 1)
             velocity = random.choice([80, 80-6, 80-12, 80-18])
             score += 'i  1    %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, duration, key, velocity)
-    time_ += 4
+    time_ += 5
     # Test score-driven note-on, note-off.
     score += 'i  1.01 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, -1, 36, 70)
     time_ += 1
