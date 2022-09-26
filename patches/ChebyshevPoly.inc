@@ -39,7 +39,7 @@ i_instrument = p1
 i_time = p2
 ; One of the envelopes in this instrument should be releasing, and use this:
 i_sustain = p3
-xtratim gi_ChebyshevPoly_attack + gi_ChebyshevPoly_release
+xtratim 1
 i_midi_key = p4
 i_midi_dynamic_range = i(gk_ChebyshevPoly_midi_dynamic_range)
 i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.6 - i_midi_dynamic_range / 2)

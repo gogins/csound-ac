@@ -4,6 +4,9 @@ gk_DelayedPlucked_level chnexport "gk_DelayedPlucked_level", 3 ; 0
 gk_DelayedPlucked_midi_dynamic_range init 20
 gk_DelayedPlucked_level init 0
 
+gk_DelayedPlucked_space_left_to_right chnexport "gk_DelayedPlucked_space_left_to_right", 3
+gk_DelayedPlucked_space_left_to_right init -1
+
 gi_DelayedPlucked_sine ftgen 0, 0, 65537, 10, 1
 gi_DelayedPlucked_cosine ftgen 0, 0, 65537, 11, 1
 
@@ -11,7 +14,13 @@ instr DelayedPlucked
 ; Author: Michael Gogins
 i_instrument = p1
 i_time = p2
+; Make indefinite notes last no longer than the physical decay.
+i_physical_decay = 20
+if p3 == -1 then
+i_duration = i_physical_decay
+else
 i_duration = p3
+endif
 i_midi_key = p4
 i_midi_dynamic_range = i(gk_DelayedPlucked_midi_dynamic_range)
 i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.5 - i_midi_dynamic_range / 2)
@@ -29,7 +38,7 @@ iattack = 0.006
 idecay = 1.5
 isustain = p3
 irelease = 0.05
-xtratim iattack + idecay + irelease
+xtratim 1
 ioctave = octcps(i_frequency)
  ; Detuning of strings by 4 cents each way.
 idetune = 4.0 / 1200.0
@@ -56,12 +65,14 @@ asignal = a_envelope * (agleft + adelayleft + agright + adelayright)
 asignal1 butterhp asignal, 32.0
 asignal2 balance asignal1, asignal
 a_signal = asignal
-i_attack = .01
-i_sustain = p3
-i_release = 0.1
-a_declicking linsegr 0, i_attack, 1, i_sustain, 1, i_release, 0
-; a_signal = a_signal * i_amplitude * a_declicking * k_gain * 1.7
-a_signal = a_signal * i_amplitude * k_gain * 1.7
+i_declick_attack = iattack
+i_declick_release = .01
+; The end of the note must be extended _past_ the end of the release segment.
+xtratim 1
+a_declicking_envelope cossegr 0, i_declick_attack, 1,  i_duration, 1,  i_declick_release, 0
+; That envelope is then low-pass filtered to remove most discontinuities.
+a_filtered_envelope tonex a_declicking_envelope, 40, 4
+a_signal = a_signal * i_amplitude * a_filtered_envelope * k_gain *.001
 
 #ifdef USE_SPATIALIZATION
 a_spatial_reverb_send init 0

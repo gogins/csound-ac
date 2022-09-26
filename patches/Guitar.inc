@@ -1,13 +1,9 @@
 gk_Guitar_midi_dynamic_range chnexport "gk_Guitar_midi_dynamic_range", 3 ; 127
-gk_Guitar_midi_dynamic_range init 127
+gk_Guitar_midi_dynamic_range init 30
 gk_Guitar_level chnexport "gk_Guitar_level", 3
 gk_Guitar_level init 0
 gk_Guitar_space_left_to_right chnexport "gk_Guitar_space_left_to_right", 3
-gk_Guitar_space_left_to_right init -1
-
-massign 1, 1
-massign 2, 1
-massign 3, 1
+gk_Guitar_space_left_to_right init .5
 
 instr Guitar
 ; Michael Gogins
@@ -28,8 +24,8 @@ i_midi_key = p4
 i_midi_dynamic_range = i(gk_Guitar_midi_dynamic_range)
 i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.5 - i_midi_dynamic_range / 2)
 k_space_front_to_back = p6
-if gk_Guitar_space_left_to_right == -1 then
-k_space_left_to_right = .5
+if p7 ==0 then
+k_space_left_to_right = gk_Guitar_space_left_to_right
 else
 k_space_left_to_right = p7
 endif
@@ -47,15 +43,14 @@ a_top_body reson a_signal, 110, 80
 a_bottom_body reson a_signal, 220, 100
 a_whole_body reson a_signal, 440, 80
 a_signal = (.6 * a_top_body + .8 * a_bottom_body + .6 * a_whole_body + .4 * a_signal) 
-; For testing the envelopes with a simple signal that should lack confounding 
-; artifacts.
+; For testing envelopes with a simple signal that lacks confounding artifacts.
 ; a_signal oscils .2, i_frequency2, 0
 
 ; As with most software instruments that are modeled on an impulse exciting a 
 ; resonator, there should be two envelopes. The "physical" envelope must have a 
 ; fixed decay ending at zero.
-i_declick_minimum = .004
-i_attack = .01 / i_frequency + i_declick_minimum
+i_declick_minimum = .003
+i_attack = .001 / i_frequency + i_declick_minimum
 i_exponent = 7
 a_physical_envelope transeg 0,   i_attack, i_exponent,  1,   i_physical_decay, -i_exponent,  0
 ; The de-clicking envelope must have attack and release segments that damp 
@@ -70,7 +65,7 @@ a_declicking_envelope cossegr 0, i_declick_attack, 1,  i_duration, 1,  i_declick
 ; the declicking envelope. 
 a_envelope = a_physical_envelope * a_declicking_envelope
 ; That envelope is then low-pass filtered to remove most discontinuities.
-a_filtered_envelope tonex a_envelope, 20, 4
+a_filtered_envelope tonex a_envelope, 40, 4
 a_signal = a_signal * i_amplitude * a_filtered_envelope * k_gain *.001
 
 #ifdef USE_SPATIALIZATION

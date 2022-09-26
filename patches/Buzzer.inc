@@ -32,7 +32,7 @@ k_gain = ampdb(gk_Buzzer_level)
 i_attack = i(gk_Buzzer_attack)
 i_release = i(gk_Buzzer_release)
 i_sustain = p3
-xtratim i_attack + i_release
+xtratim 1
 a_envelope transegr 0.0, i_attack / 2.0, 1.5, i_amplitude / 2.0, i_attack / 2.0, -1.5, i_amplitude, i_sustain, 0.0, i_amplitude, i_release / 2.0, 1.5, i_amplitude / 2.0, i_release / 2.0, -1.5, 0
 a_signal buzz a_envelope, i_frequency, gk_Buzzer_harmonics, gi_Buzzer_sine
 a_signal = a_signal * k_gain

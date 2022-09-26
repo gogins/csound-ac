@@ -421,7 +421,7 @@ This file is licensed under the terms of the GNU Lesser Public License version
 2.1.
 </CsLicense>
 <CsOptions>
--d -RWf -m163 -+msg_color=0 --midi-key=4 --midi-velocity=5 -Fmisty.mid --sample-accurate -o{output}
+-d -RWf -m163 -+msg_color=0 --midi-key=4 --midi-velocity=5 -Ffugue2.mid --sample-accurate -o{output}
 </CsOptions>
 <CsInstruments>
 sr = 48000
@@ -497,7 +497,7 @@ alwayson "MasterOutput"
     return csd
 def generate_standard_score():
     score = 'f 0 60\n'
-    time_= 30.0
+    time_= 95.0
     # Generate a chord.
     score += 'i  1    %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, 5, 36, 70)
     score += 'i  1    %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, 5, 48, 70)
@@ -516,7 +516,7 @@ def generate_standard_score():
     # Generate notes to calibrate loudness.
     for duration in [0.125, .25, 2]:
         for key in range(24,108,3):
-            time_ = time_ + (2 * duration + 1)
+            time_ = time_ + (1.5 * duration + .5)
             velocity = random.choice([80, 80-6, 80-12, 80-18])
             score += 'i  1    %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, duration, key, velocity)
     time_ += 5

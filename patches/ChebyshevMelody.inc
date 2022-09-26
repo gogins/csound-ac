@@ -20,7 +20,7 @@ instr ChebyshevMelody
 i_instrument = p1
 i_time = p2
 i_sustain = p3
-xtratim gi_ChebyshevMelody_attack + gi_ChebyshevMelody_release
+xtratim 1
 i_midi_key = p4
 i_midi_dynamic_range = i(gk_ChebyshevMelody_midi_dynamic_range)
 i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.6 - i_midi_dynamic_range / 2)
