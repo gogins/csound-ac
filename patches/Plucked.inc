@@ -1,5 +1,9 @@
 gk_Plucked_level chnexport "gk_Plucked_level", 3
-
+gk_Plucked_midi_dynamic_range chnexport "gk_Plucked_midi_dynamic_range", 3 ; 127
+gk_Plucked_midi_dynamic_range init 30
+gk_Plucked_space_left_to_right chnexport "gk_Plucked_space_left_to_right", 3
+gk_Plucked_space_left_to_right init .5
+gk_Plucked_level chnexport "gk_Guitar_level", 3
 gk_Plucked_level init 0
 
 gi_Plucked_sine ftgen 0, 0, 65537, 10, 1
@@ -16,9 +20,15 @@ else
 i_duration = p3
 endif
 i_midi_key = p4
-i_midi_velocity = p5
+i_midi_dynamic_range = i(gk_Plucked_midi_dynamic_range)
+i_midi_velocity = p5 ;* i_midi_dynamic_range / 127 + (63.5 - i_midi_dynamic_range / 2)
+i_midi_velocity ampmidid i_midi_velocity, i_midi_dynamic_range
 k_space_front_to_back = p6
+if p7 == 0 then
+k_space_left_to_right = gk_Plucked_space_left_to_right
+else
 k_space_left_to_right = p7
+endif
 k_space_bottom_to_top = p8
 i_phase = p9
 i_detune_cents = 1.5
@@ -59,7 +69,7 @@ a_declicking_envelope cossegr 0, i_declick_attack, 1,  i_duration, 1,  i_declick
 ; the declicking envelope. 
 a_envelope = a_physical_envelope * a_declicking_envelope
 ; That envelope is then low-pass filtered to remove most discontinuities.
-a_filtered_envelope tonex a_envelope, 20, 4
+a_filtered_envelope tonex a_envelope, 40, 4
 a_signal = a_signal * i_amplitude * a_filtered_envelope * k_gain *.001
 
 #ifdef USE_SPATIALIZATION
