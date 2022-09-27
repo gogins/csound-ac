@@ -229,8 +229,6 @@ a_signal balance afilt, asig
 i_attack = .002
 i_sustain = i_duration
 i_release = 0.01
-xtratim 1
-
 i_declick_attack = i_attack
 i_declick_release = i_declick_attack * 2
 ; The end of the note must be extended _past_ the end of the release segment.

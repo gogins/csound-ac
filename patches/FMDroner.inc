@@ -36,16 +36,31 @@ gk_FMDroner_y init 0
 gk_FMDroner_z init 0
 gk_FMDroner_level init 0
 
+gk_FMDroner_space_left_to_right chnexport "gk_Guitar_space_left_to_right", 3
+gk_FMDroner_space_left_to_right init .5
+
+
 gi_FMDroner_sine ftgen 0, 0, 65537, 10, 1, 0, .02
 
 instr FMDroner
 i_instrument = p1
 i_time = p2
+; Make indefinite notes last no longer than the physical decay.
+i_physical_decay = 20
+if p3 == -1 then
+i_duration = i_physical_decay
+else
 i_duration = p3
+endif
 i_midi_key = p4
 i_midi_velocity = p5
 k_space_front_to_back = p6
+k_space_front_to_back = p6
+if p7 ==0 then
+k_space_left_to_right = gk_FMDroner_space_left_to_right
+else
 k_space_left_to_right = p7
+endif
 k_space_bottom_to_top = p8
 i_phase = p9
 i_frequency = cpsmidinn(i_midi_key)
@@ -78,9 +93,29 @@ a_signal = asignal
 i_attack = .002
 i_sustain = p3
 i_release = 0.01
-xtratim i_attack + i_sustain + i_release
-a_declicking linsegr 0, i_attack, 1, i_sustain, 1, i_release, 0
-a_signal = a_signal * i_amplitude * a_declicking * k_gain * 2.1
+xtratim 1
+
+; As with most software instruments that are modeled on an impulse exciting a 
+; resonator, there should be two envelopes. The "physical" envelope must have a 
+; fixed decay ending at zero.
+i_declick_minimum = .003
+i_attack = .0004 / i_frequency + i_declick_minimum
+i_exponent = 9
+a_physical_envelope transeg 0,   i_attack, i_exponent,  1,   i_physical_decay, -i_exponent,  0
+; The de-clicking envelope must have attack and release segments that damp 
+; artifacts in the signal. The duration of these segments depends on 
+; the behavior of the instrument, and may vary as a function of frequency.
+i_declick_attack = i_attack
+i_declick_release = i_declick_minimum * 2
+; The end of the note must be extended _past_ the end of the release segment.
+xtratim 1
+a_declicking_envelope cossegr 0, i_declick_attack, 1,  i_duration, 1,  i_declick_release, 0
+; The envelope of the instrument is the product of the physical envelope times 
+; the declicking envelope. 
+a_envelope = a_physical_envelope * a_declicking_envelope
+; That envelope is then low-pass filtered to remove most discontinuities.
+a_filtered_envelope tonex a_envelope, 60, 4
+a_signal = a_signal * i_amplitude * a_filtered_envelope * k_gain * .001
 
 #ifdef USE_SPATIALIZATION
 a_spatial_reverb_send init 0

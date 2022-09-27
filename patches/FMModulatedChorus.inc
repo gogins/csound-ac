@@ -20,8 +20,14 @@ instr FMModulatedChorus
 i_instrument = p1
 i_time = p2
 i_sustain = p3
-xtratim gi_FMModulatedChorus_attack + gi_FMModulatedChorus_release
+xtratim 1
+; Make indefinite notes last no longer than the physical decay.
+i_physical_duration = 20
+if p3 == -1 then
+i_duration = i_physical_duration
+else
 i_duration = p3
+endif
 i_midi_key = p4
 i_midi_dynamic_range = i(gk_FMModulatedChorus_midi_dynamic_range)
 i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.6 - i_midi_dynamic_range / 2)
@@ -42,6 +48,7 @@ i_modr_end = 2.2
 ishift = 4.0 / 12000
 ; convert parameter 5 to oct.
 ioct = i_midi_key
+i_sustain = i_duration
 akadsr linsegr 0, gi_FMModulatedChorus_attack, 1, i_sustain, 1, gi_FMModulatedChorus_release, 0
 akmodi linseg 0, gi_FMModulatedChorus_attack, 5, i_sustain, 2, gi_FMModulatedChorus_release, 0
 ; r moves from i_modr_start to i_modr_end in p3 secs.
@@ -61,7 +68,7 @@ aoutl oscili 1 * akadsr * a4, ao2 + cpsmidinn(ioct + ishift), gi_FMModulatedChor
 aoutr oscili 1 * akadsr * a4, ao2 + cpsmidinn(ioct - ishift), gi_FMModulatedChorus_sine
 asignal = aoutl + aoutr
 a_signal = asignal * i_amplitude
-a_declicking linsegr 0, gi_FMModulatedChorus_attack, 1, i_sustain, 1, gi_FMModulatedChorus_release, 0
+a_declicking linsegr 0, gi_FMModulatedChorus_attack, 1, i_physical_duration, 1, gi_FMModulatedChorus_release, 0
 a_signal = a_signal * i_amplitude * a_declicking * k_gain
 
 #ifdef USE_SPATIALIZATION
