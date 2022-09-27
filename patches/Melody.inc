@@ -12,7 +12,13 @@ instr Melody
 ; Adapted by: Michael Gogins
 i_instrument = p1
 i_time = p2
+; Make indefinite notes last no longer than the physical decay.
+i_physical_decay = 20
+if p3 == -1 then
+i_duration = i_physical_decay
+else
 i_duration = p3
+endif
 i_midi_key = p4
 i_midi_dynamic_range = i(gk_Melody_midi_dynamic_range)
 i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.6 - i_midi_dynamic_range / 2)
@@ -28,9 +34,8 @@ i_amplitude = ampdb(i_midi_velocity) * i_normalization
 k_gain = ampdb(gk_Melody_level)
 ip3 init 3.0
 iattack = 0.05
-isustain = p3
+isustain = i_duration
 irelease = 0.1
-xtratim iattack + irelease
 ip6 = gi_Melody_chebyshev
 i1 = i_frequency
 k100 randi 1,10
@@ -44,8 +49,9 @@ k1 linseg 0, ip3 * .3, .5, ip3 * 2, 0.01, isustain, 0.01, irelease, 0
 k2 linseg 1.0, ip3, .5, isustain, .5, irelease, 0
 k1 = k2 * k1
 ; Amplitude envelope.
-k10 expseg 0.0001, iattack, 1.0, isustain, 0.8, irelease, .0001
-k10 = (k10 - .0001)
+i_exponent = 4
+a_physical_envelope transeg 0,   iattack, i_exponent,  1,   i_duration, 0, 1,  irelease, -i_exponent, 0
+
 ; Power to partials.
 k20 linseg 1.485, iattack, 1.5, (isustain + irelease), 1.485
 ; a1-3 are for cheby with p6=1-4
@@ -56,12 +62,33 @@ a3 balance a2, a1
 ; Try other waveforms as well.
 a4 foscili 1, k100 + .04, 1, 2.005, k20, gi_Melody_sine
 a5 poscil 1, k100, gi_Melody_sine
-a6 = ((a3 * .1) + (a4 * .1) + (a5 * .8)) * k10
+a6 = ((a3 * .1) + (a4 * .1) + (a5 * .8)) * a_physical_envelope
 a7 comb a6, .5, 1 / i1
 a8 = (a6 * .9) + (a7 * .1)
-asignal balance a8, a1
-a_declick linsegr 0, iattack, 1, isustain, 1, irelease, 0
-aleft, aright pan2 asignal * i_amplitude * a_declick * k_gain, k_space_left_to_right
+a_signal balance a8, a1
+; As with most software instruments that are modeled on an impulse exciting a 
+; resonator, there should be two envelopes. The "physical" envelope must have a 
+; fixed decay ending at zero.
+i_declick_minimum = .003
+i_attack = .001 / i_frequency + i_declick_minimum
+i_exponent = 7
+  ; The de-clicking envelope must have attack and release segments that damp 
+; artifacts in the signal. The duration of these segments depends on 
+; the behavior of the instrument, and may vary as a function of frequency.
+i_declick_attack = i_attack
+i_declick_release = i_declick_minimum * 2
+; The end of the note must be extended _past_ the end of the release segment.
+xtratim 1
+a_declicking_envelope cossegr 0, i_declick_attack, 1,  i_duration, 1,  i_declick_release, 0
+; The envelope of the instrument is the product of the physical envelope times 
+; the declicking envelope. 
+a_envelope = a_physical_envelope * a_declicking_envelope
+; That envelope is then low-pass filtered to remove most discontinuities.
+a_filtered_envelope tonex a_envelope, 40, 4
+a_signal = a_signal * i_amplitude * a_filtered_envelope * k_gain *.001
+
+aleft, aright pan2 a_signal * i_amplitude * k_gain, k_space_left_to_right
+
 
 #ifdef USE_SPATIALIZATION
 a_signal = aleft + aright
