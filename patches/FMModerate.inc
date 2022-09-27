@@ -1,6 +1,7 @@
 gk_FMModerate_level chnexport "gk_FMModerate_level", 3
-
 gk_FMModerate_level init 0
+gk_FMModerate_space_left_to_right chnexport "gk_Guitar_space_left_to_right", 3
+gk_FMModerate_space_left_to_right init .5
 
 gi_FMModerate_cosine ftgen 0, 0, 65537, 11, 1
 
@@ -8,7 +9,13 @@ instr FMModerate
 ; Authors: Michael Gogins
 i_instrument = p1
 i_time = p2
+; Make indefinite notes last no longer than the physical decay.
+i_physical_decay = 20
+if p3 == -1 then
+i_duration = i_physical_decay
+else
 i_duration = p3
+endif
 i_midi_key = p4
 i_midi_velocity = p5
 k_space_front_to_back = p6
@@ -20,28 +27,40 @@ i_overall_amps = 86 ; To start - change to observed value.
 i_normalization = ampdb(-i_overall_amps) / 2
 i_amplitude = ampdb(i_midi_velocity) * i_normalization
 k_gain = ampdb(gk_FMModerate_level)
-iattack = 0.002
-isustain = p3
-idecay = 1.5
-irelease = 0.05
-xtratim iattack + idecay + irelease
 icarrier = 1
 imodulator = 1
 ifmamplitude = 8
 index = 5.4
 ifrequencyb = i_frequency * 1.003
 icarrierb = icarrier * 1.004
-aindenv transegr 0.0, iattack, -7.0, 1.0, idecay, -10.0, 0.025, isustain, 0.0, 0.025, irelease, -7.0, 0.0
+aindenv transeg 1,  i_physical_decay, -10.0, 0
 aindex = aindenv * index * ifmamplitude
 aouta foscili 1.0, i_frequency, icarrier, imodulator, index, gi_FMModerate_cosine
 aoutb foscili 1.0, ifrequencyb, icarrierb, imodulator, index, gi_FMModerate_cosine
-a_signal = (aouta + aoutb) * aindenv
+a_signal = aouta + aoutb
 i_attack = .002
-i_sustain = p3
 i_release = 0.01
-xtratim i_attack + i_sustain + i_release
-a_declicking linsegr 0, i_attack, 1, i_sustain, 1, i_release, 0
-a_signal = a_signal * i_amplitude * a_declicking * k_gain
+; As with most software instruments that are modeled on an impulse exciting a 
+; resonator, there should be two envelopes. The "physical" envelope must have a 
+; fixed decay ending at zero.
+i_declick_minimum = .008
+i_attack = i_declick_minimum
+i_exponent = 9
+a_physical_envelope transeg 0,   i_attack, i_exponent,  1,   i_physical_decay, -i_exponent,  0
+; The de-clicking envelope must have attack and release segments that damp 
+; artifacts in the signal. The duration of these segments depends on 
+; the behavior of the instrument, and may vary as a function of frequency.
+i_declick_attack = .008
+i_declick_release = .016
+; The end of the note must be extended _past_ the end of the release segment.
+xtratim 1
+a_declicking_envelope cossegr 0, i_declick_attack, 1,  i_physical_decay, 1,  i_declick_release, 0
+; The envelope of the instrument is the product of the physical envelope times 
+; the declicking envelope. 
+a_envelope = a_physical_envelope * a_declicking_envelope
+; That envelope is then low-pass filtered to remove most discontinuities.
+a_filtered_envelope tonex a_envelope, 40, 4
+a_signal = a_signal * i_amplitude * a_envelope * k_gain
 
 #ifdef USE_SPATIALIZATION
 a_spatial_reverb_send init 0

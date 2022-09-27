@@ -10,6 +10,9 @@ gk_YiString_reverb_send init .5
 gk_YiString_chorus_send init .5
 gi_YiString_overlap init .1
 
+gk_YiString_space_left_to_right chnexport "gk_YiString_space_left_to_right", 3
+gk_YiString_space_left_to_right init .5
+
 instr YiString
 //////////////////////////////////////////////
 // Original by Steven Yi.
@@ -17,7 +20,13 @@ instr YiString
 //////////////////////////////////////////////
 i_instrument = p1
 i_time = p2
+; Make indefinite notes last no longer than the physical decay.
+i_physical_duration = 20000
+if p3 == -1 then
+i_duration = i_physical_duration
+else
 i_duration = p3
+endif
 i_midi_key = p4
 i_midi_dynamic_range = i(gk_YiString_midi_dynamic_range)
 i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.5 - i_midi_dynamic_range / 2)
@@ -32,19 +41,28 @@ i_normalization = ampdb(-i_level_correction) / 2
 i_amplitude = ampdb(i_midi_velocity) * i_normalization
 k_gain = ampdb(gk_YiString_level)
 iattack = gi_YiString_overlap
-isustain = p3
+isustain = i_duration
 idecay = gi_YiString_overlap
-xtratim iattack + idecay
-aenvelope transeg 0.0, iattack / 2.0, 1.5, i_amplitude / 2.0, iattack / 2.0, -1.5, i_amplitude, isustain, 0.0, i_amplitude, idecay / 2.0, 1.5, i_amplitude / 2.0, idecay / 2.0, -1.5, 0
+xtratim 1
+a_physical_envelope transeg 0.0, iattack / 2.0, 1.5, i_amplitude / 2.0, iattack / 2.0, -1.5, i_amplitude, isustain, 0.0, i_amplitude, idecay / 2.0, 1.5, i_amplitude / 2.0, idecay / 2.0, -1.5, 0
 ;ampenv = madsr:a(1, 0.1, 0.95, 0.5)
-asignal = vco2(1, i_frequency)
-asignal = moogladder(asignal, 6000, 0.1)
-a_signal = asignal * aenvelope
-i_attack = .002
-i_release = 0.01
-i_sustain = p3 - (i_attack + i_release)
-a_declicking linsegr 0, i_attack, 1, i_sustain, 1, i_release, 0
-a_signal = a_signal * i_amplitude * a_declicking * k_gain 
+a_signal = vco2(1, i_frequency)
+a_signal = moogladder(a_signal, 6000, 0.1)
+
+; The de-clicking envelope must have attack and release segments that damp 
+; artifacts in the signal. The duration of these segments depends on 
+; the behavior of the instrument, and may vary as a function of frequency.
+i_declick_attack = iattack
+i_declick_release = i_declick_attack * 2
+; The end of the note must be extended _past_ the end of the release segment.
+xtratim 1
+a_declicking_envelope cossegr 0, i_declick_attack, 1,  i_duration, 1,  i_declick_release, 0
+; The envelope of the instrument is the product of the physical envelope times 
+; the declicking envelope. 
+a_envelope = a_physical_envelope * a_declicking_envelope
+; That envelope is then low-pass filtered to remove most discontinuities.
+a_filtered_envelope tonex a_envelope, 40, 4
+a_signal = a_signal * i_amplitude * a_filtered_envelope * k_gain *.001
 
 #ifdef USE_SPATIALIZATION
 a_spatial_reverb_send init 0
