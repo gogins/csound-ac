@@ -1,6 +1,10 @@
 gk_Rhodes_level chnexport "gk_Rhodes_level", 3 ;  0
 gk_Rhodes_level init 0
 
+gk_Rhodes_space_left_to_right chnexport "gk_Rhodes_space_left_to_right", 3
+gk_Rhodes_space_left_to_right init .5
+
+
 gi_Rhodes_sine ftgen 0, 0, 65537, 10, 1
 gi_Rhodes_cosine ftgen 0, 0, 65537, 11, 1
 gi_Rhodes_blank ftgen 0, 0, 65537, 10, 0 ; Blank wavetable for some Cook FM opcodes.
@@ -13,7 +17,11 @@ i_duration = p3
 i_midi_key = p4
 i_midi_velocity = p5
 k_space_front_to_back = p6
+if p7 ==0 then
+k_space_left_to_right = gk_Rhodes_space_left_to_right
+else
 k_space_left_to_right = p7
+endif
 k_space_bottom_to_top = p8
 i_phase = p9
 i_frequency = cpsmidinn(i_midi_key)
@@ -35,7 +43,7 @@ a_signal fmrhode i_amplitude, i_frequency, iindex, icrossfade, ivibedepth, ivibe
 i_attack = .002
 i_sustain = p3
 i_release = 0.01
-xtratim i_attack + i_release
+xtratim 1
 a_declicking linsegr 0, i_attack, 1, i_sustain, 1, i_release, 0
 a_signal = a_signal * a_declicking * k_gain
 
