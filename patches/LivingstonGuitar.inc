@@ -4,9 +4,17 @@ gk_LivingstonGuitar_midi_dynamic_range chnexport "gk_LivingstonGuitar_midi_dynam
 gk_LivingstonGuitar_level init 0
 gk_LivingstonGuitar_midi_dynamic_range init 20
 
+gk_LivingstonGuitar_space_left_to_right chnexport "gk_LivingstonGuitar_space_left_to_right", 3
+gk_LivingstonGuitar_space_left_to_right init .5
+
 gi_LivingstonGuitar_sine ftgen 0, 0, 65537, 10, 1
 
-instr LivingstonGuitar
+/**
+ * We put the body of the code into a user-defined opcode so that it will 
+ * always run at ksmps = 1.
+ */
+opcode LivingstonGuitar_, a, 0
+setksmps 1
 ; Author: Jeff Livingston
 ; Adapted by: Michael Gogins
 ;
@@ -50,14 +58,15 @@ i_instrument = p1
 i_time = p2
 i_duration = p3
 i_midi_key = p4
-while i_midi_key > 63 do
+; Enforce the range of a standard classical guitar.
+while i_midi_key > 83 do
   i_midi_key = i_midi_key - 12
+od
+while i_midi_key < 40 do
+  i_midi_key = i_midi_key + 12
 od
 i_midi_dynamic_range = i(gk_LivingstonGuitar_midi_dynamic_range)
 i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.6 - i_midi_dynamic_range / 2)
-k_space_front_to_back = p6
-k_space_left_to_right = p7
-k_space_bottom_to_top = p8
 i_phase = p9
 i_frequency = cpsmidinn(i_midi_key)
 ; Adjust the following value until "overall amps" at the end of performance is about -6 dB.
@@ -192,10 +201,21 @@ a_signal = 1500*(afwav+abkwav+aresbod*.000000000000000000003)
 i_attack = .002
 i_sustain = p3
 i_release = 0.01
-xtratim i_attack + i_release
+xtratim 1
 a_declicking linsegr 0, i_attack, 1, i_sustain, 1, i_release, 0
 a_signal = a_signal * i_amplitude * a_declicking * k_gain
+xout a_signal
+endop
 
+instr LivingstonGuitar
+k_space_front_to_back = p6
+if p7 ==0 then
+k_space_left_to_right = gk_LivingstonGuitar_space_left_to_right
+else
+k_space_left_to_right = p7
+endif
+k_space_bottom_to_top = p8
+a_signal LivingstonGuitar_
 #ifdef USE_SPATIALIZATION
 a_spatial_reverb_send init 0
 a_bsignal[] init 16
