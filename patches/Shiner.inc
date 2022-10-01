@@ -44,27 +44,23 @@ i_level_correction = 42.5
 i_normalization = ampdb(-i_level_correction) / 2
 i_amplitude = ampdb(i_midi_velocity) * i_normalization
 k_gain = ampdb(gk_Shiner_level)
-
 iattack = i(gk_Shiner_attack)
 idecay = i(gk_Shiner_release)
 isustain = i_duration
-
-kenvelope transeg 0.0, iattack / 2.0, 1.5, i_amplitude / 2.0, iattack / 2.0, -1.5, i_amplitude, isustain, 0.0, i_amplitude, idecay / 2.0, 1.5, i_amplitude / 2.0, idecay / 2.0, -1.5, 0
+a_physical_envelope transeg 0.0, iattack / 2.0, 1.5, i_amplitude / 2.0, iattack / 2.0, -1.5, i_amplitude, isustain, 0.0, i_amplitude, idecay / 2.0, 1.5, i_amplitude / 2.0, idecay / 2.0, -1.5, 0
 ihertz = cpsmidinn(i_midi_key)
 gk_Harmonics = 1 * 20
-a_signal vco2 kenvelope * 4, ihertz, 12
+a_signal vco2 4, ihertz, 12
 kgain = ampdb(gk_Shiner_level) * .5
-
 ; The end of the note must be extended _past_ the end of the release segment.
 xtratim 1
 a_declicking_envelope cossegr 0, .005, 1,  i_duration, 1,  .01, 0
 ; The envelope of the instrument is the product of the physical envelope times 
 ; the declicking envelope. 
+a_envelope = a_physical_envelope * a_declicking_envelope
 ; That envelope is then low-pass filtered to remove most discontinuities.
-a_filtered_envelope tonex a_declicking_envelope, 40, 4
+a_filtered_envelope tonex a_envelope, 40, 4
 a_signal = a_signal * i_amplitude * a_filtered_envelope * k_gain *.001
-
-
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 #ifdef USE_SPATIALIZATION
 a_spatial_reverb_send init 0

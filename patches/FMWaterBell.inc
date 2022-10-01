@@ -24,6 +24,9 @@ gk_FMWaterBell_vibrato_depth init 0.05
 gk_FMWaterBell_vibrato_rate init 6
 gk_FMWaterBell_midi_dynamic_range init 20
 
+gk_FMWaterBell_space_left_to_right chnexport "gk_FMWaterBell_space_left_to_right", 3
+gk_FMWaterBell_space_left_to_right init .5
+
 gi_FMWaterBell_cosine ftgen 0, 0, 65537, 11, 1
 
 instr FMWaterBell
@@ -37,7 +40,11 @@ i_midi_key = p4
 i_midi_dynamic_range = i(gk_FMWaterBell_midi_dynamic_range)
 i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.6 - i_midi_dynamic_range / 2)
 k_space_front_to_back = p6
+if p7 ==0 then
+k_space_left_to_right = gk_FMWaterBell_space_left_to_right
+else
 k_space_left_to_right = p7
+endif
 k_space_bottom_to_top = p8
 i_phase = p9
 i_frequency = cpsmidinn(i_midi_key)

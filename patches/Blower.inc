@@ -12,6 +12,9 @@ gk_Blower_grainFrequencyRange init 3
 gk_Blower_level init 0
 gk_Blower_midi_dynamic_range init 20
 
+gk_Blower_space_left_to_right chnexport "gk_Blower_space_left_to_right", 3
+gk_Blower_space_left_to_right init .5
+
 gi_Blower_grtab ftgen 0, 0, 65537, 10, 1, .3, .1, 0, .2, .02, 0, .1, .04
 gi_Blower_wintab ftgen 0, 0, 65537, 10, 1, 0, .5, 0, .33, 0, .25, 0, .2, 0, .167
 
@@ -27,7 +30,11 @@ i_midi_key = p4
 i_midi_dynamic_range = i(gk_Blower_midi_dynamic_range)
 i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.5 - i_midi_dynamic_range / 2)
 k_space_front_to_back = p6
+if p7 ==0 then
+k_space_left_to_right = gk_Blower_space_left_to_right
+else
 k_space_left_to_right = p7
+endif
 k_space_bottom_to_top = p8
 i_phase = p9
 i_frequency = cpsmidinn(i_midi_key)

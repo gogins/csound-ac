@@ -14,9 +14,12 @@ gi_WGPluck_pluck init 0
 gi_WGPluck_damping init 10
 gi_WGPluck_filter init 1000
 
-gi_WGPluck_sine ftgen 0, 0, 65536, 10, 1, 0, 1
-instr WGPluck
+gk_WGPluck_space_left_to_right chnexport "gk_WGPluck_space_left_to_right", 3
+gk_WGPluck_space_left_to_right init .5
 
+gi_WGPluck_sine ftgen 0, 0, 65537, 10, 1, 0, 1
+
+instr WGPluck
 i_instrument = p1
 i_time = p2
 i_duration = p3
@@ -24,7 +27,11 @@ i_midi_key = p4
 i_midi_dynamic_range = i(gk_WGPluck_midi_dynamic_range)
 i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.6 - i_midi_dynamic_range / 2)
 k_space_front_to_back = p6
+if p7 ==0 then
+k_space_left_to_right = gk_WGPluck_space_left_to_right
+else
 k_space_left_to_right = p7
+endif
 k_space_bottom_to_top = p8
 i_phase = p9
 i_frequency = cpsmidinn(i_midi_key)
