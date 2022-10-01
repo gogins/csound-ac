@@ -1,6 +1,9 @@
 gk_ToneWheelOrgan_level chnexport "gk_ToneWheelOrgan_level", 3
-
 gk_ToneWheelOrgan_level init 0
+gk_ToneWheelOrgan_midi_dynamic_range chnexport "gk_ToneWheelOrgan_midi_dynamic_range", 3 ; 127
+gk_ToneWheelOrgan_midi_dynamic_range init 30
+gk_ToneWheelOrgan_space_left_to_right chnexport "gk_ToneWheelOrgan_space_left_to_right", 3
+gk_ToneWheelOrgan_space_left_to_right init .5
 
 gi_TonewheelOrgan_isine ftgen 0, 0, 65537, 10, 1
 ; The lower tone wheels have increased odd harmonic content.
@@ -22,11 +25,17 @@ i_duration = p3
 i_midi_key = p4
 i_midi_velocity = p5
 k_space_front_to_back = p6
+if p7 ==0 then
+k_space_left_to_right = gk_ToneWheelOrgan_space_left_to_right
+else
 k_space_left_to_right = p7
+endif
 k_space_bottom_to_top = p8
 i_phase = p9
 i_overall_amps = 112
 i_normalization = ampdb(-i_overall_amps) / 2
+i_midi_dynamic_range = i(gk_ToneWheelOrgan_midi_dynamic_range)
+i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.5 - i_midi_dynamic_range / 2)
 i_amplitude = ampdb(i_midi_velocity) * i_normalization
 k_gain = ampdb(gk_ToneWheelOrgan_level)
 gk_Harpsichord_pan = .5

@@ -1,6 +1,9 @@
 gk_HeavyMetal_level chnexport "gk_HeavyMetal_level", 3
-
 gk_HeavyMetal_level init 0
+gk_HeavyMetal_midi_dynamic_range chnexport "gk_HeavyMetal_midi_dynamic_range", 3 ; 127
+gk_HeavyMetal_midi_dynamic_range init 30
+gk_HeavyMetal_space_left_to_right chnexport "gk_HeavyMetal_space_left_to_right", 3
+gk_HeavyMetal_space_left_to_right init .5
 
 gi_HeavyMetal_sine ftgen 0, 0, 65537, 10, 1
 gi_HeavyMetal_cosine ftgen 0, 0, 65537, 11, 1
@@ -15,9 +18,14 @@ i_instrument = p1
 i_time = p2
 i_duration = p3
 i_midi_key = p4
-i_midi_velocity = p5
+i_midi_dynamic_range = i(gk_HeavyMetal_midi_dynamic_range)
+i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.5 - i_midi_dynamic_range / 2)
 k_space_front_to_back = p6
+if p7 ==0 then
+k_space_left_to_right = gk_HeavyMetal_space_left_to_right
+else
 k_space_left_to_right = p7
+endif
 k_space_bottom_to_top = p8
 i_phase = p9
 i_overall_amps = (135 - 67) + 6
