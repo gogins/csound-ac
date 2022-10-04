@@ -46,12 +46,11 @@ kvib poscil i_amplitude/120, ipch/50
 ag pluck 1, cpsoct(ioct + kvib), 1000, gi_Kung1_sine, 1
 agleft pluck 1, cpsoct(ioct+ishift), 1000, gi_Kung1_sine, 1
 agright pluck 1, cpsoct(ioct-ishift), 1000, gi_Kung1_sine, 1
-
+; Make indefinite notes last no longer than the physical decay.
+i_physical_decay = 20
 ; As with most software instruments that are modeled on an impulse exciting a 
 ; resonator, there should be two envelopes. The "physical" envelope must have a 
 ; fixed decay ending at zero.
-; Make indefinite notes last no longer than the physical decay.
-i_physical_decay = 20
 i_declick_minimum = .003
 i_attack = .001 / i_frequency + i_declick_minimum
 i_exponent = 3
@@ -59,24 +58,21 @@ a_physical_envelope transeg 0,   i_attack, i_exponent,  1,   i_physical_decay, -
 a_declicking_envelope cossegr 1, i_instrument_duration, 1,  .06, 0
 a_envelope = a_physical_envelope * a_declicking_envelope
 a_filtered_envelope tonex a_envelope, 120, 3
-
-xtratim 2
-;af1 expon .1, 10, 1.0
-;af2 expon 1.0, 10, .1 
-; ares transeg ia,  idur, itype, ib  [, idur2] [, itype] [, ic] ...
-af1 transeg 0.1,  10,  3, 1.0,  i_instrument_duration, 0, 1.0
-af2 transeg 1.0,  10, -3, 0.1,  i_instrument_duration, 0, 0.1
+xtratim 1
+af1 transeg 0.1,  5,  3, 1.0,  i_instrument_duration, 0, 1.0;
+af2 transeg 1.0,  5, -3, 0.1,  i_instrument_duration, 0, 0.1;
 adump delayr 4.0
 atap1 deltap3 af1
 atap2 deltap3 af2
 ad1 deltap3 2.0
 ad2 deltap3 1.1
-delayw ag * a_filtered_envelope
+delayw ag ;* a_filtered_envelope
 a_out_left = agleft+atap1+ad1
 a_out_right = agright+atap2+ad2
-a_out_left = a_out_left * k_gain * i_amplitude
-a_out_right = a_out_right * k_gain * i_amplitude
-outleta "outleft", a_out_left 
+a_declicking_end tonex a_declicking_envelope, 60, 3
+a_out_left = a_out_left * k_gain * i_amplitude * a_declicking_end
+a_out_right = a_out_right * k_gain * i_amplitude * a_declicking_end
+outleta "outleft", a_out_left
 outleta "outright", a_out_right
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
