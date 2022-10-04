@@ -66,7 +66,7 @@ atap1 deltap3 af1
 atap2 deltap3 af2
 ad1 deltap3 2.0
 ad2 deltap3 1.1
-delayw ag ;* a_filtered_envelope
+delayw ag * a_filtered_envelope
 a_out_left = agleft+atap1+ad1
 a_out_right = agright+atap2+ad2
 a_declicking_end tonex a_declicking_envelope, 60, 3
