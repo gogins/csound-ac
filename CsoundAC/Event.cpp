@@ -648,4 +648,12 @@ void Event::correct_negative_duration() {
     setDuration(corrected_duration);
 }
 
+bool getCorrectNegativeDurations() {
+    return Event::correct_negative_durations();
+}
+
+void setCorrectNegativeDurations(bool do_correct) {
+    Event::correct_negative_durations() = do_correct;
+}
+
 }
