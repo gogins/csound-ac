@@ -233,8 +233,8 @@ public:
 };
 
 bool SILENCE_PUBLIC operator < (const Event& a, const Event &b);
-bool getCorrectNegativeDurations();
-void setCorrectNegativeDurations(bool do_correction);
+bool SILENCE_PUBLIC getCorrectNegativeDurations();
+void SILENCE_PUBLIC setCorrectNegativeDurations(bool do_correction);
 
 
 }
