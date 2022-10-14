@@ -44,7 +44,9 @@ a_bottom_body reson a_signal, 220, 100
 a_whole_body reson a_signal, 440, 80
 a_signal = (.6 * a_top_body + .8 * a_bottom_body + .6 * a_whole_body + .4 * a_signal) 
 ; For testing envelopes with a simple signal that lacks confounding artifacts.
-; a_signal oscils .2, i_frequency2, 0
+; a_signal oscils .1, i_frequency2, 0
+; For testing envelopes with a DC signal (shows only the envelope).
+; a_signal = .25
 
 ; As with most software instruments that are modeled on an impulse exciting a 
 ; resonator, there should be two envelopes. The "physical" envelope must have a 

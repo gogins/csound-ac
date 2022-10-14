@@ -1,9 +1,8 @@
-gk_Plucked_level chnexport "gk_Plucked_level", 3
-gk_Plucked_midi_dynamic_range chnexport "gk_Plucked_midi_dynamic_range", 3 ; 127
+gk_Plucked_midi_dynamic_range chnexport "gk_Plucked_midi_dynamic_range", 3
 gk_Plucked_midi_dynamic_range init 30
 gk_Plucked_space_left_to_right chnexport "gk_Plucked_space_left_to_right", 3
 gk_Plucked_space_left_to_right init .5
-gk_Plucked_level chnexport "gk_Guitar_level", 3
+gk_Plucked_level chnexport "gk_Plucked_level", 3
 gk_Plucked_level init 0
 
 gi_Plucked_sine ftgen 0, 0, 65537, 10, 1

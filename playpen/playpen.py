@@ -496,7 +496,7 @@ alwayson "MasterOutput"
     csd = csd.format(patch_text=patch_text, instrument_name=instrument_name, output=output, standard_score=standard_score)
     return csd
 def generate_standard_score():
-    score = 'f 0 60\n'
+    score = 'f 0 300\n'
     time_= 65.0
     # Generate a chord.
     score += 'i  1    %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, 5, 36, 70)
@@ -520,7 +520,7 @@ def generate_standard_score():
             velocity = random.choice([80, 80-6, 80-12, 80-18])
             score += 'i  1    %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, duration, key, velocity)
     time_ += 5
-    # Test score-driven note-on, note-off.
+    # Test score-driven note-on, note-off. 
     score += 'i  1.01 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, -1, 36, 70)
     time_ += 1
     score += 'i  1.02 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, -1, 48, 70)
@@ -530,17 +530,37 @@ def generate_standard_score():
     score += 'i  1.04 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, -1, 59, 70)
     time_ += 1
     score += 'i  1.05 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, -1, 64, 70)
-
+    time_ += 1
+    score += 'i  1.06 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, -1, 68, 70)
+ 
     time_ += 5
-    score += 'i -1.01 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, 0, 36, 70)
+    score += 'i -1.01 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, 0, 36, 0)
     time_ += 1
-    score += 'i -1.02 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, 0, 48, 70)
+    score += 'i -1.02 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, 0, 48, 0)
     time_ += 1
-    score += 'i -1.03 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, 0, 55, 70)
+    score += 'i -1.03 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, 0, 55, 0)
     time_ += 1
-    score += 'i -1.04 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, 0, 59, 70)
+    score += 'i -1.04 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, 0, 59, 0)
     time_ += 1
-    score += 'i -1.05 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, 0, 64, 70)
+    score += 'i -1.05 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, 0, 64, 0)
+    time_ += 1
+    score += 'i -1.06 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, 0, 67, 0)
+    # Does one note-off statement turn off multiple note-on statements with 
+    # the same tag?
+    time_ += 15
+    score += 'i  1.10 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, -1, 36, 70)
+    time_ += 1
+    score += 'i  1.10 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, -1, 48, 70)
+    time_ += 1
+    score += 'i  1.10 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, -1, 55, 70)
+    time_ += 1
+    score += 'i  1.10 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, -1, 59, 70)
+    time_ += 1
+    score += 'i  1.10 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, -1, 64, 70)
+    time_ += 1
+    score += 'i  1.10 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_, -1, 68, 70)
+    time_ += 5
+    score += 'i -1.10 %9.4f %9.4f %9.4f %9.4f 0 0.5\n' % (time_,  0, 77, 0)
     return score        
         
 def csd_patch():
@@ -558,9 +578,7 @@ def csd_patch():
         csound.compileCsdText(csd)
         csound.start()
         csound.perform()
-
-        
-        
+        print("PERFORMING...")
     except:
         traceback.print_exc()
     finally:
