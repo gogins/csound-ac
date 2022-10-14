@@ -3,12 +3,14 @@ gk_Bower_attack chnexport "gk_Bower_attack", 3
 gk_Bower_release chnexport "gk_Bower_release", 3
 gk_Bower_level chnexport "gk_Bower_level", 3
 gk_Bower_pressure chnexport "gk_Bower_pressure", 3
+gk_Bower_space_left_to_right chnexport "gk_Bower_space_left_to_right", 3
 
 gk_Bower_midi_dynamic_range init 20
 gk_Bower_attack init .125
 gk_Bower_release init .125
 gk_Bower_level init 0
 gk_Bower_pressure init 0.25
+gk_Bower_space_left_to_right init 0.75
 
 gi_Bower_sine ftgen 0,0,65537,10,1
 
@@ -20,7 +22,12 @@ i_midi_key = p4
 i_midi_dynamic_range = i(gk_Bower_midi_dynamic_range)
 i_midi_velocity = p5 * i_midi_dynamic_range / 127 + (63.5 - i_midi_dynamic_range / 2)
 k_space_front_to_back = p6
+if p7 == 0 then
+k_space_left_to_right = gk_Bower_space_left_to_right
+else
 k_space_left_to_right = p7
+endif
+k_space_bottom_to_top = p8
 k_space_bottom_to_top = p8
 i_phase = p9
 i_frequency = cpsmidinn(i_midi_key)
