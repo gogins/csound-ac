@@ -226,7 +226,7 @@ public:
     virtual double getNormalizedX() const;
     virtual double getNormalizedY() const;
     virtual double getNormalizedZ() const;
-    virtual double getNormailzedW() const;
+    virtual double getNormalizedW() const;
 };
 
 }
