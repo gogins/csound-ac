@@ -223,7 +223,10 @@ public:
      * otherwise.
      */
     virtual bool iterate_without_rendering();
-
+    virtual double getNormalizedX() const;
+    virtual double getNormalizedY() const;
+    virtual double getNormalizedZ() const;
+    virtual double getNormailzedW() const;
 };
 
 }
