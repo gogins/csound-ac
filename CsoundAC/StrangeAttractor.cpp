@@ -428,7 +428,8 @@ void StrangeAttractor::calculateFractalDimension ()
 {
     /*
      * Wait for transient to settle
-     */ if (N >= 1000)
+     */ 
+    if (N >= 1000)
     {
         if (N == 1000)
         {
@@ -641,6 +642,31 @@ void StrangeAttractor::setAttractorType (int newValue)
             ODE = 0;
     }
 }
+
+bool StrangeAttractor::iterate_without_rendering()
+{
+    if (N == 1)
+    {
+        score.clear();
+        reinitialize();
+    }
+    iterate ();
+    if (N >= 1000)
+    {
+        calculateFractalDimension();
+        calculateLyupanovExponent();
+    }
+    X = XNEW;
+    Y = YNEW;
+    Z = ZNEW;
+    W = WNEW;
+    if (N < 1000) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
 
 bool StrangeAttractor::evaluateAttractor ()
 {

@@ -216,6 +216,14 @@ public:
     virtual void render (int N, double X, double Y, double Z, double W);
     virtual void setDimensionCount(int D);
     virtual int getDimensionCount() const;
+    /**
+     * Iterates an already found chaotic system one step, without rendering to 
+     * the score. This is useful for driving external score generators. 
+     * Returns true if the system has settled onto the attractor, or false 
+     * otherwise.
+     */
+    virtual bool iterate_without_rendering();
+
 };
 
 }
