@@ -789,7 +789,7 @@ double StrangeAttractor::getNormalizedZ() const {
     return normalized;
 }
 
-double StrangeAttractor::getNormailzedW() const {
+double StrangeAttractor::getNormalizedW() const {
     auto normalized = W - WMIN;
     auto range = XMAX - WMIN;
     if (range > 0) {
