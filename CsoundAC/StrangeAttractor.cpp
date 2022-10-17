@@ -762,4 +762,40 @@ int StrangeAttractor::getDimensionCount() const
     return D;
 }
 
+double StrangeAttractor::getNormalizedX() const {
+    auto normalized = X - XMIN;
+    auto range = XMAX - XMIN;
+    if (range > 0) {
+        normalized /= range;
+    }
+    return normalized;
+}
+
+double StrangeAttractor::getNormalizedY() const {
+    auto normalized = Y - YMIN;
+    auto range = YMAX - YMIN;
+    if (range > 0) {
+        normalized /= range;
+    }
+    return normalized;
+}
+
+double StrangeAttractor::getNormalizedZ() const {
+    auto normalized = Z - ZMIN;
+    auto range = ZMAX - ZMIN;
+    if (range > 0) {
+        normalized /= range;
+    }
+    return normalized;
+}
+
+double StrangeAttractor::getNormailzedW() const {
+    auto normalized = W - WMIN;
+    auto range = XMAX - WMIN;
+    if (range > 0) {
+        normalized /= range;
+    }
+    return normalized;
+}
+
 }
