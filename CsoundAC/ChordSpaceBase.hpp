@@ -276,7 +276,7 @@ P, L, and R have been extended as follows, see Fiore and Satyendra,
 */
 
 static SILENCE_PUBLIC std::string chord_space_version() {
-    return "ChordSpaceBase version 2.0.3.";
+    return "ChordSpaceBase version 2.0.4.";
 }
 
 /**
@@ -294,14 +294,33 @@ static SILENCE_PUBLIC bool SET_CHORD_SPACE_DEBUGGING(bool enabled) {
     return prior_value;
 }
 
+/**
+ * Returns the current state of the chord space _scoped_ debugging flag as a 
+ * reference, which can be an lvalue or an rvalue.
+ */
+static SILENCE_PUBLIC bool &SCOPED_DEBUGGING_FLAG() {
+    static bool SCOPED_DEBUGGING_ = false;
+    return SCOPED_DEBUGGING_;
+}
+
+static SILENCE_PUBLIC bool SET_SCOPED_DEBUGGING(bool enabled) {
+    bool prior_value = SCOPED_DEBUGGING_FLAG();
+    SCOPED_DEBUGGING_FLAG() = enabled;
+    return prior_value;
+}
+
 struct SILENCE_PUBLIC SCOPED_DEBUGGING {
     int prior_state = false;
     SCOPED_DEBUGGING() {
-        prior_state = CHORD_SPACE_DEBUGGING();
-        CHORD_SPACE_DEBUGGING() = true;
+        if (SCOPED_DEBUGGING_FLAG()) {
+            prior_state = CHORD_SPACE_DEBUGGING();
+            CHORD_SPACE_DEBUGGING() = true;
+        }
     }
     ~SCOPED_DEBUGGING() {
-        CHORD_SPACE_DEBUGGING() = prior_state;
+        if (SCOPED_DEBUGGING_FLAG()) {
+            CHORD_SPACE_DEBUGGING() = prior_state;
+        }
     }
 };
 
