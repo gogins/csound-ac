@@ -61,7 +61,7 @@ a_physical_envelope transeg 0,   i_attack, i_exponent,  1,   i_physical_decay, -
 a_declicking_envelope cossegr 0, .006, 1, i_instrument_duration, 1,  .06, 0
 a_envelope = a_physical_envelope * a_declicking_envelope
 a_filtered_envelope tonex a_envelope, 30, 3
-xtratim 2
+xtratim 3
 ag = a_declicking_envelope * ag
 agleft = a_declicking_envelope * agleft
 agright = a_declicking_envelope * agright
