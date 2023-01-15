@@ -14,20 +14,49 @@ gi_SeidelHarmonicOscillator_Morf ftgen 1001, 0, gi_SeidelHarmonicOscillator_tabs
 gi_SeidelHarmonicOscillator_lforabsz init 2^13
 gi_SeidelHarmonicOscillator_LfoTri ftgen 0, 0, gi_SeidelHarmonicOscillator_lforabsz, 7, 0, gi_SeidelHarmonicOscillator_lforabsz/4, 1, gi_SeidelHarmonicOscillator_lforabsz/2, -1, gi_SeidelHarmonicOscillator_lforabsz/4, 0
 
-
 gk_SeidelHarmonicOscillator_level chnexport "gk_SeidelHarmonicOscillagi_SeidelHarmonicOscillator_tor_level", 3 ;  0
 gi_SeidelHarmonicOscillator_attack chnexport "gi_SeidelHarmonicOscillator_attack", 3 ;  0.003
 gi_SeidelHarmonicOscillator_petals chnexport "gi_SeidelHarmonicOscillator_petals", 3 ;  2.99
 gi_SeidelHarmonicOscillator_release chnexport "gi_SeidelHarmonicOscillator_release", 3 ;  0.01
 gk_SeidelHarmonicOscillator_midi_dynamic_range chnexport "gk_SeidelHarmonicOscillator_midi_dynamic_range", 3 ;  20
-gk_SeidelHarmonicOscillator_P1 chnexport "gk_SeidelHarmonicOscillator_P1", 3
 
 gk_SeidelHarmonicOscillator_level init 0
 gi_SeidelHarmonicOscillator_attack init 0.003
 gi_SeidelHarmonicOscillator_petals init 2.99
 gi_SeidelHarmonicOscillator_release init 0.01
 gk_SeidelHarmonicOscillator_midi_dynamic_range init 20
+
+gk_SeidelHarmonicOscillator_P1 chnexport "gk_SeidelHarmonicOscillator_P1", 3
+gk_SeidelHarmonicOscillator_IN1CON chnexport "gk_SeidelHarmonicOscillator_IN1CON", 3
+gk_SeidelHarmonicOscillator_IN1C1 chnexport "gk_SeidelHarmonicOscillator_IN1C1", 3
+
 gk_SeidelHarmonicOscillator_P1 init 0.1
+gk_SeidelHarmonicOscillator_IN1CON init 0.1
+gk_SeidelHarmonicOscillator_IN1C1 init 1
+
+gk_SeidelHarmonicOscillator_P2 chnexport "gk_SeidelHarmonicOscillator_P2", 3
+gk_SeidelHarmonicOscillator_IN2C1 chnexport "gk_SeidelHarmonicOscillator_IN2C1", 3
+gk_SeidelHarmonicOscillator_IN2CON chnexport "gk_SeidelHarmonicOscillator_IN2CON", 3
+
+gk_SeidelHarmonicOscillator_P2 init 0.1
+gk_SeidelHarmonicOscillator_IN2C1 init 1
+gk_SeidelHarmonicOscillator_IN2CON init 0.1
+
+gk_SeidelHarmonicOscillator_P3 chnexport "gk_SeidelHarmonicOscillator_P3", 3
+gk_SeidelHarmonicOscillator_IN3C1 chnexport "gk_SeidelHarmonicOscillator_IN3C1", 3
+gk_SeidelHarmonicOscillator_IN3CON chnexport "gk_SeidelHarmonicOscillator_IN3CON", 3
+
+gk_SeidelHarmonicOscillator_P3 init 0.1
+gk_SeidelHarmonicOscillator_IN3C1 init 1
+gk_SeidelHarmonicOscillator_IN3CON init 0.1
+
+gk_SeidelHarmonicOscillator_P4 chnexport "gk_SeidelHarmonicOscillator_P4", 3
+gk_SeidelHarmonicOscillator_IN4C1 chnexport "gk_SeidelHarmonicOscillator_IN4C1", 3
+gk_SeidelHarmonicOscillator_IN4CON chnexport "gk_SeidelHarmonicOscillator_IN4CON", 3
+
+gk_SeidelHarmonicOscillator_P4 init 0.1
+gk_SeidelHarmonicOscillator_IN4C1 init 1
+gk_SeidelHarmonicOscillator_IN4CON init 0.1
 
 gi_SeidelHarmonicOscillator_pitch_bend_table ftgen 0, 0, 1024, -7, 1, 1024, 1 
 gi_SeidelHarmonicOscillator_sine ftgen 0, 0, 65537, 10, 1
@@ -67,8 +96,8 @@ koff2 init 2 * 0.001
 koff3 init 3 * 0.001
 koff4 init 5 * 0.001
 koffa = scale2(gk_SeidelHarmonicOscillator_P1, 0.001, 0.1, -10, 10)
-if (chnget:k("IN1CON") == 1) then
-koffb = scale2(chnget:k("IN1C1"), 0.001, 0.1, 0, 10)
+if (gk_SeidelHarmonicOscillator_IN1CON == 1) then
+koffb = scale2(gk_SeidelHarmonicOscillator_IN1C1, 0.001, 0.1, 0, 10)
 koff = koffa + koffb
 else
 koff = koffa
@@ -80,9 +109,9 @@ koff4 = 5 * koff
 
 itbl = gi_SeidelHarmonicOscillator_Morf
 kndx init 0
-kndxa = scale2(chnget:k("P2"), 0, gi_SeidelHarmonicOscillator_NumTables-1.01, -10, 10)
-if (chnget:k("IN2CON") == 1) then
-kndxb = scale2(chnget:k("IN2C1"), 0, gi_SeidelHarmonicOscillator_NumTables-1.01, 0, 10)
+kndxa = scale2(gk_SeidelHarmonicOscillator_P2, 0, gi_SeidelHarmonicOscillator_NumTables-1.01, -10, 10)
+if (gk_SeidelHarmonicOscillator_IN2CON == 1) then
+kndxb = scale2(gk_SeidelHarmonicOscillator_IN2C1, 0, gi_SeidelHarmonicOscillator_NumTables-1.01, 0, 10)
 kndx = kndxa + kndxb
 else
 kndx = kndxa
@@ -102,9 +131,9 @@ a8 oscil3 kamp, kfreq-koff3, itbl
 a9 oscil3 kamp, kfreq-koff4, itbl
 
 kdst init 0
-kdsta = scale2(chnget:k("P3"), 0, 10, -10, 10)
-if (chnget:k("IN3CON") == 1) then
-kdstb = scale2(chnget:k("IN3C1"), 0, 10, 0, 10)
+kdsta = scale2(gk_SeidelHarmonicOscillator_P3, 0, 10, -10, 10)
+if (gk_SeidelHarmonicOscillator_IN3CON == 1) then
+kdstb = scale2(gk_SeidelHarmonicOscillator_IN3C1, 0, 10, 0, 10)
 kdst = kdsta + kdstb
 else
 kdst = kdsta
@@ -115,9 +144,9 @@ aR = a3+a5+a7+a9
 aoutL = aL + distort1(aL, kdst, 0.1, 0, 0)
 aoutR = aR + distort1(aR, kdst, 0.1, 0, 0)
 
-kpana = scale2(chnget:k("P4"), 0, 7, -10, 10)
-if (chnget:k("IN4CON") == 1) then
-kpanb = scale2(chnget:k("IN4C1"), 0, 5, 0, 10)
+kpana = scale2(gk_SeidelHarmonicOscillator_P4, 0, 7, -10, 10)
+if (gk_SeidelHarmonicOscillator_IN4CON == 1) then
+kpanb = scale2(gk_SeidelHarmonicOscillator_IN4C1, 0, 5, 0, 10)
 kpan = kpana + kpanb
 else
 kpan = kpana
