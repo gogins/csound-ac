@@ -302,22 +302,23 @@ package_json_template = '''{
   }
 }'''
         
-def html_nwjs():
+def html_nw():
     print("html_nw: {}...".format(source_filepath))
     try:
         # It seems the string.format method does not work with multi-line 
         # strings.
         package_json = package_json_template % (basename, rootname, rootname)
-        print(package_json)
+        print("package.json:", package_json)
         with open("package.json", "w") as file:
             file.write(package_json)
+        print("Running on:", platform_system)
         if platform_system == "Darwin":
+            #os.chdir(directory)
+            print("cwd: ", os.getcwd())
             command = "/Applications/nwjs.app/Contents/MacOS/nwjs --context-mixed --experimental-modules --device-scale-factor=2 ."
-            os.chdir(directory)
-            print("cwd: {}".format(os.getcwd()))
         else:
             command = "~/nwjs/nw --context-mixed --experimental-modules --alsa-input-device=plughw:2,0 --alsa-output-device=plughw:2,0 --device-scale-factor=2 {}".format(directory)
-        print("NW.js command: {}".format(command))
+        print("NW.js command:", command)
         subprocess.run(command, shell=True)
     except:
         traceback.print_exc()

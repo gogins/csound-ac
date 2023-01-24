@@ -68,6 +68,10 @@ message("CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 set(CMAKE_PREFIX_PATH /usr/local)
 find_package(Csound REQUIRED)
 message("CSOUND_LIBRARIES: ${CSOUND_LIBRARIES}")
+# SHOULD find: CsoundLib64.framework/Versions/6.0/Headers/
+message("CSOUND_INCLUDE_DIRS: ${CSOUND_INCLUDE_DIRS}")
+message("CSOUND_INCLUDE_PATH: ${CSOUND_INCLUDE_PATH}")
+include_directories("/Library/Frameworks/CsoundLib64.framework/Versions/6.0/Headers/")
 find_library(LIBSNDFILE_LIBRARY sndfile REQUIRED)
 # For WebAssembly, csnd6 is not required, on other platforms, it is.
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Emscripten")
