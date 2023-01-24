@@ -1,7 +1,7 @@
 '''
 C R E A T E   P L A Y A B L E   C S O U N D   M A N U A L
 
-Copyright (c) 2017 by Michael Gogins.
+Copyright (c) 2017, 2023 by Michael Gogins.
 Licensed under the terms of the GNU Lesser Public License version 2
 
 This Python script creates a modified version of the Csound Reference Manual
@@ -14,10 +14,10 @@ add the target directory to the csound-extended Git repository and push your
 changes.
 '''
 
-print __doc__
+print(__doc__)
 
-import cStringIO
 import glob
+import io
 import os
 import os.path
 import shutil
@@ -27,8 +27,8 @@ import traceback
 The user must customize these variables. No additional configuration should be
 required. The manual must already have been cloned and built in the usual way.
 '''
-source_home = r'''/home/mkg/manual'''
-target_home = r'''/home/mkg/csound-extended/docs'''
+source_home = r'''/Users/michaelgogins/manual'''
+target_home = r'''/Users/michaelgogins/csound-extended/docs'''
 
 source_html_directory = os.path.join(source_home, 'html')
 source_examples_directory = os.path.join(source_html_directory, 'examples')
@@ -36,12 +36,12 @@ source_examples_directory = os.path.join(source_html_directory, 'examples')
 target_html_directory = os.path.join(target_home, 'html')
 target_examples_directory = os.path.join(target_html_directory, 'examples')
 
-print 'source_home:', source_home
-print 'source_html_directory:', source_html_directory
-print 'source_examples_directory:', source_examples_directory
-print 'target_home:', target_home
-print 'target_html_directory:', target_html_directory
-print 'target_examples_directory:', target_examples_directory
+print('source_home:', source_home)
+print('source_html_directory:', source_html_directory)
+print('source_examples_directory:', source_examples_directory)
+print('target_home:', target_home)
+print('target_html_directory:', target_html_directory)
+print('target_examples_directory:', target_examples_directory)
 
 play_button_template = '''<a class="ulink" href="examples/%s.csd.html" target="_top">Play</a>'''
 
@@ -49,7 +49,7 @@ def format_playable_example(filename, text):
     try:
         html_filename = filename
         print("Writing playable example: {}".format(html_filename))
-        fout = cStringIO.StringIO()
+        fout = io.StringIO()
         chunk = '''<html>
 <head>
     <title>Minimal Example using Csound for WebAssembly</title>
@@ -119,7 +119,7 @@ This should play if your Web browser has WebAssembly enabled (most do). Most exa
         traceback.print_exc()
 
 print
-print 'Rewriting Csound Reference Manual pages to target...'
+print('Rewriting Csound Reference Manual pages to target...')
 print
 source_pages = os.listdir(source_html_directory)
 for filename in source_pages:
@@ -129,7 +129,7 @@ for filename in source_pages:
     target_pathname = os.path.join(target_html_directory, filename)
     if (os.path.isfile(source_pathname)):
         if source_extension == '.html':
-            print 'Rewriting:', source_pathname, 'to:', target_pathname
+            print('Rewriting:', source_pathname, 'to:', target_pathname)
             with open(source_pathname, 'r') as source_file:
                 source_page = source_file.read()
                 source_page = source_page.replace("It uses the file ", "Click to play: ")
@@ -138,10 +138,10 @@ for filename in source_pages:
                 with open(target_pathname, 'w') as target_file:
                     target_file.write(source_page)
         else:
-            print 'Copying:', source_pathname, 'to:', target_pathname
+            print('Copying:', source_pathname, 'to:', target_pathname)
             shutil.copy(source_pathname, target_pathname)
 print
-print 'Rewriting Csound Reference Manual examples to target...'
+print('Rewriting Csound Reference Manual examples to target...')
 print
 source_pages = os.listdir(source_examples_directory)
 for filename in source_pages:
@@ -150,7 +150,7 @@ for filename in source_pages:
     source_filename, source_extension = os.path.splitext(source_basename)
     target_pathname = os.path.join(target_examples_directory, filename) + '.html'
     if (os.path.isfile(source_pathname) and source_extension == '.csd'):
-        print 'Rewriting:', source_pathname, 'to:', target_pathname
+        print('Rewriting:', source_pathname, 'to:', target_pathname)
         with open(source_pathname, 'r') as source_file:
             with open(target_pathname, 'w') as target_file:
                 source_page = source_file.read()

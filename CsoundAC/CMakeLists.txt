@@ -76,7 +76,7 @@ endif()
     endif()
 
     target_include_directories(libCsoundAC SYSTEM PRIVATE ${Python3_INCLUDE_DIRS})
-    target_include_directories(libCsoundAC SYSTEM PRIVATE ${CSOUND_INCLUDE_PATH})
+    target_include_directories(libCsoundAC SYSTEM PRIVATE ${CSOUND_INCLUDE_DIRS})
     target_include_directories(libCsoundAC PRIVATE ${EIGEN3_INCLUDE_DIRS})
     target_include_directories(libCsoundAC PRIVATE ${Boost_INCLUDE_DIR})
     target_include_directories(libCsoundAC PRIVATE ../dependencies/portsmf)
