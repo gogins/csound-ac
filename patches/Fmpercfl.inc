@@ -1,22 +1,22 @@
-gk_Bamboo_level chnexport "gk_Bamboo_level", 3
-gk_Bamboo_level init 0
-gk_Bamboo_space_left_to_right chnexport "gk_Bamboo_space_left_to_right", 3
-gk_Bamboo_space_left_to_right init .5
+gk_Fmpercfl_level chnexport "gk_Fmpercfl_level", 3
+gk_Fmpercfl_level init 0
+gk_Fmpercfl_space_left_to_right chnexport "gk_Fmpercfl_space_left_to_right", 3
+gk_Fmpercfl_space_left_to_right init .5
 
-gi_Bamboo_dettack chnexport "gi_Bamboo_dettack", 3
-gi_Bamboo_dettack init .01
-gi_Bamboo_inum chnexport "gi_Bamboo_inum", 3
-gi_Bamboo_inum init 1.01
-gi_Bamboo_idamp chnexport "gi_Bamboo_idamp", 3
-gi_Bamboo_idamp init .01
-gi_Bamboo_imaxshake chnexport "gi_Bamboo_imaxshake", 3
-gi_Bamboo_imaxshake init .05
-gi_Bamboo_ifreq2 chnexport "gi_Bamboo_ifreq2", 3
-gi_Bamboo_ifreq2 init 2
-gi_Bamboo_ifreq3 chnexport "gi_Bamboo_ifreq3", 3
-gi_Bamboo_ifreq3 init 3
+gi_Fmpercfl_dettack chnexport "gi_Fmpercfl_dettack", 3
+gi_Fmpercfl_dettack init .01
+gi_Fmpercfl_inum chnexport "gi_Fmpercfl_inum", 3
+gi_Fmpercfl_inum init 1.01
+gi_Fmpercfl_idamp chnexport "gi_Fmpercfl_idamp", 3
+gi_Fmpercfl_idamp init .01
+gi_Fmpercfl_imaxshake chnexport "gi_Fmpercfl_imaxshake", 3
+gi_Fmpercfl_imaxshake init .05
+gi_Fmpercfl_ifreq2 chnexport "gi_Fmpercfl_ifreq2", 3
+gi_Fmpercfl_ifreq2 init 2
+gi_Fmpercfl_ifreq3 chnexport "gi_Fmpercfl_ifreq3", 3
+gi_Fmpercfl_ifreq3 init 3
 
-instr Bamboo
+instr Fmpercfl
 ; Credits:
 ; Michael Gogins
 
@@ -31,19 +31,19 @@ k_space_left_to_right = p7
 k_space_bottom_to_top = p8
 i_phase = p9
 
-; Processing pfields:
+; Process pfields:
 i_physical_decay = 20
 if p3 == -1 then
 i_duration = i_physical_decay
 else
 endif
 i_frequency = cpsmidinn(i_midi_key)
-i_amplitude = ampdb(i_midi_velocity)
+i_gain_correction = .09
+i_amplitude = ampdb(i_midi_velocity) * i_gain_correction
 // Adjust the gain correction until the maximum amplitude is about -6 dBFS.
-i_gain_correction = .0044
-k_gain = ampdb(gk_Bamboo_level) * i_gain_correction
+k_gain = ampdb(gk_Fmpercfl_level)
 if p7 == 0 then
-k_space_left_to_right = gk_Bamboo_space_left_to_right
+k_space_left_to_right = gk_Fmpercfl_space_left_to_right
 endif
 k_space_bottom_to_top = p8
 i_phase = p9
@@ -52,13 +52,15 @@ i_phase = p9
 // Instrument code begins.
 //////////////////////////////////////////////////////////////////////////////
 
-a_signal bamboo 1, gi_Bamboo_dettack, 
-  gi_Bamboo_inum, 
-  gi_Bamboo_idamp, 
-  gi_Bamboo_imaxshake, 
-  i_frequency,
-  i_frequency * gi_Bamboo_ifreq2,
-  i_frequency * gi_Bamboo_ifreq3
+kindex = 5
+kvdepth = .05
+kvrate = 5.2
+istartfade = .4
+iendfade = .4
+
+kcrossfade line istartfade, i_duration, iendfade
+
+a_signal fmpercfl 1, i_frequency, kindex, kcrossfade, kvdepth, kvrate
 
 //////////////////////////////////////////////////////////////////////////////
 // Instrument code ends.
@@ -70,7 +72,7 @@ a_signal bamboo 1, gi_Bamboo_dettack,
 i_declick_minimum = .003
 i_attack = .001 / i_frequency + i_declick_minimum
 i_exponent = 7
-a_physical_envelope transeg 0,   i_attack, i_exponent,  1,   i_physical_decay, -i_exponent,  0
+a_physical_envelope =1;transeg 0,   i_attack, i_exponent,  1,   i_physical_decay, -i_exponent,  0
 ; The de-clicking envelope must have attack and release segments that damp 
 ; artifacts in the signal. The duration of these segments depends on 
 ; the behavior of the instrument, and may vary as a function of frequency.
