@@ -1365,6 +1365,22 @@ void Score::setDuration(double targetDuration)
     }
 }
 
+void Score::setDurationFromZero(double targetDuration)
+{
+    double currentDuration = getDurationFromZero();
+    if (currentDuration <= 0.0) {
+        return;
+    }
+    double factor = targetDuration / currentDuration;
+    for (size_t i = 0, n = size(); i < n; i++) {
+        Event &event = (*this)[i];
+        double time_ = event.getTime();
+        double duration = event.getDuration();
+        event.setTime(time_ * factor);
+        event.setDuration(duration * factor);
+    }
+}
+
 void Score::remove(size_t index)
 {
     erase(begin() + index);

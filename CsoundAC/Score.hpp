@@ -386,6 +386,7 @@ public:
      * stretch or shrink musical time.
      */
     virtual void setDuration(double targetDuration);
+    virtual void setDurationFromZero(double targetDuration);
     /**
      * If the score contains two notes of the same pitch
      * and loudness greater than 0 that overlap in time,
