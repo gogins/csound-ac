@@ -14,7 +14,7 @@ gi_SeidelHarmOsc_Morf ftgen 1001, 0, gi_SeidelHarmOsc_tabsz, 10, 1
 gi_SeidelHarmOsc_lforabsz init 2^13
 gi_SeidelHarmOsc_LfoTri ftgen 0, 0, gi_SeidelHarmOsc_lforabsz, 7, 0, gi_SeidelHarmOsc_lforabsz/4, 1, gi_SeidelHarmOsc_lforabsz/2, -1, gi_SeidelHarmOsc_lforabsz/4, 0
 
-gk_SeidelHarmOsc_level chnexport "gk_SeidelHarmonicOscillagi_SeidelHarmOsc_tor_level", 3 ;  0
+gk_SeidelHarmOsc_level chnexport "gk_SeidelHarmOsc_level", 3 ;  0
 gi_SeidelHarmOsc_attack chnexport "gi_SeidelHarmOsc_attack", 3 ;  0.003
 gi_SeidelHarmOsc_petals chnexport "gi_SeidelHarmOsc_petals", 3 ;  2.99
 gi_SeidelHarmOsc_release chnexport "gi_SeidelHarmOsc_release", 3 ;  0.01
