@@ -263,7 +263,8 @@ def post_process():
 def play():
     try:
         print("play: {}".format(source_filepath))
-        master_filepath = os.path.join(directory, master_filename)
+        master_filepath = os.path.join(cwd, master_filename)
+        print("master_filepath: {}".format(master_filepath))
         if platform_system == "Darwin":
             command = "open {} -a {}".format(master_filepath, soundfile_editor)            
         else:
