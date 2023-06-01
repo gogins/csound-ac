@@ -145,6 +145,7 @@ common_csound_options = "-RWd -m163 -W -+msg_color=0 --midi-key=4 --midi-velocit
 compiler_command = settings.get("cplusplus", "compiler-command")
 print('Common Csound options:  ', common_csound_options)
 print('Source file:            ', source_filepath)
+print('Directory:               ', directory)
 print('Basename:               ', basename)
 print('Author:                 ', metadata_author)
 print('Title:                  ', title)
@@ -297,6 +298,7 @@ package_json_template = '''{
   },
   "chromium-args": {
     "--enable-logging": true,
+    "--context-mixed": true,
     "--v=1": 1,
     "--device-scale-factor": 4
   }
@@ -311,13 +313,25 @@ def html_nw():
         print("package.json:", package_json)
         with open("package.json", "w") as file:
             file.write(package_json)
+        # Remove symlink to piece directory and link it again.
+        try:
+            os.remove("/home/mkg/nwjs/package.nw");
+        except:
+            pass
+        # os.symlink(target, linkname)
+        os.chdir("/home/mkg/nwjs")
+        linkname = "/home/mkg/nwjs/package.nw"
+        print(f"directory: {directory} link: {linkname}")
+        os.symlink(directory, linkname)
         print("Running on:", platform_system)
         if platform_system == "Darwin":
             #os.chdir(directory)
             print("cwd: ", os.getcwd())
             command = "/Applications/nwjs.app/Contents/MacOS/nwjs --context-mixed --experimental-modules --device-scale-factor=2 ."
         else:
-            command = "~/nwjs/nw --context-mixed --experimental-modules --alsa-input-device=plughw:2,0 --alsa-output-device=plughw:2,0 --device-scale-factor=2 {}".format(directory)
+            os.chdir("/home/mkg/nwjs");
+            command = "./nw --context-mixed --experimental-modules --alsa-input-device=plughw:2,0 --alsa-output-device=plughw:2,0 --device-scale-factor=2 {}".format(directory)
+            #command = "./nw --context-mixed --experimental-modules --device-scale-factor=2 {}".format(directory)
         print("NW.js command:", command)
         subprocess.run(command, shell=True)
     except:
