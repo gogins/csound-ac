@@ -8,6 +8,10 @@ add_definitions(-fPIC)
 
 set(CMAKE_INCLUDE_CURRENT_DIR "On")
 
+if(APPLE)
+  include_directories(/Users/michaelgogins/csound/interfaces)
+endif()
+
 option(BUILD_CSOUND_AC "Build CsoundAC extension module for Csound with algorithmic composition (needs C++ interface)" ON)
 option(BUILD_CSOUND_AC_PYTHON_INTERFACE "Build the Csound AC Python interface" ON)
 
