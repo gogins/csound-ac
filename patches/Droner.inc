@@ -52,7 +52,7 @@ k_space_bottom_to_top = p8
 i_phase = p9
 i_frequency = cpsmidinn(i_midi_key)
 ; Adjust the following value until "overall amps" at the end of performance is about -6 dB.
-i_overall_amps = -20 + 98 + 4
+i_overall_amps = 19
 i_normalization = ampdb(-i_overall_amps) / 2
 i_amplitude = ampdb(i_midi_velocity) * i_normalization
 k_gain = ampdb(gk_Droner_level)

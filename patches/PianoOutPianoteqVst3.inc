@@ -10,7 +10,6 @@ gk_PianoOutPianoteq_left_to_right chnexport "gk_PianoOutPianoteq_left_to_right",
 gk_PianoOutPianoteq_bottom_to_top chnexport "gk_PianoOutPianoteq_bottom_to_top", 3 ;  0
 
 gk_PianoOutPianoteq_level init 0
-gi_PianoOutPianoteq_print init 1
 gk_PianoOutPianoteq_front_to_back init 0
 gk_PianoOutPianoteq_left_to_right init 0.5
 gk_PianoOutPianoteq_bottom_to_top init 0
@@ -20,7 +19,7 @@ instr PianoOutPianoteq
 ; Sustain off.
 ;vst3paramset gi_Pianoteq, 6, 1
 ; Reverb switch off.
-;vst3paramset gi_Pianoteq, 93, 0
+vst3paramset gi_Pianoteq, 93, 0
 k_gain = ampdb(gk_PianoOutPianoteq_level)
 i_overall_amps = 87
 i_normalization = ampdb(-i_overall_amps) * 2
@@ -35,7 +34,9 @@ i_midi_key = p4
 i_midi_velocity = p5
 ainleft init 0
 ainright init 0
-aoutleft, aoutright vst3audio gi_Pianoteq, ainleft, ainright
+
+
+aoutleft, aoutright vst3audio gi_Pianoteq
 a_signal = aoutleft + aoutright
 a_signal *= k_gain
 a_signal *= i_amplitude
