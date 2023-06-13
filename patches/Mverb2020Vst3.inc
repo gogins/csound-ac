@@ -28,6 +28,19 @@ gk_Mverb2020_Damping_Frequency init 0.5
 gk_Mverb2020_Gain init 1
 gi_Mverb2020_Program init 4
 
+; instr Reverb
+; a_in_left inleta "inleft"
+; a_in_right inleta "inright"
+; k_old_size vst3paramget gi_vst3_handle_ambience, 0
+; vst3paramset gi_vst3_handle_ambience, 0, .95
+; vst3paramset gi_vst3_handle_ambience, 3, .9
+; vst3presetsave gi_vst3_handle_ambience, "ambience.preset"
+; a_out_left, a_out_right vst3audio gi_vst3_handle_ambience, a_in_left, a_in_right
+; outleta "outleft", a_out_left
+; outleta "outright", a_out_right
+; prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+; endin
+
 instr Mverb2020
 ;vst3progset gi_Mverb2020, gi_Mverb2020_Program
 vst3paramset gi_Mverb2020, 1, gk_Mverb2020_Mix
@@ -39,14 +52,17 @@ vst3paramset gi_Mverb2020, 1, gk_Mverb2020_Mix
 vst3paramset gi_Mverb2020, 6, gk_Mverb2020_Decay
 ;vstparamset gi_Mverb2020, 7, gk_Mverb2020_Damping_Frequency
 vst3paramset gi_Mverb2020, 8, gk_Mverb2020_Gain
-k_gain = ampdb(gk_Mverb2020_level)
-ainleft inleta "inleft"
-krmsleft rms ainleft
-ainright inleta "inright"
-krmsright rms ainright
-aoutleft, aoutright vst3audio gi_Mverb2020, ainleft, ainright
-outleta "outleft", aoutleft
-outleta "outright", aoutright
+;vst3presetsave gi_Mverb2020, "Mverb2020.preset"
+;k_gain = ampdb(gk_Mverb2020_level)
+a_in_left inleta "inleft"
+k_rms_left rms a_in_left
+a_in_right inleta "inright"
+k_rms_right rms a_in_right
+a_out_left, a_out_right vst3audio gi_Mverb2020, a_in_left, a_in_right
+outleta "outleft", a_out_left
+outleta "outright", a_out_right
+prints "hi\n"
+printks "rms in %9.4f %9.4f\n", 1, k_rms_left, k_rms_right
 prints  "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
-printks "%-24s i %9.4f rms in %9.4f %9.4f\n", 1., nstrstr(p1), p1, krmsleft, krmsright
+prints "bye\n"
 endin
