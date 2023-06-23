@@ -55,8 +55,8 @@ k_gain = ampdb(gk_ZakianFlute_level)
 iHz = cpsmidinn(i_midi_key)
 kHz = k(iHz)
 // Bug?
-// aenvelope transeg 1.0, 20.0, -10.0, 0.05
-aenvelope transegr 1.0, 20.0, -10.0, 0.05
+aenvelope transeg 1.0, 20.0, -10.0, 0.05
+///aenvelope transegr 1.0, 20.0, -10.0, 0.05
 ip3 = 3;;; (p3 < 3.0 ? p3 : 3.0)
 ; parameters
 ; p4 overall amplitude scaling factor

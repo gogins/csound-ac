@@ -13,7 +13,7 @@ gk_Sweeper_release init .25
 gk_Sweeper_britel init .01
 gk_Sweeper_briteh init 5
 gk_Sweeper_britels init .5
-gk_Sweeper_britehs init .5
+gk_Sweeper_britehs init 1.75
 gk_Sweeper_level init 0
 gk_Sweeper_space_left_to_right chnexport "gk_Sweeper_space_left_to_right", 3
 gk_Sweeper_space_left_to_right init .5
@@ -57,6 +57,7 @@ kamp expseg 0.001,0.02,0.2,p3-0.01,0.001
 ktonemoddep jspline 0.01,0.05,0.2
 ktonemodrte jspline 6,0.1,0.2
 ktone poscil3 ktonemoddep, ktonemodrte, gi_Sweeper_sine
+; kres rspline krangeMin, krangeMax, kcpsMin, kcpsMax
 kbrite rspline gk_Sweeper_britel, gk_Sweeper_briteh, gk_Sweeper_britels, gk_Sweeper_britehs
 ibasfreq init icps
 ioctcnt init 3
