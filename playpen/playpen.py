@@ -613,6 +613,8 @@ if command == 'csd-soundfile':
 if command == 'csd-post':
     csd_soundfile()
     post_process()
+if command == 'wav-post':
+    post_process()
 if command == 'csd-play':
     csd_soundfile()
     post_process()
