@@ -241,7 +241,7 @@ def post_process():
         mp3_command = '''lame --add-id3v2 --tt "%s" --ta "%s" --ty "%s" --tn "%s" --tg "%s"  "%s" "%s"''' % (title, "Michael Gogins", metadata_year, metadata_notes, "Electroacoustic", master_filename, mp3_filename)
         print('mp3_command:            ', mp3_command)
         os.system(mp3_command)
-        sox_flac_command = '''sox -S "%s" "%s"''' % (master_filename, flac_filename)
+        sox_flac_command = '''sox -b 24 -S "%s" "%s"''' % (master_filename, flac_filename)
         print('sox_flac_command:       ', sox_flac_command)
         os.system(sox_flac_command)
         mp4_command = '''%s -r 1 -i "%s" -i "%s" -codec:a aac -strict -2 -b:a 384k -c:v libx264 -b:v 500k "%s"''' % ('ffmpeg', os.path.join(cwd, spectrogram_filename), os.path.join(cwd, master_filename), os.path.join(cwd, mp4_filename))
