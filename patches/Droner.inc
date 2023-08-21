@@ -24,7 +24,7 @@ gk_Droner_partial10 init 0
 gk_Droner_level init 0
 gi_Droner_waveform init 0
 
-gk_Droner_space_left_to_right chnexport "gk_Guitar_space_left_to_right", 3
+gk_Droner_space_left_to_right chnexport "gk_Droner_space_left_to_right", 3
 gk_Droner_space_left_to_right init .5
 
 
