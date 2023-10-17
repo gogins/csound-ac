@@ -25,8 +25,8 @@ This repository contains:
 
 Currently, CsoundAC is supported on macOS and Linux.
 
-Please log any bug reports or requests for enhancements at
-https://github.com/gogins/csound-extended/issues.
+Please log any bug reports or requests for enhancements at 
+https://github.com/gogins/csound-ac/issues.
 
 ## Changes
 
