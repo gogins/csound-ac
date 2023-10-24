@@ -21,7 +21,7 @@ instr TubularBell
 ; Authors: Perry Cook, John ffitch, Michael Gogins
 i_instrument = p1
 i_time = p2
-i_physical_decay = 15
+i_physical_decay = 5
 if p3 == -1 then
 i_duration = i_physical_decay
 else
