@@ -1,0 +1,65 @@
+{
+  "name": "playpen",
+  "displayName": "Playpen",
+  "description": "Development and performance environment for computer music in a variety of languages and runtimes.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.84.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "playpen.helloWorld",
+        "title": "Playpen: Hello World"
+      },
+      {
+        "command": "playpen.renderCsdToAudio",
+        "title": "Playpen: Render .csd to audio"
+      },
+      {
+        "command": "playpen.html5Reference",
+        "title": "Playpen: HTML5 reference"
+      },
+      {
+        "command": "playpen.csoundReference",
+        "title": "Playpen: Csound reference"
+      },
+      {
+        "command": "playpen.csoundApiReference",
+        "title": "Playpen: Csound API reference"
+      },
+      {
+        "command": "playpen.csoundAcReference",
+        "title": "Playpen: CsoundAC reference"
+      },
+      {
+        "command": "playpen.cppReference",
+        "title": "Playpen: C++ reference"
+      },
+      {
+        "command": "playpen.pythonReference",
+        "title": "Playpen: Python reference"
+      }
+    ]
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "pnpm run lint",
+    "test": "node ./test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.84.0",
+    "@types/mocha": "^10.0.3",
+    "@types/node": "18.x",
+    "eslint": "^8.52.0",
+    "glob": "^10.3.10",
+    "mocha": "^10.2.0",
+    "typescript": "^5.2.2",
+    "@vscode/test-electron": "^2.3.6"
+  }
+}
