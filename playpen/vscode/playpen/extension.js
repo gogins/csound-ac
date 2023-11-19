@@ -1,29 +1,53 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
-const vscode = require('vscode');
+/**
+ * Embed "playpen.py" in Visual Studio Code as the "Playpen" extension.
+ * playpen.py, and playpen.ini, need to be in the user's home directory, or 
+ * have a symbolic link in the user's home directory to the real file.
+ */
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
+const path = require('node:path');
+const vscode = require('vscode');
+const child_process = require('child_process');
+let process_map = {};
+let output_channel;
 
 /**
- * @param {vscode.ExtensionContext} context
+ * Execute the command string in the directory of the document.
  */
+async function spawner(command, filepath) {
+	const options = { cwd: path.dirname(filepath), shell: true };
+	if (output_channel == undefined) {
+		output_channel = vscode.window.createOutputChannel('Playpen');
+	};
+    output_channel.clear();
+    output_channel.show(true); // true means keep focus in the editor window
+	let args = command.split(' ');
+	let cmd = args[0];
+	let params = args.slice(1);
+
+    const process = child_process.spawn(cmd, params, options);
+    process_map[process.pid] = process;
+    process.stdout.on("data", (data) => {
+        // I've seen spurious 'ANSI reset color' sequences in some csound output
+        // which doesn't render correctly in this context. Stripping that out here.
+        output_channel.append(data.toString().replace(/\x1b\[m/g, ""));
+    });
+    process.stderr.on("data", (data) => {
+        // It looks like all csound output is written to stderr, actually.
+        // If you want your changes to show up, change this one.
+        output_channel.append(data.toString().replace(/\x1b\[m/g, ""));
+    });
+    if (process.pid) {
+        output_channel.append("Playpen is running (pid " + process.pid + ")");
+    }
+}
+
 function activate(context) {
-
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "playpen" is now active!');
-
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
+	console.log('Extension "playpen" is now active.');
 	let disposable;
 	disposable = vscode.commands.registerCommand('playpen.renderCsdToAudio', function () {
-		let filepath = vscode.window.activeTextEditor.document.fileName;
-		console.log("Rendering ${filepath}...", filepath)
-		// playpen.py, and playpen.ini, need to be in the user's home directory (or have a 
-		// symbolic link in the user's home directory to the real file).
-		vscode.commands.executeCommand(`python3 ~/playpen.py csd-audio ${filepath}`, filepath);
+		let filepath = vscode.window.activeTextEditor.document.uri.fsPath;
+		console.log(`Rendering "${filepath}..."`)
+		spawner(`python3 ~/playpen.py csd-audio ${filepath}`, filepath);
 	});
 	context.subscriptions.push(disposable);
 	disposable = vscode.commands.registerCommand('playpen.html5Reference', function () {

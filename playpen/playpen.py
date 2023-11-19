@@ -93,6 +93,8 @@ import threading
 import time
 import traceback
 
+running_subprocess = None
+
 # repeatable "random" segment so renderings can be compared.
 random.seed(119480)
 
@@ -172,7 +174,9 @@ def csd_audio():
         print("\ncsd_audio: {} to {}...".format(source_filepath, csound_audio_output))
         csound_command = "csound {} -o{}".format(source_filepath, csound_audio_output)
         print("csound command: {}".format(csound_command))
-        subprocess.run(csound_command, shell=True)
+        result = subprocess.run(csound_command, shell=True)
+        print("csound command: {} {}".format(csound_comman, result))
+       
     except:
         traceback.print_exc()
     finally:
