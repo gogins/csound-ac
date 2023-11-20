@@ -14,38 +14,111 @@
   "contributes": {
     "commands": [
       {
-        "command": "playpen.helloWorld",
-        "title": "Playpen: Hello World"
+        "command": "playpen.csd_audio",
+        "title": "Render .csd to audio"
       },
       {
-        "command": "playpen.renderCsdToAudio",
-        "title": "Playpen: Render .csd to audio"
+        "command": "playpen.csd_soundfile",
+        "title": "Render .csd to soundfile, post-process, edit"
+      },      
+      {
+        "command": "playpen.csd_patch",
+        "title": "Render .inc to soundfile, post-process, edit"
+      },      
+      {
+        "command": "playpen.html_localhost",
+        "title": "Open .html in local Web site"
       },
       {
-        "command": "playpen.html5Reference",
-        "title": "Playpen: HTML5 reference"
+        "command": "playpen.html_nw",
+        "title": "Open .html in NW.js"
+      },
+      {
+        "command": "playpen.cpp_lib",
+        "title": "Compile .cpp as shared library with Csound and CsoundAC"
+      },
+      {
+        "command": "playpen.cpp_app",
+        "title": "Compile .cpp as application with Csound and CsoundAC, run"
+      },
+      {
+        "command": "playpen.cpp_audio",
+        "title": "Compile .cpp as CsoundAC application, render audio"
+      },
+      {
+        "command": "playpen.cpp_soundfile",
+        "title": "Compile .cpp as CsoundAC application, render soundfile, post-process, edit"
       },
       {
         "command": "playpen.csoundReference",
-        "title": "Playpen: Csound reference"
+        "title": "Csound reference"
       },
       {
         "command": "playpen.csoundApiReference",
-        "title": "Playpen: Csound API reference"
+        "title": "Csound API reference"
       },
       {
         "command": "playpen.csoundAcReference",
-        "title": "Playpen: CsoundAC reference"
+        "title": "CsoundAC reference"
       },
       {
         "command": "playpen.cppReference",
-        "title": "Playpen: C++ reference"
+        "title": "C++ reference"
       },
       {
         "command": "playpen.pythonReference",
-        "title": "Playpen: Python reference"
+        "title": "Python reference"
       }
-    ]
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "playpen.csd_audio",
+          "group": "Csound",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "playpen.csd_soundfile",
+          "group": "Csound",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "playpen.csd_patch",
+          "group": "Csound",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "playpen.html_localhost",
+          "group": "HTML",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "playpen.html_nw",
+          "group": "HTML",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "playpen.cpp_lib",
+          "group": "CXX",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "playpen.cpp_app",
+          "group": "CXX",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "playpen.cpp_audio",
+          "group": "CXX",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "playpen.cpp_soundfile",
+          "group": "CXX",
+          "when": "editorTextFocus"
+        }
+      ]
+    }
   },
   "scripts": {
     "lint": "eslint .",
