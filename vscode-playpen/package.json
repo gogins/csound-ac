@@ -1,10 +1,20 @@
 {
   "name": "playpen",
   "displayName": "Playpen",
-  "description": "Development and performance environment for computer music in a variety of languages and runtimes.",
+  "description": "Enables Visual Studio Code as a development and performance environment for computer music in a variety of languages and runtimes.",
   "version": "0.0.1",
+  "license": "LGPL-2.1-or-later",
+  "repository": {
+    "type" : "git",
+    "url" : "https://github.com/gogins/csound-ac"
+  },  
   "engines": {
     "vscode": "^1.84.0"
+  },
+  "author": {
+    "name": "Michael Gogins",
+    "email": "michael.gogins@gmail.com",
+    "url": "http://michaelgogins.tumblr.com/"
   },
   "categories": [
     "Other"
