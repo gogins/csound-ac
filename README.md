@@ -18,10 +18,13 @@ This repository contains:
 2.  My computer music playpen, designed to facilitate algorithmic composition 
     with Csound and CsoundAC by extending standard text editors.
     
-3.  silencio, a JavaScript library for algorithmic composition similar to 
+3.  My Visual Studio Code extension that implements the computer music 
+    playpen. Consider working in this environment.
+    
+4.  silencio, a JavaScript library for algorithmic composition similar to 
     CsoundAC.
     
-4.  patches, a library of Csound instrument definitions.
+5.  patches, a library of Csound instrument definitions.
 
 Currently, CsoundAC is supported on macOS and Linux.
 
