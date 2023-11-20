@@ -94,6 +94,7 @@ jobs:
         run: |
           echo "Installing tools..."
           brew update
+          brew install python@3.11--3.11.6_1
           brew upgrade
           brew install graphviz
           brew install doxygen
