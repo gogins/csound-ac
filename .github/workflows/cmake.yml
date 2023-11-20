@@ -94,7 +94,7 @@ jobs:
         run: |
           echo "Installing tools..."
           brew update
-          brew install python
+          brew upgrade
           brew install graphviz
           brew install doxygen
           echo "Installing dependencies..."
