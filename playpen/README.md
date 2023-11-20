@@ -44,8 +44,8 @@ attribute.
     and running C++ code, and so on.
 2.  These commands are implemented in `playpen.py` and can be invoked from any 
     code editor that provides custom commands.
-4.  The `vscode-playpen` directory defines such custom commands for the Visual 
-    Studio Code text editor.
+4.  The `gedit/tools` directory defines such custom commands for the gedit 
+    text editor.
 5.  The `.SciTEUser.properties` file defines such custom commands for the SciTE 
     text editor.
 
@@ -76,21 +76,31 @@ algorithmic composition.
     playpen.py.
 2.  Copy csound-extended/playpen/playpen.ini to your home directory and 
     customize it for your system and your personal metadata.
-3.  Install the `playpen.vsix` extension in Visual Studio Code.
+3.  Copy the csound-extended/playpen/gedit directory and contents to 
+    ~/.config/gedit.
     
 Install the following software requirements, each according to its own 
 instructions. I give some some specific instructions for Ubuntu Linux. Many of 
 these dependencies are however available on Windows or macOS.
 
-Core requirements for composing with Csound
+Core requirements for composing with Csound, including gedit extensions for 
+rendering Csound pieces and automatically post-processing them:
 
 1.  [Csound](https://csound.com/download.html). For Linux, it is best to build 
     from source code according to [these  
     instructions](https://github.com/csound/csound/blob/develop/BUILD.md).
-2.  The [Visual Studio Code](https://code.visualstudio.com/) text editor.
-3.  The "computer music playpen", a Visual Studio Code extension with several 
-    helpful commands and a context menu for developing and performing computer 
-    music using Csound, CsoundAC, and HTML5.
+2.  The gedit text editor. On Ubuntu, execute `sudo apt install gedit`.
+3.  Configuration files and helper scripts for gedit in the 
+    `csound-extended/playpen` directory. If you have cloned the 
+    csound-extended repository, create symbolic links in your home directory 
+    to the following files in the `csound-extended/playpen` directory. 
+    Alternatively, download the files to your home directory. You need to 
+    customize at least `playpen.ini`, and perhaps others, for your system:
+    1. Copy `playpen/gedit/tools/` and its contents to `~/.config/gedit/tools/`.
+    2. [instrument_test.py](https://github.com/gogins/csound-extended/blob/develop/playpen/instrument_test.py)
+    3. [effect_test.py](https://github.com/gogins/csound-extended/blob/develop/playpen/effect_test.py)
+    4. [playpen.ini](https://github.com/gogins/csound-extended/blob/develop/playpen/playpen.ini)
+    5. [post-process.py](https://github.com/gogins/csound-extended/blob/develop/playpen/post-process.py)
 4.  [sox](http://sox.sourceforge.net/). For Ubuntu, execute 
     `sudo apt install sox` and `sudo apt install libsox-fmt-all`.
 5.  [FFmpeg](https://ffmpeg.org/) for converting soundfiles to mp4 video format to be uploaded to YouTube.
@@ -155,5 +165,4 @@ Additional useful things:
     score editor.
 22. [lilypond](http://lilypond.org/) is an open source, cross-platform, very 
     powerful music typesetting system.
-
 

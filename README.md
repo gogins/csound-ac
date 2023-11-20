@@ -16,7 +16,10 @@ This repository contains:
     for implementing classical-style voice-leading in generated scores.
     
 2.  My computer music playpen, designed to facilitate algorithmic composition 
-    with Csound and CsoundAC by extending standard text editors.
+    with Csound and CsoundAC by extending standard text editors. The playpen 
+    makes it possible to run various kinds of Csound pieces, and even to build 
+    C++ pieces and plugin opcodes, from the editor. For more information, see 
+    `playpen/README.md`.
     
 3.  My Visual Studio Code extension that implements the computer music 
     playpen. Consider working in this environment.
@@ -86,13 +89,19 @@ these files to your home directory or other places.
 - `build-env.sh`: Source this to set useful environment variables for the 
   build and runtime environment on Linux. You may need to copy and modify this 
   script.
+
+- Creata a symbolic link from `csound-ac/playpen/playpen.py` to your home 
+  directory, to enable use of the computer music plapen.
+
+- Copy `csound-ac/playpen/playpen.ini` to your home directory and customize 
+  it for your environment, to configure the computer music playen.
+
+- If you use Visual Studio Code, install in it the `playpen.vsix` extension, 
+  which makes the computer music playpen part of Visual Studio Code.
   
-- Create a symbolic link from `csound-ac/playpen/.SciTEUser.properties` to your 
-  home directory, to create custom commands and editor features in the SciTE 
-  text editor. This makes it possible to run various kinds of Csound pieces, 
-  and even to build C++ pieces and plugin opcodes, from the editor. Believe 
-  me, I tried all the other editors, and this is the one that is both simple 
-  and useful. For more information, see `playpen/README.md`.
+- If you use the SciTE text editor, Create a symbolic link from 
+  `csound-ac/playpen/.SciTEUser.properties` to your home directory, which 
+  makes the computer music playpen part of SciTE.
 
 - `silencio`: Create a symbolic link to this directory in every directory in 
   which you are writing or running a piece that uses the Silencio library.
