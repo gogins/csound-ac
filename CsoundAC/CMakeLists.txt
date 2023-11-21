@@ -36,6 +36,8 @@ if(BUILD_CSOUND_AC)
         Counterpoint.cpp
         CounterpointMain.cpp
         CounterpointNode.cpp
+        CppSound.cpp
+        CsoundFile.cpp
         Event.cpp
         Lindenmayer.cpp
         MCRM.cpp
@@ -95,7 +97,7 @@ endif()
         LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
         ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}")
 
-    target_link_libraries(libCsoundAC PRIVATE ${MUSICXML2_LIBRARY} ${CSND6_LIBRARY} ${CSOUND_LIBRARIES} ${OpenCV_LIBRARIES} ${LIBSNDFILE_LIBRARY})
+    target_link_libraries(libCsoundAC PRIVATE ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${OpenCV_LIBRARIES} ${LIBSNDFILE_LIBRARY})
  
     if(WIN32) # for MSYS2/mingw64
         #  mingw64 needs this to create a valid .pyd.
@@ -139,7 +141,7 @@ endif()
         swig_add_library(CsoundAC 
             LANGUAGE python 
             SOURCES CsoundAC.i)
-        swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_LIBRARY} ${CSND6_LIBRARY} ${CSOUND_LIBRARIES} ${OpenCV_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
+        swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${OpenCV_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
         target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} PRIVATE ${EIGEN3_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${CSOUND_SOURCE_HOME}/include)
         if(APPLE)
             target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} SYSTEM PRIVATE ${LIBSNDFILE_INCLUDE_DIR})
