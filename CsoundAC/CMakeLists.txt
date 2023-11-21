@@ -51,7 +51,6 @@ if(BUILD_CSOUND_AC)
         ScoreNode.cpp
         Sequence.cpp
         Shell.cpp
-        Soundfile.cpp
         StrangeAttractor.cpp
         System.cpp
         Voicelead.cpp
@@ -66,9 +65,14 @@ if(BUILD_CSOUND_AC)
         ../dependencies/portsmf/mfmidi.cpp
         ../dependencies/portsmf/strparse.cpp
         trace.cpp)
-if(OPENCV_FOUND)
-    list(APPEND libcsoundac_SRCS "ImageToScore.cpp")
-endif()
+    if(APPLE)
+    else()
+        target_include_directories(libCsoundAC SYSTEM PRIVATE ${LIBSNDFILE_INCLUDE_DIR})
+        list(APPEND libcsoundac_SRCS "Soundfile.cpp")
+    endif()
+    if(OPENCV_FOUND)
+        list(APPEND libcsoundac_SRCS "ImageToScore.cpp")
+    endif()
     message(STATUS "libcsoundac_SRCS: " ${libcsoundac_SRCS})
 
     if (MSVC)
@@ -77,10 +81,6 @@ endif()
         add_library(libCsoundAC SHARED ${libcsoundac_SRCS})
     endif()
     
-    if(APPLE)
-        target_include_directories(libCsoundAC SYSTEM PRIVATE ${LIBSNDFILE_INCLUDE_DIR})
-    endif()
-
     target_include_directories(libCsoundAC SYSTEM PRIVATE ${Python3_INCLUDE_DIRS})
     target_include_directories(libCsoundAC SYSTEM PRIVATE ${CSOUND_INCLUDE_DIRS})
     target_include_directories(libCsoundAC PRIVATE ${EIGEN3_INCLUDE_DIRS})
