@@ -65,11 +65,6 @@ if(BUILD_CSOUND_AC)
         ../dependencies/portsmf/mfmidi.cpp
         ../dependencies/portsmf/strparse.cpp
         trace.cpp)
-    if(APPLE)
-    else()
-        target_include_directories(libCsoundAC SYSTEM PRIVATE ${LIBSNDFILE_INCLUDE_DIR})
-        list(APPEND libcsoundac_SRCS "Soundfile.cpp")
-    endif()
     if(OPENCV_FOUND)
         list(APPEND libcsoundac_SRCS "ImageToScore.cpp")
     endif()
