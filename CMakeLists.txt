@@ -17,12 +17,20 @@ set(CMAKE_CXX_STANDARD 17)
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "MSVC")
 add_compile_options(/WX-)
 else()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wno-sign-compare -Wno-unknown-pragmas -Wno-misleading-indentation -Wno-writable-strings")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wno-deprecated-declarations -Wno-sign-compare -Wno-unknown-pragmas -Wno-misleading-indentation -Wno-writable-strings")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 add_compile_options(-Wno-c++11-narrowing)
 endif()
+
+
+# CMAKE_SYSTEM_NAME relevant here can be Darwin, Windows, Linux, or Android.
 set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME "csound-ac")
+if(DARWIN)
+    set(CMAKE_MACOSX_RPATH ON)
+    set(CMAKE_INSTALL_RPATH "/usr/local/lib;~/.local/lib;")
+else()
+endif()
 add_definitions(-Dlinux)
 
 set(APIVERSION "7.0")
