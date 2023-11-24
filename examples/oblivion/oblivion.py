@@ -2,7 +2,7 @@ import CsoundAC
 score = CsoundAC.Score()
 score.load("oblivion.xml")
 sco = score.getCsoundScore()
-print(sco)
+print("sco:\n" + sco)
 
 csd = '''
 <CsoundSynthesizer>
@@ -11,7 +11,7 @@ csd = '''
 Arranged for Csound by Michael Gogins
 </CsLicense>
 <CsOptions>
--odac:plughw:0,0 -m195 -d
+-odac -m195 -d
 </CsOptions>
 <CsInstruments>
 

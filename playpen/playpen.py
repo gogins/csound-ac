@@ -134,7 +134,7 @@ print("soundfile_editor:        " + soundfile_editor)
 directory, basename = os.path.split(source_filepath)
 rootname, extension = os.path.splitext(basename)
 title = rootname.replace("-", " ").replace("_", " ")
-label = '%s -- %s' % (metadata_author, title)
+label = '%s -- %s' % (metadata_author, rootname)
 label = label.replace(" ", "_")
 output_filename = label + ".wav"
 master_filename = '%s.normalized.wav' % label
@@ -225,7 +225,7 @@ def post_process():
         str_artist             = metadata_author
         str_date               = metadata_year
         str_license            = metadata_license
-        sox_normalize_command = '''sox -S "%s" "%s" gain -n -3''' % (output_filename, master_filename + 'untagged.wav')
+        sox_normalize_command = '''sox -S "%s" "%s" norm -6''' % (output_filename, master_filename + 'untagged.wav')
         print('sox_normalize command:  ', sox_normalize_command)
         os.system(sox_normalize_command)
         tag_wav_command = '''sndfile-metadata-set "%s" --bext-description "%s" --bext-originator "%s" --bext-orig-ref "%s" --str-comment "%s" --str-title "%s" --str-copyright "%s" --str-artist  "%s" --str-date "%s" --str-license "%s" "%s"''' % (master_filename + 'untagged.wav', bext_description, bext_originator, bext_orig_ref, str_comment, str_title, str_copyright, str_artist, str_date, str_license, master_filename)
