@@ -60,7 +60,6 @@ processing is automatically performed:
 print(__doc__)
 print('IMPORTING REQUIRED MODULES...')
 print
-import csnd6
 import CsoundAC
 import datetime
 import math
@@ -88,8 +87,8 @@ class CsoundComposition(object):
         print('CREATING GLOBAL OBJECTS...')
         print()
         self.model = CsoundAC.MusicModel()
-        self.csound = self.model.getCppSound()
-        self.csound.setPythonMessageCallback()  
+        ##self.csound = self.model.getCppSound()
+        ##self.csound.setPythonMessageCallback()  
         self.score = self.model.getScore()
     def createFilenames(self):
         print('CREATING FILENAMES...')
@@ -166,13 +165,13 @@ class CsoundComposition(object):
         self.createMusicModel()
         self.model.generate()
         self.createScore()
-        self.ended = time.clock()
+        self.ended = time.perf_counter()
         self.elapsed = self.ended - self.began
         print('Finished rendering at               %s' % time.strftime('%Y-%b-%d %A %H:%M:%S'))
         print('Elapsed time:                        %-9.2f seconds.' % self.elapsed)
         self.csound.perform()
         print
-        self.ended = time.clock()
+        self.ended = time.perf_counter()
         self.elapsed = self.ended - self.began
         print('Finished rendering at                %s' % time.strftime('%Y-%b-%d %A %H:%M:%S'))
         print('Elapsed time:                        %-9.2f seconds.' % self.elapsed)
@@ -190,11 +189,11 @@ class CsoundComposition(object):
         self.createMusicModel()
         self.model.generate()
         self.createScore()
-        self.ended = time.clock()
+        self.ended = time.perf_counter()
         self.elapsed = self.ended - self.began
         print('Finished generating at               %s' % time.strftime('%Y-%b-%d %A %H:%M:%S'))
         print('Elapsed time:                        %-9.2f seconds.' % self.elapsed)
-        self.ended = time.clock()
+        self.ended = time.perf_counter()
         self.elapsed = self.ended - self.began
         print('Finished rendering at                %s' % time.strftime('%Y-%b-%d %A %H:%M:%S'))
         print('Elapsed time:                        %-9.2f seconds.' % self.elapsed)
@@ -271,7 +270,7 @@ class CsoundComposition(object):
         print('Rendering mode:          %s' % self.renderingMode)
         print('Playback:                %s' % self.playback)
         print()
-        self.began = time.clock()
+        self.began = time.perf_counter()
         self.timestamp = datetime.datetime.now()
         print('Timestamp:               %s' % self.timestamp)
         self.createGlobalObjects()

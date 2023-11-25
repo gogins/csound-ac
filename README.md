@@ -22,12 +22,16 @@ This repository contains:
     `playpen/README.md`.
     
 3.  My Visual Studio Code extension that implements the computer music 
-    playpen. Consider working in this environment.
+    playpen. Consider working in this environment. For more information, see 
+    `vscode-playpen/README.md`
     
 4.  silencio, a JavaScript library for algorithmic composition similar to 
-    CsoundAC.
+    CsoundAC. However, using the WebAssembly build of CsoundAC in 
+    [csound-wasm](https://github.com/gogins/csound-wasm) is now recommended in 
+    place of silencio.
     
-5.  patches, a library of Csound instrument definitions.
+5.  patches, a library of Csound instrument definitions, developed over many 
+    years and used in many of my pieces.
 
 Currently, CsoundAC is supported on macOS and Linux.
 
@@ -41,9 +45,11 @@ log.
 
 ## Using
 
-CsoundAC can be used both as a C++ library, and as a Python extension module.
-Python is easier to use, but C++ offers considerably more power and speed. I 
-use both.
+CsoundAC can be used both as a C++ library, as a Python extension module, 
+and as a WebAssembly kodue. Python is easier to use, but C++ offers 
+considerably more power and speed. The WebAssembly build of CsoundAC in 
+[csound-wasm](https://github.com/gogins/csound-wasm) has the same power 
+as the C++ library and somewhat less speed.
 
 Examples (some of which can also serve as tests) for the various aspects of 
 csound-ac are maintained in my separate 
@@ -74,12 +80,30 @@ https://gogins.github.io/csound-examples.
     
 2.  There are prebuilt binary releases for this package available at 
     https://github.com/gogins/csound-ac/releases. These can be downloaded,
-    unzipped in your home directory, and used from there. You will need to add 
-    the directory containing the CsoundAC shared library to your binary search 
-    path, the directory containing the CsoundAC include files to your 
-    compiler's header search path, and the directory containing the _CsoundAC 
-    shared library and CsoundAC.py to your Python path.
-    
+    unzipped to `/usr/local` (or even `~/usr/local`), and used from there. 
+    The binary files are archives, not installers. They should be installed in 
+    the same way on all platforms:
+
+    1.  Download the archive from the releases page.
+
+    2.  Use the 7z program to unzip the archive to the output directory, e.g.
+        `7z x -o/usr/local csound-ac-0.5.0-Darwin.zip`. 7z will ask you what 
+        to do about any files that it might overwrite.
+
+    3.  Run `sudo ldconfig` or take equivalent steps to ensure that the 
+        libraries can be found by the operating system. You may need to add 
+        appropriate directories to your compiler's header files path, and 
+        to the operating system `PATH` environment variable.
+
+    4.  To uninstall, you can list the contents of the archive to a file, 
+        e.g. `unzip unzip csound-ac-0.5.0-Darwin.zip -l > listing.txt`. You 
+        can use this to identify files to remove, and you could even write 
+        a script to parse `listing.txt` and remove all files listed therein.
+
+    Please note, on macOS the CsoundAC libraries are installed by default to 
+    `/usr/local/lib`. They can be installed elsewhere, but if so, you will 
+    probably need to set up install names and rpaths using `otool`.
+
 ## Helpers
 
 There are files and directories in the Git repository and in the packages that 
@@ -112,17 +136,25 @@ these files to your home directory or other places.
 ## Building On Your Local Computer
 
 The following instructions are for macOS. Linux is similar. For 
-more information, look at `./github/cmake.yaml`.
+more information, look at `./github/cmake.yaml`. However, on Linux it may be 
+better to build Csound for source code.
 
 1.  Clone this Git repository.
 
 2.  Install prerequisites as follows from the repository root directory:
 ```
     brew update
+    brew upgrade
     brew install graphviz
     brew install doxygen
     brew install opencv
     brew install csound
+    brew install bwfmetaedit
+    brew install sox
+    brew install ffmpeg
+    brew install lame
+    brew install sndfile
+    brew install imagemagick
     git clone "https://gitlab.com/libeigen/eigen.git"
 ```
 
@@ -137,3 +169,25 @@ more information, look at `./github/cmake.yaml`.
     make -j6 VERBOSE=1
     sudo make install
 ```
+
+## Release Notes
+
+### [v7.0](https://github.com/gogins/csound-ac/releases/tag/v7.0-darwin)
+
+- There is a new version of the Computer Music Playpen, in the form of a 
+  Visual Studio Code extension. This is now the recommnded environment for 
+  using CsoundAC.
+  
+- CsoundAC no longer implements the Soundfile class.
+
+- CsoundAC no longer maintains the Lua binding.
+
+- CsoundAC has internalized support for the CppSound class, because the brew 
+  package for Csound on macOS includes the the `libcsnd6` dylib without the 
+  corresponding header files. This may create a breaking change in the API for 
+  some users, but makes it possible to keep maintaining the continuous 
+  integration builds and releases of CsoundAC on GitHub.
+
+
+
+   

@@ -30,10 +30,12 @@ import traceback
 
 print('Set "rendering" to:     "soundfile" or "audio".')
 print
-rendering = "audio"
+rendering = "soundfile"
 
 model = CsoundAC.MusicModel()
+model.thisown = 0
 score = model.getScore()
+score.thisown = 0
 
 script_filename = sys.argv[0]
 print('Full Python script:     %s' % script_filename)
@@ -105,18 +107,21 @@ def read_measure(number):
     score_node.thisown = 0
     filename = 'M' + str(number) + '.mid'
     score_for_measure = score_node.getScore()
+    score_for_measure.thisown = 0
     score_for_measure.load(filename)
     # Remove false notes.
     for i, event in reverse_enumeration(score_for_measure):
         if event.getChannel() < 0:
             score_for_measure.remove(i)
-    #print("Loaded '%s':\n%s" % (filename, score_for_measure.toString()))
+    print("Loaded '%s':\n%s" % (filename, score_for_measure.toString()))
     return score_node
 
 tempo = 5./3.
 
 scale = CsoundAC.Scale("D major")
+scale.thisown = 0
 chord = scale.chord(1, 4)
+chord.thisown = 0
 initial_bass = 32
 forte_measures = random.choices([1,0], [2/6, 4/6], k=measures_to_play)
 
@@ -191,6 +196,7 @@ def build_voice(voiceleading_node, sequence, instrument, bass, time_offset, pan)
                 duration = score_for_measure.getDuration() * tempo
                 score_for_measure.setDuration(duration)
                 rescale = CsoundAC.Rescale() 
+                rescale.thisown = 0
                 rescale.setRescale(CsoundAC.Event.TIME, bool(1), bool(0), cumulative_time, 0)
                 rescale.setRescale(CsoundAC.Event.INSTRUMENT, bool(1), bool(1), instrument, 0)
                 bass = bass + bass_increment_per_bar
@@ -210,10 +216,12 @@ def build_voice(voiceleading_node, sequence, instrument, bass, time_offset, pan)
     print()
 
 sequence = CsoundAC.Rescale()
+sequence.thisown = 0
 sequence.setRescale(CsoundAC.Event.VELOCITY, bool(1), bool(1), 60., 12.)
 # The actual harmony is applied after the notes for all voices have been '
 # generated.
 voiceleading_node = CsoundAC.VoiceleadingNode()
+voiceleading_node.thisown = 0
 voiceleading_node.addChild(sequence);
 model.addChild(voiceleading_node)
 
@@ -886,8 +894,9 @@ model.setCsoundCommand(csound_command)
 model.generate()
 # Fix ending. Instruments would drop out, sustain till the end. Some notes 
 # course will decay first.
-score = model.getScore()
+print("score:\n", score.getCsoundScore())
 score_duration = score.getDuration() + 4.
+print("score_duration: ", score_duration)
 sounding = set()
 for i, event in reverse_enumeration(score):
     event.setOffTime(score_duration)
@@ -897,6 +906,7 @@ for i, event in reverse_enumeration(score):
     if len(sounding) == total_instruments:
         break
 score.save(model.getMidifileFilepath())
+## print("score again:\n", score.toString())
 model.performMaster()
 if rendering == 'soundfile':
     model.translateMaster()

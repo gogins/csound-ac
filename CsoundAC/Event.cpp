@@ -472,7 +472,7 @@ std::string Event::toCsoundIStatementRelease(int tag, double tempering) const
 std::string Event::toString() const
 {
     char buffer[0x100];
-    sprintf(buffer, "t%8.3f d%8.3f s%3.0f i%6.2f k%6.2f v%6.2f y%5.2f pcs%8.2f %s",
+    sprintf(buffer, "Event: t%8.3f d%8.3f s%3.0f i%6.2f k%6.2f v%6.2f y%5.2f pcs%8.2f %s",
             getTime(),
             getDuration(),
             getStatus(),
@@ -579,7 +579,7 @@ double Event::getHeight() const
 
 void Event::setHeight(double height)
 {
-    (*this)[DEPTH] = height;
+    (*this)[HEIGHT] = height;
 }
 
 double Event::getPitches() const

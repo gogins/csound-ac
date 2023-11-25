@@ -97,7 +97,6 @@
 #include "StrangeAttractor.hpp"
 #include "Lindenmayer.hpp"
 #include "MCRM.hpp"
-#include "Soundfile.hpp"
 #include "Voicelead.hpp"
 #include "VoiceleadingNode.hpp"
 #include "ChordLindenmayer.hpp"
