@@ -4,6 +4,7 @@ include(CheckIncludeFiles)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_CXX_STANDARD 17)
+
 add_definitions(-fPIC)
 
 set(CMAKE_INCLUDE_CURRENT_DIR "On")
@@ -36,6 +37,8 @@ if(BUILD_CSOUND_AC)
         Counterpoint.cpp
         CounterpointMain.cpp
         CounterpointNode.cpp
+        CppSound.cpp
+        CsoundFile.cpp
         Event.cpp
         Lindenmayer.cpp
         MCRM.cpp
@@ -49,7 +52,6 @@ if(BUILD_CSOUND_AC)
         ScoreNode.cpp
         Sequence.cpp
         Shell.cpp
-        Soundfile.cpp
         StrangeAttractor.cpp
         System.cpp
         Voicelead.cpp
@@ -64,9 +66,9 @@ if(BUILD_CSOUND_AC)
         ../dependencies/portsmf/mfmidi.cpp
         ../dependencies/portsmf/strparse.cpp
         trace.cpp)
-if(OPENCV_FOUND)
-    list(APPEND libcsoundac_SRCS "ImageToScore.cpp")
-endif()
+    if(OPENCV_FOUND)
+        list(APPEND libcsoundac_SRCS "ImageToScore.cpp")
+    endif()
     message(STATUS "libcsoundac_SRCS: " ${libcsoundac_SRCS})
 
     if (MSVC)
@@ -75,10 +77,6 @@ endif()
         add_library(libCsoundAC SHARED ${libcsoundac_SRCS})
     endif()
     
-    if(APPLE)
-        target_include_directories(libCsoundAC SYSTEM PRIVATE ${LIBSNDFILE_INCLUDE_DIR})
-    endif()
-
     target_include_directories(libCsoundAC SYSTEM PRIVATE ${Python3_INCLUDE_DIRS})
     target_include_directories(libCsoundAC SYSTEM PRIVATE ${CSOUND_INCLUDE_DIRS})
     target_include_directories(libCsoundAC PRIVATE ${EIGEN3_INCLUDE_DIRS})
@@ -95,7 +93,7 @@ endif()
         LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
         ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}")
 
-    target_link_libraries(libCsoundAC PRIVATE ${MUSICXML2_LIBRARY} ${CSND6_LIBRARY} ${CSOUND_LIBRARIES} ${OpenCV_LIBRARIES} ${LIBSNDFILE_LIBRARY})
+    target_link_libraries(libCsoundAC PRIVATE ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${OpenCV_LIBRARIES} ${LIBSNDFILE_LIBRARY})
  
     if(WIN32) # for MSYS2/mingw64
         #  mingw64 needs this to create a valid .pyd.
@@ -139,7 +137,7 @@ endif()
         swig_add_library(CsoundAC 
             LANGUAGE python 
             SOURCES CsoundAC.i)
-        swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_LIBRARY} ${CSND6_LIBRARY} ${CSOUND_LIBRARIES} ${OpenCV_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
+        swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${OpenCV_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
         target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} PRIVATE ${EIGEN3_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${CSOUND_SOURCE_HOME}/include)
         if(APPLE)
             target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} SYSTEM PRIVATE ${LIBSNDFILE_INCLUDE_DIR})
