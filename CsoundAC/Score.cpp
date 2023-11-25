@@ -141,7 +141,7 @@ void Score::load(std::string filename)
         stream.open(filename.c_str(), std::ifstream::binary);
         load(stream);
         stream.close();
-                return;
+        return;
     }
 #if defined(MUSICXML_FOUND)
         if (filename.find(".musicxml") != std::string::npos ||
@@ -193,12 +193,13 @@ void Score::load(std::istream &stream)
         if (!event) {
             break;
         }
+        //  void append(double time_, double duration, double status, double instrument, double key, double velocity, double phase=0, double pan=0, double depth=0, double height=0, double pitches=4095);
         append(event->get_start_time(),
                event->get_duration(),
                double(144),
                double(event->chan),
-               event->get_pitch(),
-               event->get_loud());
+               double(event->get_pitch()),
+               double(event->get_loud()));
     }
     // MidiFile midiFile;
     // midiFile.read(stream);
@@ -548,7 +549,7 @@ void Score::rescale_event(Event &event)
 
 void Score::dump(std::ostream &stream)
 {
-    stream << "silence::Score = " << int(size()) << " events:" << std::endl;
+    stream << "silence::Score " << int(size()) << " events:" << std::endl;
     for(Score::iterator i = begin(); i != end(); ++i) {
         (*i).dump(stream);
     }
@@ -612,8 +613,6 @@ void Score::add(double time_, double duration, double status, double instrument,
     event.correct_negative_duration();
     push_back(event);
 }
-
-
 
 void Score::append_note(double time_, double duration, double status, double instrument, double key, double velocity, double phase, double pan, double depth, double height, double pitches) 
 {

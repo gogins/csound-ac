@@ -4,17 +4,22 @@
  * have a symbolic link in the user's home directory to the real file.
  */
 
+const path = require('path');
 const vscode = require('vscode');
 
 /**
  * Execute the command text in the directory of the document.
  * A Terminal is used rather than a subprocess with an output channel, 
  * because it is simpler, and only a Terminal can kill all subprocesses when 
- * the user kills the Terminal.
+ * the user kills the Terminal. The cwd is set to the directory containing 
+ * the filepath.
  */
 async function spawner(command, filepath) {
-	let terminal = vscode.window.createTerminal("Playpen");
+	let terminal_options = {"name": "Playpen",
+		"cwd": path.dirname(filepath)};	
+	let terminal = vscode.window.createTerminal(terminal_options);
 	terminal.show(false);
+	terminal.sendText("cd "  + path.dirname(filepath), true);
 	terminal.sendText(command, true);
 }
 
@@ -69,7 +74,7 @@ function activate(context) {
 		spawner(`python3 ~/playpen.py cpp-audio ${filepath}`, filepath);
 	});
 	context.subscriptions.push(disposable);
-	disposable = vscode.commands.registerCommand('playpen.cpp_soundfile', function () {
+	disposable = vscode.commands.registerCommand('playpen.cpp_soundfile, function () {
 		let filepath = vscode.window.activeTextEditor.document.uri.fsPath;
 		console.log(`Rendering "${filepath}..."`)
 		spawner(`python3 ~/playpen.py cpp-play ${filepath}`, filepath);
