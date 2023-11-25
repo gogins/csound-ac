@@ -4,6 +4,7 @@ on:
   push:
     branches: 
       - master
+      - internal_cppsound
   pull_request:
     branches: 
       - master
