@@ -55,6 +55,11 @@ var get_operating_system = function() {
         console.log("operating_system: " + operating_system + "\n");
         return operating_system;
     }
+    if (/Macintosh/.test(userAgent)) {
+        operating_system = "Macintosh";
+        console.log("operating_system: " + operating_system + "\n");
+        return operating_system;
+    }
     console.log("operating_system: " + operating_system + "\n");
     return operating_system;
 }
@@ -73,13 +78,14 @@ var load_csound = async function(csound_message_callback_) {
         return;
     }
     if (typeof csound !== 'undefined') {
-        csound_injected = csound;
-        csound_is_loaded = true;
-        console.log = csound_message_callback;
-        csound_message_callback_("Csound is already defined in this JavaScript context.\n");
-        return;
+        if (csound != null) {
+            csound_injected = csound;
+            csound_is_loaded = true;
+            console.log = csound_message_callback;
+            csound_message_callback_("Csound is already defined in this JavaScript context.\n");
+            return;
+        }
     }
-    csound = null;
     try {
         csound_message_callback_("Trying to load csound.node...\n");
         csound_node = await require('csound.node');
