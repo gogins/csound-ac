@@ -2,7 +2,7 @@
   "name": "playpen",
   "displayName": "Playpen",
   "description": "Enables Visual Studio Code as a development and performance environment for computer music in a variety of languages and runtimes.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "license": "LGPL-2.1-or-later",
   "repository": {
     "type" : "git",
