@@ -145,6 +145,7 @@ mp4_filename = '%s.mp4' % label
 flac_filename = '%s.flac' % label
 common_csound_options = "-RWd -m163 -W -+msg_color=0 --midi-key=4 --midi-velocity=5"
 compiler_command = settings.get("cplusplus", "compiler-command")
+nwjs_command = settings.get("nwjs", "nwjs-command")
 print('Common Csound options:  ', common_csound_options)
 print('Source file:            ', source_filepath)
 print('Directory:               ', directory)
@@ -165,6 +166,7 @@ print('MP3 filename:           ', mp3_filename)
 print('MP4 filename:           ', mp4_filename)
 print('FLAC filename:          ', flac_filename)
 print('C++ compiler command:   ', compiler_command)
+print('NW.js command:          ', nwjs_command)
 bext_description       = metadata_notes
 bext_originator        = metadata_author
 bext_orig_ref          = basename
@@ -290,7 +292,6 @@ package_json_template = '''{
   "version": "0.1.0",
   "keywords": [ "Csound", "node-webkit" ],
   "nodejs": true,
-  "node-remote": "http://<all-urls>/*",
   "window": {
     "title": "%s",
     "icon": "link.png",
@@ -320,27 +321,26 @@ def html_nw():
         print("package.json:", package_json)
         with open("package.json", "w") as file:
             file.write(package_json)
-        # Remove symlink to piece directory and link it again.
-        try:
-            os.remove("/home/mkg/nwjs/package.nw");
-        except:
-            pass
-        # os.symlink(target, linkname)
-        os.chdir("/home/mkg/nwjs")
-        linkname = "/home/mkg/nwjs/package.nw"
-        print(f"directory: {directory} link: {linkname}")
-        os.symlink(directory, linkname)
         print("Running on:", platform_system)
         if platform_system == "Darwin":
-            #os.chdir(directory)
+            os.chdir(directory)
             print("cwd: ", os.getcwd())
-            command = "/Applications/nwjs.app/Contents/MacOS/nwjs --context-mixed --experimental-modules --device-scale-factor=2 ."
         else:
+            # Remove symlink to piece directory and link it again.
+            try:
+                os.remove("/home/mkg/nwjs/package.nw");
+            except:
+                pass
+            # os.symlink(target, linkname)
+            os.chdir("/home/mkg/nwjs")
+            linkname = "/home/mkg/nwjs/package.nw"
+            print(f"directory: {directory} link: {linkname}")
+            os.symlink(directory, linkname)
             os.chdir("/home/mkg/nwjs");
-            command = "./nw --context-mixed --experimental-modules --alsa-input-device=plughw:2,0 --alsa-output-device=plughw:2,0 --device-scale-factor=2 {}".format(directory)
+            #nwjs_command = "./nw --context-mixed --experimental-modules --alsa-input-device=plughw:2,0 --alsa-output-device=plughw:2,0 --device-scale-factor=2 {}".format(directory)
             #command = "./nw --context-mixed --experimental-modules --device-scale-factor=2 {}".format(directory)
-        print("NW.js command:", command)
-        subprocess.run(command, shell=True)
+        print("NW.js command:", nwjs_command)
+        subprocess.run(nwjs_command, shell=True)
     except:
         traceback.print_exc()
     finally:
