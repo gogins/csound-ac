@@ -177,7 +177,7 @@ def csd_audio():
         csound_command = "csound {} -o{}".format(source_filepath, csound_audio_output)
         print("csound command: {}".format(csound_command))
         result = subprocess.run(csound_command, shell=True)
-        print("csound command: {} {}".format(csound_comman, result))
+        print("csound command: {} {}".format(csound_command, result))
        
     except:
         traceback.print_exc()
