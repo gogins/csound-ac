@@ -118,16 +118,7 @@ a_damping linseg 0, 0.03, 1, p3 - 0.1, 1, 0.07, 0
 a_left = a_damping * a_left
 a_right = a_damping * a_right
 
-#ifdef USE_SPATIALIZATION
-a_signal = a_left + a_right
-a_spatial_reverb_send init 0
-a_bsignal[] init 16
-a_bsignal, a_spatial_reverb_send Spatialize a_signal, k_space_front_to_back, k_space_left_to_right, k_space_bottom_to_top
-outletv "outbformat", a_bsignal
-outleta "out", a_spatial_reverb_send
-#else
 outleta "outleft", a_left
 outleta "outright", a_right
-#endif
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin

@@ -47,17 +47,8 @@ kx = gk_PianoOutPianoteq_front_to_back
 ky = gk_PianoOutPianoteq_left_to_right
 kz = gk_PianoOutPianoteq_bottom_to_top
 
-#ifdef USE_SPATIALIZATION
-absignal[] init 16
-aspatialreverbsend init 0
-; opcode Spatialize, a[]a, akkk
-absignal, aspatialreverbsend Spatialize a_signal, kx, ky, kz
-outletv "outbformat", absignal
-outleta "out", aspatialreverbsend
-#else
 a_out_left, a_out_right pan2 a_signal, ky
 outleta "outleft", a_out_left
 outleta "outright", a_out_right
-#end
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin

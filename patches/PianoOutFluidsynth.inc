@@ -37,15 +37,7 @@ a_signal *= i_amplitude
 a_signal *= k_gain
 a_out_left, a_out_right pan2 a_signal, gk_PianoOutFluidsynth_left_to_right
 
-#ifdef USE_SPATIALIZATION
-a_spatial_reverb_send init 0
-a_bsignal[] init 16
-a_bsignal, a_spatial_reverb_send Spatialize a_signal, gk_PianoOutFluidsynth_front_to_back, gk_PianoOutFluidsynth_left_to_right, gk_PianoOutFluidsynth_bottom_to_top
-outletv "outbformat", a_bsignal
-outleta "out", a_spatial_reverb_send
-#else
 outleta "outleft", a_out_left
 outleta "outright", a_out_right
-#endif
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
