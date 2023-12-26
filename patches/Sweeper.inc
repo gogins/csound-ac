@@ -95,16 +95,8 @@ a_filtered_envelope tonex a_envelope, 40, 4
 a_signal = a_signal * i_amplitude * a_filtered_envelope * k_gain *.001
 
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
-#ifdef USE_SPATIALIZATION
-a_spatial_reverb_send init 0
-a_bsignal[] init 16
-a_bsignal, a_spatial_reverb_send Spatialize a_signal, k_space_front_to_back, k_space_left_to_right, k_space_bottom_to_top
-outletv "outbformat", a_bsignal
-outleta "out", a_spatial_reverb_send
-#else
 a_out_left, a_out_right pan2 a_signal, k_space_left_to_right
 outleta "outleft", a_out_left
 outleta "outright", a_out_right
 outs a_out_left, a_out_right
-#endif
 endin

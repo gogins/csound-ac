@@ -40,10 +40,8 @@ I have tried to reflect pitches, amplitudes, or durations that would not render
 well back into a safe domain before rendering.
 
 All audio outputs and inputs are performed using the signal flow graph
-opcodes. In the orchestra header, `#define USE_SPATIALIZATION` to output audio 
-to a 16-channel Ambisonic B-format signal outlet named `abformat`, along with 
-a mono `out` outlet that can be used as a reverb send; otherwise, instruments 
-output plain stereo to outlets `outleft` and `outright`.
+opcodes. All instruments output plain stereo to outlets `outleft` and 
+`outright`.
 
 Control parameters are set by global variables using the naming convention
 `gk_InstrumentName_control_variable_name`. Default values are set for all
@@ -57,13 +55,10 @@ A Python script, `test_instrument.py`, is provided to help with the writing
 of new patches. It generates a range of notes for a patch, and prints output
 levels that can be used to derive an audio level normalization factor.
 
-The <a href='Spatialize.inc'>Spatialize.inc</a>
-file implements a complete system for spatializing audio based on the
-excellent work of <a href='http://www.sonicarchitecture.de/'>Jan Jacob 
-Hofmann</a>. For a working example of the spatialization system, see 
-<a href='SpatializedDrone.inc'>`SpatializedDrone`</a>
-
 ## Changes
+
+I have removed the spatialization code from all .inc files, as I never used 
+it.
 
 See https://github.com/gogins/csound-extended/commits/develop for the commit 
 log.

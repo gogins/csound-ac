@@ -199,17 +199,9 @@ xtratim i_attack + i_release
 a_declicking linsegr 0, i_attack, 1, i_sustain, 1, i_release, 0
 a_signal = a_signal * i_amplitude * a_declicking * k_gain * 2.18
 
-#ifdef USE_SPATIALIZATION
-a_spatial_reverb_send init 0
-a_bsignal[] init 16
-a_bsignal, a_spatial_reverb_send Spatialize a_signal, k_space_front_to_back, k_space_left_to_right, k_space_bottom_to_top
-outletv "outbformat", a_bsignal
-outleta "out", a_spatial_reverb_send
-#else
 a_out_left, a_out_right pan2 a_signal, k_space_left_to_right
 outleta "outleft", a_out_left
 outleta "outright", a_out_right
-#endif
 kleft = k(a_out_left)
 kright = k(a_out_right)
 ; printks "FM_Clang       L %9.4f R %9.4f l %9.4f\\n", 0.5, a_out_left, a_out_right, gk_FM_Clang_level

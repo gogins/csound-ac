@@ -295,8 +295,8 @@ package_json_template = '''{
   "window": {
     "title": "%s",
     "icon": "link.png",
-    "toolbar": false,
-    "frame": false,
+    "toolbar": true,
+    "frame": true,
     "maximized": true,
     "position": "mouse",
     "fullscreen": true
@@ -313,7 +313,7 @@ package_json_template = '''{
 }'''
         
 def html_nw():
-    print("html_nw: {}...".format(source_filepath))
+    print("html_nw on {}: {}...".format(platform_system, source_filepath))
     try:
         # It seems the string.format method does not work with multi-line 
         # strings.

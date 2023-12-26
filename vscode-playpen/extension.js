@@ -38,7 +38,7 @@ function activate(context) {
 		spawner(`python3 ~/playpen.py csd-play ${filepath}`, filepath);
 	});	context.subscriptions.push(disposable);
 	context.subscriptions.push(disposable);
-	disposable = vscode.commands.registerCommand('playpen.csd_psyvh', function () {
+	disposable = vscode.commands.registerCommand('playpen.csd_patch', function () {
 		let filepath = vscode.window.activeTextEditor.document.uri.fsPath;
 		console.log(`Rendering "${filepath}..."`)
 		spawner(`python3 ~/playpen.py csd-patch ${filepath}`, filepath);
@@ -74,7 +74,7 @@ function activate(context) {
 		spawner(`python3 ~/playpen.py cpp-audio ${filepath}`, filepath);
 	});
 	context.subscriptions.push(disposable);
-	disposable = vscode.commands.registerCommand('playpen.cpp_soundfile, function () {
+	disposable = vscode.commands.registerCommand('playpen.cpp_soundfile', function () {
 		let filepath = vscode.window.activeTextEditor.document.uri.fsPath;
 		console.log(`Rendering "${filepath}..."`)
 		spawner(`python3 ~/playpen.py cpp-play ${filepath}`, filepath);

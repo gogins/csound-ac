@@ -41,17 +41,9 @@ a_signal *= i_amplitude
 a_out_left, a_out_right pan2 a_signal, gk_PianoOutPianoteq_left_to_right
 ; printks "vstaudio:       %9.4f   %9.4f\n", 0.5, aoutleft, aoutright
 
-#ifdef USE_SPATIALIZATION
-a_signal = a_out_left + a_out_right
-a_spatial_reverb_send init 0
-a_bsignal[] init 16
-a_bsignal, a_spatial_reverb_send Spatialize a_signal, gk_PianoOutPianoteq_front_to_back, gk_PianoOutPianoteq_left_to_right, gk_PianoOutPianoteq_bottom_to_top
-outletv "outbformat", a_bsignal
-outleta "out", a_spatial_reverb_send
-#else
+
 ; printks "PianoOutPt     L %9.4f R %9.4f l %9.4f\\n", 0.5, a_out_left, a_out_right, gk_Piano_level
 outleta "outleft", a_out_left
 outleta "outright", a_out_right
-#endif
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
