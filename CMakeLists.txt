@@ -33,7 +33,7 @@ else()
 endif()
 add_definitions(-Dlinux)
 
-set(APIVERSION "7.0")
+set(APIVERSION "7.1")
 set(CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/local-linux")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/dependencies/csound/cmake/Modules")

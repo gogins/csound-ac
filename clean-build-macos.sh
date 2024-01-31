@@ -1,4 +1,5 @@
 #!/bin/bash
+clear
 echo "Began cleaning and rebuilding all macOS artifacts from `pwd`...."
 rm -f CMakeCache.txt
 sudo make uninstall

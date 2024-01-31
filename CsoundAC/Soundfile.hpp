@@ -1,5 +1,10 @@
+#ifndef SOUNDFILE_HP_INCLUDED
+#define SOUNDFILE_HP_INCLUDED
 /*
- * C S O U N D
+ * C S O U N D A C
+ *
+ * A Python extension module for algorithmic composition
+ * with Csound.
  *
  * L I C E N S E
  *
@@ -17,46 +22,45 @@
  * License along with this software; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
-#ifndef CSOUND_SOUNDFILE_H
-#define CSOUND_SOUNDFILE_H
 
+#include "Platform.hpp"
 #ifdef SWIG
-%module csnd6
+%module CsoundAC
 %{
 #include <sndfile.h>
 #include <iostream>
 #include <string>
 #include <vector>
 #include <cstring>
-  %}
+%}
 %include "std_string.i"
 #ifdef SWIGPYTHON
 %typemap(in) double *outputFrame {
-  static double buffer[16];
-  $1 = &buffer[0];
-  for (int i = 0, n = PySequence_Size($input); i < n; i++) {
-    PyObject *o = PyFloat_FromDouble($1[i]);
-    PySequence_SetItem($input, i, o);
-  }
+    static double buffer[16];
+    $1 = &buffer[0];
+    for (int i = 0, n = PySequence_Size($input); i < n; i++) {
+        PyObject *o = PyFloat_FromDouble($1[i]);
+        PySequence_SetItem($input, i, o);
+    }
 }
 %typemap(in) double *inputFrame {
-  static double buffer[16];
-  $1 = &buffer[0];
-  for (int i = 0, n = PySequence_Size($input); i < n; i++) {
-    PyObject *o = PySequence_ITEM($input, i);
-    $1[i] = PyFloat_AS_DOUBLE(o);
-  }
+    static double buffer[16];
+    $1 = &buffer[0];
+    for (int i = 0, n = PySequence_Size($input); i < n; i++) {
+        PyObject *o = PySequence_ITEM($input, i);
+        $1[i] = PyFloat_AS_DOUBLE(o);
+    }
 }
 %typemap(in) (double *outputFrames, int samples) {
-  $1 = (double *) PyString_AsString($input);
-  $2 = PyString_Size($input) / sizeof(double);
+    $1 = (double *) PyString_AsString($input);
+    $2 = PyString_Size($input) / sizeof(double);
 }
 %typemap(in) (double *inputFrames, int samples) {
-  $1 = (double *) PyString_AsString($input);
-  $2 = PyString_Size($input) / sizeof(double);
+    $1 = (double *) PyString_AsString($input);
+    $2 = PyString_Size($input) / sizeof(double);
 }
 %typemap(in) double *mixedFrames {
-  $1 = (double *) PyString_AsString($input);
+    $1 = (double *) PyString_AsString($input);
 }
 
 #endif
@@ -66,36 +70,30 @@
 #include <string>
 #include <vector>
 #include <cstring>
-#endif
-
-#if defined(WIN32)
-#define SILENCE_PUBLIC __declspec(dllexport)
-#elif defined(__GNUC__)
-#define SILENCE_PUBLIC __attribute__ ( (visibility("default")) )
-#else
-#define SILENCE_PUBLIC
+#include <complex>
+#include <Eigen/Dense>
 #endif
 
 namespace csound
 {
-  /**
-   * Simple, basic read/write access, in sample frames, to PCM soundfiles.
-   * Reads and writes any format, but write defaults to WAV float format.
-   * This class is designed for Python wrapping with SWIG.
-   * See http://www.mega-nerd.com/libsndfile for more information
-   * on the underlying libsndfile library.
-   */
-#ifdef SWIG
-  class Soundfile
-#else
-  class SILENCE_PUBLIC Soundfile
-#endif
-  {
+/**
+ * Simple, basic read/write access, in sample frames, to PCM soundfiles.
+ * Reads and writes any format, but write defaults to WAV float format.
+ * This class is designed for Python wrapping with SWIG.
+ * See http://www.mega-nerd.com/libsndfile for more information
+ * on the underlying libsndfile library.
+ */
+class SILENCE_PUBLIC Soundfile
+{
     SNDFILE *sndfile;
     SF_INFO sf_info;
-  protected:
+    Eigen::MatrixXd grainOutput;
+    Eigen::MatrixXd grainBuffer;
+    size_t sampleCount;
+    double startTimeSeconds;
+protected:
     virtual void initialize() ;
-  public:
+public:
     Soundfile();
     virtual ~Soundfile() ;
     virtual int getFramesPerSecond() const;
@@ -185,6 +183,58 @@ namespace csound
      * Make the soundfile be so many seconds of silence.
      */
     virtual void blank(double duration);
-  };
+    /**
+     * Mix a Gaussian chirp into the soundfile. If the soundfile is stereo,
+     * the grain will be panned. If the synchronousPhase argument is true
+     * (the default value), then all grains of the same frequency
+     * will have synchronous phases, which can be useful in avoiding certain artifacts.
+     *
+     * If the buffer argument is true (the default is false),
+     * the grain is mixed into a buffer; this can be used
+     * to speed up writing grains that are arrangement in columns.
+     * To actually write the grain, call writeGrain().
+     *
+     * The algorithm uses an efficient difference equation.
+     */
+    virtual void jonesParksGrain(double centerTimeSeconds,
+                                 double durationSeconds,
+                                 double beginningFrequencyHz,
+                                 double centerFrequencyHz,
+                                 double centerAmplitude,
+                                 double centerPhaseOffsetRadians,
+                                 double pan,
+                                 bool synchronousPhase = true,
+                                 bool buffer = false);
+    /**
+     * Mix a cosine grain into the soundfile. If the soundfile is stereo,
+     * the grain will be panned. If the synchronousPhase argument is true
+     * (the default value), then all grains of the same frequency
+     * will have synchronous phases, which can be useful in avoiding certain artifacts.
+     * For example, if cosine grains of the same frequency have synchronous phases,
+     * they can be overlapped by 1/2 their duration without artifacts
+     * to produce a continuous cosine tone.
+     *
+     * If the buffer argument is true (the default is false),
+     * the grain is mixed into a buffer; this can be used
+     * to speed up writing grains that are arrangement in columns.
+     * To actually write the grain, call writeGrain().
+      *
+     * The algorithm uses an efficient difference equation.
+     */
+    virtual void cosineGrain(double centerTimeSeconds,
+                             double durationSeconds,
+                             double frequencyHz,
+                             double amplitude,
+                             double phaseOffsetRadians,
+                             double pan,
+                             bool synchronousPhase = true,
+                             bool buffer = false);
+    /**
+     * Mix a grain that has already been computed into the soundfile.
+     */
+    virtual void mixGrain();
+};
+
 }
+
 #endif

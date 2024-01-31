@@ -4,7 +4,7 @@ echo "Building all for macOS..."
 mkdir -p build-macos
 cd build-macos
 rm -f CMakeCache.txt
-cmake -Wno-dev .. -DCMAKE_PREFIX_PATH=/usr/local:/usr 
+cmake -Wno-dev .. -DCMAKE_PREFIX_PATH=/opt/homebrew:/usr 
 make -j6 VERBOSE=1
 sudo cpack -V -G ZIP
 sudo make install
