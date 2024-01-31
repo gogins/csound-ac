@@ -57,6 +57,7 @@ if(BUILD_CSOUND_AC)
         Voicelead.cpp
         VoiceleadingNode.cpp
         ExternalNode.cpp
+        Soundfile.cpp
         ../dependencies/portsmf/allegro.cpp
         ../dependencies/portsmf/allegrord.cpp
         ../dependencies/portsmf/allegroserial.cpp
