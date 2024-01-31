@@ -9,10 +9,6 @@ add_definitions(-fPIC)
 
 set(CMAKE_INCLUDE_CURRENT_DIR "On")
 
-if(APPLE)
-  include_directories(/Users/michaelgogins/csound/interfaces)
-endif()
-
 option(BUILD_CSOUND_AC "Build CsoundAC extension module for Csound with algorithmic composition (needs C++ interface)" ON)
 option(BUILD_CSOUND_AC_PYTHON_INTERFACE "Build the Csound AC Python interface" ON)
 
@@ -57,8 +53,7 @@ if(BUILD_CSOUND_AC)
         Voicelead.cpp
         VoiceleadingNode.cpp
         ExternalNode.cpp
-        Soundfile.cpp
-        ../dependencies/portsmf/allegro.cpp
+         ../dependencies/portsmf/allegro.cpp
         ../dependencies/portsmf/allegrord.cpp
         ../dependencies/portsmf/allegroserial.cpp
         ../dependencies/portsmf/allegrosmfrd.cpp
@@ -70,6 +65,11 @@ if(BUILD_CSOUND_AC)
     if(OPENCV_FOUND)
         list(APPEND libcsoundac_SRCS "ImageToScore.cpp")
     endif()
+    if(EMSCRIPTEN)
+    else()
+        list(APPEND libcsoundac_SRCS "Soundfile.cpp")
+    endif()
+
     message(STATUS "libcsoundac_SRCS: " ${libcsoundac_SRCS})
 
     if (MSVC)
