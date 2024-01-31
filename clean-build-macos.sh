@@ -1,8 +1,6 @@
 #!/bin/bash
 clear
 echo "Began cleaning and rebuilding all macOS artifacts from `pwd`...."
-rm -f CMakeCache.txt
-sudo make uninstall
 sudo rm -rfd build-macos
 sudo rm -rfd dependencies/libmusicxml/build/lib/*
 sudo rm -rfd dependencies/libmusicxml/build/bin/*
