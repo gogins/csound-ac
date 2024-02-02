@@ -6,14 +6,9 @@
 
 const path = require('path');
 const vscode = require('vscode');
+const configuration = vscode.workspace.getConfiguration();
+console.log(configuration.inspect('python'));
 
-/**
- * Execute the command text in the directory of the document.
- * A Terminal is used rather than a subprocess with an output channel, 
- * because it is simpler, and only a Terminal can kill all subprocesses when 
- * the user kills the Terminal. The cwd is set to the directory containing 
- * the filepath.
- */
 async function spawner(command, filepath) {
 	let terminal_options = {"name": "Playpen",
 		"cwd": path.dirname(filepath)};	
@@ -29,55 +24,55 @@ function activate(context) {
 	disposable = vscode.commands.registerCommand('playpen.csd_audio', function () {
 		let filepath = vscode.window.activeTextEditor.document.uri.fsPath;
 		console.log(`Rendering "${filepath}..."`)
-		spawner(`python3 ~/playpen.py csd-audio ${filepath}`, filepath);
+		spawner(`python ~/playpen.py csd-audio ${filepath}`, filepath);
 	});
 	context.subscriptions.push(disposable);
 	disposable = vscode.commands.registerCommand('playpen.csd_soundfile', function () {
 		let filepath = vscode.window.activeTextEditor.document.uri.fsPath;
 		console.log(`Rendering "${filepath}..."`)
-		spawner(`python3 ~/playpen.py csd-play ${filepath}`, filepath);
+		spawner(`python ~/playpen.py csd-play ${filepath}`, filepath);
 	});	context.subscriptions.push(disposable);
 	context.subscriptions.push(disposable);
 	disposable = vscode.commands.registerCommand('playpen.csd_patch', function () {
 		let filepath = vscode.window.activeTextEditor.document.uri.fsPath;
 		console.log(`Rendering "${filepath}..."`)
-		spawner(`python3 ~/playpen.py csd-patch ${filepath}`, filepath);
+		spawner(`python ~/playpen.py csd-patch ${filepath}`, filepath);
 	});	context.subscriptions.push(disposable);
 	context.subscriptions.push(disposable);
 	disposable = vscode.commands.registerCommand('playpen.html_localhost', function () {
 		let filepath = vscode.window.activeTextEditor.document.uri.fsPath;
 		console.log(`Rendering "${filepath}..."`)
-		spawner(`python3 ~/playpen.py html-localhost ${filepath}`, filepath);
+		spawner(`python ~/playpen.py html-localhost ${filepath}`, filepath);
 	});
 	context.subscriptions.push(disposable);
 	disposable = vscode.commands.registerCommand('playpen.html_nw', function () {
 		let filepath = vscode.window.activeTextEditor.document.uri.fsPath;
 		console.log(`Rendering "${filepath}..."`)
-		spawner(`python3 ~/playpen.py html-nw ${filepath}`, filepath);
+		spawner(`python ~/playpen.py html-nw ${filepath}`, filepath);
 	});
 	context.subscriptions.push(disposable);
 	disposable = vscode.commands.registerCommand('playpen.cpp_lib', function () {
 		let filepath = vscode.window.activeTextEditor.document.uri.fsPath;
 		console.log(`Rendering "${filepath}..."`)
-		spawner(`python3 ~/playpen.py cpp-lib ${filepath}`, filepath);
+		spawner(`python ~/playpen.py cpp-lib ${filepath}`, filepath);
 	});
 	context.subscriptions.push(disposable);
 	disposable = vscode.commands.registerCommand('playpen.cpp_app', function () {
 		let filepath = vscode.window.activeTextEditor.document.uri.fsPath;
 		console.log(`Rendering "${filepath}..."`)
-		spawner(`python3 ~/playpen.py cpp-app ${filepath}`, filepath);
+		spawner(`python ~/playpen.py cpp-app ${filepath}`, filepath);
 	});
 	context.subscriptions.push(disposable);
 	disposable = vscode.commands.registerCommand('playpen.cpp_audio', function () {
 		let filepath = vscode.window.activeTextEditor.document.uri.fsPath;
 		console.log(`Rendering "${filepath}..."`)
-		spawner(`python3 ~/playpen.py cpp-audio ${filepath}`, filepath);
+		spawner(`python ~/playpen.py cpp-audio ${filepath}`, filepath);
 	});
 	context.subscriptions.push(disposable);
 	disposable = vscode.commands.registerCommand('playpen.cpp_soundfile', function () {
 		let filepath = vscode.window.activeTextEditor.document.uri.fsPath;
 		console.log(`Rendering "${filepath}..."`)
-		spawner(`python3 ~/playpen.py cpp-play ${filepath}`, filepath);
+		spawner(`python ~/playpen.py cpp-play ${filepath}`, filepath);
 	});
 	context.subscriptions.push(disposable);
 	disposable = vscode.commands.registerCommand('playpen.html5Reference', function () {
