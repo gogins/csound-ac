@@ -60,74 +60,85 @@ namespace csound {
         }
         auto result = pclose(pipe);
         max_volume = (max_volume + 6) * -1;
+        std::fprintf(stderr, "Correction: %9.4f dB\n", max_volume);
         if (csound == nullptr) {
-            std::fprintf(stderr, "Correction: %9.4f dB\n", max_volume);
         } else {
             csound->Message("Correction: %9.4f dB\n", max_volume);
         }
         
         const char *volume_command = "ffmpeg -y -i %s.%s -filter:a \"volume=%fdB\" -codec:a pcm_s32le -format:a flt %s \"%s-normalized.wav\"";
         std::snprintf(buffer, 0x1000, volume_command, filename_base.c_str(), filename_extension.c_str(), max_volume, tag_options.c_str(), filename_base.c_str());
+        std::fprintf(stderr, "Volume command:      %s\n", buffer);
         if (csound == nullptr) {
-            std::fprintf(stderr, "%s", buffer);
-            std::fprintf(stderr, "Volume command:      %s\n", buffer);
-        } else {
-            csound->Message("%s", buffer);
+            //std::fprintf(stderr, "%s", buffer);
+         } else {
+            //csound->Message("%s", buffer);
             csound->Message("Volume command:      %s\n", buffer);
         }
         result = std::system(buffer);
         
         const char *mp3_command = "ffmpeg -y -i %s-normalized.wav -acodec libmp3lame -b:a 192k -r:a 48k %s \"%s.mp3\"";
         std::snprintf(buffer, 0x1000, mp3_command, filename_base.c_str(), tag_options.c_str(), filename_base.c_str());
+        std::fprintf(stderr, "MP3 command:         %s\n", buffer);
         if (csound == nullptr) {
-            std::fprintf(stderr, "%s", buffer);
-            std::fprintf(stderr, "MP3 command:         %s\n", buffer);
+            //std::fprintf(stderr, "%s", buffer);
         } else {
-            csound->Message("%s", buffer);
+            //csound->Message("%s", buffer);
             csound->Message("MP3 command:         %s\n", buffer);
         }
         result = std::system(buffer);
         
         const char *cda_command = "ffmpeg -y -i %s-normalized.wav -acodec pcm_s16le -ar 44100 -ac 2 -f wav %s \"%s.cd.wav\"";
         std::snprintf(buffer, 0x1000, cda_command, filename_base.c_str(), tag_options.c_str(), filename_base.c_str());
+        std::fprintf(stderr, "CD audio command:    %s\n", buffer);
         if (csound == nullptr) {
-            std::fprintf(stderr, "%s", buffer);
-            std::fprintf(stderr, "CD audio command:    %s\n", buffer);
+            //std::fprintf(stderr, "%s", buffer);
         } else {
-            csound->Message("%s", buffer);
+            //csound->Message("%s", buffer);
             csound->Message("CD audio command:    %s\n", buffer);
         }
         result = std::system(buffer);
-          
+
+        const char *wav24_command = "ffmpeg -y -i %s-normalized.wav -acodec pcm_s24le -ar 48000 -ac 2 -f wav %s \"%s.24.wav\"";
+        std::snprintf(buffer, 0x1000, wav24_command, filename_base.c_str(), tag_options.c_str(), filename_base.c_str());
+        std::fprintf(stderr, "WAV 24 bit command:    %s\n", buffer);
+        if (csound == nullptr) {
+            //std::fprintf(stderr, "%s", buffer);
+        } else {
+            //csound->Message("%s", buffer);
+            csound->Message("WAV 24 bit command:    %s\n", buffer);
+        }
+        result = std::system(buffer);
+
         const char *flac_command = "ffmpeg -y -i %s-normalized.wav -af aformat=s32 %s \"%s.flac\"";
         std::snprintf(buffer, 0x1000, flac_command, filename_base.c_str(), tag_options.c_str(), filename_base.c_str());
+        std::fprintf(stderr, "FLAC command:        %s\n", buffer);
         if (csound == nullptr) {
-            std::fprintf(stderr, "%s", buffer);
-            std::fprintf(stderr, "FLAC command:        %s\n", buffer);
+            //std::fprintf(stderr, "%s", buffer);
         } else {
-            csound->Message("%s", buffer);
+            //csound->Message("%s", buffer);
             csound->Message("FLAC command:        %s\n", buffer);
         }
         result = std::system(buffer);
           
         const char *png_command = "ffmpeg -y -i %s.cd.wav -lavfi showspectrumpic=s=wxga:mode=separate %s.png";
         std::snprintf(buffer, 0x1000, png_command, filename_base.c_str(), filename_base.c_str());
+        std::fprintf(stderr, "Spectrogram command: %s\n", buffer);
         if (csound == nullptr) {
-            std::fprintf(stderr, "%s", buffer);
-            std::fprintf(stderr, "Spectrogram command: %s\n", buffer);
+            //std::fprintf(stderr, "%s", buffer);
         } else {
-            csound->Message("%s", buffer);
+            //csound->Message("%s", buffer);
             csound->Message("Spectrogram command: %s\n", buffer);
         }
         result = std::system(buffer);
   
         const char *mp4_command = "ffmpeg -y -loop 1 -framerate 2 -i %s.png -i %s-normalized.wav -c:v libx264 -preset medium -tune stillimage -crf 18 -codec:a aac -strict -2 -b:a 384k -r:a 48000 -shortest -pix_fmt yuv420p -vf \"scale=trunc(iw/2)*2:trunc(ih/2)*2\" %s %s-unlabeled.mp4";
         std::snprintf(buffer, 0x1000, mp4_command, filename_base.c_str(), filename_base.c_str(), tag_options.c_str(), filename_base.c_str());
+        std::fprintf(stderr, "MP4 command:         %s\n", buffer);
         if (csound == nullptr) {
-            std::fprintf(stderr, "%s", buffer);
-            std::fprintf(stderr, "MP4 command:         %s\n", buffer);
+            //std::fprintf(stderr, "%s", buffer);
         } else {
-            csound->Message("%s", buffer);
+            //csound->Message("%s", buffer);
             csound->Message("MP4 command:         %s\n", buffer);
         }
         result = std::system(buffer);
@@ -139,11 +150,11 @@ namespace csound {
         std::string license = tags["license"];
         const char *label_command = "ffmpeg -y -i %s-unlabeled.mp4 -max_muxing_queue_size 9999 -vf drawtext=fontfile=OpenSans-Regular.ttf:text='%s\n%s\n%s\n%s %s':fontcolor=white:fontsize=36:alpha=.5:x=w/2-tw/2:y=h/6 -codec:a copy %s.mp4";
         std::snprintf(buffer, 0x1000, label_command, filename_base.c_str(), artist.c_str(), title.c_str(), publisher.c_str(), copyright.c_str(), license.c_str(), filename_base.c_str());
+        std::fprintf(stderr, "Label command: %s\n", buffer);
         if (csound == nullptr) {
-            std::fprintf(stderr, "%s", buffer);
-            std::fprintf(stderr, "Label command: %s\n", buffer);
+            //std::fprintf(stderr, "%s", buffer);
         } else {
-            csound->Message("%s", buffer);
+            //csound->Message("%s", buffer);
             csound->Message("Label command: %s\n", buffer);
         }
         result = std::system(buffer);
