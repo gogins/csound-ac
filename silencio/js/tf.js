@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2023 Google LLC. All Rights Reserved.
+ * Copyright 2024 Google LLC. All Rights Reserved.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -49717,7 +49717,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$7 = '4.15.0';
+	var version$7 = '4.17.0';
 
 	var OptimizerConstructors = /*#__PURE__*/function () {
 	  function OptimizerConstructors() {
@@ -64505,7 +64505,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$6 = '4.15.0';
+	var version$6 = '4.17.0';
 
 	// get weights key from tensor map in order to check if it is from keras v3.
 	// e.g. dense/0
@@ -86990,6 +86990,9 @@
 	      return 'float32';
 	    case DataType.DT_STRING:
 	      return 'string';
+	    case DataType.DT_COMPLEX64:
+	    case DataType.DT_COMPLEX128:
+	      return 'complex64';
 	    default:
 	      // Unknown dtype error will happen at runtime (instead of parse time),
 	      // since these nodes might not be used by the actual subgraph execution.
@@ -92491,7 +92494,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$5 = '4.15.0';
+	var version$5 = '4.17.0';
 
 	/**
 	 * @license
@@ -98001,7 +98004,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$4 = '4.15.0';
+	var version$4 = '4.17.0';
 
 	/**
 	 * @license
@@ -101736,7 +101739,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$3 = '4.15.0';
+	var version$3 = '4.17.0';
 
 	/**
 	 * @license
@@ -115500,7 +115503,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$2 = '4.15.0';
+	var version$2 = '4.17.0';
 
 	/**
 	 * @license
@@ -127100,7 +127103,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$1 = '4.15.0';
+	var version$1 = '4.17.0';
 
 	/**
 	 * @license
