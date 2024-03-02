@@ -823,7 +823,7 @@ this.copyCsoundAcScore(csoundac_score);
         this.scene.add(light);
         var light2 = new THREE.AmbientLight(0x404040, 0.5);
         this.scene.add(light2);
-        var onResize = function () {
+        let onResize = function () {
             canvas.width = canvas.clientWidth;
             canvas.height = canvas.clientHeight;
             this.renderer.setViewport(0, 0, canvas.clientWidth, canvas.clientHeight);
@@ -832,7 +832,7 @@ this.copyCsoundAcScore(csoundac_score);
             this.camera.updateProjectionMatrix();
             this.renderer.render(this.scene, this.camera);
         };
-        window.addEventListener('resize', onResize, false);
+        window.addEventListener('resize', onResize.bind(this), false);
     };
 
     /**
