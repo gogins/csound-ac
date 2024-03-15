@@ -45,14 +45,14 @@ Web browser's JavaScript context. To use Silencio in blue:
 if (typeof console === 'undefined') {
     var global = this;
     var window = this;
-    var process = { env: {} };
+    var process = {env: {}};
     var console = {};
     console.debug = print;
     console.warn = print;
     console.info = print;
 }
 
-(function () {
+(function() {
     /**
     A Score is a matrix in which the rows are Events.
 
@@ -81,7 +81,7 @@ if (typeof console === 'undefined') {
      * If the pathname is undefined, then use the location + ".json".
      * Returns the object for success, or null for failure.
      */
-    var restoreFromLocalFile = function (toObject, filepath) {
+    var restoreFromLocalFile = function(toObject, filepath) {
         try {
             if (typeof filepath === 'undefined') {
                 filepath = window.location.pathname.slice(1);
@@ -110,7 +110,7 @@ if (typeof console === 'undefined') {
      * in this case, obviously, the location must be indeed be a local
      * filepath. Returns true for success, and false for failure.
      */
-    var saveToLocalFile = function (fromObject, object, filepath) {
+    var saveToLocalFile = function(fromObject, object, filepath) {
         try {
             var json = null;
             if (fromObject) {
@@ -147,7 +147,7 @@ if (typeof console === 'undefined') {
      * NOTE: 'load' element for dat.gui constructor is a JSON _object_,
      * not a string.
      */
-    var restoreDatGuiJson = function (default_parameters_json) {
+    var restoreDatGuiJson = function(default_parameters_json) {
         var parameters_filesystem_json = Silencio.restoreFromLocalFile(false);
         if (parameters_filesystem_json !== null && parameters_filesystem_json !== 'null') {
             console.info('Restored dat.gui parameters from local filesystem: ' + parameters_filesystem_json);
@@ -162,7 +162,7 @@ if (typeof console === 'undefined') {
      * Save the parameters object for dat.gui as JSON to the local file system.
      * Returns true for success, and false for failure.
      */
-    var saveDatGuiJson = function (gui) {
+    var saveDatGuiJson = function(gui) {
         try {
             var json = gui.getSaveObject();
             console.info('typeof json:' + (typeof json));
@@ -184,11 +184,11 @@ if (typeof console === 'undefined') {
      * declarations associated with an instrument definition:
      * g<x>_<instrname>_<variablename> init <default_value> ;|Instrument Name|Control Name|Minimum Valuie|Maximum Value|Increment|
      */
-    var createNwSlider = function (line, window, nwfolder) {
+    var createNwSlider = function(line, window, nwfolder) {
 
     };
 
-    var createNwUi = function (orc, csound, window) {
+    var createNwUi = function(orc, csound, window) {
         var channels = [];
     };
 
@@ -252,26 +252,26 @@ if (typeof console === 'undefined') {
         this.data = [0, 0, 144, 0, 0, 0, 0, 0, 0, 0, 1];
         this.chord = null;
         Object.defineProperty(this, "time", {
-            get: function () {
+            get: function() {
                 return this.data[0];
             },
-            set: function (value) {
+            set: function(value) {
                 this.data[0] = value;
             }
         });
         Object.defineProperty(this, "duration", {
-            get: function () {
+            get: function() {
                 return this.data[1];
             },
-            set: function (value) {
+            set: function(value) {
                 this.data[1] = value;
             }
         });
         Object.defineProperty(this, "end", {
-            get: function () {
+            get: function() {
                 return this.data[0] + this.data[1];
             },
-            set: function (end_) {
+            set: function(end_) {
                 var duration_ = end_ - this.data[0];
                 if (duration_ > 0) {
                     this.data[1] = duration_;
@@ -282,75 +282,75 @@ if (typeof console === 'undefined') {
             }
         });
         Object.defineProperty(this, "status", {
-            get: function () {
+            get: function() {
                 return this.data[2];
             },
-            set: function (value) {
+            set: function(value) {
                 this.data[2] = value;
             }
         });
         Object.defineProperty(this, "channel", {
-            get: function () {
+            get: function() {
                 return this.data[3];
             },
-            set: function (value) {
+            set: function(value) {
                 this.data[3] = value;
             }
         });
         Object.defineProperty(this, "key", {
-            get: function () {
+            get: function() {
                 return this.data[4];
             },
-            set: function (value) {
+            set: function(value) {
                 this.data[4] = value;
             }
         });
         Object.defineProperty(this, "velocity", {
-            get: function () {
+            get: function() {
                 return this.data[5];
             },
-            set: function (value) {
+            set: function(value) {
                 this.data[5] = value;
             }
         });
         Object.defineProperty(this, "depth", {
-            get: function () {
+            get: function() {
                 return this.data[6];
             },
-            set: function (value) {
+            set: function(value) {
                 this.data[6] = value;
             }
         });
         // Ambisonic left to right is the Y dimension!
         Object.defineProperty(this, "pan", {
-            get: function () {
+            get: function() {
                 return this.data[7];
             },
-            set: function (value) {
+            set: function(value) {
                 this.data[7] = value;
             }
         });
         Object.defineProperty(this, "heigth", {
-            get: function () {
+            get: function() {
                 return this.data[8];
             },
-            set: function (value) {
+            set: function(value) {
                 this.data[8] = value;
             }
         });
         Object.defineProperty(this, "phase", {
-            get: function () {
+            get: function() {
                 return this.data[9];
             },
-            set: function (value) {
+            set: function(value) {
                 this.data[9] = value;
             }
         });
         Object.defineProperty(this, "homogeneity", {
-            get: function () {
+            get: function() {
                 return this.data[10];
             },
-            set: function (value) {
+            set: function(value) {
                 this.data[10] = value;
             }
         });
@@ -371,7 +371,7 @@ if (typeof console === 'undefined') {
     Event.HOMOGENEITY = 10;
     Event.COUNT = 11;
 
-    Event.prototype.toString = function () {
+    Event.prototype.toString = function() {
         var text = '';
         for (var i = 0; i < this.data.length; i++) {
             text = text.concat(' ', this.data[i].toFixed(6));
@@ -395,7 +395,7 @@ if (typeof console === 'undefined') {
      * p8 Height (spatial bottom to top)
      * p9 Phase (radians)
      */
-    Event.prototype.toIStatement = function () {
+    Event.prototype.toIStatement = function() {
         var text = 'i';
         let insno = this.data[3];// + this.id;
         text = text.concat(' ', insno.toFixed(6)); // p1
@@ -415,7 +415,7 @@ if (typeof console === 'undefined') {
      * For turning an event off; the default is with immediate effect,
      * otherwise at the scheduled time.
      */
-    Event.prototype.toDStatement = function (scheduled) {
+    Event.prototype.toDStatement = function(scheduled) {
         var text = 'd';
         text = text.concat(' ', this.data[3].toFixed(6)); // p1
         if (typeof scheduled === 'undefined') {
@@ -435,11 +435,11 @@ if (typeof console === 'undefined') {
         return text;
     }
 
-    Event.prototype.toFomus = function () {
+    Event.prototype.toFomus = function() {
         return 'note part ' + Math.floor(this.channel) + ' time ' + this.time * 2 + ' duration ' + this.duration * 2 + ' pitch ' + this.key + ' dynamic ' + this.velocity + ';';
     };
 
-    Event.prototype.temper = function (tonesPerOctave) {
+    Event.prototype.temper = function(tonesPerOctave) {
         if (typeof tonesPerOctave === 'undefined') {
             tonesPerOctave = 12;
         }
@@ -449,7 +449,7 @@ if (typeof console === 'undefined') {
         this.key = octave * 12;
     };
 
-    Event.prototype.clone = function (clone_chord) {
+    Event.prototype.clone = function(clone_chord) {
         if (typeof clone_chord === 'undefined') {
             clone_chord = false;
         }
@@ -464,11 +464,7 @@ if (typeof console === 'undefined') {
         return other;
     };
 
-/**
-     * Creates an empty new Score. Optionally, the Events in this new Score 
-     * can be copied in from the CsoundAC Score.
-     */
-    function Score(csoundac_score) {
+    function Score() {
         this.data = [];
         this.minima = new Event();
         this.maxima = new Event();
@@ -482,25 +478,9 @@ if (typeof console === 'undefined') {
         this.title = '';
         this.composer = '';
         this.names_for_instrument_numbers = {};
-        if (typeof csoundac_score !== 'undefined') {
-this.copyCsoundAcScore(csoundac_score);
-        }
     }
 
-    /**
-     * Copies the CsoundAC Score to this. Events that already exist in this 
-     * are not affected.
-     */
-    Score.prototype.copyCsoundAcScore = function(csoundac_score) {
-            for (let i = 0; i < csoundac_score.size(); ++i) {
-                let event = csoundac_score.get(i);
-                this.add(event.getTime(), event.getDuration(), event.getStatus(), event.getInstrument(), event.getKey(), event.getVelocity());
-            }
-            this.findScale();
-            this.sort();
-        }
-    
-    Score.prototype.add = function (p0_time, p1_duration, p2_status, p3_channel, p4_key, p5_velocity, p6_x, p7_y, p8_z, p9_phase, p10_homogeneity) {
+    Score.prototype.add = function(p0_time, p1_duration, p2_status, p3_channel, p4_key, p5_velocity, p6_x, p7_y, p8_z, p9_phase, p10_homogeneity) {
         var event = new Event();
         for (var i = 0; i < event.data.length; i++) {
             if (typeof arguments[i] !== 'undefined') {
@@ -510,23 +490,23 @@ this.copyCsoundAcScore(csoundac_score);
         this.data.push(event);
     };
 
-    Score.prototype.append = function (event) {
+    Score.prototype.append = function(event) {
         this.data.push(event);
     };
 
-    Score.prototype.append_score = function (score) {
+    Score.prototype.append_score = function(score) {
         for (var i = 0; i < score.data.length; i++) {
             this.data.push(score.data[i]);
         }
     };
 
-    Score.prototype.clear = function () {
+    Score.prototype.clear = function() {
         while (this.data.length > 0) {
             this.data.pop();
         }
     };
 
-    Score.prototype.getDuration = function () {
+    Score.prototype.getDuration = function() {
         this.sort();
         this.findScale(0);
         var duration = 0;
@@ -544,7 +524,7 @@ this.copyCsoundAcScore(csoundac_score);
         return duration;
     };
 
-    Score.prototype.log = function (what) {
+    Score.prototype.log = function(what) {
         if (typeof what === 'undefined') {
             what = '';
         } else {
@@ -556,7 +536,7 @@ this.copyCsoundAcScore(csoundac_score);
         }
     };
 
-    Score.prototype.getEnd = function () {
+    Score.prototype.getEnd = function() {
         var end = null;
         for (var i = 0; i < this.data.length; i++) {
             var event = this.data[i];
@@ -571,7 +551,7 @@ this.copyCsoundAcScore(csoundac_score);
         return end;
     };
 
-    Score.prototype.setDuration = function (duration) {
+    Score.prototype.setDuration = function(duration) {
         this.sort();
         var start = this.data[0].time;
         var i;
@@ -595,7 +575,7 @@ this.copyCsoundAcScore(csoundac_score);
         }
     };
 
-    Score.prototype.quantize = function (dimension, quantum) {
+    Score.prototype.quantize = function(dimension, quantum) {
         for (var i = 0; i < this.data.length; i++) {
             var event = this.data[i];
             var value = Math.floor(event.data[dimension] / quantum);
@@ -603,12 +583,12 @@ this.copyCsoundAcScore(csoundac_score);
         }
     };
 
-    Score.prototype.quantizeTime = function (quantum) {
+    Score.prototype.quantizeTime = function(quantum) {
         this.quantize(0, quantum);
         this.quantize(1, quantum);
     };
 
-    Score.prototype.sendToCsound = function (csound, extra) {
+    Score.prototype.sendToCsound = function(csound, extra) {
         this.sort();
         if (typeof extra === 'undefined') {
             jscore = '';
@@ -623,7 +603,7 @@ this.copyCsoundAcScore(csoundac_score);
         csound.ReadScore(jscore);
     };
 
-    Score.prototype.turnoffInCsound = function (csound, extra) {
+    Score.prototype.turnoffInCsound = function(csound, extra) {
         this.sort();
         if (typeof extra === 'undefined') {
             jscore = '';
@@ -639,13 +619,13 @@ this.copyCsoundAcScore(csoundac_score);
         csound.ReadScore(jscore);
     };
 
-    Score.prototype.findScales = function () {
+    Score.prototype.findScales = function() {
         for (var i = 0; i < this.minima.data.length; i++) {
             this.findScale(i);
         }
     };
 
-    Score.prototype.findScale = function (dimension) {
+    Score.prototype.findScale = function(dimension) {
         var min = Number.NaN;
         var max = Number.NaN;
         for (var i = 0; i < this.data.length; i++) {
@@ -667,7 +647,7 @@ this.copyCsoundAcScore(csoundac_score);
         this.ranges.data[dimension] = max - min;
     };
 
-    Score.prototype.setScale = function (dimension, minimum, range) {
+    Score.prototype.setScale = function(dimension, minimum, range) {
         this.findScale(dimension);
         var toOrigin = this.minima.data[dimension];
         var currentRange = this.ranges.data[dimension];
@@ -688,17 +668,17 @@ this.copyCsoundAcScore(csoundac_score);
         }
     };
 
-    Score.prototype.temper = function (tonesPerOctave) {
+    Score.prototype.temper = function(tonesPerOctave) {
         for (var i = 0; i < this.data.length; i++) {
             this.data[i].temper(tonesPerOctave);
         }
     };
 
-    Score.prototype.sort = function () {
+    Score.prototype.sort = function() {
         this.data.sort(eventComparator);
     };
 
-    Score.prototype.tieOverlaps = function (tieExact) {
+    Score.prototype.tieOverlaps = function(tieExact) {
         console.info("Before tieing: " + this.data.length + "\n");
         if (typeof tieExact === 'undefined') {
             tieExact = false;
@@ -764,7 +744,7 @@ this.copyCsoundAcScore(csoundac_score);
         console.info("After tieing: " + this.data.length + "\n");
     };
 
-    Score.prototype.progress = function (score_time) {
+    Score.prototype.progress = function(score_time) {
         if (context !== null) {
             context.fillStyle = "LawnGreen";
             context.fillRect(0, 60, score_time, 0.01);
@@ -774,7 +754,7 @@ this.copyCsoundAcScore(csoundac_score);
     /**
      * Displays the score cursor at the current time.
      */
-    Score.prototype.progress3D = function (score_time) {
+    Score.prototype.progress3D = function(score_time) {
         if (this.scene !== null) {
             this.score_cursor.position.x = score_time;
             this.score_cursor.position.y = 60;
@@ -789,7 +769,7 @@ this.copyCsoundAcScore(csoundac_score);
      * Sets up a scene, camera, and renderer with controls to view
      * either a fixed or a real-time score.
      */
-    Score.prototype.prepareScene3D = function (canvas) {
+    Score.prototype.prepareScene3D = function(canvas) {
         this.canvas = canvas;
         canvas.width = canvas.clientWidth;
         canvas.height = canvas.clientHeight;
@@ -810,9 +790,9 @@ this.copyCsoundAcScore(csoundac_score);
         var camera = this.camera;
         this.controls = new THREE.TrackballControls(camera, canvas);
         var controls = this.controls;
-        controls.rotateSpeed = 1.0;
-        controls.zoomSpeed = 1;
-        controls.panSpeed = 1;
+        controls.rotateSpeed = 8.0;
+        controls.zoomSpeed = 8.0;
+        controls.panSpeed = 8.0;
         controls.noZoom = false;
         controls.noPan = false;
         controls.staticMoving = true;
@@ -823,22 +803,21 @@ this.copyCsoundAcScore(csoundac_score);
         this.scene.add(light);
         var light2 = new THREE.AmbientLight(0x404040, 0.5);
         this.scene.add(light2);
-        let onResize = function () {
-            canvas.width = canvas.clientWidth;
-            canvas.height = canvas.clientHeight;
-            this.renderer.setViewport(0, 0, canvas.clientWidth, canvas.clientHeight);
-            this.camera.aspect = canvas.clientWidth / canvas.clientHeight;
-            this.controls.handleResize();
-            this.camera.updateProjectionMatrix();
-            this.renderer.render(this.scene, this.camera);
-        };
-        window.addEventListener('resize', onResize.bind(this), false);
+        window.addEventListener('resize', ((event) => this.onResize(event)), false);
     };
-
+    Score.prototype.onResize = function(event) {
+        this.canvas.width = this.canvas.clientWidth;
+        this.canvas.height = this.canvas.clientHeight;
+        this.renderer.setViewport(0, 0, this.canvas.clientWidth, this.canvas.clientHeight);
+        this.camera.aspect = this.canvas.clientWidth / this.canvas.clientHeight;
+        this.controls.handleResize();
+        this.camera.updateProjectionMatrix();
+        this.renderer.render(this.scene, this.camera);
+    };
     /**
      * Adds the note to the 3D scene. Can be used with a fixed or a real-time score.
      */
-    Score.prototype.plotNote3D = function (note, channel_minimum, channel_range, velocity_minimum, velocity_range) {
+    Score.prototype.plotNote3D = function(note, channel_minimum, channel_range, velocity_minimum, velocity_range) {
         var begin = note.time;
         var end = note.end;
         var duration = end - begin;
@@ -872,10 +851,9 @@ this.copyCsoundAcScore(csoundac_score);
     /**
      * Plots a grid for a fixed score.
      */
-    Score.prototype.plotGrid3D = function () {
-        // Generate the grid. Its origin for time is 0, and for pitch its 
-        // origin is the first C lower than or equal to the lowest pitch in 
-        // the score.
+    Score.prototype.plotGrid3D = function() {
+        // Generate the grid. Its origin for time is 0 and for pitch its origin is the
+        // first C lower than or equal to the lowest pitch in the score.
         var time_minimum = this.minima.time;
         var time_maximum = this.getDuration();
         var key_minimum = this.minima.key;
@@ -927,7 +905,7 @@ this.copyCsoundAcScore(csoundac_score);
     /**
      * Looks at a full fixed score.
      */
-    Score.prototype.lookAtFullScore3D = function () {
+    Score.prototype.lookAtFullScore3D = function() {
         var bounding_box = new THREE.Box3().setFromObject(this.scene);
         this.camera.lookAt(bounding_box.getCenter());
         this.camera.fov = 2 * Math.atan((bounding_box.getSize().x / (this.canvas.width / this.canvas.height)) / (2 * bounding_box.getSize().y)) * (180 / Math.PI);
@@ -942,7 +920,7 @@ this.copyCsoundAcScore(csoundac_score);
     /**
      * Looks at the front (current notes) of a real-time score.
      */
-    Score.prototype.lookAtFront3D = function () {
+    Score.prototype.lookAtFront3D = function() {
         var bounding_box = new THREE.Box3().setFromObject(this.scene);
         this.camera.lookAt(bounding_box.getCenter());
         this.camera.fov = 2 * Math.atan((bounding_box.getSize().y / (this.canvas.width / this.canvas.height)) / (2 * bounding_box.getSize().z)) * (180 / Math.PI);
@@ -957,35 +935,31 @@ this.copyCsoundAcScore(csoundac_score);
     /**
      * Redraws the scene using the camera updated from the controls.
      */
-    Score.prototype.render3D = function () {
+    Score.prototype.render3D = function() {
         this.controls.update();
         this.camera.updateProjectionMatrix();
         this.renderer.render(this.scene, this.camera);
     };
 
     /**
-     * Draws the notes in a fixed score as a 3-dimensional piano roll. The 
-     * score is fitted into the viewport to start with, but the user can use 
-     * the mouse or trackball to move around the score and to zoom in and out. 
-     * The dimensions are: time = x, MIDI key = y, MIDI channel = z and hue, 
-     * and loudness = value; a grid shows tens of seconds, and octaves.
-     * 
-     * If csoundac_score is defined, that rather than this is used to draw the 
-     * piano roll.
+     * Draws the notes in a fixed score as a 3-dimensional piano roll. The score is
+     * fitted into the viewport to start with, but the user can use the mouse or
+     * trackball to move around the score and to zoom in and out. The dimensions
+     * are: time = x, MIDI key = y, MIDI channel = z and hue, and loudness =
+     * value; a grid shows tens of seconds and octaves.
      */
-    Score.prototype.draw3D = function (canvas, csoundac_score) {
+    Score.prototype.draw3D = function(canvas) {
         this.prepareScene3D(canvas);
         // Plot the notes.
         for (var i = 0; i < this.data.length; i++) {
-            this.plotNote3D(this.data[i], this.minima.channel, this.ranges.channel,
-                this.minima.velocity, this.ranges.velocity);
+            this.plotNote3D(this.data[i], this.minima.channel, this.ranges.channel, this.minima.velocity, this.ranges.velocity);
         }
         this.plotGrid3D();
         this.lookAtFullScore3D();
         return canvas;
     };
 
-    Score.prototype.toString = function () {
+    Score.prototype.toString = function() {
         var result = '';
         for (var i = 0; i < this.data.length; i++) {
             var event = this.data[i];
@@ -994,7 +968,7 @@ this.copyCsoundAcScore(csoundac_score);
         return result;
     };
 
-    Score.prototype.toCsoundScore = function (extra) {
+    Score.prototype.toCsoundScore = function(extra) {
         var result = '';
         for (var i = 0; i < this.data.length; i++) {
             var event = this.data[i];
@@ -1006,11 +980,11 @@ this.copyCsoundAcScore(csoundac_score);
         return result;
     };
 
-    Score.prototype.size = function () {
+    Score.prototype.size = function() {
         return this.data.length;
     };
 
-    Score.prototype.get = function (index) {
+    Score.prototype.get = function(index) {
         return this.data[index];
     };
 
@@ -1019,7 +993,7 @@ this.copyCsoundAcScore(csoundac_score);
     // and up to but not including the end time.
     // The events in the slice are values unless
     // by_reference is true.
-    Score.prototype.slice = function (begin, end_, by_reference) {
+    Score.prototype.slice = function(begin, end_, by_reference) {
         if (typeof by_reference === 'undefined') {
             by_reference = false;
         }
@@ -1045,7 +1019,7 @@ this.copyCsoundAcScore(csoundac_score);
      * FOMUS commands in "fomus_overrides" take precedence. The FOMUS file directs
      * FOMUS to produce output files for LilyPond, MusicXML, and MIDI.
      */
-    Score.prototype.engrave = function (fomus_overrides) {
+    Score.prototype.engrave = function(fomus_overrides) {
         try {
             var filepath = window.location.pathname.slice(1);
             filepath = fs.realpathSync(filepath);
@@ -1120,7 +1094,7 @@ this.copyCsoundAcScore(csoundac_score);
         this.reset();
         return this;
     }
-    Turtle.prototype.reset = function () {
+    Turtle.prototype.reset = function() {
         this.angle = Math.PI / 2;
         this.p = {
             'x': 0,
@@ -1131,13 +1105,13 @@ this.copyCsoundAcScore(csoundac_score);
         this.tempo = 1;
         this.event = new Silencio.Event();
     };
-    Turtle.prototype.next = function () {
+    Turtle.prototype.next = function() {
         return {
             'x': this.p.x + this.len * this.tempo * Math.cos(this.angle),
             'y': this.p.y - this.len * Math.sin(this.angle)
         };
     };
-    Turtle.prototype.go = function (context) {
+    Turtle.prototype.go = function(context) {
         var nextP = this.next();
         if (context !== null) {
             context.strokeStyle = tinycolor(this.instrument).toString();
@@ -1148,34 +1122,34 @@ this.copyCsoundAcScore(csoundac_score);
         }
         this.p = nextP;
     };
-    Turtle.prototype.move = function () {
+    Turtle.prototype.move = function() {
         this.p = this.next();
     };
-    Turtle.prototype.turnLeft = function () {
+    Turtle.prototype.turnLeft = function() {
         this.angle += this.theta;
     };
-    Turtle.prototype.turnRight = function () {
+    Turtle.prototype.turnRight = function() {
         this.angle -= this.theta;
     };
-    Turtle.prototype.upInstrument = function () {
+    Turtle.prototype.upInstrument = function() {
         this.instrument = tinycolor(this.instrument).spin(10);
     };
-    Turtle.prototype.downInstrument = function () {
+    Turtle.prototype.downInstrument = function() {
         this.instrument = tinycolor(this.instrument).spin(-10);
     };
-    Turtle.prototype.upVelocity = function () {
+    Turtle.prototype.upVelocity = function() {
         this.instrument = tinycolor(this.instrument).darken(-1);
     };
-    Turtle.prototype.downVelocity = function () {
+    Turtle.prototype.downVelocity = function() {
         this.instrument = tinycolor(this.instrument).darken(1);
     };
-    Turtle.prototype.upTempo = function () {
+    Turtle.prototype.upTempo = function() {
         this.tempo = this.tempo / 1.25;
     };
-    Turtle.prototype.downTempo = function () {
+    Turtle.prototype.downTempo = function() {
         this.tempo = this.tempo * 1.25;
     };
-    Turtle.prototype.push = function () {
+    Turtle.prototype.push = function() {
         this.stack.push({
             'p': this.p,
             'angle': this.angle,
@@ -1184,7 +1158,7 @@ this.copyCsoundAcScore(csoundac_score);
             'event': this.event.clone()
         });
     };
-    Turtle.prototype.pop = function () {
+    Turtle.prototype.pop = function() {
         var s = this.stack.pop();
         this.p = s.p;
         this.angle = s.angle;
@@ -1200,10 +1174,10 @@ this.copyCsoundAcScore(csoundac_score);
         this.score = new Silencio.Score();
         return this;
     }
-    LSys.prototype.addRule = function (c, replacement) {
+    LSys.prototype.addRule = function(c, replacement) {
         this.rules[c] = replacement;
     };
-    LSys.prototype.generate = function (n) {
+    LSys.prototype.generate = function(n) {
         this.sentence = this.axiom;
         for (var g = 0; g < n; g++) {
             var next = [];
@@ -1219,14 +1193,14 @@ this.copyCsoundAcScore(csoundac_score);
             this.sentence = next.join("");
         }
     };
-    LSys.prototype.write_score = function (t) {
+    LSys.prototype.write_score = function(t) {
         t.reset();
         for (i = 0; this.sentence.length > i; i++) {
             c = this.sentence[i];
             this.interpret(c, t, null);
         }
     }
-    LSys.prototype.draw = function (t, context, W, H) {
+    LSys.prototype.draw = function(t, context, W, H) {
         context.fillStyle = 'black';
         context.fillRect(0, 0, W, H);
         // Draw for size.
@@ -1253,7 +1227,7 @@ this.copyCsoundAcScore(csoundac_score);
             this.interpret(c, t, context);
         }
     };
-    LSys.prototype.findSize = function (t, size) {
+    LSys.prototype.findSize = function(t, size) {
         if (t.p.x < size[0]) {
             size[0] = t.p.x;
         }
@@ -1267,7 +1241,7 @@ this.copyCsoundAcScore(csoundac_score);
             size[3] = t.p.y;
         }
     };
-    Turtle.prototype.startNote = function () {
+    Turtle.prototype.startNote = function() {
         var hsv = tinycolor(this.instrument).toHsv();
         this.event = new Silencio.Event();
         this.event.channel = hsv.h;
@@ -1276,14 +1250,14 @@ this.copyCsoundAcScore(csoundac_score);
         this.event.velocity = hsv.v;
         this.event.pan = Math.random();
     };
-    Turtle.prototype.endNote = function (score) {
+    Turtle.prototype.endNote = function(score) {
         this.event.end = this.p.x;
         if (this.event.duration > 0) {
             var event = this.event.clone();
             score.data.push(event);
         }
     };
-    LSys.prototype.interpret = function (c, t, context, size) {
+    LSys.prototype.interpret = function(c, t, context, size) {
         //console.info('c:' + c + '\n');
         if (c === 'F') {
             if (typeof size === 'undefined') {
@@ -1411,48 +1385,48 @@ this.copyCsoundAcScore(csoundac_score);
          */
     }
 
-    ValueMap.prototype.get_size = function () {
+    ValueMap.prototype.get_size = function() {
         return this.map.size;
     };
 
-    ValueMap.prototype.set_size = function (count) {
+    ValueMap.prototype.set_size = function(count) {
         this.map.size = count;
     };
 
-    ValueMap.prototype.clear = function () {
+    ValueMap.prototype.clear = function() {
         this.map.clear();
     };
 
-    ValueMap.prototype.delete = function (key) {
+    ValueMap.prototype.delete = function(key) {
         return this.map.delete(this.make_key(key));
     };
 
-    ValueMap.prototype.entries = function () {
+    ValueMap.prototype.entries = function() {
         return this.map.entries();
     };
 
-    ValueMap.prototype.forEach = function (callback, thisarg) {
+    ValueMap.prototype.forEach = function(callback, thisarg) {
         this.map.forEach(callback, thisarg);
     };
 
-    ValueMap.prototype.get = function (key) {
+    ValueMap.prototype.get = function(key) {
         return this.map.get(this.make_key(key));
     };
 
-    ValueMap.prototype.has = function (key) {
+    ValueMap.prototype.has = function(key) {
         return this.map.has(this.make_key(key));
     };
 
-    ValueMap.prototype.keys = function () {
+    ValueMap.prototype.keys = function() {
         return this.map.keys();
     };
 
-    ValueMap.prototype.set = function (key, value) {
+    ValueMap.prototype.set = function(key, value) {
         this.map.set(this.make_key(key), value);
         return this;
     };
 
-    ValueMap.prototype.values = function () {
+    ValueMap.prototype.values = function() {
         return this.map.values();
     };
 
@@ -1471,41 +1445,41 @@ this.copyCsoundAcScore(csoundac_score);
          */
     }
 
-    ValueSet.prototype.get_size = function () {
+    ValueSet.prototype.get_size = function() {
         return this.map.size;
     };
 
-    ValueSet.prototype.set_size = function (count) {
+    ValueSet.prototype.set_size = function(count) {
         this.map.size = count;
     };
 
-    ValueSet.prototype.add = function (value_) {
+    ValueSet.prototype.add = function(value_) {
         let key_ = this.make_key(value_);
         this.map.set(key_, value_);
         return this;
     };
 
-    ValueSet.prototype.clear = function () {
+    ValueSet.prototype.clear = function() {
         this.map.clear();
     };
 
-    ValueSet.prototype.delete = function (value) {
+    ValueSet.prototype.delete = function(value) {
         return this.map.delete(this.make_key(value));
     };
 
-    ValueSet.prototype.entries = function () {
+    ValueSet.prototype.entries = function() {
         return this.map.entries();
     };
 
-    ValueSet.prototype.forEach = function (callback, thisarg) {
+    ValueSet.prototype.forEach = function(callback, thisarg) {
         this.map.forEach(callback, thisarg);
     };
 
-    ValueSet.prototype.has = function (value) {
+    ValueSet.prototype.has = function(value) {
         return this.map.has(this.make_key(value));
     };
 
-    ValueSet.prototype.values = function () {
+    ValueSet.prototype.values = function() {
         return this.map.values();
     };
 
@@ -1540,7 +1514,7 @@ this.copyCsoundAcScore(csoundac_score);
     }
     // AMD/requirejs: Define the module
     else if (typeof define === 'function' && define.amd) {
-        define(function () {
+        define(function() {
             return Silencio;
         });
     }
