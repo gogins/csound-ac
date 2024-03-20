@@ -32,11 +32,22 @@
 csound_injected = null;
 csound_node = null;
 csound_audio_node = null;
-csound_jsc = null;
 csound_is_loaded = false;
 
 var get_operating_system = function() {
     let operating_system = "unknown";
+    let platform = navigator.platform;
+    if (platform.startsWith('Mac')) {
+        return 'Macintosh';
+    }
+    if (platform.startsWith('Win')) {
+        return 'Windows';
+
+    }
+    if (platform.startsWith('Linux')) {
+        return 'Linux';
+    }
+
     let userAgent = navigator.userAgent || navigator.vendor || window.opera;
     console.log("userAgent: " + userAgent + "\n");
     // Windows Phone must come first because its UA also contains "Android"
@@ -53,6 +64,11 @@ var get_operating_system = function() {
     // iOS detection from: http://stackoverflow.com/a/9039885/177710
     if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
         operating_system = "iOS";
+        console.log("operating_system: " + operating_system + "\n");
+        return operating_system;
+    }
+    if (/Macintosh/.test(userAgent)) {
+        operating_system = "Macintosh";
         console.log("operating_system: " + operating_system + "\n");
         return operating_system;
     }
@@ -74,22 +90,13 @@ var load_csound = async function(csound_message_callback_) {
         return;
     }
     if (typeof csound !== 'undefined') {
-        csound_injected = csound;
-        csound_is_loaded = true;
-        console.log = csound_message_callback;
-        csound_message_callback_("Csound is already defined in this JavaScript context.\n");
-        return;
-    }
-    csound = null;
-    try {
-        csound_message_callback_("Trying to load CsoundThread...\n");
-        csound_jsc = new Csound();
-        csound_jsc.SetMessageCallback(csound_message_callback_);
-        csound_is_loaded = true;
-        csound_message_callback_("CsoundThread for JavaScriptCore is available in this JavaScript context.\n");
-        return;
-    } catch (e) {
-        csound_message_callback_(e + '\n');
+        if (csound != null) {
+            csound_injected = csound;
+            csound_is_loaded = true;
+            console.log = csound_message_callback;
+            csound_message_callback_("Csound is already defined in this JavaScript context.\n");
+            return;
+        }
     }
     try {
         csound_message_callback_("Trying to load csound.node...\n");
@@ -118,7 +125,6 @@ var load_csound = async function(csound_message_callback_) {
         }, function(error) {
            csound_message_callback_(error + '\n');
         });
-        return;
     } catch (e) {
         csound_message_callback_(e + '\n');
     }
@@ -137,10 +143,6 @@ var get_csound = async function(csound_message_callback_) {
     if (csound_injected != null) {
         csound = csound_injected;
         return csound_injected;
-    } else if (csound_jsc != null) {
-        csound = csound_jsc;
-        //await csound.SetMessageCallback(csound_message_callback_);
-        return csound_jsc;
     } else if (csound_node != null) {
         csound = csound_node;
         csound.SetMessageCallback(csound_message_callback_);
@@ -149,7 +151,7 @@ var get_csound = async function(csound_message_callback_) {
         csound = csound_audio_node;
         csound.SetMessageCallback(csound_message_callback_);
         return csound_audio_node;
-    } else {
+     } else {
         csound_message_callback_("Csound is still loading, wait a bit...\n");
     }
 }       
