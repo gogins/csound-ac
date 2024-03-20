@@ -36,6 +36,18 @@ csound_is_loaded = false;
 
 var get_operating_system = function() {
     let operating_system = "unknown";
+    let platform = navigator.platform;
+    if (platform.startsWith('Mac')) {
+        return 'Macintosh';
+    }
+    if (platform.startsWith('Win')) {
+        return 'Windows';
+
+    }
+    if (platform.startsWith('Linux')) {
+        return 'Linux';
+    }
+
     let userAgent = navigator.userAgent || navigator.vendor || window.opera;
     console.log("userAgent: " + userAgent + "\n");
     // Windows Phone must come first because its UA also contains "Android"
