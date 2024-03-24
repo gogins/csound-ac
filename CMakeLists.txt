@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(csound-ac)
 
+find_package(Doxygen REQUIRED)
+
 message("CMAKE BUILD SYSTEM FOR CSOUND-AC")
 message("For a fresh build, run 'bash fresh-build-linux.sh'")
 include("Custom.cmake" OPTIONAL RESULT_VARIABLE CSOUND_AC_CUSTOM_CONFIGURATION)
@@ -139,13 +141,18 @@ function(check_deps option)
     endif()
 endfunction(check_deps)
 
-add_custom_target(doxygen_reference
-    ALL
-    COMMAND doxygen
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/doc")
 
 add_subdirectory(dependencies/libmusicxml/build)
 add_subdirectory(CsoundAC)
+
+add_custom_target(doxygen_reference
+    ALL
+    COMMAND doxygen
+    COMMAND mkdir -p latex
+    COMMAND cd latex
+    COMMAND pdflatex refman.tex 
+    COMMAND mv -f refman.pdf csound-ac.pdf
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/doc")
 
 # These are the real targets: the packages.
 
