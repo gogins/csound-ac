@@ -147,11 +147,7 @@ add_subdirectory(CsoundAC)
 
 add_custom_target(doxygen_reference
     ALL
-    COMMAND doxygen
-    COMMAND mkdir -p latex
-    COMMAND cd latex
-    COMMAND pdflatex refman.tex 
-    COMMAND mv -f refman.pdf csound-ac.pdf
+    COMMAND ./latex.sh
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/doc")
 
 # These are the real targets: the packages.
