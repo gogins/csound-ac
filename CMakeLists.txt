@@ -166,6 +166,8 @@ set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
 install(FILES ${CMAKE_SOURCE_DIR}/copyright.txt
     DESTINATION share/doc/${CPACK_PACKAGE_NAME}
     RENAME copyright)
+install(FILES ${CMAKE_SOURCE_DIR}/csound-ac.pdf
+    DESTINATION share/doc/${CPACK_PACKAGE_NAME})
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/doc/html
     DESTINATION share/doc/${CPACK_PACKAGE_NAME})
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/patches
