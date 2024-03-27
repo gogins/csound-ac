@@ -1,32 +1,3 @@
-/**
- * This script attempts to load, and to use, in order of decreasing 
- * preference: 
- * (1) Injected csound (e.g. Csound for Android or CsoundQt).
- * (2) csound.node.
- * (3) Csound for WebAssembly (CsoundAudioNode, based on AudioWorklet).
- * 
- * Please note, for WebAudio, code is asynchronous but is wrapped in promises 
- * using the async keyword to make calls behave synchronously; the calling 
- * code (e.g. "Play" button handlers) must therefore also be declared async. 
- * Not only that, but for other platforms handlers should also be declared 
- * async.
- *
- * To use this script, include it at the top of the body of your Web page and 
- * and then call `let csound_ = async get_csound(csound_message_callback).` 
- * The result will be a live csound_ object. Call `get_csound` in this way 
- * in every block of code that will call Csound methods.
- *
- * Please note, the Csound performance should (and sometimes must) be 
- * configured with sr, ksmps, nchnls, nchnls_i, and sample word format 
- * matching the host platform. 
- *
- * On Linux, PulseAudio may cause problems. It is better to disable PulseAudio
- * and use a low-level ALSA configuration.
- * 
- * On Android, csound.SetMessageCallback does not work. Instead, assign the 
- * message callback function to console.log.
- */
- 
 // These are globals:
 
 csound_injected = null;
@@ -76,7 +47,7 @@ var get_operating_system = function() {
     return operating_system;
 }
 
-/**
+/*
  * There is an issue on Android in that csound may be undefined when the page is 
  * first rendered, and be defined only when the user plays the piece.
  */
@@ -131,10 +102,40 @@ var load_csound = async function(csound_message_callback_) {
 }
 
 /**
- * Returns a singleton instance of Csound, if one is available in the 
- * JavaScript environment. If Csound has not been loaded, attempts are made 
- * to load it from various sources. The csound_message_callback parameter is 
- * required, but console.log can be passed. 
+ * Attempts to load, and to use, in order of decreasing 
+ * preference: 
+ * 
+ *  1. Injected csound (e.g. Csound for Android or CsoundQt).
+ *  2. csound.node.
+ *  3. Csound for WebAssembly (CsoundAudioNode, based on AudioWorklet).
+ * 
+ * Please note, for WebAudio, code is asynchronous but is wrapped in promises 
+ * using the async keyword to make calls behave synchronously; the calling 
+ * code (e.g. "Play" button handlers) must therefore also be declared async. 
+ * Not only that, but for other platforms handlers should also be declared 
+ * async.
+ *
+ * To use this script, include it at the top of the body of your Web page and 
+ * and then call 
+ * <pre>
+ * let csound_ = async get_csound(csound_message_callback).
+ * </pre>
+ * The result will be a live csound_ object. Call `get_csound` in this way 
+ * in every block of code that will call Csound methods.
+ *
+ * Please note, the Csound performance should (and sometimes must) be 
+ * configured with sr, ksmps, nchnls, nchnls_i, and sample word format 
+ * matching the host platform. 
+ *
+ * On Linux, PulseAudio may cause problems. It is better to disable PulseAudio
+ * and use a low-level ALSA configuration.
+ * 
+ * On Android, csound.SetMessageCallback does not work. Instead, assign the 
+ * message callback function to console.log.
+ * 
+ * @param {function} csound_message_callback_ A function that Csound will call with 
+ * diagnostic messages. Note that console.log may be used.
+ * @returns {CsoundAudioNode} An instance of Csound.
  */
 var get_csound = async function(csound_message_callback_) {
     if (csound_is_loaded === false) {
