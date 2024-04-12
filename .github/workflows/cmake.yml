@@ -99,6 +99,7 @@ jobs:
           brew upgrade
           brew install graphviz
           brew install doxygen
+          brew install texlive
           echo "Installing dependencies..."
           brew install opencv
           brew install csound
