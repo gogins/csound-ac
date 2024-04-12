@@ -23,7 +23,7 @@ jobs:
       matrix:
         config:
         - name: "macOS Latest Clang"
-          os: macos-latest
+          os: "macos-14"
           cc: "clang"
           cxx: "clang++"
         - name: "Ubuntu Latest GCC"
