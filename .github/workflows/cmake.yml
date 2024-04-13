@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v3
                 
       - name: Install boost on macOS
-        uses: MarkusJx/install-boost@v2.3.0
+        uses: MarkusJx/install-boost@v2.4.5
         id: install-boost-macos
         if: runner.os == 'macOS' 
         with:
@@ -57,7 +57,7 @@ jobs:
           toolset: clang    
 
       - name: Install boost on Linux
-        uses: MarkusJx/install-boost@v2.3.0
+        uses: MarkusJx/install-boost@v2.4.5
         id: install-boost-linux
         if: runner.os == 'Linux' 
         with:
@@ -73,7 +73,7 @@ jobs:
           toolset: gcc    
 
       - name: Install boost on Windows
-        uses: MarkusJx/install-boost@v2.3.0
+        uses: MarkusJx/install-boost@v2.4.5
         id: install-boost-windows
         if: runner.os == 'Windows' 
         with:
