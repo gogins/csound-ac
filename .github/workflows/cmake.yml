@@ -112,8 +112,6 @@ jobs:
           echo "Finished updating all git submodules."
           echo "brew list csound:"
           brew list csound
-          ls -ll /usr/local/opt
-          ls -ll /usr/local/opt/csound/
           echo "brew list libsndfile:"
           brew list libsndfile
           # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
