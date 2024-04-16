@@ -1,4 +1,4 @@
-q/**
+/**
  * This script attempts to load, and to use, in order of decreasing 
  * preference: 
  * (1) Injected csound (e.g. Csound for Android or CsoundQt).
