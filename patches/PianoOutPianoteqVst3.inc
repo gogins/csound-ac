@@ -19,7 +19,7 @@ instr PianoOutPianoteq
 ; Sustain off.
 ;vst3paramset gi_Pianoteq, 6, 1
 ; Reverb switch off.
-vst3paramset gi_Pianoteq, 93, 0
+; vst3paramset gi_Pianoteq, 93, 0
 k_gain = ampdb(gk_PianoOutPianoteq_level)
 i_overall_amps = 87
 i_normalization = ampdb(-i_overall_amps) * 2

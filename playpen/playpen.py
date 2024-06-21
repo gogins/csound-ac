@@ -350,7 +350,7 @@ def html_nw():
 def html_localhost():
     try:
         print("html_localhost: {}...".format(source_filepath))
-        command = "python3 -m webbrowser http://localhost:{}/{}".format(port, basename)
+        command = "cp package-pnpm.json package.json; python3 -m webbrowser http://localhost:{}/{}".format(port, basename)
     except:
         traceback.print_exc()
     finally:
@@ -486,17 +486,17 @@ alwayson "OrganOutOrganteq"
 #include "MasterOutput.inc"
 
 iampdbfs init 1
-prints "Default amplitude at 0 dBFS: %9.4f\\n", iampdbfs
+prints "Default amplitude at 0 dBFS: %9.4f\n", iampdbfs
 idbafs init dbamp(iampdbfs)
-prints "dbA at 0 dBFS:               %9.4f\\n", idbafs
+prints "dbA at 0 dBFS:               %9.4f\n", idbafs
 iheadroom init 6
-prints "Headroom (dB):               %9.4f\\n", iheadroom
+prints "Headroom (dB):               %9.4f\n", iheadroom
 idbaheadroom init idbafs - iheadroom
-prints "dbA at headroom:             %9.4f\\n", idbaheadroom
+prints "dbA at headroom:             %9.4f\n", idbaheadroom
 iampheadroom init ampdb(idbaheadroom)
-prints "Amplitude at headroom:       %9.4f\\n", iampheadroom
-prints "Balance so the 'overall amps' at the end of performance is -6 dBFS.\\n"
-prints "nchnls:                      %9.4f\\n", nchnls
+prints "Amplitude at headroom:       %9.4f\n", iampheadroom
+prints "Balance so the 'overall amps' at the end of performance is -6 dBFS.\n"
+prints "nchnls:                      %9.4f\n", nchnls
 
 connect "{instrument_name}", "outleft", "MasterOutput", "inleft"
 connect "{instrument_name}", "outright", "MasterOutput", "inright"
@@ -625,8 +625,8 @@ if command == 'html-localhost':
     html_localhost()
 if command == 'html-nw':
     html_nw()
-if command == 'cpp-lib':
-    cpp_lib()
+# if command == 'cpp-lib':
+#     cpp_lib()
 if command == 'cpp-app':
     cpp_app()
 if command == 'cpp-audio':
