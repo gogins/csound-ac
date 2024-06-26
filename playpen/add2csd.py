@@ -7,7 +7,8 @@ A D D 2 C S D
 Usage: python add2csd.py existing.csd [[file 1], [file2], ...]
 
 Encodes any number of files to base64 and includes each as a 
-</CsFileB filename=name> element in the (already existing) .csd file.
+</CsFileB filename=name> element in a new .csd file named 
+existing.embedded.csd.
 
 If a file has already been included in the .csd, it is replaced.
 
@@ -29,17 +30,17 @@ import string
 import sys
 import traceback
 
-def add2csd(csd_file, filename):
-    print(f"Adding: {filename}.")
-    tail = os.path.split(filename)[1]
-    file_data = open(filename, 'rb').read()
+def add2csd(csd_file, filepath):
+    print(f"Adding: {filepath}.")
+    filename = os.path.split(filepath)[1]
+    file_data = open(filepath, 'rb').read()
     encoded_data = base64.encodebytes(file_data).decode('utf-8')
     if(len(encoded_data) < 1):
-        print(f"WARNING: No data in {filename}.")
+        print(f"WARNING: No data in {filepath}.")
         return
-    start_tag = f"<CsFileB filename={tail}>"
+    start_tag = f"<CsFileB filename={filename}>"
     end_tag = "</CsFileB>"
-    encoding = ''.join([start_tag, '\n', encoded_data, end_tag])
+    encoding = ''.join(['\n', start_tag, '\n', encoded_data, end_tag])
     print("Encoded as:")
     print(encoding)
     start_index = csd_file.find(start_tag)
@@ -47,18 +48,27 @@ def add2csd(csd_file, filename):
     # remove the existing encoding.
     if start_index != -1:
         end_index = csd_file.find(end_tag, start_index)
-    # Insert the encoding immediately after </CsOptions>.
+        temp =  csd_file[0:start_index] + csd_file[end_index + 10:]
+        print("After deletion:")
+        csd_file = temp
+    # Insert the new encoding immediately after </CsOptions>.
+    csd_file = csd_file.replace('</CsOptions>', '</CsOptions>' + encoding)
+    print('New file:')
+    print(csd_file)
+    return csd_file
+
         
 
 try:
     # Read entire .csd into memory.
     csd_filename = sys.argv[1]
+    target_csd_filename = csd_filename.replace(".csd", ".embedded.csd")
     csd_file = open(csd_filename).read()
     print(csd_file)
     # Iterate through all filenames in argv.
     for filename in sys.argv[2:]:
         csd_file = add2csd(csd_file, filename)
-
+    target_csd_file = open(target_csd_filename, 'w').write(csd_file)
 except:
     traceback.print_exc()
 
