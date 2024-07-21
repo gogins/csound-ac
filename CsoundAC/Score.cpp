@@ -1542,6 +1542,14 @@ std::string Score::toJson() {
     return stream.str();
 }
 
+Event &Score::get(size_t index) {
+    return at(index);
+}
+
+const Event &Score::get(size_t index) const {
+    return at(index);
+}
+
 void Score::setCsoundScoreHeader(const std::string &text) {
     csound_score_header = text;
 }
