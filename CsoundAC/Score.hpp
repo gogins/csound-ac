@@ -77,6 +77,9 @@ public:
     virtual void append(double time, double duration, double status, double instrument, double key, double velocity, double phase=0, double pan=0, double depth=0, double height=0, double pitches=4095);
     virtual void add(double time, double duration, double status, double instrument, double key, double velocity, double phase=0, double pan=0, double depth=0, double height=0, double pitches=4095);
     virtual void append_note(double time, double duration, double status, double instrument, double key, double velocity, double phase=0, double pan=0, double depth=0, double height=0, double pitches=4095);
+    virtual Event &get(size_t index);
+    virtual const Event &get(size_t index) const;
+
     virtual void remove(size_t index);
     /**
      * Loads score data from a MIDI (.mid) file,
