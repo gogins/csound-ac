@@ -1546,7 +1546,7 @@ Event &Score::get(size_t index) {
     return at(index);
 }
 
-const Event &Score::get(size_t index) const {
+const Event &Score::get_const(size_t index) const {
     return at(index);
 }
 
