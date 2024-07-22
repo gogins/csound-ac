@@ -123,6 +123,7 @@ public:
     virtual bool isMatchingNoteOff(const Event& event) const;
     virtual bool isMatchingEvent(const Event& event) const;
     virtual void set(double time, double duration, double status, double instrument, double key, double velocity, double phase=0, double pan=0, double depth=0, double height=0, double pitches=4095);
+    virtual double &get(size_t index);
     virtual void setMidi(double time, char status, char key, char velocity);
     virtual int getMidiStatus() const;
     virtual int getStatusNumber() const;
