@@ -656,4 +656,8 @@ void setCorrectNegativeDurations(bool do_correct) {
     Event::correct_negative_durations() = do_correct;
 }
 
+double &Event::get(size_t index) {
+    return (*this)[index];
+}
+
 }
