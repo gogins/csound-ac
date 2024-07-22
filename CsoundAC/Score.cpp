@@ -1366,17 +1366,36 @@ void Score::setDuration(double targetDuration)
 
 void Score::setDurationFromZero(double targetDuration)
 {
-    double currentDuration = getDurationFromZero();
-    if (currentDuration <= 0.0) {
-        return;
+    // double currentDuration = getDurationFromZero();
+    // if (currentDuration <= 0.0) {
+    //     return;
+    // }
+    // double factor = targetDuration / currentDuration;
+    // for (size_t i = 0, n = size(); i < n; i++) {
+    //     Event &event = (*this)[i];
+    //     double time_ = event.getTime();
+    //     double duration = event.getDuration();
+    //     event.setTime(time_ * factor);
+    //     event.setDuration(duration * factor);
+    // }
+    sort();
+    auto start = front().getTime();
+    for (auto i = 0; i < size(); i++) {
+        auto event = get(i);
+        event.setTime(event.getTime() - start);
     }
-    double factor = targetDuration / currentDuration;
-    for (size_t i = 0, n = size(); i < n; i++) {
-        Event &event = (*this)[i];
-        double time_ = event.getTime();
-        double duration = event.getDuration();
-        event.setTime(time_ * factor);
-        event.setDuration(duration * factor);
+    auto currentDuration = back().getOffTime();
+    for (auto i = 0; i < size(); i++) {
+        auto event = get(i);
+        if (event.getOffTime() > currentDuration) {
+            currentDuration = event.getOffTime();
+        }
+    }
+    auto factor = std::abs(targetDuration / currentDuration);
+    for (auto i = 0; i < size(); i++) {
+        auto event = get(i);
+        event.setTime(event.getTime() * factor);
+        event.setDuration(event.getDuration() * factor);
     }
 }
 
