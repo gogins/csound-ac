@@ -1384,7 +1384,7 @@ void Score::setDurationFromZero(double targetDuration)
         auto event = get(i);
         event.setTime(event.getTime() - start);
     }
-    auto currentDuration = back().getOffTime();
+    auto currentDuration = getDurationFromZero();
     for (auto i = 0; i < size(); i++) {
         auto event = get(i);
         if (event.getOffTime() > currentDuration) {
