@@ -49717,7 +49717,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$7 = '4.17.0';
+	var version$7 = '4.20.0';
 
 	var OptimizerConstructors = /*#__PURE__*/function () {
 	  function OptimizerConstructors() {
@@ -64505,7 +64505,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$6 = '4.17.0';
+	var version$6 = '4.20.0';
 
 	// get weights key from tensor map in order to check if it is from keras v3.
 	// e.g. dense/0
@@ -70726,14 +70726,110 @@
 	LogSoftmax.className = 'logSoftmax';
 	registerClass(LogSoftmax);
 	/**
+	 * Gelu activation function
+	 */
+	var Gelu = /*#__PURE__*/function (_Activation13) {
+	  _inherits(Gelu, _Activation13);
+	  var _super14 = _createSuper(Gelu);
+	  function Gelu() {
+	    _classCallCheck(this, Gelu);
+	    return _super14.apply(this, arguments);
+	  }
+	  _createClass(Gelu, [{
+	    key: "apply",
+	    value:
+	    /**
+	     * Calculate the activation function.
+	     *
+	     * @param x Tensor.
+	     * @returns a Tensor of the same shape as x
+	     */
+	    function apply(x) {
+	      return tidy(function () {
+	        return tidy(function () {
+	          var sqrtTwo = Math.sqrt(2);
+	          // Compute Φ(x) using the erf function
+	          var cdf = mul(0.5, add$3(1, erf$2(div$1(x, sqrtTwo))));
+	          // Compute GELU(x) = x * Φ(x)
+	          return mul(x, cdf);
+	        });
+	      });
+	    }
+	  }]);
+	  return Gelu;
+	}(Activation$1);
+	/** @nocollapse */
+	Gelu.className = 'gelu';
+	registerClass(Gelu);
+	/**
+	 * GeluNew activation function
+	 */
+	var GeluNew = /*#__PURE__*/function (_Activation14) {
+	  _inherits(GeluNew, _Activation14);
+	  var _super15 = _createSuper(GeluNew);
+	  function GeluNew() {
+	    _classCallCheck(this, GeluNew);
+	    return _super15.apply(this, arguments);
+	  }
+	  _createClass(GeluNew, [{
+	    key: "apply",
+	    value:
+	    /**
+	     * Calculate the activation function.
+	     *
+	     * @param x Tensor.
+	     * @returns a Tensor of the same shape as x
+	     */
+	    function apply(x) {
+	      return tidy(function () {
+	        return mul(0.5, mul(x, add$3(1, tanh$2(mul(sqrt$2(div$1(2, Math.PI)), add$3(x, mul(0.044715, pow$3(x, 3))))))));
+	      });
+	    }
+	  }]);
+	  return GeluNew;
+	}(Activation$1);
+	/** @nocollapse */
+	GeluNew.className = 'gelu_new';
+	registerClass(GeluNew);
+	/**
+	 * Mish activation function
+	 */
+	var Mish = /*#__PURE__*/function (_Activation15) {
+	  _inherits(Mish, _Activation15);
+	  var _super16 = _createSuper(Mish);
+	  function Mish() {
+	    _classCallCheck(this, Mish);
+	    return _super16.apply(this, arguments);
+	  }
+	  _createClass(Mish, [{
+	    key: "apply",
+	    value:
+	    /**
+	     * Calculate the activation function.
+	     *
+	     * @param x Tensor.
+	     * @returns a Tensor of the same shape as x
+	     */
+	    function apply(x) {
+	      return tidy(function () {
+	        return mul(x, tanh$2(softplus$2(x)));
+	      });
+	    }
+	  }]);
+	  return Mish;
+	}(Activation$1);
+	/** @nocollapse */
+	Mish.className = 'mish';
+	registerClass(Mish);
+	/**
 	 * Swish activation function
 	 */
-	var Swish = /*#__PURE__*/function (_Activation13) {
-	  _inherits(Swish, _Activation13);
-	  var _super14 = _createSuper(Swish);
+	var Swish = /*#__PURE__*/function (_Activation16) {
+	  _inherits(Swish, _Activation16);
+	  var _super17 = _createSuper(Swish);
 	  function Swish() {
 	    _classCallCheck(this, Swish);
-	    return _super14.apply(this, arguments);
+	    return _super17.apply(this, arguments);
 	  }
 	  _createClass(Swish, [{
 	    key: "apply",
@@ -70757,36 +70853,6 @@
 	/** @nocollapse */
 	Swish.className = 'swish';
 	registerClass(Swish);
-	/**
-	 * Mish activation function
-	 */
-	var Mish = /*#__PURE__*/function (_Activation14) {
-	  _inherits(Mish, _Activation14);
-	  var _super15 = _createSuper(Mish);
-	  function Mish() {
-	    _classCallCheck(this, Mish);
-	    return _super15.apply(this, arguments);
-	  }
-	  _createClass(Mish, [{
-	    key: "apply",
-	    value:
-	    /**
-	     * Calculate the activation function.
-	     *
-	     * @param x Tensor.
-	     * @returns a Tensor of the same shape as x
-	     */
-	    function apply(x) {
-	      return tidy(function () {
-	        return mul(x, tanh$2(softplus$2(x)));
-	      });
-	    }
-	  }]);
-	  return Mish;
-	}(Activation$1);
-	/** @nocollapse */
-	Mish.className = 'mish';
-	registerClass(Mish);
 	function serializeActivation(activation) {
 	  return activation.getClassName();
 	}
@@ -71381,7 +71447,7 @@
 	      throw new ValueError("The kernel for a conv1dWithBias operation should be 3, but is " + "".concat(kernel.shape.length, " instead"));
 	    }
 	    if (bias != null && bias.shape.length !== 1) {
-	      throw new ValueError("The bias for a conv1dWithBias operation should be 1, but is " + "".concat(kernel.shape.length, " instead"));
+	      throw new ValueError("The bias for a conv1dWithBias operation should be 1, but is " + "".concat(bias.shape.length, " instead"));
 	    }
 	    // TODO(cais): Support CAUSAL padding mode.
 	    if (dataFormat === 'channelsFirst') {
@@ -87877,7 +87943,7 @@
 	    }
 	    /**
 	     * Scatter the values of a Tensor in specific indices of a TensorArray.
-	     * @param indices nummber[] values in [0, max_value). If the
+	     * @param indices number[] values in [0, max_value). If the
 	     *    TensorArray is not dynamic, max_value=size().
 	     * @param tensor Tensor input tensor.
 	     */
@@ -91271,7 +91337,7 @@
 	     * @param isFunctionExecution Optional. Flag for executing a function.
 	     * @param tensorArrayMap Optional, global TensorArray map by id. Used for
 	     * function execution.
-	     * @param tensorArrayMap Optinal global TensorList map by id. Used for
+	     * @param tensorArrayMap Optional global TensorList map by id. Used for
 	     * function execution.
 	     */
 	  }, {
@@ -92035,7 +92101,7 @@
 	     * Execute the inference for the input tensors.
 	     *
 	     * @param input The input tensors, when there is single input for the model,
-	     * inputs param should be a `tf.Tensor`. For models with mutliple inputs,
+	     * inputs param should be a `tf.Tensor`. For models with multiple inputs,
 	     * inputs params should be in either `tf.Tensor`[] if the input order is
 	     * fixed, or otherwise NamedTensorMap format.
 	     *
@@ -92494,7 +92560,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$5 = '4.17.0';
+	var version$5 = '4.20.0';
 
 	/**
 	 * @license
@@ -98004,7 +98070,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$4 = '4.17.0';
+	var version$4 = '4.20.0';
 
 	/**
 	 * @license
@@ -101739,7 +101805,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$3 = '4.17.0';
+	var version$3 = '4.20.0';
 
 	/**
 	 * @license
@@ -115503,7 +115569,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$2 = '4.17.0';
+	var version$2 = '4.20.0';
 
 	/**
 	 * @license
@@ -127103,7 +127169,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$1 = '4.17.0';
+	var version$1 = '4.20.0';
 
 	/**
 	 * @license
