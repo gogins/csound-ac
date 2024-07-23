@@ -124,10 +124,27 @@ public:
      */
     virtual double getDuration();
     /**
-     * Returns the time from 0 to the final off time; this assumes that no 
-     * events start before time 0.
+     * Returns the time from 0 to the final off time. 
      */
     virtual double getDurationFromZero() const;
+    /**
+     * Returns the first on time.
+     */
+    virtual double getFirstOnTime() const;
+    /**
+     * Returns the last off time.
+     */
+    virtual double getLastOffTime() const;
+    /**
+     * Returns the last off time minus the first on time (which can be less 
+     * than 0).
+     */
+    virtual double getEventsDuration() const;    
+    /**
+     * Rescales Event times for performance, i.e. such that the first on time 
+     * is 0, and `getEventsDuration` returns the target duration.
+     */
+    virtual void setPerformanceDuration(double target_duration); 
     virtual void rescale(int dimension, bool rescaleMinimum, double minimum, bool rescaleRange = false, double range = 0.0);
     /**
      * Translate the Silence events in this to a Csound score for blue, 
