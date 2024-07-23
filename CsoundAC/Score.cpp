@@ -1820,7 +1820,7 @@ namespace csound
         double first_on_time = 0;
         for (size_t i = 0, n = size(); i < n; ++i)
         {
-            if (i == 1)
+            if (i == 0)
             {
                 first_on_time = at(i).getTime();
             }
@@ -1841,7 +1841,7 @@ namespace csound
         double last_off_time = 0;
         for (size_t i = 0, n = size(); i < n; ++i)
         {
-            if (i == 1)
+            if (i == 0)
             {
                 last_off_time = at(i).getOffTime();
             }
