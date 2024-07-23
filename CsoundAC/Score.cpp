@@ -1869,18 +1869,17 @@ namespace csound
     {
         // Move all events such that the earliest event starts at time 0.
         auto first_on_time = getFirstOnTime();
-        auto delta_time = 0 - first_on_time;
         for (size_t i = 0, n = size(); i < n; ++i)
         {
-            auto event = at(i);
-            event.setTime(event.getTime() + delta_time);
+            Event &event = at(i);
+            event.setTime(event.getTime() - first_on_time);
         }
         // Rescale all times such that getEventsDuration returns the target duration.
         auto current_duration = getEventsDuration();
         auto times_rescaling_factor = target_duration / current_duration;
         for (size_t i = 0, n = size(); i < n; ++i)
         {
-            auto event = at(i);
+            Event &event = at(i);
             event.setTime(event.getTime() * times_rescaling_factor);
             event.setDuration(event.getDuration() * times_rescaling_factor);
         }
