@@ -35,14 +35,14 @@
 %include "std_string.i"
 %include "std_vector.i"
 %{
-#include "csound.hpp"
+#include <csound.hpp>
 #include "CsoundFile.hpp"
 #include <string>
 #include <vector>
   %}
 %template(MyfltVector) std::vector<MYFLT>;
 #else
-#include "csound.hpp"
+#include <csound.hpp>
 #include "CsoundFile.hpp"
 #include <string>
 #include <vector>
