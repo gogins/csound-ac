@@ -29,6 +29,7 @@
 #ifdef SWIG
 %module CsoundAC
 %{
+#include "Event.hpp"
 #include <algorithm>
 #include <cfloat>
 #include <climits>
@@ -46,6 +47,7 @@
 %include "std_string.i"
 %include "std_vector.i"
 #else
+#include "Event.hpp"
 #include "Platform.hpp"
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
@@ -1566,6 +1568,20 @@ class SILENCE_PUBLIC Scale : public Chord {
          * pitches is interval - 1).
          */
         virtual Chord chord(int scale_degree, int voices, int interval = 3) const;
+        /**
+         * Moves the pitch (MIDI key number in 12TET) of the event to the 
+         * nearest pitch-class of the chord implied by the scale degree, 
+         * number of voices, and interval in semitones between chord tones 
+         * (defaulting to 3). If the alteration parameter is used, the pitch 
+         * of the event is first moved to the nearest pitch-class of the chord 
+         * implied by the scale degree, number of voices, and interval; this 
+         * tone is then altered (plus or minus) by the number of semitones 
+         * specified by the alteration parameter (default 0). All operations 
+         * are performed under octave equivalence.
+         */
+       virtual void conform(Event &event, int scale_degree, int voices, int interval, int alteration) const;
+       virtual void conform(Event &event, int scale_degree, int voices, int interval) const;
+       virtual void conform(Event &event, int scale_degree, int voices) const;
         /**
          * Returns the scale degree of the Chord in this Scale; if the 
          * Chord does not belong to this Scale, -1 is returned.
@@ -4334,6 +4350,24 @@ inline SILENCE_PUBLIC Scale &Scale::operator = (const Scale &other) {
 
 inline SILENCE_PUBLIC Chord Scale::chord(int scale_degree, int voices, int interval) const {
     return csound::chord(*this, scale_degree, voices, interval);
+}
+
+inline SILENCE_PUBLIC void Scale::conform(Event &event, int scale_degree, int voices, int interval, int alteration) const {
+    Chord pcs = chord(scale_degree, voices, interval);
+    double pitch = event.getKey_tempered(12);
+    pitch = conformToPitchClassSet(pitch, pcs);
+    if (alteration != 0) {
+        pitch = epc(pitch + alteration);
+    }
+    event.setKey(pitch);
+}
+
+inline SILENCE_PUBLIC void Scale::conform(Event &event, int scale_degree, int voices, int interval) const {
+    conform(event, scale_degree, voices, interval, 0);
+}
+
+inline SILENCE_PUBLIC void Scale::conform(Event &event, int scale_degree, int voices) const {
+    conform(event, scale_degree, voices, 3, 0);
 }
 
 inline SILENCE_PUBLIC Chord Scale::transpose_degrees(const Chord &chord, int scale_degrees, int interval) const {
