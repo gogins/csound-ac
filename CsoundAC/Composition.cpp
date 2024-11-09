@@ -373,7 +373,7 @@ int Composition::translateToMp4()
     System::inform("sox_spectrogram_command: %s\n", sox_spectrogram_command);
     int errorStatus = std::system(sox_spectrogram_command);
     char mp4_encode_command[0x500];
-    std::sprintf(mp4_encode_command, "ffmpeg -r 1 -i \"%s\" -i \"%s\" -codec:a aac -strict -2 -b:a 384k -r:a 48000 -c:v libx264 -b:v 500k \"%s\"", spectrogram_filepath.c_str(), master_filepath.c_str(), mp4_filepath.c_str());
+    std::snprintf(mp4_encode_command, sizeof(mp4_encode_command), "ffmpeg -r 1 -i \"%s\" -i \"%s\" -codec:a aac -strict -2 -b:a 384k -r:a 48000 -c:v libx264 -b:v 500k \"%s\"", spectrogram_filepath.c_str(), master_filepath.c_str(), mp4_filepath.c_str());
     System::inform("mp4_encode_command: %s\n", mp4_encode_command);
     errorStatus = std::system(mp4_encode_command);
     std::string mp4_metadata;
@@ -387,7 +387,7 @@ int Composition::translateToMp4()
     mp4_metadata.append("-metadata composer=\"" + author + "\" ");
     mp4_metadata.append("-metadata artist=\"" + artist + "\" ");
     char mp4_metadata_command[0x500];
-    std::sprintf(mp4_metadata_command, "ffmpeg -y -loop 1 -framerate 2 -i \"%s\" -i \"%s\" -c:v libx264 -preset medium -tune stillimage -crf 18 -codec:a aac -strict -2 -b:a 384k -r:a 48000 -shortest -pix_fmt yuv420p -vf \"scale=trunc(iw/2)*2:trunc(ih/2)*2\" %s \"%s\"", spectrogram_filepath.c_str(), master_filepath.c_str(), mp4_metadata.c_str(), mp4_filepath.c_str());
+    std::snprintf(mp4_metadata_command, sizeof(mp4_metadata_command), "ffmpeg -y -loop 1 -framerate 2 -i \"%s\" -i \"%s\" -c:v libx264 -preset medium -tune stillimage -crf 18 -codec:a aac -strict -2 -b:a 384k -r:a 48000 -shortest -pix_fmt yuv420p -vf \"scale=trunc(iw/2)*2:trunc(ih/2)*2\" %s \"%s\"", spectrogram_filepath.c_str(), master_filepath.c_str(), mp4_metadata.c_str(), mp4_filepath.c_str());
     System::inform("mp4_metadata_command: %s\n", mp4_metadata_command);
     errorStatus = std::system(mp4_metadata_command);
     return errorStatus;
@@ -549,10 +549,10 @@ int Composition::translateToNotation(const std::vector<std::string> partNames, s
     std::ofstream stream;
     stream.open(filename.c_str(), std::ifstream::binary);
     char buffer[0x200];
-    std::sprintf(buffer, "title = %s\n", getTitle().c_str());
+    std::snprintf(buffer, sizeof(buffer), "title = %s\n", getTitle().c_str());
     stream << buffer;
     if (getArtist().length() > 1) {
-        std::sprintf(buffer, "author = %s\n", getArtist().c_str());
+        std::snprintf(buffer, sizeof(buffer), "author = %s\n", getArtist().c_str());
         stream << buffer;
     }
     stream << "beat = 1/64" << std::endl;
@@ -563,12 +563,12 @@ int Composition::translateToNotation(const std::vector<std::string> partNames, s
     }
     if (partNames.size() > 0) {
         for (size_t partI = 0, partN = partNames.size(); partI < partN; ++partI) {
-            std::sprintf(buffer, "part <id = %zu name = %s>\n", partI, partNames[partI].c_str());
+            std::snprintf(buffer, sizeof(buffer), "part <id = %zu name = %s>\n", partI, partNames[partI].c_str());
             stream << buffer;
         }
     } else {
         for (size_t partI = 0, partN = 100; partI < partN; ++partI) {
-            std::sprintf(buffer, "part <id = %zu name = Part%zu>\n", partI, partI);
+            std::snprintf(buffer, sizeof(buffer), "part <id = %zu name = Part%zu>\n", partI, partI);
             stream << buffer;
         }
     }
@@ -591,17 +591,17 @@ int Composition::translateToNotation(const std::vector<std::string> partNames, s
         for (std::vector<Event>::iterator eventI = events.begin(); eventI != events.end(); ++eventI) {
             Event &event = *eventI;
             if (eventI == events.begin()) {
-                std::sprintf(buffer, "part %d\n", part);
+                std::snprintf(buffer, sizeof(buffer), "part %d\n", part);
             } else {
                 double duration = event.getDuration() * 32.0;
                 duration = Conversions::round(duration);
-                std::sprintf(buffer, "time %g dur %g pitch %g;\n", event.getTime() * 32.0, duration, event.getKey());
+                std::snprintf(buffer, sizeof(buffer), "time %g dur %g pitch %g;\n", event.getTime() * 32.0, duration, event.getKey());
             }
             stream << buffer;
         }
     }
     stream.close();
-    std::sprintf(buffer, "fomus --verbose -i %s -o %s.xml", getFomusfileFilepath().c_str(), getTitle().c_str());
+    std::snprintf(buffer, sizeof(buffer), "fomus --verbose -i %s -o %s.xml", getFomusfileFilepath().c_str(), getTitle().c_str());
     int errorStatus = std::system(buffer);
     return errorStatus;
 }

@@ -694,7 +694,7 @@ void CsoundFile::addNote(double p1, double p2, double p3, double p4,
                          double p9, double p10, double p11)
 {
   char note[0x100];
-  sprintf(note, "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g"
+  snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g"
           " %-.10g %-.10g %-.10g", p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11);
   addScoreLine(note);
 }
@@ -704,7 +704,7 @@ void CsoundFile::addNote(double p1, double p2, double p3, double p4,
                          double p9, double p10)
 {
   char note[0x100];
-  sprintf(note, "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g"
+  snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g"
           " %-.10g %-.10g", p1, p2, p3, p4, p5, p6, p7, p8, p9, p10);
   addScoreLine(note);
 }
@@ -714,7 +714,7 @@ void CsoundFile::addNote(double p1, double p2, double p3, double p4,
                          double p9)
 {
   char note[0x100];
-  sprintf(note, "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g",
+  snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g",
           p1, p2, p3, p4, p5, p6, p7, p8, p9);
   addScoreLine(note);
 }
@@ -723,7 +723,7 @@ void CsoundFile::addNote(double p1, double p2, double p3, double p4,
                          double p5, double p6, double p7, double p8)
 {
   char note[0x100];
-  sprintf(note, "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g",
+  snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g",
           p1, p2, p3, p4, p5, p6, p7, p8);
   addScoreLine(note);
 }
@@ -732,7 +732,7 @@ void CsoundFile::addNote(double p1, double p2, double p3, double p4,
                          double p5, double p6, double p7)
 {
   char note[0x100];
-  sprintf(note, "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g",
+  snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g",
           p1, p2, p3, p4, p5, p6, p7);
   addScoreLine(note);
 }
@@ -741,7 +741,7 @@ void CsoundFile::addNote(double p1, double p2, double p3, double p4,
                          double p5, double p6)
 {
   char note[0x100];
-  sprintf(note, "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g",
+  snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g",
           p1, p2, p3, p4, p5, p6);
   addScoreLine(note);
 }
@@ -749,21 +749,21 @@ void CsoundFile::addNote(double p1, double p2, double p3, double p4,
 void CsoundFile::addNote(double p1, double p2, double p3, double p4, double p5)
 {
   char note[0x100];
-  sprintf(note, "i %-.10g %-.10g %-.10g %-.10g %-.10g", p1, p2, p3, p4, p5);
+  snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g %-.10g %-.10g", p1, p2, p3, p4, p5);
   addScoreLine(note);
 }
 
 void CsoundFile::addNote(double p1, double p2, double p3, double p4)
 {
   char note[0x100];
-  sprintf(note, "i %-.10g %-.10g %-.10g %-.10g", p1, p2, p3, p4);
+  snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g %-.10g", p1, p2, p3, p4);
   addScoreLine(note);
 }
 
 void CsoundFile::addNote(double p1, double p2, double p3)
 {
   char note[0x100];
-  sprintf(note, "i %-.10g %-.10g %-.10g", p1, p2, p3);
+  snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g", p1, p2, p3);
   addScoreLine(note);
 }
 

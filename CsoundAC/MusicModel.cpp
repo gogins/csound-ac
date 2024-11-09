@@ -217,7 +217,7 @@ std::string MusicModel::getCsoundCommand() const
         output_soundfile_filepath = "music_model_output.wav";
     }
     char buffer[0x200];
-    std::sprintf(buffer,
+    std::snprintf(buffer, sizeof(buffer),
                 // message flags: 1 + 2 + 32 + 128 
                  "--midi-key=4 --midi-velocity=5 -m168 -j%d -RWdfo%s",
                  threadCount,
@@ -291,7 +291,7 @@ int MusicModel::processArgs(const std::vector<std::string> &args)
         postPossible = false;
         const char *audiosystem = argsmap["--audio"].c_str();
         const char *devicename = argsmap["--device"].c_str();
-        std::sprintf(command,
+        std::snprintf(command, sizeof(command),
                      "csound --midi-key=4 --midi-velocity=5 -m162 -+rtaudio=%s -o%s",
                      audiosystem, devicename);
         System::inform("Csound command: %s\n", command);
@@ -305,18 +305,18 @@ int MusicModel::processArgs(const std::vector<std::string> &args)
         errorStatus = render();
     }
     if ((argsmap.find("--pianoteq") != argsmap.end()) && !errorStatus) {
-        std::sprintf(command, "Pianoteq --midi=%s\n", getMidifileFilepath().c_str());
+        std::snprintf(command, sizeof(command), "Pianoteq --midi=%s\n", getMidifileFilepath().c_str());
         System::inform("Executing command: %s\n", command);
         errorStatus = std::system(command);
     }
     if ((argsmap.find("--pianoteq-wav") != argsmap.end()) && !errorStatus) {
         postPossible = true;
-        std::sprintf(command, "Pianoteq --headless --midi %s --rate 48000 --wav %s\n", getMidifileFilepath().c_str(), getOutputSoundfileFilepath().c_str());
+        std::snprintf(command, sizeof(command), "Pianoteq --headless --midi %s --rate 48000 --wav %s\n", getMidifileFilepath().c_str(), getOutputSoundfileFilepath().c_str());
         System::inform("Executing command: %s\n", command);
         errorStatus = std::system(command);
     }
     if ((argsmap.find("--playmidi") != argsmap.end()) && !errorStatus) {
-        std::sprintf(command, "%s %s\n", argsmap["--playmidi"].c_str(), getMidifileFilepath().c_str());
+        std::snprintf(command, sizeof(command), "%s %s\n", argsmap["--playmidi"].c_str(), getMidifileFilepath().c_str());
         System::inform("Executing command: %s\n", command);
         errorStatus = std::system(command);
     }
@@ -325,7 +325,7 @@ int MusicModel::processArgs(const std::vector<std::string> &args)
         playSoundfileName = getNormalizedSoundfileFilepath();
     }
     if ((argsmap.find("--playwav") != argsmap.end()) && !errorStatus) {
-        std::sprintf(command, "%s %s\n", argsmap["--playwav"].c_str(), playSoundfileName.c_str());
+        std::snprintf(command, sizeof(command), "%s %s\n", argsmap["--playwav"].c_str(), playSoundfileName.c_str());
         System::inform("Csound command: %s\n", command);
         errorStatus = std::system(command);
     }

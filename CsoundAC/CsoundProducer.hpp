@@ -206,7 +206,7 @@ namespace csound {
                     char temporary_filename[0x200];
                     auto discard = std::tmpnam(temporary_filename);
                     char command[0x300];
-                    std::sprintf(command, "git rev-parse --short HEAD > %s", temporary_filename);
+                    std::snprintf(command, sizeof(command), "git rev-parse --short HEAD > %s", temporary_filename);
                     auto result = std::system(command);
                     std::fstream hash_file(temporary_filename);
                     char hash[0x100];

@@ -92,7 +92,7 @@ extern "C" {
                                   double p8, double p9, double p10, double p11)
   {
     char note[0x100];
-    sprintf(note, "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g "
+    snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g "
             "%-.10g %-.10g %-.10g", p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11);
     files[csound].score.push_back(note);
   }
@@ -102,7 +102,7 @@ extern "C" {
                                   double p8, double p9, double p10)
   {
     char note[0x100];
-    sprintf(note, "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g "
+    snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g "
             "%-.10g %-.10g", p1, p2, p3, p4, p5, p6, p7, p8, p9, p10);
     files[csound].score.push_back(note);
   }
@@ -112,7 +112,7 @@ extern "C" {
                                  double p8, double p9)
   {
     char note[0x100];
-    sprintf(note, "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g "
+    snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g "
             "%-.10g", p1, p2, p3, p4, p5, p6, p7, p8, p9);
     files[csound].score.push_back(note);
   }
@@ -122,7 +122,7 @@ extern "C" {
                                  double p8)
   {
     char note[0x100];
-    sprintf(note, "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g",
+    snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g",
             p1, p2, p3, p4, p5, p6, p7, p8);
     files[csound].score.push_back(note);
   }
@@ -130,7 +130,7 @@ extern "C" {
                                  double p4, double p5, double p6, double p7)
   {
     char note[0x100];
-    sprintf(note, "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g",
+    snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g",
             p1, p2, p3, p4, p5, p6, p7);
     files[csound].score.push_back(note);
   }
@@ -139,7 +139,7 @@ extern "C" {
                                  double p4, double p5, double p6)
   {
     char note[0x100];
-    sprintf(note, "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g",
+    snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g %-.10g %-.10g %-.10g",
             p1, p2, p3, p4, p5, p6);
     files[csound].score.push_back(note);
   }
@@ -148,7 +148,7 @@ extern "C" {
                                  double p4, double p5)
   {
     char note[0x100];
-    sprintf(note, "i %-.10g %-.10g %-.10g %-.10g %-.10g", p1, p2, p3, p4, p5);
+    snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g %-.10g %-.10g", p1, p2, p3, p4, p5);
     files[csound].score.push_back(note);
   }
 
@@ -156,14 +156,14 @@ extern "C" {
                                  double p4)
   {
     char note[0x100];
-    sprintf(note, "i %-.10g %-.10g %-.10g %-.10g", p1, p2, p3, p4);
+    snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g %-.10g", p1, p2, p3, p4);
     files[csound].score.push_back(note);
   }
 
   PUBLIC void csoundCsdAddEvent3(CSOUND *csound, double p1, double p2, double p3)
   {
     char note[0x100];
-    sprintf(note, "i %-.10g %-.10g %-.10g", p1, p2, p3);
+    snprintf(note, sizeof(note), "i %-.10g %-.10g %-.10g", p1, p2, p3);
     files[csound].score.push_back(note);
   }
 

@@ -54,7 +54,7 @@ void Conversions::subfill(std::string root, const char *cname, double cpcs)
     double mcpcs = std::fmod(fcpcs, 4095.0);
     //#ifdef WIN32
     //                      char buffer[0xff];
-    //                      sprintf(buffer, "%s: pcs = %f cpcs = %f fcpcs = %f mcpcs = %f\n", root.c_str(), pcs, cpcs, fcpcs, mcpcs);
+    //                      snprintf(buffer, sizeof(buffer), "%s: pcs = %f cpcs = %f fcpcs = %f mcpcs = %f\n", root.c_str(), pcs, cpcs, fcpcs, mcpcs);
     //                      OutputDebugStringA(buffer);
     //#endif
     pitchClassSetsForNames[root] = mcpcs;
@@ -406,7 +406,7 @@ int Conversions::stringToInt(std::string value, int default_)
 std::string Conversions::intToString(int value)
 {
     char buffer[0xff];
-    sprintf(buffer, "%d", value);
+    snprintf(buffer, sizeof(buffer), "%d", value);
     return buffer;
 }
 double Conversions::stringToDouble(std::string value, double default_)
@@ -419,7 +419,7 @@ double Conversions::stringToDouble(std::string value, double default_)
 std::string Conversions::doubleToString(double value)
 {
     char buffer[0xff];
-    sprintf(buffer, "%f", value);
+    snprintf(buffer, sizeof(buffer), "%f", value);
     return buffer;
 }
 double Conversions::midiToPitchClass(double midiKey)

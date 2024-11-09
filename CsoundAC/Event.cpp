@@ -373,7 +373,7 @@ std::string Event::toBlueIStatement(double tonesPerOctave) const
     double octave = std::floor(Conversions::midiToOctave(midi_key));
     double pitch_class = std::fmod(midi_key, 12.);
     double pch = octave + pitch_class;
-    sprintf(buffer, "i %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %s\n",
+    snprintf(buffer, sizeof(buffer), "i %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %s\n",
             getInstrument(),
             getTime(),
             getDuration(),
@@ -403,7 +403,7 @@ std::string Event::toCsoundIStatement(double tonesPerOctave) const
      * optional properties = p12, printed as a string 
      * ("'name'='value', ['name'='value']")
      */
-    sprintf(buffer, "i %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %s\n",
+    snprintf(buffer, sizeof(buffer), "i %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %s\n",
             getInstrument(),
             getTime(),
             getDuration(),
@@ -427,7 +427,7 @@ std::string Event::toCsoundIStatementHeld(int tag, double tempering) const
     {
         octave = Conversions::temper(octave, tempering);
     }
-    sprintf(buffer, "i %d.%d %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %s\n",
+    snprintf(buffer, sizeof(buffer), "i %d.%d %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %s\n",
             (int) Conversions::round(getInstrument()),
             tag,
             getTime(),
@@ -452,7 +452,7 @@ std::string Event::toCsoundIStatementRelease(int tag, double tempering) const
     {
         octave = Conversions::temper(octave, tempering);
     }
-    sprintf(buffer, "i %d.%d %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %s\n",
+    snprintf(buffer, sizeof(buffer), "i %d.%d %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %s\n",
             (int) Conversions::round(getInstrument()),
             tag,
             getTime(),
@@ -472,7 +472,7 @@ std::string Event::toCsoundIStatementRelease(int tag, double tempering) const
 std::string Event::toString() const
 {
     char buffer[0x100];
-    sprintf(buffer, "Event: t%8.3f d%8.3f s%3.0f i%6.2f k%6.2f v%6.2f y%5.2f pcs%8.2f %s",
+    snprintf(buffer, sizeof(buffer), "Event: t%8.3f d%8.3f s%3.0f i%6.2f k%6.2f v%6.2f y%5.2f pcs%8.2f %s",
             getTime(),
             getDuration(),
             getStatus(),

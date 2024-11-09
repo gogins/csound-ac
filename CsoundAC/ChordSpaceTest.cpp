@@ -252,7 +252,7 @@ static void test_nrL() {
         auto iii_nrL = iii.nrL();
         csound::System::message("test_nrL: iii_nrL: %s iii_nrL.eOP(): %s normal form: %s\n", iii_nrL.toString().c_str(), iii_nrL.eOP().toString().c_str(), iii_nrL.normal_form().toString().c_str());
         char buffer[0x500];
-        std::sprintf(buffer, "iii.nrL() %s should be I %s.\n\n", iii_nrL.toString().c_str(), I.toString().c_str());
+        std::snprintf(buffer,sizeof(buffer), "iii.nrL() %s should be I %s.\n\n", iii_nrL.toString().c_str(), I.toString().c_str());
         test(iii_nrL.eOP().equals(I.eOP()), buffer);
     }
 }
@@ -280,13 +280,13 @@ static bool testNormalsAndEquivalents(std::string equivalence,
     bool passes1 = true;
     int count = 1;
     for (auto made_equivalent = made_equivalents.begin(); made_equivalent != made_equivalents.end(); ++made_equivalent) {
-        std::sprintf(buffer, "MADE EQUIVALENT %d\n", count);
+        std::snprintf(buffer, sizeof(buffer), "MADE EQUIVALENT %d\n", count);
         test(made_equivalent->test(), std::string(buffer));
         count = count + 1;
     }
     count = 1;
     for (auto found_equivalent = found_equivalents.begin(); found_equivalent != found_equivalents.end(); ++found_equivalent) {
-        std::sprintf(buffer, "FOUND EQUIVALENT %d\n", count);
+        std::snprintf(buffer, sizeof(buffer), "FOUND EQUIVALENT %d\n", count);
         test(found_equivalent->test(), std::string(buffer));
         count = count + 1;
     }
