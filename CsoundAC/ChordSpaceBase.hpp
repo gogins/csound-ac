@@ -2611,7 +2611,7 @@ static std::string print_opti_sectors(const Chord &chord) {
     char buffer[0x1000];
     auto opti_sectors = chord.opti_domain_sectors();
     for (auto opti_sector : opti_sectors) {
-        std::sprintf(buffer, "[opt:%2d  opti:%2d]", opti_sector / 2, opti_sector);
+        snprintf(buffer, sizeof(buffer), "[opt:%2d  opti:%2d]", opti_sector / 2, opti_sector);
         result.append(buffer);
     }
     return result;    
@@ -2619,10 +2619,10 @@ static std::string print_opti_sectors(const Chord &chord) {
 
 inline const char *print_chord(const Chord &chord) {
     static char buffer[0x1000];
-    std::sprintf(buffer, "%s   ", chord.toString().c_str());
+    snprintf(buffer, sizeof(buffer), "%s   ", chord.toString().c_str());
     auto opti_sectors = chord.opti_domain_sectors();
     for (auto opti_sector : opti_sectors) {
-        std::sprintf(buffer + std::strlen(buffer), "[OPT %2d  OPTI %2d]  ", opti_sector / 2, opti_sector);
+        std::snprintf(buffer + std::strlen(buffer), sizeof(buffer), "[OPT %2d  OPTI %2d]  ", opti_sector / 2, opti_sector);
     }
     return buffer;
 }
@@ -2642,89 +2642,89 @@ inline std::string Chord::information_sector(int opt_sector_) const {
     if (voices() < 1) {
         return "Empty chord.";
     }
-    std::sprintf(buffer, "CHORD:\n");
+    snprintf(buffer, sizeof(buffer), "CHORD:\n");
     result.append(buffer);
     int opt_sector = 0;
     if (opt_sector_ == -1) {
         opt_sector = opt_domain_sectors().front();
     }
-    std::sprintf(buffer, "%-19s %s\n", name().c_str(), print_chord(*this));
+    snprintf(buffer, sizeof(buffer), "%-19s %s\n", name().c_str(), print_chord(*this));
     result.append(buffer);
-    std::sprintf(buffer, "Pitch-class set:    %s\n", epcs().eP().toString().c_str());
+    snprintf(buffer, sizeof(buffer), "Pitch-class set:    %s\n", epcs().eP().toString().c_str());
     result.append(buffer);
-    std::sprintf(buffer, "Normal order:       %s\n", normal_order().toString().c_str());
+    snprintf(buffer, sizeof(buffer), "Normal order:       %s\n", normal_order().toString().c_str());
     result.append(buffer);
-    std::sprintf(buffer, "Normal form:        %s\n", normal_form().toString().c_str());
+    snprintf(buffer, sizeof(buffer), "Normal form:        %s\n", normal_form().toString().c_str());
     result.append(buffer);
-    std::sprintf(buffer, "Prime form:         %s\n", prime_form().toString().c_str());
+    snprintf(buffer, sizeof(buffer), "Prime form:         %s\n", prime_form().toString().c_str());
     result.append(buffer);
-    std::sprintf(buffer, "Inverse prime form: %s\n", inverse_prime_form().toString().c_str());
+    snprintf(buffer, sizeof(buffer), "Inverse prime form: %s\n", inverse_prime_form().toString().c_str());
     result.append(buffer);
-    std::sprintf(buffer, "Sum:                %12.7f\n", layer());
+    snprintf(buffer, sizeof(buffer), "Sum:                %12.7f\n", layer());
     result.append(buffer);
-    std::sprintf(buffer, "O:           %3d => %s\n", iseO(), print_chord(eO()));
+    snprintf(buffer, sizeof(buffer), "O:           %3d => %s\n", iseO(), print_chord(eO()));
     result.append(buffer);
-    std::sprintf(buffer, "P:           %3d => %s\n", iseP(), print_chord(eP()));
+    snprintf(buffer, sizeof(buffer), "P:           %3d => %s\n", iseP(), print_chord(eP()));
     result.append(buffer);
-    std::sprintf(buffer, "T:           %3d => %s\n", iseT(), print_chord(eT()));
+    snprintf(buffer, sizeof(buffer), "T:           %3d => %s\n", iseT(), print_chord(eT()));
     result.append(buffer);
-    std::sprintf(buffer, "TT:          %3d => %s\n", iseTT(), print_chord(eTT()));
+    snprintf(buffer, sizeof(buffer), "TT:          %3d => %s\n", iseTT(), print_chord(eTT()));
     result.append(buffer);
     auto isei = iseI(opt_sector);
     auto ei = eI(opt_sector);
-    std::sprintf(buffer, "I:           %3d => %s\n", isei, print_chord(ei));
+    snprintf(buffer, sizeof(buffer), "I:           %3d => %s\n", isei, print_chord(ei));
     result.append(buffer);
-    std::sprintf(buffer, "OP:          %3d => %s\n", iseOP(), print_chord(eOP()));
+    snprintf(buffer, sizeof(buffer), "OP:          %3d => %s\n", iseOP(), print_chord(eOP()));
     result.append(buffer);
-    std::sprintf(buffer, "OT:          %3d => %s\n", iseOT(), print_chord(eOT()));
+    snprintf(buffer, sizeof(buffer), "OT:          %3d => %s\n", iseOT(), print_chord(eOT()));
     result.append(buffer);
-    std::sprintf(buffer, "OTT:         %3d => %s\n", iseOTT(), print_chord(eOTT()));
+    snprintf(buffer, sizeof(buffer), "OTT:         %3d => %s\n", iseOTT(), print_chord(eOTT()));
     result.append(buffer);
-    std::sprintf(buffer, "OPT:         %3d => %s\n", iseOPT(opt_sector), print_chord(eOPT(opt_sector)));
+    snprintf(buffer, sizeof(buffer), "OPT:         %3d => %s\n", iseOPT(opt_sector), print_chord(eOPT(opt_sector)));
     result.append(buffer);
-    std::sprintf(buffer, "OPTT:        %3d => %s\n", iseOPTT(opt_sector), print_chord(eOPTT(opt_sector)));
+    snprintf(buffer, sizeof(buffer), "OPTT:        %3d => %s\n", iseOPTT(opt_sector), print_chord(eOPTT(opt_sector)));
     result.append(buffer);
-    std::sprintf(buffer, "OPI:         %3d => %s\n", iseOPI(opt_sector), print_chord(eOPI(opt_sector)));
+    snprintf(buffer, sizeof(buffer), "OPI:         %3d => %s\n", iseOPI(opt_sector), print_chord(eOPI(opt_sector)));
     result.append(buffer);
-    std::sprintf(buffer, "OPTI:        %3d => %s\n", iseOPTI(opt_sector), print_chord(eOPTI(opt_sector)));
+    snprintf(buffer, sizeof(buffer), "OPTI:        %3d => %s\n", iseOPTI(opt_sector), print_chord(eOPTI(opt_sector)));
     result.append(buffer);
-    std::sprintf(buffer, "OPTTI:       %3d => %s\n", iseOPTTI(opt_sector), print_chord(eOPTTI(opt_sector)));
+    snprintf(buffer, sizeof(buffer), "OPTTI:       %3d => %s\n", iseOPTTI(opt_sector), print_chord(eOPTTI(opt_sector)));
     result.append(buffer);
-    std::sprintf(buffer, "               OPT sectors:\n");
+    snprintf(buffer, sizeof(buffer), "               OPT sectors:\n");
     result.append(buffer);
     auto rpts = eRPTs(); 
     auto &hyperplane_equations = hyperplane_equations_for_opt_sectors()[voices()];
     for (auto i = 0; i < rpts.size(); ++i) {
         auto rpt = rpts[i];
         auto sector_text = print_opti_sectors(rpt);
-        std::sprintf(buffer, "                    %s\n", print_chord(rpt));
+        snprintf(buffer, sizeof(buffer), "                    %s\n", print_chord(rpt));
         result.append(buffer);
     }
-    std::sprintf(buffer, "               OPTT sectors:\n");
+    snprintf(buffer, sizeof(buffer), "               OPTT sectors:\n");
     result.append(buffer);
     auto rptts = eRPTTs(12.);
     for (auto i = 0; i < rptts.size(); ++i) {
         auto rptt = rptts[i];
         auto sector_text = print_opti_sectors(rptt);
-        std::sprintf(buffer, "                    %s\n", print_chord(rptt));
+        snprintf(buffer, sizeof(buffer), "                    %s\n", print_chord(rptt));
         result.append(buffer);
     }
-    std::sprintf(buffer, "               Inversion flats (vector equations) and corresponding reflections of this:\n");
+    snprintf(buffer, sizeof(buffer), "               Inversion flats (vector equations) and corresponding reflections of this:\n");
     result.append(buffer);
     auto sectors = opt_domain_sectors();
     for (int i = 0, n = voices(); i < n; ++i) {
         auto &hyperplane_equation = hyperplane_equations[i];
-        std::sprintf(buffer, "OPT[%2d]  Normal:  [", i);
+        snprintf(buffer, sizeof(buffer), "OPT[%2d]  Normal:  [", i);
         result.append(buffer);
         for (int j = 0, m = hyperplane_equation.unit_normal_vector.rows(); j < m; ++j) {
-            std::sprintf(buffer, " %12.7f", hyperplane_equation.unit_normal_vector(j, 0));
+            snprintf(buffer, sizeof(buffer), " %12.7f", hyperplane_equation.unit_normal_vector(j, 0));
             result.append(buffer);
         }
         auto reflected = reflect_in_inversion_flat(*this, i);
-        std::sprintf(buffer, " ] Constant: %11.7f\n", hyperplane_equation.constant_term);
+        snprintf(buffer, sizeof(buffer), " ] Constant: %11.7f\n", hyperplane_equation.constant_term);
         result.append(buffer);
         auto sector_text = print_opti_sectors(reflected);
-        std::sprintf(buffer, "         Reflection:%s\n", print_chord(reflected));
+        snprintf(buffer, sizeof(buffer), "         Reflection:%s\n", print_chord(reflected));
         result.append(buffer);   
     }    
     return result;

@@ -103,7 +103,7 @@ void ExternalNode::generateLocally()
     System::inform("ExternalNode::generateLocally: Wrote %d bytes.\n", bytes_written);
     boost::process::ipstream stdout_stream;
     char command_line[0x500];
-    std::sprintf(command_line, "%s %s", getCommand().c_str(), script_filename);
+    std::snprintf(command_line, sizeof(command_line), "%s %s", getCommand().c_str(), script_filename);
     System::inform("ExternalNode::generateLocally: Executing: %s\n", command_line);
     boost::process::child child_process(const_cast<const char *>(command_line), boost::process::std_out > stdout_stream);
     std::string line;

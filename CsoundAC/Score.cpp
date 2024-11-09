@@ -282,7 +282,7 @@ namespace csound
     {
         Sxmlelement part = factory::instance().create(k_part);
         char buffer[0x100];
-        std::sprintf(buffer, "Instrument %d", instrument);
+        std::snprintf(buffer, sizeof(buffer), "Instrument %d", instrument);
         part->add(newAttribute("id", buffer));
         size_t measure = 0;
         size_t time_ = 0;
@@ -302,7 +302,7 @@ namespace csound
         {
             Sxmlelement scorepart = factory::instance().create(k_score_part);
             char partid[0x100];
-            std::sprintf(partid, "Instrument %d", it->first);
+            std::snprintf(partid, sizeof(partid), "Instrument %d", it->first);
             scorepart->add(newAttribute("id", partid));
             scorepart->push(newElement(k_part_name, partid));
             Sxmlelement scoreinstrument = factory::instance().create(k_score_instrument);

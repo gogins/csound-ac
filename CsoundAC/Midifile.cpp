@@ -422,10 +422,10 @@ std::string MidiEvent::toString() const
 {
     std::ostringstream stream;
     char buffer[0x100];
-    std::sprintf(buffer, "MidiEvent:  tick: %5d  sec: %8.4f  status: %3d", ticks, time, getStatus());
+    std::snprintf(buffer, sizeof(buffer), "MidiEvent:  tick: %5d  sec: %8.4f  status: %3d", ticks, time, getStatus());
     stream << buffer;
     for (size_t i = 1, n = size(); i < n; ++i) {
-        std::sprintf(buffer, " %3d", at(i));
+        std::snprintf(buffer, sizeof(buffer), " %3d", at(i));
         stream << buffer;
     }
     stream << std::endl;

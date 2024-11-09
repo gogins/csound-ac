@@ -96,14 +96,14 @@ void Counterpoint::toCsoundScore(std::string filename, double secondsPerPulse)
             time = Onset(note,voice) * secondsPerPulse;
             duration = Dur(note,voice) * secondsPerPulse;
             key = double(Ctrpt(note,voice));
-            sprintf(buffer, "i %d %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g\n",
+            snprintf(buffer, sizeof(buffer), "i %d %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g %-1.7g\n",
                     (int)(voice + 1), time, duration, key, velocity, phase, x, y, z, pcs);
             csound::System::inform("%s", buffer);
             stream << buffer;
             totalnotes++;
         }
     }
-    sprintf(buffer, "; Total notes = %d\n", totalnotes);
+    snprintf(buffer, sizeof(buffer), "; Total notes = %d\n", totalnotes);
     //~ ("%s", buffer);
     stream << buffer;
 }
