@@ -167,6 +167,14 @@ namespace csound {
             };
     };
      
+    SILENCE_PUBLIC inline bool operator < (const HarmonyPoint2 &a, const HarmonyPoint2 &b) {
+        if (a.t() < b.t()) {
+            return true;
+        } else {
+            return false;
+        }
+    };
+
     /**
      * Represents an interpolation point with scaling factors for a fractal 
      * interpolation function in the __time-harmony subspace__ of the score 
@@ -247,7 +255,7 @@ namespace csound {
             }
     };
     
-    SILENCE_PUBLIC inline bool interpolation_point_less2(const HarmonyInterpolationPoint2 &a, const HarmonyInterpolationPoint2 &b) {
+    SILENCE_PUBLIC inline bool operator < (const HarmonyInterpolationPoint2 &a, const HarmonyInterpolationPoint2 &b) {
         if (a.t < b.t) {
             return true;
         } else {
@@ -255,6 +263,14 @@ namespace csound {
         }
     };
     
+    SILENCE_PUBLIC inline bool interpolation_point_less2(const HarmonyInterpolationPoint2 &a, const HarmonyInterpolationPoint2 &b) {
+        if (a.t < b.t) {
+            return true;
+        } else {
+            return false;
+        }
+    };
+
     /**
      * HarmonyIFS is a class for doing algorithmic music composition by means 
      * of fractal interpolation functions. Scores are generated as the 
