@@ -733,7 +733,8 @@ void MidiFile::dump(std::ostream &stream)
     }
 }
 
-inline bool operator < (const MidiEvent &a, const MidiEvent &b)
+/// inline bool SILENCE_PUBLIC operator < (const MidiEvent &a, const MidiEvent &b)
+bool SILENCE_PUBLIC operator < (const MidiEvent &a, const MidiEvent &b)
 {
     MidiEventComparator comparator;
     return comparator(a, b);
