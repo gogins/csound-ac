@@ -398,6 +398,8 @@ SILENCE_PUBLIC bool operator == (const Chord &a, const Chord &b);
 
 SILENCE_PUBLIC bool operator < (const Chord &a, const Chord &b);
 
+SILENCE_PUBLIC bool operator < (const Scale &a, const Scale &b);
+
 SILENCE_PUBLIC bool operator <= (const Chord &a, const Chord &b);
 
 SILENCE_PUBLIC bool operator > (const Chord &a, const Chord &b);
@@ -2774,6 +2776,22 @@ inline SILENCE_PUBLIC bool operator == (const Chord &a, const Chord &b) {
 }
 
 inline SILENCE_PUBLIC bool operator < (const Chord &a, const Chord &b) {
+    size_t n = std::min(a.voices(), b.voices());
+    for (size_t voice = 0; voice < n; voice++) {
+        if (lt_tolerance(a.getPitch(voice), b.getPitch(voice))) {
+            return true;
+        }
+        if (gt_tolerance(a.getPitch(voice), b.getPitch(voice))) {
+            return false;
+        }
+    }
+    if (a.voices() < b.voices()) {
+        return true;
+    }
+    return false;
+}
+
+inline SILENCE_PUBLIC bool operator < (const Scale &a, const Scale &b) {
     size_t n = std::min(a.voices(), b.voices());
     for (size_t voice = 0; voice < n; voice++) {
         if (lt_tolerance(a.getPitch(voice), b.getPitch(voice))) {
