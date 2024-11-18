@@ -13,7 +13,9 @@ option(BUILD_CSOUND_AC "Build CsoundAC extension module for Csound with algorith
 option(BUILD_CSOUND_AC_PYTHON_INTERFACE "Build the Csound AC Python interface" ON)
 
 find_package(SWIG)
-find_package (Python3 COMPONENTS Interpreter Development)
+
+# /opt/homebrew/Cellar/python@3.12/3.12.7_1/Frameworks/Python.framework/Versions/3.12/lib/libpython3.12.dylib -> ../Python)
+find_package (Python3 3.12 EXACT COMPONENTS Interpreter Development)
 message(STATUS "Python libraries:  ${PYTHONLIBS_VERSION_STRING}")
 
 # Prefer the static MusicXML library as there is no system package for it.
