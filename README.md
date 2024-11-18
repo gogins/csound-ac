@@ -76,7 +76,7 @@ https://gogins.github.io/csound-examples.
     1.5  The [OpenCV](https://opencv.org/) library for image processing.
     
     1.6  The [Python](https://www.python.org/) programming language, version 
-         3.9 or higher.
+         3.12 or higher.
     
 2.  There are prebuilt binary releases for this package available at 
     https://github.com/gogins/csound-ac/releases. These can be downloaded,
