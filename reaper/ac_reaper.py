@@ -51,28 +51,29 @@ def clear_midi_item(midi_item):
     if not is_valid_object(midi_item):
         RPR_ShowConsoleMsg("No MIDI item selected!\n")
         return
-    # Get the active take from the selected item
     midi_take = RPR_GetActiveTake(midi_item)
-    if not is_valid_object(midi_take):
-        RPR_ShowConsoleMsg("MIDI item has no active MIDI take!\n")
-        return
-    # Delete all events from a MidiItem.
-    p1 = int(0)
-    p2 = int(1)
-    p3 = int(2)
-    (result, midi_take, note_count, cc_count, text_sysex_count) = RPR_MIDI_CountEvts(midi_take, p1, p2, p3)
-    for i in range(note_count - 1, -1, -1):  # Iterate in reverse to avoid index shifting
-        RPR_MIDI_DeleteNote(midi_take, i)
-    for i in range(cc_count - 1, -1, -1):  # Iterate in reverse
-        RPR_MIDI_DeleteCC(midi_take, i)
-    for i in range(text_sysex_count - 1, -1, -1):  # Iterate in reverse
-        RPR_MIDI_DeleteTextSysexEvt(midi_take, i)
-    # Commit changes
-    RPR_MIDI_Sort(midi_take)
-    RPR_ShowConsoleMsg("Cleared all contents from the MIDI item.\n")
-
+    if is_valid_object(midi_take):
+        # Delete all events from a MidiItem.
+        p1 = int(0)
+        p2 = int(1)
+        p3 = int(2)
+        (result, midi_take, note_count, cc_count, text_sysex_count) = RPR_MIDI_CountEvts(midi_take, p1, p2, p3)
+        RPR_ShowConsoleMsg(f"Event count: note_count: {note_count} cc_count: {cc_count} text_sysex_count: {text_sysex_count}\n")
+        for i in range(note_count - 1, -1, -1):  # Iterate in reverse to avoid index shifting
+            RPR_MIDI_DeleteNote(midi_take, i)
+        for i in range(cc_count - 1, -1, -1):  # Iterate in reverse
+            RPR_MIDI_DeleteCC(midi_take, i)
+        for i in range(text_sysex_count - 1, -1, -1):  # Iterate in reverse
+            RPR_MIDI_DeleteTextSysexEvt(midi_take, i)
+        # Commit changes
+        RPR_MIDI_Sort(midi_take)
+        RPR_ShowConsoleMsg("Cleared all contents from the MIDI item.\n")
+    else:
+        RPR_ShowConsoleMsg("Invalid MidiTake.\n")
+  
 ''' 
-Inserts a note into the MidiTake.
+Inserts a note into the MidiTake. The start time of the note is relative to 
+the start time of the MidiTake's MidiItem.
 '''
 def note_to_miditake(midi_take, start, duration, channel, key, velocity):
     start_ppq = RPR_MIDI_GetPPQPosFromProjTime(midi_take, start)
@@ -83,8 +84,7 @@ def note_to_miditake(midi_take, start, duration, channel, key, velocity):
         )
         return
     RPR_ShowConsoleMsg(
-        f"Inserting note: Start PPQ={start_ppq}, End PPQ={end_ppq}, "
-        f"Key={key}, Velocity={velocity}\n"
+        f"Inserting note: Start: {start} Start PPQ: {start_ppq} End PPQ; {end_ppq} Key: {key} Velocity: {velocity}\n"
     )
     success = RPR_MIDI_InsertNote(
         midi_take,    # Take
@@ -104,9 +104,10 @@ def note_to_miditake(midi_take, start, duration, channel, key, velocity):
 Sends all notes from the score to the currently selected MidiItem. 
 Previously existing events in the item are first deleted. The score can be 
 either a CsoundAC.Score object, or a plain Python list of notes 
-(start, duration, channel, key, velocity).
+(start, duration, channel, key, velocity). The start times of the notes 
+are relative to the start time of the MidiItem.
 
-NOTE: All times are project times in seconds!
+NOTE: All times are times in seconds relative to the start of the MidiItem!
 '''
 def score_to_midiitem(score, key_offset=0, start_offset=0):
     # Check for a selected MIDI item
@@ -141,6 +142,13 @@ def score_to_midiitem(score, key_offset=0, start_offset=0):
             RPR_ShowConsoleMsg("Failed to retrieve take for the new MIDI item!\n")
             return
         RPR_ShowConsoleMsg("Created, selected, and activated a new MIDI item.\n")
+    # Get the currently selected media item (assumes only one item is selected).
+    # Retrieve the start position (D_POSITION) of the item in project time.
+    midi_item_start = RPR_GetMediaItemInfo_Value(selected_item, "D_POSITION")
+    # If the item does not start at time 0, remember the actual starting time, 
+    # then move the item to time 0. This overcomes problems with negative PPQs.
+    RPR_ShowConsoleMsg(f"Start time of the selected MIDI item: {midi_item_start:.2f} seconds.\n")
+    RPR_SetMediaItemInfo_Value(selected_item, "D_POSITION", 0)
     clear_midi_item(selected_item)
     if isinstance(score, CsoundAC.Score):
         for eventI in range(len(score)):
@@ -159,14 +167,13 @@ def score_to_midiitem(score, key_offset=0, start_offset=0):
         RPR_SetMediaItemInfo_Value(selected_item, "D_LENGTH", duration)
         # Update the project to reflect the changes
         RPR_UpdateArrange()
-
         RPR_ShowConsoleMsg(f"Duration of score: {duration}\n")
     else:
         for note in notes:
             start, duration, channel, key, velocity = note
             note_to_miditake(midi_take, start + start_offset, duration, channel, key, velocity)
-    # Commit changes
-
+    # Restore the remembered start time.
+    RPR_SetMediaItemInfo_Value(selected_item, "D_POSITION", midi_item_start)
     RPR_MIDI_Sort(midi_take)
     RPR_ShowConsoleMsg("MIDI notes added successfully! Check the editor.\n")
 
