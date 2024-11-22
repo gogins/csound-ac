@@ -9,8 +9,24 @@ MidiItems.
 
 Author: Michael Gogins
 '''
-import CsoundAC
+
 from reaper_python import *
+try:
+    import CsoundAC
+except ImportError:
+    RPR_ShowConsoleMsg("WARNING: Could not import CsoundAC!\n")
+    import types
+    CsoundAC = types.ModuleType("CsoundAC")
+    RPR_ShowConsoleMsg("Created stubs for CsoundAC.\n")
+    def dynamic_getattr(name):
+        def stub_function(*args, **kwargs):
+            RPR_ShowConsoleMsg(f"Stub for {name} called with args: {args}, kwargs: {kwargs}")
+        return stub_function
+    CsoundAC.__getattr__ = dynamic_getattr
+    class Score:
+        pass
+    setattr(CsoundAC, "Score", Score)
+
 
 RPR_ShowConsoleMsg("Hello, Reaper!\n")
 
