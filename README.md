@@ -33,6 +33,9 @@ This repository contains:
 5.  patches, a library of Csound instrument definitions, developed over many 
     years and used in many of my pieces.
 
+6.  ac_reaper, a utility that supports doing algorithmic composition within 
+    the Reaper digital audio workstation, using Python ReaScripts.
+
 Currently, CsoundAC is supported on macOS and Linux.
 
 Please log any bug reports or requests for enhancements at 
