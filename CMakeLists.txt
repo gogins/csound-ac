@@ -145,10 +145,15 @@ endfunction(check_deps)
 add_subdirectory(dependencies/libmusicxml/build)
 add_subdirectory(CsoundAC)
 
+if(${GENERATE_DOCUMENTS})
+message("Generating documentation.")
 add_custom_target(doxygen_reference
     ALL
     COMMAND ./latex.sh
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/doc")
+else()
+message("Not generating documentation.")
+endif()
 
 # These are the real targets: the packages.
 
