@@ -27,6 +27,7 @@ endif()
 
 # CMAKE_SYSTEM_NAME relevant here can be Darwin, Windows, Linux, or Android.
 set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
+set(GENERATE_DOCUMENTS ON)
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME "csound-ac")
 if(DARWIN)
     set(CMAKE_MACOSX_RPATH ON)
@@ -171,10 +172,12 @@ set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
 install(FILES ${CMAKE_SOURCE_DIR}/copyright.txt
     DESTINATION share/doc/${CPACK_PACKAGE_NAME}
     RENAME copyright)
+if(${GENERATE_DOCUMENTS})
 install(FILES ${CMAKE_SOURCE_DIR}/doc/latex/csound-ac.pdf
     DESTINATION share/doc/${CPACK_PACKAGE_NAME})
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/doc/html
     DESTINATION share/doc/${CPACK_PACKAGE_NAME})
+endif()
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/patches
     DESTINATION share/doc/${CPACK_PACKAGE_NAME})
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/patches
