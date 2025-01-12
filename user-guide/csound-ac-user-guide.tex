@@ -1,0 +1,151 @@
+\documentclass[letterpaper,10pt]{scrartcl}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype} % Improved justification and kerning
+\usepackage{lmodern}   % Improved font rendering
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{fancyvrb}
+\usepackage{listings}
+\usepackage{hyperref}
+% Configure hyperref for blue URL links
+\hypersetup{
+    colorlinks=true,     % Enables colored links
+    linkcolor=black,     % Keeps section and figure references black
+    citecolor=black,     % Keeps citations black
+    urlcolor=blue        % Colors URLs blue
+}
+
+\begin{document}
+\definecolor{LstColor}{cmyk}{0.1,0.1,0,0.05} 
+\lstset{language=c++,basicstyle=\ttfamily\normalsize,commentstyle=\ttfamilynormalsize,tabsize=2,breaklines,backgroundcolor=\color{LstColor},fontadjust=true,fancyvrb=true,moredelim=[is][\textbf]{\\emph\{}{\}}}.
+
+\title{CsoundAC User Guide}
+\author{Michael Gogins \\ \texttt{michael.gogins@gmail.com}}
+\maketitle
+
+\section{Introduction}
+
+CsoundAC is a class library and software toolkit designed to support the algorithmic composition of music. As the name suggests, CsoundAC interfaces easily with \href{https://csound.com/}{ Csound}. However, CsoundAC can also be used with any other computer music system that supports Python scripting, including digital audio workstations (DAWs) such as \href{https://www.reaper.fm/}{Reaper}.
+
+The core of CsoundAC is written in platform-neutral standard C++. The \href{https://github.com/gogins/csound-ac}{CsoundAC repository} also includes a Python interface to CsoundAC. A JavaScript interface to a WebAssembly (WASM) build of CsoundAC (and Csound) is available in the \href{https://github.com/gogins/csound-wasm}{csound-wasm} repository. 
+
+The major features of CsoundAC are:
+
+\begin{itemize}
+\item  \href{https://quod.lib.umich.edu/i/icmc/bbp2372.1998.298/1}{Music graphs}, a hierarchical representation of musical scores and processes, modeled upon the computer graphics idea of scene graphs. 
+
+\item A variety of nodes for use in music graphs, including random variables, dynamical systems, Lindenmayer systems, iterated function systems, and others.
+
+\item Operations on scores using aspects of mathematical music theory, including chord spaces, chord transformations, voice-leading, and automatic modulations. 
+\end{itemize}
+
+\noindent Reference documentation for CsoundAC is \href{https://github.com/gogins/csound-ac/blob/master/csound-ac.pdf}{here}.
+
+\section{Getting Started}
+
+\subsection{Installation}
+
+Prebuilt binaries for macOS are available as GitHub releases. These are built for a specific version of Python, and will work only with that version. If you don't have the correct version of Python, you should install that version alongside your existing Python. 
+
+Linux binaries can be built as follows:
+
+\begin{enumerate}
+\item Clone the \href{https://github.com/gogins/csound-ac}{csound-ac} repository, and open a terminal in the repository's root directory.
+\item Install dependencies by running the \texttt{update-dependencies.sh} script.
+\item Perform a fresh build by running, e.g., the \texttt{clean-build-macos.sh} script.
+\end{enumerate}
+
+\subsection{Configuration}
+
+Copy both \texttt{\_CsoundAC.so} and \texttt{Csound.py} to the \texttt{site-packages} directory for that version, e.g. on macOS it could be \lstinline|/opt/homebrew/lib/python3.12/site-packages/_CsoundAC.so|.
+
+Test your installation by running the correct version of Python and importing CsoundAC. There should be no error.
+
+\begin{lstlisting}
+michaelgogins@macbookpro ~/csound-ac/user-guide % python3.12
+Python 3.12.8 (main, Dec  3 2024, 18:42:41) [Clang 16.0.0 (clang-1600.0.26.4)] on darwin
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import CsoundAC
+>>> 
+\end{lstlisting}
+
+Additional configuration may be required for using CsoundAC in Reaper, and is detailed below.
+
+\section{Running CsoundAC}
+
+CsoundAC can be run as part of an ordinary Python program that imports CsoundAC, or embedded in Csound using the \texttt{bin} attribute, e.g. \lstinline|<CsScore bin="python3.12">|, or embedded in a DAW using its Python scripting facility. 
+
+Here, the same simple example is run in each of these environments. All three examples use the same Csound orchestra, which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run and how they interface with Csound.
+
+\subsection{Running in Python}
+
+Running in Python has the advantage of being easy to understand. A composition is just a Python program. The composer's code generates a CsoundAC score, and defines the Csound orchestra as a Python string literal. CsoundAC embeds Csound, and proivdes convenience methods for rendering the composition.
+
+Open a terminal, change to the \lstinline|csound-ac/user-guide| directory, and execute \lstinline|python3.12 simply-python.py|.
+
+\subsection{Running in Csound}
+
+Running in Csound has the advantage of requiring no additional installation or configuration apart from Csound, Python, and CsoundAC. All of the elements of a composition are defined in one .csd file. In this case the Csound orchestra is defined outside of the Python code, which is embedded in the .csd file.
+
+Open a terminal, change to the \lstinline|csound-ac/user-guide| directory, and execute \lstinline|csound simple-score-bin.csd|.
+
+\subsection{Running in Reaper}
+
+Running in Reaper has the advantages of automatically providing a piano roll score, or even music notation, for generated scores; enabling other synthesis programs besides Csound to render CsoundAC scores; and in general, integrating with contemporary music production practice. The Csound orchestra is defined in the state of a CsoundVST3 plugin, which receives MIDI input from the DAW. The compositional code is defined in a Python ReaScript file, which is loaded into Reaper as an Action. This separation of composition and synthesis enables CsoundAC to send MIDI to the DAW and to other plugins, and for Csound to receive MIDI and audio from any track or plugin in Reaper.
+
+Additional configuration may be required to enable CsoundAC in Reaper:
+
+\begin{enumerate}
+\item In Reaper, open the \emph{REAPER} menu \emph{Settings...} dialog.
+\item Go to the end of the list of settings, and select \emph{ReaScript}.
+\item In the ReaScript settings, check the \emph{Enable Python for use with ReaScript} box.
+\item In the \emph{Force ReaScript to use specific Python .dylib} text field, enter the filename of the Python shared library for the version required by CsoundAC, e.g. \lstinline|libpython3.12.dylib|. 
+\item In the \emph{Custom path to Python dll directory} field, enter the full path to the Python library root directory, e.g. \lstinline|/opt/homebrew/Cellar/python@3.12/3.12.8/Frameworks/Python.framework/Versions/3.12/lib|. You can use the \emph{Browse} button to select this directory.
+\item If the configuration is correct, you will see something like \emph{Python: libpython3.12.dylib installed}.
+\end{enumerate}
+
+\noindent Verify that CsoundAC will run in Reaper:
+
+\begin{enumerate}
+\item Exit Reaper, and run it again.
+\item Use the \emph{Actions} menu, \emph{New action...} dialog, "Load ReaScript..." dialog to load the \lstinline|ac_reaper.py| script.
+\item Create a track with a blank MIDI item, and select that item.
+\item Use the\emph{Actions} menu, \emph{Show action list...} dialog, select the \emph{ac\_reaper.py} script, and click on the \emph{Run} button. 
+\item You should see the \emph{ReaScript console output} dialog, with output from the \emph{ac\_reaper.py} script. It should look something like this:
+\begin{lstlisting}
+Hello, Reaper!
+Selected item: <class 'str'> (MediaItem*)0x000000014383A400
+Using active take of selected MIDI item.
+Start time of the selected MIDI item: 0.00 seconds.
+Event count: note_count: 4 cc_count: 0 text_sysex_count: 0
+Cleared all contents from the MIDI item.
+Inserting note: Start: 0 Start PPQ: 0.0 End PPQ; 960.0 Key: 60 Velocity: 100
+Inserting note: Start: 0.5 Start PPQ: 960.0 End PPQ; 1920.0 Key: 62 Velocity: 100
+Inserting note: Start: 1 Start PPQ: 1920.0 End PPQ; 2880.0 Key: 64 Velocity: 100
+Inserting note: Start: 1.5 Start PPQ: 2880.0 End PPQ; 5760.0 Key: 67 Velocity: 100
+MIDI notes added successfully! Check the editor.
+\end{lstlisting}
+\item If you see the generated notes in the MIDI editor, and there is no error message, then your configuration is correct.
+\item If you see the generated notes but also see \emph{WARNING: Could not import CsoundAC!}, then Reaper can run Python code, but the installation or configuration for CsoundAC is not correct. The most likely causes are that the custom path to the Python library is not correct, or CsoundAC files are not located in the correct \lstinline|site-packages| directory.
+\end{enumerate}
+
+\section{Compositional Examples}
+
+The following examples demonstrate basic concepts of CsoundAC. 
+
+\subsection{Random Variables}
+
+\subsection{Logistic Equation}
+
+\subsection{Image to Score}
+
+
+
+
+
+
+
+
+
+
+\end{document}
