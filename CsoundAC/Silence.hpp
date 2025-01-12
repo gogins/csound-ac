@@ -87,6 +87,8 @@
 #include "Rescale.hpp"
 #include "ScoreModel.hpp"
 #if !defined(EMSCRIPTEN)
+// #include "CppSound.hpp"
+// #include "CsoundFile.hpp"
 #include "MusicModel.hpp"
 #endif
 #include "Sequence.hpp"

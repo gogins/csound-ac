@@ -39,7 +39,7 @@
 #include "CsoundFile.hpp"
 #include <string>
 #include <vector>
-  %}
+%}
 %template(MyfltVector) std::vector<MYFLT>;
 #else
 #include <csound.hpp>

@@ -22,7 +22,7 @@
 #if !defined(__BUILDING_LIBCSOUND)
 #define __BUILDING_LIBCSOUND
 #endif
-///#include <csoundCore.h>
+/* #include <csoundCore.h> */
 
 #include <cstdio>
 #include <cstring>
