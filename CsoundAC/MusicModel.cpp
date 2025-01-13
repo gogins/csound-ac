@@ -142,6 +142,16 @@ std::string MusicModel::getCsoundOrchestra() const
     return cppSound->getOrchestra();
 }
 
+void MusicModel::setCsd(std::string csd)
+{
+    cppSound->setCSD(csd);
+}
+
+std::string MusicModel::getCsd() const
+{
+    return cppSound->getCSD();
+}
+
 void MusicModel::setCsoundScoreHeader(std::string header)
 {
     csoundScoreHeader = header;

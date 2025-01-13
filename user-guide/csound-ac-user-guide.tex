@@ -75,7 +75,7 @@ Additional configuration may be required for using CsoundAC in Reaper, and is de
 
 CsoundAC can be run as part of an ordinary Python program that imports CsoundAC, or embedded in Csound using the \texttt{bin} attribute, e.g. \lstinline|<CsScore bin="python3.12">|, or embedded in a DAW using its Python scripting facility. 
 
-Here, the same simple example is run in each of these environments. All three examples use the same Csound orchestra, which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run and how they interface with Csound.
+Here, the same simple example is run in each of these environments. All three examples use the same Csound orchestra, \lstinline|simple.csd|, which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run and how they interface with Csound.
 
 \subsection{Running in Python}
 

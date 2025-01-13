@@ -82,6 +82,16 @@ public:
      */
     virtual void clear();
     /**
+     * Set the Csound csd file
+     * (convenience wrapper for CppSound::setCSD()).
+     */
+    virtual void setCsd(std::string csd);
+    /**
+     * Get the Csound csd file
+     * (convenience wrapper for CppSound::getCSD()).
+     */
+    virtual std::string getCsd() const;
+    /**
      * Set the Csound orchestra
      * (convenience wrapper for CppSound::setOrchestra()).
      */
