@@ -1,4 +1,12 @@
-orc = r'''
+<CsoundSynthesizer>
+<CsLicense>
+This piece tests combinations of instr definitions.
+</CsLicense>
+<CsOptions>
+--m-amps=1 --m-range=1 --m-dB=1 --m-benchmarks=1 --m-warnings=0 -+msg_color=0 -d -odac
+</CsOptions>
+<CsInstruments>
+
 sr = 48000
 ksmps = 128
 nchnls = 2
@@ -859,21 +867,8 @@ fout gS_MasterOutput_filename, 18, aleft * i_amplitude_adjustment, aright * i_am
 endif
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
-'''
 
-import CsoundAC
-music_model = CsoundAC.MusicModel()
-score_node = CsoundAC.ScoreNode()
-music_model.addChild(score_node)
-for i in range(100):
-    p1 = 1 + (i % 8)
-    p2 = i / 4
-    p3 = 6
-    p4 = 36 + (i % 60)
-    p5 = 60
-    score_node.getScore().add(p2, p3, 144, p1, p4, p5)
-print("Generated score:")
-print(score_node.getScore().getCsoundScore())
-music_model.setCsoundOrchestra(orc)
-music_model.setCsoundCommand("-m163 --midi-key=4 --midi-velocity=5 -odac")
-music_model.render()
+</CsInstruments>
+<CsScore>
+</CsScore>
+</CsoundSynthesizer>
