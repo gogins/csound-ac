@@ -17,7 +17,7 @@ int main(int argc, const char **argv)
 {
     csound::MusicModel model;
     // These fields determine output filenames and ID 3 tags.
-    // csound::System::setMessageLevel(15);
+    csound::System::setMessageLevel(15);
     model.setAuthor("Michael Gogins");
     model.setTitle("image_to_score");
     model.setAlbum("Silence");
@@ -28,7 +28,7 @@ int main(int argc, const char **argv)
     image_to_score_node.threshhold(80);
     image_to_score_node.setMaximumVoiceCount(25);
     //image_to_score_node.condense(72);
-    image_to_score_node.generate();
+    image_to_score_node.generateLocally();
     csound::Score &score = image_to_score_node.getScore();
     std::mt19937 mersenneTwister;
     std::uniform_real_distribution<> randomvariable(-0.9, +0.9);
@@ -38,8 +38,8 @@ int main(int argc, const char **argv)
     score.rescale(csound::Event::TIME,          true,  0.0, false,  0.0);
     score.rescale(csound::Event::INSTRUMENT,    true,  1.0, true, 11.99999);
     score.rescale(csound::Event::VELOCITY,      true, 40.0, true,  10.0);
-    //score.rescale(csound::Event::DURATION,      true,  2.0, true,   4.0);
-    //score.rescale(csound::Event::PAN,           true,  0.0, true,   0.0);
+    score.rescale(csound::Event::DURATION,      true,  2.0, true,   4.0);
+    score.rescale(csound::Event::PAN,           true,  0.0, true,   0.0);
     std::cout << "Move to origin duration:" << score.getDuration() << std::endl;
     score.setDuration(240.0);
     std::cout << "set duration:           " << score.getDuration() << std::endl;

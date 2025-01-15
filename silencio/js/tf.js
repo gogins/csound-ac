@@ -23043,7 +23043,7 @@
 	});
 	function getGlobalTensorClass() {
 	  // Use getGlobal so that we can augment the Tensor class across package
-	  // boundaries becase the node resolution alg may result in different modules
+	  // boundaries because the node resolution alg may result in different modules
 	  // being returned for this file depending on the path they are loaded from.
 	  return getGlobal('Tensor', function () {
 	    return Tensor;
@@ -23517,7 +23517,7 @@
 	    /**
 	     * Initializes a backend by looking up the backend name in the factory
 	     * registry and calling the factory method. Returns a boolean representing
-	     * whether the initialization of the backend suceeded. Throws an error if
+	     * whether the initialization of the backend succeeded. Throws an error if
 	     * there is no backend in the factory registry.
 	     */
 	  }, {
@@ -25208,28 +25208,29 @@
 	 * await tf.setBackend(savedBackend);
 	 * ```
 	 * @param values The values of the tensor. Can be nested array of numbers,
-	 *     or a flat array, or a `TypedArray`, or a `WebGLData` object, or a
-	 * `WebGPUData` object. If the values are strings, they will be encoded as utf-8
-	 * and kept as `Uint8Array[]`. If the values is a `WebGLData` object, the dtype
-	 * could only be 'float32' or 'int32' and the object has to have: 1. texture, a
-	 * `WebGLTexture`, the texture must share the same `WebGLRenderingContext` with
-	 * TFJS's WebGL backend (you could create a custom WebGL backend from your
-	 * texture's canvas) and the internal texture format for the input texture must
-	 * be floating point or normalized integer; 2. height, the height of the
-	 * texture; 3. width, the width of the texture; 4. channels, a non-empty subset
-	 * of 'RGBA', indicating the values of which channels will be passed to the
-	 * tensor, such as 'R' or 'BR' (The order of the channels affect the order of
-	 * tensor values. ). (If the values passed from texture is less than the tensor
-	 * size, zeros will be padded at the rear.). If the values is a `WebGPUData`
-	 * object, the dtype could only be 'float32' or 'int32 and the object has to
-	 * have: buffer, a `GPUBuffer`. The buffer must: 1. share the same `GPUDevice`
-	 * with TFJS's WebGPU backend; 2. buffer.usage should at least support
-	 * GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC; 3. buffer.size should not
-	 * be smaller than the byte size of tensor shape. WebGPUData optionally supports
-	 * zero copy by flag zeroCopy. When zeroCopy is false or undefined(default),
-	 * this passing GPUBuffer can be destroyed after tensor is created. When
-	 * zeroCopy is true, this GPUBuffer is bound directly by the tensor, so do not
-	 * destroy this GPUBuffer until all access is done.
+	 * or a flat array, or a `TypedArray`(At the moment it supports Uint8Array,
+	 * Uint8ClampedArray, Int32Array, Float32Array) data types, or a `WebGLData`
+	 * object, or a `WebGPUData` object. If the values are strings, they will be
+	 * encoded as utf-8 and kept as `Uint8Array[]`. If the values is a `WebGLData`
+	 * object, the dtype could only be 'float32' or 'int32' and the object has to
+	 * have: 1. texture, a `WebGLTexture`, the texture must share the same
+	 * `WebGLRenderingContext` with TFJS's WebGL backend (you could create a custom
+	 * WebGL backend from your texture's canvas) and the internal texture format
+	 * for the input texture must be floating point or normalized integer; 2.
+	 * height, the height of the texture; 3. width, the width of the texture; 4.
+	 * channels, a non-empty subset of 'RGBA', indicating the values of which
+	 * channels will be passed to the tensor, such as 'R' or 'BR' (The order of the
+	 * channels affect the order of tensor values. ). (If the values passed from
+	 * texture is less than the tensor size, zeros will be padded at the rear.). If
+	 * the values is a `WebGPUData` object, the dtype could only be 'float32' or
+	 * 'int32 and the object has to have: buffer, a `GPUBuffer`. The buffer must:
+	 * 1. share the same `GPUDevice` with TFJS's WebGPU backend; 2. buffer.usage
+	 * should at least support GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC; 3.
+	 * buffer.size should not be smaller than the byte size of tensor shape.
+	 * WebGPUData optionally supports zero copy by flag zeroCopy. When zeroCopy is
+	 * false or undefined(default),this passing GPUBuffer can be destroyed after
+	 * tensor is created. When zeroCopy is true, this GPUBuffer is bound directly
+	 * by the tensor, so do not destroy this GPUBuffer until all access is done.
 	 * @param shape The shape of the tensor. Optional. If not provided,
 	 *   it is inferred from `values`.
 	 * @param dtype The data type.
@@ -25322,7 +25323,7 @@
 	      });
 	      start = end;
 	    }
-	    // Set the byteLenghth
+	    // Set the byteLength
 	    if (this.shards.length === 0) {
 	      this.byteLength = 0;
 	    }
@@ -27012,7 +27013,7 @@
 	 *
 	 * @param modelPath A unique identifier for the model to be saved. Must be a
 	 *   non-empty string.
-	 * @returns An instance of `BrowserIndexedDB` (sublcass of `IOHandler`),
+	 * @returns An instance of `BrowserIndexedDB` (subclass of `IOHandler`),
 	 *   which can be used with, e.g., `tf.Model.save`.
 	 */
 	function browserIndexedDB(modelPath) {
@@ -36758,7 +36759,7 @@
 	 *     "ROW_SPLITS": the row_splits tensor from the ragged tensor.
 	 *     "VALUE_ROWIDS": the value_rowids tensor from the ragged tensor.
 	 *     "FIRST_DIM_SIZE": if value_rowids is used for the first dimension, then
-	 *         it is preceeded by "FIRST_DIM_SIZE". The tensors are in the order of
+	 *         it is preceded by "FIRST_DIM_SIZE". The tensors are in the order of
 	 *         the dimensions.
 	 * @return A Tensor. Has the same type as values.
 	 * @doc {heading: 'Operations', subheading: 'Ragged'}
@@ -43369,7 +43370,7 @@
 	}
 	// A Gaussian penalty function, this method always returns values in [0, 1].
 	// The weight is a function of similarity, the more overlap two boxes are, the
-	// smaller the weight is, meaning highly overlapping boxe will be significantly
+	// smaller the weight is,meaning highly overlapping boxes will be significantly
 	// penalized. On the other hand, a non-overlapping box will not be penalized.
 	function suppressWeight(iouThreshold, scale, iou) {
 	  var weight = Math.exp(scale * iou * iou);
@@ -45775,7 +45776,7 @@
 	 *
 	 * @param cls The class to be registered. It must have a public static member
 	 *   called `className` defined and the value must be a non-empty string.
-	 * @param pkg The pakcage name that this class belongs to. This used to define
+	 * @param pkg The package name that this class belongs to. This used to define
 	 *     the key in GlobalCustomObject. If not defined, it defaults to `Custom`.
 	 * @param name The name that user specified. It defaults to the actual name of
 	 *     the class as specified by its static `className` property.
@@ -48341,7 +48342,7 @@
 	 * The following GitHub Gist
 	 * https://gist.github.com/dsmilkov/1b6046fd6132d7408d5257b0976f7864
 	 * implements a server based on [flask](https://github.com/pallets/flask) that
-	 * can receive the request. Upon receiving the model artifacts via the requst,
+	 * can receive the request. Upon receiving the model artifacts via the request,
 	 * this particular server reconstitutes instances of [Keras
 	 * Models](https://keras.io/models/model/) in memory.
 	 *
@@ -49717,7 +49718,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$7 = '4.20.0';
+	var version$7 = '4.22.0';
 
 	var OptimizerConstructors = /*#__PURE__*/function () {
 	  function OptimizerConstructors() {
@@ -50460,7 +50461,7 @@
 	  };
 	}
 	/**
-	 * Extracts odd indexed comple values in the given array.
+	 * Extracts odd indexed complete values in the given array.
 	 * @param complex The complex tensor values
 	 */
 	function complexWithOddIndex(complex) {
@@ -50672,7 +50673,7 @@
 	 *
 	 * @param summedDims indices to the dimensions being summed over.
 	 * @param idDims A look up table for the dimensions present in each input
-	 *     tensor. Each consituent array contains indices for the dimensions in the
+	 *     tensor.Each constituent array contains indices for the dimensions in the
 	 *     corresponding input tensor.
 	 *
 	 * @return A map with two fields:
@@ -63944,6 +63945,13 @@
 	function sparseTopKCategoricalAccuracy(yTrue, yPred) {
 	  throw new NotImplementedError();
 	}
+	function r2Score$1(yTrue, yPred) {
+	  return tidy(function () {
+	    var sumSquaresResiduals = yTrue.sub(yPred).square().sum();
+	    var sumSquares = yTrue.sub(yTrue.mean()).square().sum();
+	    return scalar(1).sub(sumSquaresResiduals.div(sumSquares));
+	  });
+	}
 	// Aliases.
 	var mse$1 = meanSquaredError$1;
 	var MSE$1 = meanSquaredError$1;
@@ -64505,7 +64513,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$6 = '4.20.0';
+	var version$6 = '4.22.0';
 
 	// get weights key from tensor map in order to check if it is from keras v3.
 	// e.g. dense/0
@@ -73108,7 +73116,7 @@
 	          _this4.resetStates(states, training);
 	        }
 	        var output = _this4.returnSequences ? outputs : lastOutput;
-	        // TODO(cais): Porperty set learning phase flag.
+	        // TODO(cais): Property set learning phase flag.
 	        if (_this4.returnState) {
 	          return [output].concat(states);
 	        } else {
@@ -73854,7 +73862,7 @@
 	    key: "stateSize",
 	    get: function get() {
 	      // States are a flat list in reverse order of the cell stack.
-	      // This allows perserving the requirement `stack.statesize[0] ===
+	      // This allows preserving the requirement `stack.statesize[0] ===
 	      // outputDim`. E.g., states of a 2-layer LSTM would be `[h2, c2, h1, c1]`,
 	      // assuming one LSTM has states `[h, c]`.
 	      var stateSize = [];
@@ -78702,7 +78710,7 @@
 	 *
 	 * The input should be a 3D (unbatched) or
 	 * 4D (batched) tensor in the `"channels_last"` image data format. Input pixel
-	 * values can be of any range (e.g. `[0., 1.)` or `[0, 255]`) and of interger
+	 * values can be of any range (e.g. `[0., 1.)` or `[0, 255]`) and of integer
 	 * or floating point dtype. By default, the layer will output floats.
 	 *
 	 * tf methods implemented in tfjs: 'bilinear', 'nearest',
@@ -80950,6 +80958,24 @@
 	function mse(yTrue, yPred) {
 	  return meanSquaredError$1(yTrue, yPred);
 	}
+	/**
+	 * Computes R2 score.
+	 *
+	 * ```js
+	 * const yTrue = tf.tensor2d([[0, 1], [3, 4]]);
+	 * const yPred = tf.tensor2d([[0, 1], [-3, -4]]);
+	 * const r2Score = tf.metrics.r2Score(yTrue, yPred);
+	 * r2Score.print();
+	 * ```
+	 * @param yTrue Truth Tensor.
+	 * @param yPred Prediction Tensor.
+	 * @return R2 score Tensor.
+	 *
+	 * @doc {heading: 'Metrics', namespace: 'metrics'}
+	 */
+	function r2Score(yTrue, yPred) {
+	  return r2Score$1(yTrue, yPred);
+	}
 
 	var exports_metrics = {
 		__proto__: null,
@@ -80966,6 +80992,7 @@
 		meanSquaredError: meanSquaredError,
 		mse: mse,
 		precision: precision,
+		r2Score: r2Score,
 		recall: recall,
 		sparseCategoricalAccuracy: sparseCategoricalAccuracy
 	};
@@ -81317,6 +81344,9 @@
 	/** DataType enum. */
 	var DataType;
 	(function (DataType) {
+	  // These properties must be quoted since they are used by parseDtypeParam
+	  // in tfjs-converter/src/operations/operation_mapper.ts to look up dtypes
+	  // by string name. If they are not quoted, Closure will mangle their names.
 	  // Not a legal value for DataType.  Used to indicate a DataType field
 	  // has not been set.
 	  DataType[DataType["DT_INVALID"] = 0] = "DT_INVALID";
@@ -92560,7 +92590,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$5 = '4.20.0';
+	var version$5 = '4.22.0';
 
 	/**
 	 * @license
@@ -97891,14 +97921,12 @@
 	}
 	/**
 	 * Create a `Dataset` that produces each element from provided JavaScript
-	 * generator, which is a function*
-	 * (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Iterators_and_Generators#Generator_functions),
-	 * or a function that returns an
-	 * iterator
-	 * (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Iterators_and_Generators#Generator_functions).
+	 * generator, which is a function that returns a (potentially async) iterator.
 	 *
-	 * The returned iterator should have `.next()` function that returns element in
-	 * format of `{value: TensorContainer, done:boolean}`.
+	 * For more information on iterators and generators, see
+	 * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Iterators_and_Generators .
+	 * For the iterator protocol, see
+	 * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols .
 	 *
 	 * Example of creating a dataset from an iterator factory:
 	 * ```js
@@ -97939,8 +97967,8 @@
 	 * await ds.forEachAsync(e => console.log(e));
 	 * ```
 	 *
-	 * @param generator A JavaScript generator function that returns a JavaScript
-	 *     iterator.
+	 * @param generator A JavaScript function that returns
+	 *     a (potentially async) JavaScript iterator.
 	 *
 	 * @doc {
 	 *   heading: 'Data',
@@ -98070,7 +98098,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$4 = '4.20.0';
+	var version$4 = '4.22.0';
 
 	/**
 	 * @license
@@ -101805,7 +101833,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$3 = '4.20.0';
+	var version$3 = '4.22.0';
 
 	/**
 	 * @license
@@ -115569,7 +115597,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$2 = '4.20.0';
+	var version$2 = '4.22.0';
 
 	/**
 	 * @license
@@ -127169,7 +127197,7 @@
 
 	/** @license See the LICENSE file. */
 	// This code is auto-generated, do not modify this file!
-	var version$1 = '4.20.0';
+	var version$1 = '4.22.0';
 
 	/**
 	 * @license

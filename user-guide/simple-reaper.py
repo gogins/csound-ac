@@ -22,6 +22,7 @@ for i in range(100):
     p4 = 36 + (i % 60)
     p5 = 60
     score_node.getScore().add(p2, p3, 144, p1, p4, p5)
+music_model.generate()
 print("Generated score:")
-print(score_node.getScore().getCsoundScore())
-ac_reaper.score_to_midiitem(score_node.getScore())
+print(music_model.getScore().getCsoundScore())
+ac_reaper.score_to_midiitem(matchusic_model.getScore())

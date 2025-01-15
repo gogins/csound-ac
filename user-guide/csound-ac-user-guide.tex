@@ -1,4 +1,4 @@
-\documentclass[letterpaper,10pt]{scrartcl}
+\documentclass[letterpaper,10pt,DIV=12]{scrartcl}
 \usepackage[utf8]{inputenc}
 \usepackage{microtype} % Improved justification and kerning
 \usepackage{lmodern}   % Improved font rendering
@@ -61,7 +61,7 @@ Copy both \texttt{\_CsoundAC.so} and \texttt{Csound.py} to the \texttt{site-pack
 
 Test your installation by running the correct version of Python and importing CsoundAC. There should be no error.
 
-\begin{lstlisting}
+\begin{lstlisting}[basicstyle=\small\ttfamily]
 michaelgogins@macbookpro ~/csound-ac/user-guide % python3.12
 Python 3.12.8 (main, Dec  3 2024, 18:42:41) [Clang 16.0.0 (clang-1600.0.26.4)] on darwin
 Type "help", "copyright", "credits" or "license" for more information.
@@ -75,17 +75,83 @@ Additional configuration may be required for using CsoundAC in Reaper, and is de
 
 CsoundAC can be run as part of an ordinary Python program that imports CsoundAC, or embedded in Csound using the \texttt{bin} attribute, e.g. \lstinline|<CsScore bin="python3.12">|, or embedded in a DAW using its Python scripting facility. 
 
-Here, the same simple example is run in each of these environments. All three examples use the same Csound orchestra, \lstinline|simple.csd|, which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run and how they interface with Csound.
+Here, the same simple example is run in each of these environments. All three examples use the same Csound orchestra, \lstinline|simple.csd|, which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run, and how they interface with Csound. The following code and comments illustrate the basic logic for running in Python.
+
+\begin{lstlisting}[basicstyle=\small\ttfamily]
+csd = r'''My entire .csd file goes here."
+import CsoundAC
+# In CsoundAC, a composition is defined as an instance of the MusicModel class.
+music_model = CsoundAC.MusicModel()
+# A MusicModel is the root of a tree of hierarchically defined Notes.
+# In this case, we only need a ScoreNode, which contains a CsoundAC Score object.
+score_node = CsoundAC.ScoreNode()
+music_model.addChild(score_node)
+# This loop defines an ascending chromatic scale of notes in the Score object.
+# Please note, the fields of a CsoundAC Score event are fixed in the order:
+# time, duration, MIDI status, MIDI channel, MIDI key, MIDI velocity, and 
+# others. These are mapped to the Csound pfields used in the .csd file.
+for i in range(100):
+    p1 = 1 + (i % 8)
+    p2 = i / 4
+    p3 = 6
+    p4 = 36 + (i % 60)
+    p5 = 60
+    score_node.getScore().add(p2, p3, 144, p1, p4, p5)
+print("Generated score:")
+print(score_node.getScore().getCsoundScore())
+# Here we set our .csd file into the composition.
+music_model.setCsd(csd)
+# The render method traverses the tree of Nodes in the 
+# MusicModel, both generating and transforming notes, 
+# which are collected in a master Score. Then, the .csd 
+# is compiled, and the generated Score is translated to a Csound 
+# score and performed.
+music_model.render()
+\end{lstlisting}
 
 \subsection{Running in Python}
 
-Running in Python has the advantage of being easy to understand. A composition is just a Python program. The composer's code generates a CsoundAC score, and defines the Csound orchestra as a Python string literal. CsoundAC embeds Csound, and proivdes convenience methods for rendering the composition.
+Running in Python has the advantage of being easy to understand. A composition is just a Python program. The composer's code generates a CsoundAC score, and defines the Csound orchestra as a Python string literal. CsoundAC embeds Csound, and provides convenience methods for rendering the composition.
 
 Open a terminal, change to the \lstinline|csound-ac/user-guide| directory, and execute \lstinline|python3.12 simply-python.py|.
 
 \subsection{Running in Csound}
 
 Running in Csound has the advantage of requiring no additional installation or configuration apart from Csound, Python, and CsoundAC. All of the elements of a composition are defined in one .csd file. In this case the Csound orchestra is defined outside of the Python code, which is embedded in the .csd file.
+
+Here, the code for running Csound is not needed, as Csound is already running; instead, the generated score is written to a generated filename and read back into Csound for performance. The entire \lstinline|<CsScore>| element is:
+
+\begin{lstlisting}[basicstyle=\small\ttfamily]
+<CsScore bin="python3.12">
+'''
+The way this works is not intuitive, but fortunately it is simple. The "bin" 
+attribute of the <CsScore> element specifies a program that will read and 
+execute the script that is contained in the <CsScore> element. sys.argv[0] 
+may contain the name of an existing file that the script can read from, and 
+sys.argv[1] contains a generated filename that the script should write to, and 
+that will be read back as the Csound score at the start of performance.
+'''
+import sys
+print("External filename to read from: ", sys.argv[0])
+print("Score filename to write to:     ", sys.argv[1])
+import CsoundAC
+music_model = CsoundAC.MusicModel()
+score_node = CsoundAC.ScoreNode()
+music_model.addChild(score_node)
+for i in range(100):
+    p1 = 1 + (i % 8)
+    p2 = i / 4
+    p3 = 6
+    p4 = 36 + (i % 60)
+    p5 = 60
+import sys
+    score_node.getScore().add(p2, p3, 144, p1, p4, p5)
+print("Generated score:")
+print(score_node.getScore().getCsoundScore())
+with open(sys.argv[1], 'w') as scofile:
+  scofile.write(score_node.getScore().getCsoundScore())
+</CsScore>
+\end{lstlisting}
 
 Open a terminal, change to the \lstinline|csound-ac/user-guide| directory, and execute \lstinline|csound simple-score-bin.csd|.
 
@@ -112,7 +178,8 @@ Additional configuration may be required to enable CsoundAC in Reaper:
 \item Create a track with a blank MIDI item, and select that item.
 \item Use the\emph{Actions} menu, \emph{Show action list...} dialog, select the \emph{ac\_reaper.py} script, and click on the \emph{Run} button. 
 \item You should see the \emph{ReaScript console output} dialog, with output from the \emph{ac\_reaper.py} script. It should look something like this:
-\begin{lstlisting}
+
+\begin{lstlisting}[basicstyle=\small\ttfamily]
 Hello, Reaper!
 Selected item: <class 'str'> (MediaItem*)0x000000014383A400
 Using active take of selected MIDI item.
@@ -129,15 +196,61 @@ MIDI notes added successfully! Check the editor.
 \item If you see the generated notes but also see \emph{WARNING: Could not import CsoundAC!}, then Reaper can run Python code, but the installation or configuration for CsoundAC is not correct. The most likely causes are that the custom path to the Python library is not correct, or CsoundAC files are not located in the correct \lstinline|site-packages| directory.
 \end{enumerate}
 
+The simple example for Reaper is:
+
+\begin{lstlisting}[basicstyle=\small\ttfamily]
+import copy
+import CsoundAC
+import math
+import os
+import string
+import sys
+sys.path.append('/Users/michaelgogins/csound-ac/reaper')
+import types
+import time
+from reaper_python import *
+for p in sys.path:
+    RPR_ShowConsoleMsg(p + '\n')
+import ac_reaper
+
+music_model = CsoundAC.MusicModel()
+score_node = CsoundAC.ScoreNode()
+music_model.addChild(score_node)
+for i in range(100):
+    p1 = 1 + (i % 8)
+    p2 = i / 4
+    p3 = 6
+    p4 = 36 + (i % 60)
+    p5 = 60
+    score_node.getScore().add(p2, p3, 144, p1, p4, p5)
+print("Generated score:")
+print(score_node.getScore().getCsoundScore())
+ac_reaper.score_to_midiitem(score_node.getScore())
+\end{lstlisting}
+
 \section{Compositional Examples}
 
-The following examples demonstrate basic concepts of CsoundAC. 
+The following examples demonstrate basic concepts of CsoundAC.  All of these examples are written to run in Reaper.
+
+In each example, there is a first section that is simple. A second section arranges the first section into a three voice canon. The third and final section applies a chord progression to that canon, with automatically generated modulations.
+
+\subsection{Simple Example}
+
+The source for this example is the ascending chromatic scale from the previous examples.
 
 \subsection{Random Variables}
 
+The source for this example is a uniformly distributed random variable, generated by the CsoundAC Random node. It is rescaled to fit within a time span of 30 seconds and pitches ranging from 36 to 96.
+
 \subsection{Logistic Equation}
 
+This source for this example is the logistic equation, a discrete dynamical system that can have chaotic behavior. It also is rescaled to fit within a time span of 30 seconds and pitches ranging from 36 to 96.
+
 \subsection{Image to Score}
+
+The source for this example is a fractal image, which is loaded into the CsoundAC ImageToScore node and translated into a score, which is then rescaled to fit within a time span of 30 seconds and pitches ranging from 36 to 96.
+
+
 
 
 

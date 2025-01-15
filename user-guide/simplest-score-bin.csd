@@ -1,17 +1,17 @@
 <CsoundSynthesizer>
 <CsLicense>
-This piece tests combinations of instr definitions.
+This example demonstrates the use of the <CsScore bin="python3"> method of 
+generating Csound scores with a Python script embedded in the .csd filesr.
 </CsLicense>
 <CsOptions>
--m163 -+msg_color=0 -MN -QN -d --midi-key=4 --midi-velocity=5 --daemon
+-m163 -d -odac
 </CsOptions>
 <CsInstruments>
 
 sr = 48000
 ksmps = 128
 nchnls = 2
-nchnls_i = 2
-0dbfs = 4
+0dbfs = 2
 
 connect "FMWaterBell", "outleft",  "ReverbSC", "inleft"
 connect "FMWaterBell", "outright", "ReverbSC", "inright"
@@ -433,6 +433,7 @@ outleta "outright", a_out_right
 outs a_out_left, a_out_right
 endin
 
+
 gk_WGPluck_midi_dynamic_range chnexport "gk_WGPluck_midi_dynamic_range", 3 ;  127
 gk_WGPluck_level chnexport "gk_WGPluck_level", 3 ;  0
 gk_WGPluck_pick chnexport "gk_WGPluck_pick", 3 ;  .5
@@ -793,6 +794,60 @@ prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p
 endin
 
 </CsInstruments>
-<CsScore>
+<CsScore bin="python3.12">
+'''
+The way this works is not intuitive, but fortunately it is simple. The "bin" 
+attribute of the <CsScore> element mey be used to specify a program that will 
+read and execute the script that is contained in the <CsScore> element. In 
+this example, that program is Python. sys.argv[0] may contain the name of an 
+existing file that the script can read from (not used here), and sys.argv[1] 
+will contain a generated filename that the script should write to, and that 
+will be read back at the start of performance by Csound as a standard score.
+'''
+import sys
+import random
+
+print("External filename to read from: ", sys.argv[0])
+print("Score filename to write to:     ", sys.argv[1])
+
+# Set up a chaotic orbit for the logistic map:
+# y <== y * 4 * c * (1 - y)
+
+c = .998985
+y = .5
+time_step = .5
+bass = 30
+range_ = 60
+
+# Initialize pfields for the Csound "i" statements.
+
+p1_instrument = 1
+p2_time = 0
+p3_duration = time_step * 6
+p4_midi_key = 60
+p5_midi_velocity = 60
+p7_pan = .5
+unused = 0
+
+print("Generating score...")
+
+with open(sys.argv[1], 'w') as sco_file:
+    for i in range(200):
+        # Iterate the logistic map.
+        y1 = 4 * c * y * (1 - y)
+        y = y1
+        # Choose a Csound instrument at random.
+        p1_instrument = random.randrange(1, 8)
+        p2_time = i * time_step
+        # Map the y variable to MIDI key number.
+        p4_midi_key = round(y * range_) + bass
+        # Choose a stereo pan at random.
+        p7_pan = random.uniform(.2, .9)
+        # Format the "i" statement in a readable way.
+        i_statement = f"i {p1_instrument: 9.4f} {p2_time: 9.4f} {p3_duration: 9.4f} {p4_midi_key: 9.4f} {p5_midi_velocity: 9.4f} {unused: 9.4f} {p7_pan : 9.4f} {unused: 9.4f} {unused: 9.4f}\n"
+        # Print the y variable and corresponding "i" statement to stdout for inspection.
+        sys.stdout.write(f"y: {y: 9.4f} ==> {i_statement}")
+        # Write the "i" statement to the temporary score file.
+        sco_file.write(i_statement)
 </CsScore>
 </CsoundSynthesizer>
