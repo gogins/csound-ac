@@ -1,10 +1,10 @@
 <CsoundSynthesizer>
 <CsLicense>
 This example demonstrates the use of the <CsScore bin="python3"> method of 
-generating Csound scores with a Python script embedded in the .csd filesr.
+generating Csound scores using a Python script embedded in the .csd files.
 </CsLicense>
 <CsOptions>
--m163 -d -odac
+-m0 -d -odac
 </CsOptions>
 <CsInstruments>
 
@@ -794,7 +794,7 @@ prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p
 endin
 
 </CsInstruments>
-<CsScore bin="python3.12">
+<CsScore bin="python3">
 '''
 The way this works is not intuitive, but fortunately it is simple. The "bin" 
 attribute of the <CsScore> element mey be used to specify a program that will 
@@ -803,6 +803,9 @@ this example, that program is Python. sys.argv[0] may contain the name of an
 existing file that the script can read from (not used here), and sys.argv[1] 
 will contain a generated filename that the script should write to, and that 
 will be read back at the start of performance by Csound as a standard score.
+
+This example uses the logistic map to generate a score, simply as an example 
+of how to use Python to generate a performable Csound Score.
 '''
 import sys
 import random
@@ -810,7 +813,7 @@ import random
 print("External filename to read from: ", sys.argv[0])
 print("Score filename to write to:     ", sys.argv[1])
 
-# Set up a chaotic orbit for the logistic map:
+# Initalize parameters for the logistic map:
 # y <== y * 4 * c * (1 - y)
 
 c = .998985
@@ -846,8 +849,8 @@ with open(sys.argv[1], 'w') as sco_file:
         # Format the "i" statement in a readable way.
         i_statement = f"i {p1_instrument: 9.4f} {p2_time: 9.4f} {p3_duration: 9.4f} {p4_midi_key: 9.4f} {p5_midi_velocity: 9.4f} {unused: 9.4f} {p7_pan : 9.4f} {unused: 9.4f} {unused: 9.4f}\n"
         # Print the y variable and corresponding "i" statement to stdout for inspection.
-        sys.stdout.write(f"y: {y: 9.4f} ==> {i_statement}")
-        # Write the "i" statement to the temporary score file.
+        sys.stdout.write(f"note {i: 4} y: {y: 9.4f} ==> {i_statement}")
+        # Write the "i" statement to the temporary score file for performance.
         sco_file.write(i_statement)
 </CsScore>
 </CsoundSynthesizer>

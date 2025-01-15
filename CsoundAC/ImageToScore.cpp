@@ -273,6 +273,7 @@ namespace csound {
                 // Another way of doing this is, if the value increases.
                 if(prior_pixel[2] <= value_threshhold && current_pixel[2] > value_threshhold) {
                     pixel_to_event(column, row, current_pixel, startingEvent);
+                    startingEvent.setDuration(0);
                     if(pending_events.find(row) == pending_events.end() && pending_events.size() < getMaximumVoiceCount()) {
                         if(System::getMessageLevel() >= System::DEBUGGING_LEVEL) {
                             System::debug("Starting event at   column: %5d row: %5d value: %5d  %s\n", column, row, current_pixel[2], startingEvent.toString().c_str());
@@ -286,11 +287,12 @@ namespace csound {
                     if(pending_events.find(row) != pending_events.end()) {
                         csound::Event new_note = pending_events[row];
                         /// new_note.setOffTime(endingEvent.getOffTime());
+                        /// new_note.setOffTime(endingEvent.getTime());
+                        pixel_to_event(column, row, current_pixel, endingEvent);
                         new_note.setOffTime(endingEvent.getTime());
                         if(System::getMessageLevel() >= System::DEBUGGING_LEVEL) {
-                            System::debug("Ending event at     column: %5d row: %5d value: %5d  %s\n", column, row, current_pixel[2], new_note.toString().c_str());
+                            System::debug("Ending event at:    column: %5d row: %5d value: %5d  %s\n", column, row, current_pixel[2], new_note.toString().c_str());
                         }
-                        pixel_to_event(column, row, current_pixel, endingEvent);
                         score.append(new_note);
                         pending_events.erase(row);
                     }
