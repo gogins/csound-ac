@@ -80,7 +80,10 @@ export to various formats.
 
 '''
 import configparser
-import ctcsound
+try:
+    import ctcsound
+except:
+    pass
 import datetime
 import os
 import os.path

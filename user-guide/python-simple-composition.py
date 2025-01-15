@@ -1,16 +1,16 @@
+csd = r'''
 <CsoundSynthesizer>
 <CsLicense>
 This piece tests combinations of instr definitions.
 </CsLicense>
 <CsOptions>
--m163 -+msg_color=0 -MN -QN -d --midi-key=4 --midi-velocity=5 --daemon
+--m-amps=1 --m-range=1 --m-dB=1 --m-benchmarks=1 --m-warnings=0 -+msg_color=0 -d -odac
 </CsOptions>
 <CsInstruments>
 
 sr = 48000
 ksmps = 128
 nchnls = 2
-nchnls_i = 2
 0dbfs = 4
 
 connect "FMWaterBell", "outleft",  "ReverbSC", "inleft"
@@ -170,7 +170,7 @@ outleta "outright", a_out_right
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 gk_HeavyMetal_level chnexport "gk_HeavyMetal_level", 3
-gk_HeavyMetal_level init 0
+gk_HeavyMetal_level init 7
 gk_HeavyMetal_midi_dynamic_range chnexport "gk_HeavyMetal_midi_dynamic_range", 3 ; 127
 gk_HeavyMetal_midi_dynamic_range init 30
 gk_HeavyMetal_space_left_to_right chnexport "gk_HeavyMetal_space_left_to_right", 3
@@ -239,7 +239,7 @@ gk_Melody_midi_dynamic_range chnexport "gk_Melody_midi_dynamic_range", 3 ; 127
 gk_Melody_level chnexport "gk_Melody_level", 3 ; 0
 
 gk_Melody_midi_dynamic_range init 20
-gk_Melody_level init 0
+gk_Melody_level init 30
 
 gi_Melody_chebyshev ftgen 0, 0, 65537, -7, -1, 150, 0.1, 110, 0, 252, 0
 gi_Melody_sine ftgen 0, 0, 65537, 10, 1
@@ -796,3 +796,65 @@ endin
 <CsScore>
 </CsScore>
 </CsoundSynthesizer>
+'''
+
+import CsoundAC
+music_model = CsoundAC.MusicModel()
+# The sequence will hold the three sections of this piece.
+sequence = CsoundAC.Sequence()
+music_model.addChild(sequence)
+score_node = CsoundAC.ScoreNode()
+# The first section is just an asdending chromatic scale.
+sequence.addChild(score_node)
+for i in range(100):
+    p1 = 1 + (i % 7)
+    p2 = i / 4
+    p3 = 6
+    p4 = 36 + (i % 60)
+    p5 = 60
+    score_node.getScore().add(p2, p3, 144, p1, p4, p5)
+# The second section shortens the notes of the chromatc scale 
+# and plays it in a three voice canon.
+canon = CsoundAC.Node()
+sequence.addChild(canon)
+voice_1 = CsoundAC.Rescale()
+canon.addChild(voice_1)
+voice_1.addChild(score_node)
+voice_1.setRescale(0, True, False, 0, 0)
+voice_1.setRescale(4, True, False, 36+3, 0)
+voice_1.setRescale(1, True, True, .5, .4)
+voice_1.setRescale(3, True, True, 2, 0)
+voice_2 = CsoundAC.Rescale()
+canon.addChild(voice_2)
+voice_2.addChild(score_node)
+voice_2.setRescale(0, True, False, 1.5, 0)
+voice_2.setRescale(4, True, False, 36+6, 0)
+voice_2.setRescale(1, True, True, .5, .4)
+voice_2.setRescale(3, True, True, 5, 0)
+voice_3 = CsoundAC.Rescale()
+canon.addChild(voice_3)
+voice_3.addChild(score_node)
+voice_3.setRescale(0, True, False, 3, 0)
+voice_3.setRescale(4, True, False, 36+9, 0)
+voice_3.setRescale(1, True, True, .5, .4)
+voice_3.setRescale(3, True, True, 7, 0)
+# The third section adds a harmony that is applied 
+# to the canon.
+harmonized = CsoundAC.VoiceleadingNode()
+sequence.addChild(harmonized)
+harmonized.addChild(canon)
+# The times are not delta times, and chords are 
+# applied from that time until the next chord.
+harmonized.C_name(0, "CM9")
+harmonized.C_name(5, "Dm7")
+harmonized.CL_name(15, "G9")
+harmonized.C_name(20, "Am9")
+harmonized.C_name(25, "D9b5")
+harmonized.C_name(30, "G9")
+harmonized.CL_name(35, "CM9")
+music_model.setCsd(csd)
+music_model.generate()
+print("Generated score:")
+print(music_model.getScore().getCsoundScore())
+music_model.perform()
+

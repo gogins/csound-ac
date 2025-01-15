@@ -285,7 +285,8 @@ namespace csound {
                 if(current_pixel[2] > value_threshhold && next_pixel[2] <= value_threshhold) {
                     if(pending_events.find(row) != pending_events.end()) {
                         csound::Event new_note = pending_events[row];
-                        new_note.setOffTime(endingEvent.getOffTime());
+                        /// new_note.setOffTime(endingEvent.getOffTime());
+                        new_note.setOffTime(endingEvent.getTime());
                         if(System::getMessageLevel() >= System::DEBUGGING_LEVEL) {
                             System::debug("Ending event at     column: %5d row: %5d value: %5d  %s\n", column, row, current_pixel[2], new_note.toString().c_str());
                         }
