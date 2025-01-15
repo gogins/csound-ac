@@ -820,11 +820,11 @@ endin
     image_to_score_node.setMaximumVoiceCount(25);
     //image_to_score_node.condense(72);
     image_to_score_node.generateLocally();
-    csound::Score &score = image_to_score_node.getScore();
+    csound::Score &image_score = image_to_score_node.getScore();
     std::mt19937 mersenneTwister;
     std::uniform_real_distribution<> randomvariable(.1, .9);
-    for (int i = 0, n = score.size(); i < n; ++i) {
-         score[i].setPan(randomvariable(mersenneTwister));
+    for (int i = 0, n = image_score.size(); i < n; ++i) {
+         image_score[i].setPan(randomvariable(mersenneTwister));
     }
     /*
     score.rescale(csound::Event::TIME,          true,  0.0, false,  0.0);
@@ -836,16 +836,14 @@ endin
     rescale_node.setRescale(csound::Event::INSTRUMENT, true, true, 1., 6.999);
     rescale_node.setRescale(csound::Event::VELOCITY, true, true, 40., 10.);
     rescale_node.setRescale(csound::Event::DURATION, true, true, 2., 4.);
-    ///std::cout << "Move to origin duration:" << score.getDuration() << std::endl;
-    
     model.generate();
-    auto score_ = model.getScore();
-    score_.setDuration(240.0);
-    ///std::cout << "set duration:           " << score.getDuration() << std::endl;
-    score_.tieOverlappingNotes(true);
-    score_.findScale();
- 
-    std::cout << "Generated score:" << std::endl << model.getScore().toString() << std::endl;
+    auto score = model.getScore();
+    std::cout << "Move to origin duration:" << score.getDuration() << std::endl;
+    score.setDuration(240.0);
+    std::cout << "set duration:           " << score.getDuration() << std::endl;
+    score.tieOverlappingNotes(true);
+    score.findScale();
+    std::cout << "Generated score:" << std::endl << score.getCsoundScore() << std::endl;
     model.perform();
 }
 
