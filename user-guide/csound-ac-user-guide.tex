@@ -27,7 +27,7 @@
 
 CsoundAC is a class library and software toolkit designed to support the algorithmic composition of music. As the name suggests, CsoundAC interfaces easily with \href{https://csound.com/}{ Csound}. However, CsoundAC can also be used with any other computer music system that supports Python scripting, including digital audio workstations (DAWs) such as \href{https://www.reaper.fm/}{Reaper}.
 
-The core of CsoundAC is written in platform-neutral standard C++. The \href{https://github.com/gogins/csound-ac}{CsoundAC repository} also includes a Python interface to CsoundAC. A JavaScript interface to a WebAssembly (WASM) build of CsoundAC (and Csound) is available in the \href{https://github.com/gogins/csound-wasm}{csound-wasm} repository. 
+The core of CsoundAC is written in platform-neutral standard C++. The \href{https://github.com/gogins/csound-ac}{CsoundAC repository} also includes a Python interface to CsoundAC. A JavaScript interface to a WebAssembly (WASM) build of CsoundAC (and of Csound) is available in the \href{https://github.com/gogins/csound-wasm}{csound-wasm} repository. 
 
 The major features of CsoundAC are:
 
@@ -69,25 +69,97 @@ Type "help", "copyright", "credits" or "license" for more information.
 >>> 
 \end{lstlisting}
 
-Additional configuration may be required for using CsoundAC in Reaper, and is detailed below.
+\subsubsection{Additional Configuration for Basic Python}
 
-\section{Running CsoundAC}
+Each published release of Csound comes with a Python interface to the complete CsoundAC, defined in the \lstinline|ctcsound.py| module. To enable ctcsound:
 
-CsoundAC can be run as part of an ordinary Python program that imports CsoundAC, or embedded in Csound using the \texttt{bin} attribute, e.g. \lstinline|<CsScore bin="python3.12">|, or embedded in a DAW using its Python scripting facility. 
+\begin{enumerate}
+\item Go the Csound GitHub repository, select the \lstinline|csound6| branch, and copy or download the \lstinline|interfaces/ctcsound.py| file to the \lstinline|site-packages| directory for the version of Python that you will use, e.g. \lstinline|/opt/homebrew/lib/python3.12/site-packages/ctcsound.py|.
+\item Test your installation by running the correct version of Python and importing ctcsound. There should be no error.
 
-Here, the same simple example is run in each of these environments. All three examples use the same Csound orchestra, \lstinline|simple.csd|, which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run, and how they interface with Csound. The following code and comments illustrate the basic logic for running in Python.
+\begin{lstlisting}[basicstyle=\small\ttfamily]
+michaelgogins@macbookpro ~/csound-ac/user-guide % python3.12
+Python 3.12.8 (main, Dec  3 2024, 18:42:41) [Clang 16.0.0 (clang-1600.0.26.4)] on darwin
+Type "help", "copyright", "credits" or "license" for more information.
+>>> from ctcsound import *
+>>> 
+\end{lstlisting}
+
+\end{enumerate}
+
+\subsubsection{Additional Configuration for Reaper}
+
+Additional configuration is required to enable Python and CsoundAC in Reaper. To enable Python scripting:
+
+\begin{enumerate}
+\item In Reaper, open the \emph{REAPER} menu \emph{Settings...} dialog.
+\item Go to the end of the list of settings, and select \emph{ReaScript}.
+\item In the ReaScript settings, check the \emph{Enable Python for use with ReaScript} box.
+\item In the \emph{Force ReaScript to use specific Python .dylib} text field, enter the filename of the Python shared library for the version required by CsoundAC, e.g. \lstinline|libpython3.12.dylib|. 
+\item In the \emph{Custom path to Python dll directory} field, enter the full path to the Python library root directory, e.g. \lstinline|/opt/homebrew/Cellar/python@3.12/3.12.8/Frameworks/Python.framework/Versions/3.12/lib|. You can use the \emph{Browse} button to select this directory.
+\item If the configuration is correct, you will see something like \emph{Python: libpython3.12.dylib installed}.
+\end{enumerate}
+
+\noindent To enable CsoundAC:
+
+\begin{enumerate}
+\item Exit Reaper, and run it again.
+\item Use the \emph{Actions} menu, \emph{New action...} dialog, ``Load ReaScript..." dialog to load the \lstinline|ac_reaper.py| script.
+\item Create a track with a blank MIDI item, and select that item.
+\item Use the\emph{Actions} menu, \emph{Show action list...} dialog, select the \emph{ac\_reaper.py} script, and click on the \emph{Run} button. 
+\item You should see the \emph{ReaScript console output} dialog, with output from the \emph{ac\_reaper.py} script. It should look something like this:
+
+\begin{lstlisting}[basicstyle=\small\ttfamily]
+Hello, Reaper!
+Selected item: <class 'str'> (MediaItem*)0x000000014383A400
+Using active take of selected MIDI item.
+Start time of the selected MIDI item: 0.00 seconds.
+Event count: note_count: 4 cc_count: 0 text_sysex_count: 0
+Cleared all contents from the MIDI item.
+Inserting note: Start: 0 Start PPQ: 0.0 End PPQ; 960.0 Key: 60 Velocity: 100
+Inserting note: Start: 0.5 Start PPQ: 960.0 End PPQ; 1920.0 Key: 62 Velocity: 100
+Inserting note: Start: 1 Start PPQ: 1920.0 End PPQ; 2880.0 Key: 64 Velocity: 100
+Inserting note: Start: 1.5 Start PPQ: 2880.0 End PPQ; 5760.0 Key: 67 Velocity: 100
+MIDI notes added successfully! Check the editor.
+\end{lstlisting}
+\item If you see the generated notes in the MIDI editor, and there is no error message, then your configuration is correct.
+\item If you see the generated notes but also see \emph{WARNING: Could not import CsoundAC!}, then Reaper can run Python code, but the installation or configuration for CsoundAC is not correct. The most likely causes are that the custom path to the Python library is not correct, or CsoundAC files are not located in the correct \lstinline|site-packages| directory.
+\end{enumerate}
+
+\section{Examples}
+
+The following examples proceed step by step:
+
+\begin{enumerate}
+\item Basic methods of using Python to compose (without involving CsoundAC).
+\begin{enumerate}
+\item Ordinary Python program: \lstinline|basic-python.py|.
+\item \lstinline|<CsScore bin="python3.12">|: \lstinline|basic-score-bin.csd|.
+\item Scripting a DAW (Python ReaScript in Reaper): \lstinline|basic-reascript.py|.
+\end{enumerate}
+\item Minimal examples of using the Python interface to CsoundAC.
+\begin{enumerate}
+\item Ordinary Python program: \lstinline|minimal-csoundac-python.py|.
+\item \lstinline|<CsScore bin="python3.12">|: \lstinline|minimal-csoundac-score-bin.csd|.
+\item Scripting a DAW (Python ReaScript in Reaper): \lstinline|minimal-csoundac-reascript.py|.
+
+\end{enumerate}
+\item Short compositions using the Python interface to different aspects of CsoundAC, as ReaScript only.
+\begin{enumerate}
+\item Random.
+\item Chaos.
+\item Image to score.
+\end{enumerate}
+\end{enumerate}
+
+\subsection{Basic Python Usage}
+
+Here, the same very basic example is run in three environments. All three examples use the same Csound orchestra, \lstinline|simple.csd|, which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run, and how they interface with Csound. CsoundAC is not used, these examples show only the most basic, low-level method of generating a score.
 
 \begin{lstlisting}[basicstyle=\small\ttfamily]
 csd = r'''My entire .csd file goes here."
-import CsoundAC
-# In CsoundAC, a composition is defined as an instance of the MusicModel class.
-music_model = CsoundAC.MusicModel()
-# A MusicModel is the root of a tree of hierarchically defined Notes.
-# In this case, we only need a ScoreNode, which contains a CsoundAC Score object.
-score_node = CsoundAC.ScoreNode()
-music_model.addChild(score_node)
-# This loop defines an ascending chromatic scale of notes in the Score object.
-# Please note, the fields of a CsoundAC Score event are fixed in the order:
+import ctypes
+# All of the Csound instruments in the orchestra use the same set of pfields:
 # time, duration, MIDI status, MIDI channel, MIDI key, MIDI velocity, and 
 # others. These are mapped to the Csound pfields used in the .csd file.
 for i in range(100):
@@ -113,7 +185,7 @@ music_model.render()
 
 Running in Python has the advantage of being easy to understand. A composition is just a Python program. The composer's code generates a CsoundAC score, and defines the Csound orchestra as a Python string literal. CsoundAC embeds Csound, and provides convenience methods for rendering the composition.
 
-Open a terminal, change to the \lstinline|csound-ac/user-guide| directory, and execute \lstinline|python3.12 simply-python.py|.
+Open a terminal, change to the \lstinline|csound-ac/user-guide| directory, and execute \lstinline|python3.12 simple-python.py|.
 
 \subsection{Running in Csound}
 
@@ -158,43 +230,6 @@ Open a terminal, change to the \lstinline|csound-ac/user-guide| directory, and e
 \subsection{Running in Reaper}
 
 Running in Reaper has the advantages of automatically providing a piano roll score, or even music notation, for generated scores; enabling other synthesis programs besides Csound to render CsoundAC scores; and in general, integrating with contemporary music production practice. The Csound orchestra is defined in the state of a CsoundVST3 plugin, which receives MIDI input from the DAW. The compositional code is defined in a Python ReaScript file, which is loaded into Reaper as an Action. This separation of composition and synthesis enables CsoundAC to send MIDI to the DAW and to other plugins, and for Csound to receive MIDI and audio from any track or plugin in Reaper.
-
-Additional configuration may be required to enable CsoundAC in Reaper:
-
-\begin{enumerate}
-\item In Reaper, open the \emph{REAPER} menu \emph{Settings...} dialog.
-\item Go to the end of the list of settings, and select \emph{ReaScript}.
-\item In the ReaScript settings, check the \emph{Enable Python for use with ReaScript} box.
-\item In the \emph{Force ReaScript to use specific Python .dylib} text field, enter the filename of the Python shared library for the version required by CsoundAC, e.g. \lstinline|libpython3.12.dylib|. 
-\item In the \emph{Custom path to Python dll directory} field, enter the full path to the Python library root directory, e.g. \lstinline|/opt/homebrew/Cellar/python@3.12/3.12.8/Frameworks/Python.framework/Versions/3.12/lib|. You can use the \emph{Browse} button to select this directory.
-\item If the configuration is correct, you will see something like \emph{Python: libpython3.12.dylib installed}.
-\end{enumerate}
-
-\noindent Verify that CsoundAC will run in Reaper:
-
-\begin{enumerate}
-\item Exit Reaper, and run it again.
-\item Use the \emph{Actions} menu, \emph{New action...} dialog, "Load ReaScript..." dialog to load the \lstinline|ac_reaper.py| script.
-\item Create a track with a blank MIDI item, and select that item.
-\item Use the\emph{Actions} menu, \emph{Show action list...} dialog, select the \emph{ac\_reaper.py} script, and click on the \emph{Run} button. 
-\item You should see the \emph{ReaScript console output} dialog, with output from the \emph{ac\_reaper.py} script. It should look something like this:
-
-\begin{lstlisting}[basicstyle=\small\ttfamily]
-Hello, Reaper!
-Selected item: <class 'str'> (MediaItem*)0x000000014383A400
-Using active take of selected MIDI item.
-Start time of the selected MIDI item: 0.00 seconds.
-Event count: note_count: 4 cc_count: 0 text_sysex_count: 0
-Cleared all contents from the MIDI item.
-Inserting note: Start: 0 Start PPQ: 0.0 End PPQ; 960.0 Key: 60 Velocity: 100
-Inserting note: Start: 0.5 Start PPQ: 960.0 End PPQ; 1920.0 Key: 62 Velocity: 100
-Inserting note: Start: 1 Start PPQ: 1920.0 End PPQ; 2880.0 Key: 64 Velocity: 100
-Inserting note: Start: 1.5 Start PPQ: 2880.0 End PPQ; 5760.0 Key: 67 Velocity: 100
-MIDI notes added successfully! Check the editor.
-\end{lstlisting}
-\item If you see the generated notes in the MIDI editor, and there is no error message, then your configuration is correct.
-\item If you see the generated notes but also see \emph{WARNING: Could not import CsoundAC!}, then Reaper can run Python code, but the installation or configuration for CsoundAC is not correct. The most likely causes are that the custom path to the Python library is not correct, or CsoundAC files are not located in the correct \lstinline|site-packages| directory.
-\end{enumerate}
 
 The simple example for Reaper is:
 

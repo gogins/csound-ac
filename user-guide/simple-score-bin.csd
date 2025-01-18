@@ -3,7 +3,7 @@
 This piece tests combinations of instr definitions.
 </CsLicense>
 <CsOptions>
---m-amps=1 --m-range=1 --m-dB=1 --m-benchmarks=1 --m-warnings=0 -+msg_color=0 -d -odac
+-m32 -d -+msg_color=0 -odac
 </CsOptions>
 <CsInstruments>
 

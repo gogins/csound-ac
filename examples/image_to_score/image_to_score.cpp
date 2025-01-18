@@ -816,7 +816,7 @@ endin
     csound::ImageToScore2 image_to_score_node;
     rescale_node.addChild(&image_to_score_node);
     image_to_score_node.setImageFilename("20180827_212842-1.png");
-    image_to_score_node.threshhold(80);
+    image_to_score_node.threshhold(60);
     image_to_score_node.setMaximumVoiceCount(25);
     //image_to_score_node.condense(72);
     image_to_score_node.generateLocally();
