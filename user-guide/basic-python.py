@@ -1,3 +1,5 @@
+from ctcsound import *
+
 csd = r'''
 <CsoundSynthesizer>
 <CsLicense>
@@ -794,22 +796,19 @@ endin
 
 </CsInstruments>
 <CsScore>
+f 0 30
 </CsScore>
 </CsoundSynthesizer>
 '''
 
-import CsoundAC
-music_model = CsoundAC.MusicModel()
-score_node = CsoundAC.ScoreNode()
-music_model.addChild(score_node)
+csound = Csound()
+csound.compileCsdText(csd)
+csound.start()
 for i in range(100):
     p1 = 1 + (i % 7)
     p2 = i / 4
     p3 = 6
     p4 = 36 + (i % 60)
     p5 = 60
-    score_node.getScore().add(p2, p3, 144, p1, p4, p5)
-print("Generated score:")
-print(score_node.getScore().getCsoundScore())
-music_model.setCsd(csd)
-music_model.render()
+    csound.inputMessage(f"i {p1} {p2} {p3} {p4} {p5}\n")
+csound.perform()

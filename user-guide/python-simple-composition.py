@@ -4,7 +4,7 @@ csd = r'''
 This piece tests combinations of instr definitions.
 </CsLicense>
 <CsOptions>
---m-amps=1 --m-range=1 --m-dB=1 --m-benchmarks=1 --m-warnings=0 -+msg_color=0 -d -odac
+-m32 -d -+msg_color=0 -odac
 </CsOptions>
 <CsInstruments>
 
@@ -847,11 +847,11 @@ harmonized.addChild(canon)
 # applied from that time until the next chord.
 harmonized.C_name(0, "CM9")
 harmonized.C_name(5, "Dm7")
-harmonized.CL_name(15, "G9")
+harmonized.C_name(15, "G9")
 harmonized.C_name(20, "Am9")
 harmonized.C_name(25, "D9b5")
 harmonized.C_name(30, "G9")
-harmonized.CL_name(35, "CM9")
+harmonized.C_name(35, "CM9")
 music_model.setCsd(csd)
 music_model.generate()
 print("Generated score:")
