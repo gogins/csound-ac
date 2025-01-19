@@ -169,8 +169,8 @@ def score_to_midiitem(score, key_offset=0, start_offset=0):
         RPR_UpdateArrange()
         RPR_ShowConsoleMsg(f"Duration of score: {duration}\n")
     else:
-        for note in notes:
-            start, duration, channel, key, velocity = note
+        for note in score:
+            start, duration, status, channel, key, velocity = note
             note_to_miditake(midi_take, start + start_offset, duration, channel, key, velocity)
     # Restore the remembered start time.
     RPR_SetMediaItemInfo_Value(selected_item, "D_POSITION", midi_item_start)
@@ -180,10 +180,10 @@ def score_to_midiitem(score, key_offset=0, start_offset=0):
 # Test case.
 if __name__ == '__main__':  
     notes = [
-        (0, 0.5, 1, 60, 100),  # (start, duration, channel, key, velocity)
-        (0.5, 0.5, 1, 62, 100),
-        (1, 0.5, 1, 64, 100),
-        (1.5, 1.5, 1, 67, 100),
+        (0, 0.5, 144, 1, 60, 100),  # (start, duration, status, channel, key, velocity)
+        (0.5, 0.5, 144, 1, 62, 100),
+        (1, 0.5, 1, 144, 64, 100),
+        (1.5, 1.5, 144, 1, 67, 100),
     ]
     score_to_midiitem(notes)
 

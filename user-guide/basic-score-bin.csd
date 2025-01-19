@@ -835,22 +835,13 @@ unused = 0
 print("Generating score...")
 
 with open(sys.argv[1], 'w') as sco_file:
-    for i in range(200):
-        # Iterate the logistic map.
-        y1 = 4 * c * y * (1 - y)
-        y = y1
-        # Choose a Csound instrument at random.
-        p1_instrument = random.randrange(1, 8)
-        p2_time = i * time_step
-        # Map the y variable to MIDI key number.
-        p4_midi_key = round(y * range_) + bass
-        # Choose a stereo pan at random.
-        p7_pan = random.uniform(.2, .9)
-        # Format the "i" statement in a readable way.
-        i_statement = f"i {p1_instrument: 9.4f} {p2_time: 9.4f} {p3_duration: 9.4f} {p4_midi_key: 9.4f} {p5_midi_velocity: 9.4f} {unused: 9.4f} {p7_pan : 9.4f} {unused: 9.4f} {unused: 9.4f}\n"
-        # Print the y variable and corresponding "i" statement to stdout for inspection.
-        sys.stdout.write(f"note {i: 4} y: {y: 9.4f} ==> {i_statement}")
-        # Write the "i" statement to the temporary score file for performance.
-        sco_file.write(i_statement)
+  for i in range(100):
+      p1 = 1 + (i % 7)
+      p2 = i / 4
+      p3 = 6
+      p4 = 36 + (i % 60)
+      p5 = 60
+      i_statement = f"i {p1} {p2} {p3} {p4} {p5}\n"
+      sco_file.write(i_statement)
 </CsScore>
 </CsoundSynthesizer>
