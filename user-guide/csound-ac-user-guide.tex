@@ -45,7 +45,7 @@ The major features of CsoundAC are:
 
 \subsection{Installation}
 
-Prebuilt binaries for macOS are available as GitHub releases. These are built for a specific version of Python, and will work only with that version. If you don't have the correct version of Python, you should install that version alongside your existing Python. 
+Prebuilt binaries of CsoundAC for macOS are available as GitHub releases. These are built for a specific version of Python, and will work only with that version. If you don't have the correct version of Python, you should install that version alongside your existing Python. 
 
 Linux binaries can be built as follows:
 
@@ -56,6 +56,8 @@ Linux binaries can be built as follows:
 \end{enumerate}
 
 \subsection{Configuration}
+
+\subsubsection{Configuring CsoundAC}
 
 Copy both \texttt{\_CsoundAC.so} and \texttt{Csound.py} to the \texttt{site-packages} directory for that version, e.g. on macOS it could be \lstinline|/opt/homebrew/lib/python3.12/site-packages/_CsoundAC.so|.
 
@@ -69,7 +71,7 @@ Type "help", "copyright", "credits" or "license" for more information.
 >>> 
 \end{lstlisting}
 
-\subsubsection{Additional Configuration for Basic Python}
+\subsubsection{Confiiguring ctcsound}
 
 Each published release of Csound comes with a Python interface to the complete CsoundAC, defined in the \lstinline|ctcsound.py| module. To enable ctcsound:
 
@@ -87,7 +89,7 @@ Type "help", "copyright", "credits" or "license" for more information.
 
 \end{enumerate}
 
-\subsubsection{Additional Configuration for Reaper}
+\subsubsection{Configuring Reaper}
 
 Additional configuration is required to enable Python and CsoundAC in Reaper. To enable Python scripting:
 
@@ -142,11 +144,10 @@ The following examples proceed step by step:
 \item Ordinary Python program: \lstinline|minimal-csoundac-python.py|.
 \item \lstinline|<CsScore bin="python3.12">|: \lstinline|minimal-csoundac-score-bin.csd|.
 \item Scripting a DAW (Python ReaScript in Reaper): \lstinline|minimal-csoundac-reascript.py|.
-
 \end{enumerate}
 \item Short compositions using the Python interface to different aspects of CsoundAC, as ReaScript only.
 \begin{enumerate}
-\item Random.
+\item Two Dualities, a Lindenmayer system based on the Generalized Contextual Group of Fiore and Satyendra.
 \item Chaos.
 \item Image to score.
 \end{enumerate}
@@ -154,136 +155,34 @@ The following examples proceed step by step:
 
 \subsection{Basic Python Usage}
 
-Here, the same very basic example is run in three environments. All three examples use the same Csound orchestra, \lstinline|simple.csd|, which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run, and how they interface with Csound. CsoundAC is not used, these examples show only the most basic, low-level method of generating a score.
+Here, the same very basic example is run in three environments. All three examples use the same Csound orchestra, \lstinline|simple.csd|, which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple \lstinline|for| loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run, and how they interface with Csound. CsoundAC is not used -- these examples show only the most basic, low-level method of generating a score.
 
-\begin{lstlisting}[basicstyle=\small\ttfamily]
-csd = r'''My entire .csd file goes here."
-import ctypes
-# All of the Csound instruments in the orchestra use the same set of pfields:
-# time, duration, MIDI status, MIDI channel, MIDI key, MIDI velocity, and 
-# others. These are mapped to the Csound pfields used in the .csd file.
-for i in range(100):
-    p1 = 1 + (i % 8)
-    p2 = i / 4
-    p3 = 6
-    p4 = 36 + (i % 60)
-    p5 = 60
-    score_node.getScore().add(p2, p3, 144, p1, p4, p5)
-print("Generated score:")
-print(score_node.getScore().getCsoundScore())
-# Here we set our .csd file into the composition.
-music_model.setCsd(csd)
-# The render method traverses the tree of Nodes in the 
-# MusicModel, both generating and transforming notes, 
-# which are collected in a master Score. Then, the .csd 
-# is compiled, and the generated Score is translated to a Csound 
-# score and performed.
-music_model.render()
-\end{lstlisting}
+For insight into the code, open the code in an editor and read it, there are many explanatory comments.
 
-\subsection{Running in Python}
+\subsubsection{Running in Python: \lstinline{basic-python.py}}
 
-Running in Python has the advantage of being easy to understand. A composition is just a Python program. The composer's code generates a CsoundAC score, and defines the Csound orchestra as a Python string literal. CsoundAC embeds Csound, and provides convenience methods for rendering the composition.
+Running in Python has the advantage of being easy to understand. A composition is just a Python program. This example uses ctcsound to perform the example.
 
-Open a terminal, change to the \lstinline|csound-ac/user-guide| directory, and execute \lstinline|python3.12 simple-python.py|.
+Open a terminal, change to the \lstinline|csound-ac/user-guide| directory, and execute \lstinline|python3.12 basic-python.py|
 
-\subsection{Running in Csound}
+\subsubsection{Running in Csound: \lstinline|basic-score-bin.csd|}
 
 Running in Csound has the advantage of requiring no additional installation or configuration apart from Csound, Python, and CsoundAC. All of the elements of a composition are defined in one .csd file. In this case the Csound orchestra is defined outside of the Python code, which is embedded in the .csd file.
 
-Here, the code for running Csound is not needed, as Csound is already running; instead, the generated score is written to a generated filename and read back into Csound for performance. The entire \lstinline|<CsScore>| element is:
+Thus, code for running Csound is not needed, as Csound is already running; instead, the generated score is written to a generated filename and read back into Csound for performance. 
 
-\begin{lstlisting}[basicstyle=\small\ttfamily]
-<CsScore bin="python3.12">
-'''
-The way this works is not intuitive, but fortunately it is simple. The "bin" 
-attribute of the <CsScore> element specifies a program that will read and 
-execute the script that is contained in the <CsScore> element. sys.argv[0] 
-may contain the name of an existing file that the script can read from, and 
-sys.argv[1] contains a generated filename that the script should write to, and 
-that will be read back as the Csound score at the start of performance.
-'''
-import sys
-print("External filename to read from: ", sys.argv[0])
-print("Score filename to write to:     ", sys.argv[1])
-import CsoundAC
-music_model = CsoundAC.MusicModel()
-score_node = CsoundAC.ScoreNode()
-music_model.addChild(score_node)
-for i in range(100):
-    p1 = 1 + (i % 8)
-    p2 = i / 4
-    p3 = 6
-    p4 = 36 + (i % 60)
-    p5 = 60
-import sys
-    score_node.getScore().add(p2, p3, 144, p1, p4, p5)
-print("Generated score:")
-print(score_node.getScore().getCsoundScore())
-with open(sys.argv[1], 'w') as scofile:
-  scofile.write(score_node.getScore().getCsoundScore())
-</CsScore>
-\end{lstlisting}
+Open a terminal, change to the \lstinline|csound-ac/user-guide| directory, and execute \lstinline|csound basic-score-bin.csd|.
 
-Open a terminal, change to the \lstinline|csound-ac/user-guide| directory, and execute \lstinline|csound simple-score-bin.csd|.
+\subsubsection{Running in Reaper: \lstinline|basic-reascript.py|}
 
-\subsection{Running in Reaper}
+Running in Reaper has the advantages of automatically providing a piano roll score, or even music notation, for generated scores; enabling other synthesis programs besides Csound to render CsoundAC scores; and in general, integrating with contemporary music production practice. The Csound orchestra is defined in the state of a CsoundVST3 plugin, which receives MIDI input from the DAW. The compositional code is defined in a Python ReaScript file, which is loaded into Reaper as an Action. This separation of concerns between composition and synthesis enables CsoundAC to send MIDI to the DAW and to other plugins, and for Csound to receive MIDI and audio from any track or plugin in Reaper.
 
-Running in Reaper has the advantages of automatically providing a piano roll score, or even music notation, for generated scores; enabling other synthesis programs besides Csound to render CsoundAC scores; and in general, integrating with contemporary music production practice. The Csound orchestra is defined in the state of a CsoundVST3 plugin, which receives MIDI input from the DAW. The compositional code is defined in a Python ReaScript file, which is loaded into Reaper as an Action. This separation of composition and synthesis enables CsoundAC to send MIDI to the DAW and to other plugins, and for Csound to receive MIDI and audio from any track or plugin in Reaper.
+Use the \emph{Actions} menu, \emph{New action...} dialog, ``Load ReaScript..." dialog to load the \lstinline|basic-reascript.py| script. Create a track with a blank MIDI item, and select that item. Use the\emph{Actions} menu, \emph{Show action list...} dialog, select the \emph{basic-reascript.py} script, and click on the \emph{Run} button. 
 
-The simple example for Reaper is:
-
-\begin{lstlisting}[basicstyle=\small\ttfamily]
-import copy
-import CsoundAC
-import math
-import os
-import string
-import sys
-sys.path.append('/Users/michaelgogins/csound-ac/reaper')
-import types
-import time
-from reaper_python import *
-for p in sys.path:
-    RPR_ShowConsoleMsg(p + '\n')
-import ac_reaper
-
-music_model = CsoundAC.MusicModel()
-score_node = CsoundAC.ScoreNode()
-music_model.addChild(score_node)
-for i in range(100):
-    p1 = 1 + (i % 8)
-    p2 = i / 4
-    p3 = 6
-    p4 = 36 + (i % 60)
-    p5 = 60
-    score_node.getScore().add(p2, p3, 144, p1, p4, p5)
-print("Generated score:")
-print(score_node.getScore().getCsoundScore())
-ac_reaper.score_to_midiitem(score_node.getScore())
-\end{lstlisting}
+You should see the \emph{ReaScript console output} dialog, with output from the script. You should also see the notes of the chromatic ascending scale in the MidiItem. You can then assign a synthesizer, which could be CsoundVST3 or another synthesizer, to play the notes.
 
 \section{Compositional Examples}
 
-The following examples demonstrate basic concepts of CsoundAC.  All of these examples are written to run in Reaper.
-
-In each example, there is a first section that is simple. A second section arranges the first section into a three voice canon. The third and final section applies a chord progression to that canon, with automatically generated modulations.
-
-\subsection{Simple Example}
-
-The source for this example is the ascending chromatic scale from the previous examples.
-
-\subsection{Random Variables}
-
-The source for this example is a uniformly distributed random variable, generated by the CsoundAC Random node. It is rescaled to fit within a time span of 30 seconds and pitches ranging from 36 to 96.
-
-\subsection{Logistic Equation}
-
-This source for this example is the logistic equation, a discrete dynamical system that can have chaotic behavior. It also is rescaled to fit within a time span of 30 seconds and pitches ranging from 36 to 96.
-
-\subsection{Image to Score}
-
-The source for this example is a fractal image, which is loaded into the CsoundAC ImageToScore node and translated into a score, which is then rescaled to fit within a time span of 30 seconds and pitches ranging from 36 to 96.
 
 
 
