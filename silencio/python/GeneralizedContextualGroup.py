@@ -1,3 +1,12 @@
+'''
+Lindenmayer system Node in CsoundAC for the Generalized Contextual Group of 
+Fiore and Satyendra. This script illustrates deriving from a Node class 
+defined in C++ as a Python subclass.
+
+Michael Gogins
+
+LGPL v2.1
+'''
 import copy
 import CsoundAC
 import math
@@ -291,18 +300,18 @@ class GeneralizedContextualGroup(CsoundAC.ScoreNode):
         else:
             pcs = eval(token[1:])
         print('New PCS:', pcs)
-        P = CsoundAC.Voicelead_pitchClassSetToPandT(pcs)[0]
+        P = CsoundAC.Voicelead.pitchClassSetToPandT(pcs)[0]
         # Must voicelead from current PTV to closest new PTV.
         if not self.turtle.O:
             ptv = (P, 0, 0)
             print('args', int(ptv[0]), int(ptv[1]), int(ptv[2]), int(0), int(self.turtle.range), int(12))
-            self.turtle.O = CsoundAC.Voicelead_ptvToChord(int(ptv[0]), int(ptv[1]), int(ptv[2]), int(0), int(self.turtle.range), int(12))
+            self.turtle.O = CsoundAC.Voicelead.ptvToChord(int(ptv[0]), int(ptv[1]), int(ptv[2]), int(0), int(self.turtle.range), int(12))
         else:
             pt = CsoundAC.Voicelead.pitchClassSetToPandT(self.turtle.O)
             ptv = (pt[0], pt[1], self.turtle.r)
-            currentChord = CsoundAC.Voicelead_ptvToChord(int(ptv[0]), int(ptv[1]), int(ptv[2]), int(0), int(self.turtle.range), int(12))
+            currentChord = CsoundAC.Voicelead.ptvToChord(int(ptv[0]), int(ptv[1]), int(ptv[2]), int(0), int(self.turtle.range), int(12))
             print('Current chord:', currentChord)
-            newChord = CsoundAC.Voicelead_voicelead(self.turtle.O, pcs, int(0), int(self.turtle.range), True, int(12))
+            newChord = CsoundAC.Voicelead.voicelead(self.turtle.O, pcs, int(0), int(self.turtle.range), True, int(12))
             print('New chord:', newChord)
             self.turtle.O = pc(newChord)
         print('New PTV:', ptv)
@@ -424,8 +433,4 @@ class GeneralizedContextualGroup(CsoundAC.ScoreNode):
                 if i in delete:
                     del self.score[i]
             print('Ended merging overlapping notes with %d notes.' % len(self.score))
-            print
-         
-if __name__ == "__main__":
-    
 
