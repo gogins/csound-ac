@@ -111,10 +111,6 @@ public:
     double alpha = 0;
     double beta = 0;
     double gamma = 0;
-    /**
-     * Set all values less than the threshhold to zero before translating the
-     * image to notes.
-     */
     virtual void threshhold(double value_threshhold_);
     bool do_threshhold = false;
     double value_threshhold = 0;

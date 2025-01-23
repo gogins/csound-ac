@@ -172,7 +172,7 @@ if(BUILD_CSOUND_AC)
         install(FILES "${BUILD_DIR}/CsoundAC.py"
             DESTINATION "site-packages")
 
-        install(FILES "${CMAKE_SOURCE_DIR/CsoundAC/silencio/python/GeneralizedContextualGroup.py"
+        install(FILES "${CMAKE_SOURCE_DIR}/silencio/python/GeneralizedContextualGroup.py"
             DESTINATION "site-packages")
 
             

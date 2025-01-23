@@ -19,13 +19,15 @@
 \definecolor{LstColor}{cmyk}{0.1,0.1,0,0.05} 
 \lstset{language=c++,basicstyle=\ttfamily\normalsize,commentstyle=\ttfamilynormalsize,tabsize=2,breaklines,backgroundcolor=\color{LstColor},fontadjust=true,fancyvrb=true,moredelim=[is][\textbf]{\\emph\{}{\}}}.
 
-\title{CsoundAC User Guide}
+\title{CsoundAC User Guide (Mostly for Python)}
 \author{Michael Gogins \\ \texttt{michael.gogins@gmail.com}}
 \maketitle
 
 \section{Introduction}
 
-CsoundAC is a class library and software toolkit designed to support the algorithmic composition of music. As the name suggests, CsoundAC interfaces easily with \href{https://csound.com/}{ Csound}. However, CsoundAC can also be used with any other computer music system that supports Python scripting, including digital audio workstations (DAWs) such as \href{https://www.reaper.fm/}{Reaper}.
+CsoundAC is a class library and software toolkit designed to support the algorithmic composition of music. CsoundAC has C++, Python, and JavaScript application programming interfaces (APIs). This \emph{\textbf{Guide}} is based on on the Python interface.
+
+As the name suggests, CsoundAC interfaces easily with \href{https://csound.com/}{ Csound}. However, CsoundAC can also be used with any other computer music system that supports Python scripting, including digital audio workstations (DAWs) such as \href{https://www.reaper.fm/}{Reaper}.
 
 The core of CsoundAC is written in platform-neutral standard C++. The \href{https://github.com/gogins/csound-ac}{CsoundAC repository} also includes a Python interface to CsoundAC. A JavaScript interface to a WebAssembly (WASM) build of CsoundAC (and of Csound) is available in the \href{https://github.com/gogins/csound-wasm}{csound-wasm} repository. 
 
@@ -59,15 +61,16 @@ Linux binaries can be built as follows:
 
 \subsubsection{Configuring CsoundAC}
 
-Copy both \texttt{\_CsoundAC.so} and \texttt{Csound.py} to the \texttt{site-packages} directory for that version, e.g. on macOS it could be \lstinline|/opt/homebrew/lib/python3.12/site-packages/_CsoundAC.so|.
+Copy  \texttt{\_CsoundAC.so} and \texttt{Csound.py}, as well as \texttt{GeneralizedContextualGroup.py}, to the \texttt{site-packages} directory for that version, e.g. on macOS it could be \lstinline|/opt/homebrew/lib/python3.12/site-packages/_CsoundAC.so|.
 
-Test your installation by running the correct version of Python and importing CsoundAC. There should be no error.
+Test your installation by running the correct version of Python and importing CsoundAC and GeneralizedContextualGroup. There should be no error.
 
 \begin{lstlisting}[basicstyle=\small\ttfamily]
-michaelgogins@macbookpro ~/csound-ac/user-guide % python3.12
+michaelgogins@macbookpro ~/csound-ac % python3.12
 Python 3.12.8 (main, Dec  3 2024, 18:42:41) [Clang 16.0.0 (clang-1600.0.26.4)] on darwin
 Type "help", "copyright", "credits" or "license" for more information.
 >>> import CsoundAC
+>>> import GeneralizedContextualGroup
 >>> 
 \end{lstlisting}
 
@@ -155,7 +158,7 @@ The following examples proceed step by step:
 
 \subsection{Basic Python Usage}
 
-Here, the same very basic example is run in three environments. All three examples use the same Csound orchestra, \lstinline|simple.csd|, which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple \lstinline|for| loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run, and how they interface with Csound. CsoundAC is not used -- these examples show only the most basic, low-level method of generating a score.
+Here, the same very basic example is run in three environments. All three examples use the same Csound orchestra, \lstinline|simple.csd|, which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple \lstinline|for| loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run, and how they interface with Csound. CsoundAC is not used --- these examples show only the most basic, low-level method of generating a score.
 
 For insight into the code, open the code in an editor and read it, there are many explanatory comments.
 

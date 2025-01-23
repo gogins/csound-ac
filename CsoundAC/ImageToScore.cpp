@@ -110,20 +110,31 @@ namespace csound {
     void ImageToScore2::processImage() {
         System::inform("ImageToScore2::processImage...\n");
         System::inform("image_filename: %s\n", image_filename.c_str());
-         auto loaded_image = cv::imread(image_filename);
-        if(loaded_image.empty() == true) {
-            System::error("Failed to load image from: \"%s\"\n", image_filename.c_str());
+        original_image = cv::imread(image_filename.c_str(), cv::IMREAD_UNCHANGED);
+        if (original_image.empty()) {
+            System::error("Failed to open image!\n");
             return;
         }
-        // Images are always converted to floats before working with them.
-        // Channels are ordered Blue, Green, Red not Red, Green, Blue.
-        loaded_image.convertTo(original_image, CV_32FC3);
-         // Normalize channels that were 8 bits.
-        if(original_image.elemSize1() == 1) {
-            original_image *= 1./255.;
+        // Ensure the image has 3 channels (convert grayscale to RGB if needed)
+        cv::Mat imageRGB;
+        if (original_image.channels() == 1) {
+            cv::cvtColor(original_image, imageRGB, cv::COLOR_GRAY2BGR);
+        } else {
+            imageRGB = original_image; // Already in a compatible format
         }
-        // Convert the image to the Hue, Saturation, Value color space.
-        cv::cvtColor(original_image, original_image, cv::COLOR_BGR2HSV);
+        cv::Mat imageHSV;
+        cv::cvtColor(imageRGB, imageHSV, cv::COLOR_BGR2HSV);
+        cv::Mat imageHSVFloat;
+        imageHSV.convertTo(imageHSVFloat, CV_32FC3);
+        auto element_size = imageHSV.elemSize();    
+        std::cout << "Original image type:  " << cv::typeToString(original_image.type()) << std::endl;
+        std::cout << "       Element size:  " << original_image.elemSize() << std::endl;
+        std::cout << "Converted image type: " << cv::typeToString(imageHSVFloat.type())<< std::endl;
+        std::cout << "        Element size: " << imageHSVFloat.elemSize() << std::endl;
+        // Display the images (optional)
+        /// cv::imshow("Original Image", original_image);
+        /// cv::imshow("HSV Float Image (Scaled)", imageHSVFloat);
+        /// cv::waitKey(0);
         System::inform("Loaded image file \"%s\".\n", image_filename.c_str());
         System::inform("Read image: columns: %d rows: %d type: %d depth: %d\n", original_image.cols, original_image.rows, original_image.type(), original_image.depth());
         // First we process the image, then we translate it.
@@ -171,14 +182,7 @@ namespace csound {
             write_processed_file("Contrast", output_image);
             source_image = output_image;
         }
-        if(do_threshhold) {
-            System::inform("Threshhold...\n");
-            cv::Mat output_image;
-            cv::threshold(source_image, output_image, value_threshhold, 0, cv::THRESH_TOZERO);
-            write_processed_file("Threshhold", output_image);
-            source_image = output_image;
-        }
-        if(do_condense) {
+       if(do_condense) {
             System::inform("Condense...\n");
             cv::Mat output_image;
             cv::resize(source_image, output_image, cv::Size(source_image.cols, row_count), cv::INTER_AREA);
@@ -187,6 +191,7 @@ namespace csound {
             source_image = output_image;
         }
         processed_image = source_image;
+        write_processed_file("Processed", processed_image);
         System::inform("ImageToScore2::processImage.\n");
     }
 
@@ -194,18 +199,18 @@ namespace csound {
         double status = 144.;
         event_.setStatus(status);
         double time_ = double(column) / processed_image.cols;
-        time_ = time_ * score.scaleTargetRanges.getTime() + score.scaleTargetMinima.getTime();
+        ///time_ = time_ * score.scaleTargetRanges.getTime() + score.scaleTargetMinima.getTime();
         event_.setTime(time_);
         double instrument = hsv[0];
-        instrument = instrument * score.scaleTargetRanges.getInstrument() + score.scaleTargetMinima.getInstrument();
-        instrument = std::round(instrument);
+        ///instrument = instrument * score.scaleTargetRanges.getInstrument() + score.scaleTargetMinima.getInstrument();
+        ///instrument = std::round(instrument);
         event_.setInstrument(instrument);
         double key = double(processed_image.rows - row) / processed_image.rows;
-        key = key * score.scaleTargetRanges.getKey() + score.scaleTargetMinima.getKey();
-        key = std::round(key);
+        ///key = key * score.scaleTargetRanges.getKey() + score.scaleTargetMinima.getKey();
+        ///key = std::round(key);
         event_.setKey(key);
         double velocity = hsv[2];
-        velocity = velocity * score.scaleTargetRanges.getVelocity() + score.scaleTargetMinima.getVelocity();
+        ///velocity = velocity * score.scaleTargetRanges.getVelocity() + score.scaleTargetMinima.getVelocity();
         event_.setVelocity(velocity);
     }
 
@@ -252,12 +257,12 @@ namespace csound {
         // No more than one note can start at the same time on the same row, even
         // though several adjacent rows can be mapped to the same MIDI key.
         std::map<int, csound::Event> pending_events;
-        for(int column = 0; column < processed_image.cols; ++column) {
-            System::debug("Processing column %d...\n", int(column));
-            // Find starting events, i.e. events based on pixels whose value
-            // exceeds the threshhold but the prior pixels did not.
-            // The lowest note is row 0.
-            for(int row = 0; row < processed_image.rows; ++row) {
+        for(int row = 0; row < processed_image.rows; ++row) {
+            System::debug("Processing row %d...\n", int(row));
+            for(int column = 0; column < processed_image.cols; ++column) {
+                // Find starting events, i.e. events based on pixels whose value
+                // exceeds the threshhold but the prior pixels did not.
+                // The lowest note is row 0.
                 if(column == 0) {
                     prior_pixel = 0.;
                 } else {
@@ -271,27 +276,25 @@ namespace csound {
                 }
                 // A note is starting.
                 // Another way of doing this is, if the value increases.
-                if(prior_pixel[2] <= value_threshhold && current_pixel[2] > value_threshhold) {
+                if(prior_pixel[2] < value_threshhold && current_pixel[2] >= value_threshhold) {
                     pixel_to_event(column, row, current_pixel, startingEvent);
                     startingEvent.setDuration(0);
                     if(pending_events.find(row) == pending_events.end() && pending_events.size() < getMaximumVoiceCount()) {
                         if(System::getMessageLevel() >= System::DEBUGGING_LEVEL) {
-                            System::debug("Starting event at   column: %5d row: %5d value: %5d  %s\n", column, row, current_pixel[2], startingEvent.toString().c_str());
+                            System::debug("Starting event at   column: %5d row: %5d value: %12.4g  %s\n", column, row, current_pixel[2], startingEvent.toString().c_str());
                         }
                         pending_events[row] = startingEvent;
                     }
                 }
                 // A note is ending.
                 // Another way of doing this is, if the value decreases.
-                if(current_pixel[2] > value_threshhold && next_pixel[2] <= value_threshhold) {
+                if(current_pixel[2] >= value_threshhold && next_pixel[2] < value_threshhold) {
                     if(pending_events.find(row) != pending_events.end()) {
                         csound::Event new_note = pending_events[row];
-                        /// new_note.setOffTime(endingEvent.getOffTime());
-                        /// new_note.setOffTime(endingEvent.getTime());
                         pixel_to_event(column, row, current_pixel, endingEvent);
                         new_note.setOffTime(endingEvent.getTime());
                         if(System::getMessageLevel() >= System::DEBUGGING_LEVEL) {
-                            System::debug("Ending event at:    column: %5d row: %5d value: %5d  %s\n", column, row, current_pixel[2], new_note.toString().c_str());
+                            System::debug("Ending event at:    column: %5d row: %5d value: %12.4g  %s\n", column, row, current_pixel[2], new_note.toString().c_str());
                         }
                         score.append(new_note);
                         pending_events.erase(row);

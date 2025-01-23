@@ -22,7 +22,7 @@ sr = 48000
 ksmps = 128
 nchnls = 2
 nchnls_i = 2
-0dbfs = 4
+0dbfs = 40
 
 connect "FMWaterBell", "outleft",  "ReverbSC", "inleft"
 connect "FMWaterBell", "outright", "ReverbSC", "inright"
@@ -250,7 +250,7 @@ gk_Melody_midi_dynamic_range chnexport "gk_Melody_midi_dynamic_range", 3 ; 127
 gk_Melody_level chnexport "gk_Melody_level", 3 ; 0
 
 gk_Melody_midi_dynamic_range init 20
-gk_Melody_level init 0
+gk_Melody_level init 30
 
 gi_Melody_chebyshev ftgen 0, 0, 65537, -7, -1, 150, 0.1, 110, 0, 252, 0
 gi_Melody_sine ftgen 0, 0, 65537, 10, 1
@@ -815,8 +815,8 @@ endin
     model.addChild(&rescale_node);
     csound::ImageToScore2 image_to_score_node;
     rescale_node.addChild(&image_to_score_node);
-    image_to_score_node.setImageFilename("20180827_212842-1.png");
-    image_to_score_node.threshhold(60);
+    image_to_score_node.setImageFilename("./20180827_212842-1.png");
+    image_to_score_node.threshhold(100000);
     image_to_score_node.setMaximumVoiceCount(25);
     //image_to_score_node.condense(72);
     image_to_score_node.generateLocally();
@@ -826,18 +826,13 @@ endin
     for (int i = 0, n = image_score.size(); i < n; ++i) {
          image_score[i].setPan(randomvariable(mersenneTwister));
     }
-    /*
-    score.rescale(csound::Event::TIME,          true,  0.0, false,  0.0);
-    score.rescale(csound::Event::INSTRUMENT,    true,  1.0, true, 11.99999);
-    score.rescale(csound::Event::VELOCITY,      true, 40.0, true,  10.0);
-    score.rescale(csound::Event::DURATION,      true,  2.0, true,   4.0);
-    score.rescale(csound::Event::PAN,           true,  0.0, true,   0.0);    */
     rescale_node.setRescale(csound::Event::TIME, true, false, 0., 0.);
     rescale_node.setRescale(csound::Event::INSTRUMENT, true, true, 1., 6.999);
     rescale_node.setRescale(csound::Event::VELOCITY, true, true, 40., 10.);
     rescale_node.setRescale(csound::Event::DURATION, true, true, 2., 4.);
     model.generate();
     auto score = model.getScore();
+    score.temper(12.);
     std::cout << "Move to origin duration:" << score.getDuration() << std::endl;
     score.setDuration(240.0);
     std::cout << "set duration:           " << score.getDuration() << std::endl;

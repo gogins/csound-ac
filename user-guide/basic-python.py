@@ -241,7 +241,7 @@ gk_Melody_midi_dynamic_range chnexport "gk_Melody_midi_dynamic_range", 3 ; 127
 gk_Melody_level chnexport "gk_Melody_level", 3 ; 0
 
 gk_Melody_midi_dynamic_range init 20
-gk_Melody_level init 0
+gk_Melody_level init 30
 
 gi_Melody_chebyshev ftgen 0, 0, 65537, -7, -1, 150, 0.1, 110, 0, 252, 0
 gi_Melody_sine ftgen 0, 0, 65537, 10, 1
