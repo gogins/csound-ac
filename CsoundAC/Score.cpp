@@ -390,7 +390,7 @@ namespace csound
             return;
         }
 #endif
-        System::error("Unknown file format in Score::save(%s).\n", filename.c_str());
+        System::warn("Unknown file format in Score::save(%s).\n", filename.c_str());
     }
 
     void Score::save_filename(std::string filename)
@@ -1559,14 +1559,14 @@ namespace csound
         auto start = front().getTime();
         for (auto i = 0; i < size(); i++)
         {
-            auto event = get(i);
+            auto &event = at(i);
             event.setTime(event.getTime() - start);
         }
         auto currentDuration = getDuration();
         auto factor = std::abs(targetDuration / currentDuration);
         for (auto i = 0; i < size(); i++)
         {
-            auto event = get(i);
+            auto &event = at(i);
             event.setTime(event.getTime() * factor);
             event.setDuration(event.getDuration() * factor);
         }
