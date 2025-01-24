@@ -116,14 +116,14 @@ namespace csound {
             return;
         }
         // Ensure the image has 3 channels (convert grayscale to RGB if needed)
-        cv::Mat imageRGB;
+        cv::Mat imageBGR;
         if (original_image.channels() == 1) {
-            cv::cvtColor(original_image, imageRGB, cv::COLOR_GRAY2BGR);
+            cv::cvtColor(original_image, imageBGR, cv::COLOR_GRAY2BGR);
         } else {
-            imageRGB = original_image; // Already in a compatible format
+            imageBGR = original_image; // Already in a compatible format
         }
         cv::Mat imageHSV;
-        cv::cvtColor(imageRGB, imageHSV, cv::COLOR_BGR2HSV);
+        cv::cvtColor(imageBGR, imageHSV, cv::COLOR_BGR2HSV);
         cv::Mat imageHSVFloat;
         imageHSV.convertTo(imageHSVFloat, CV_32FC3);
         auto element_size = imageHSV.elemSize();    
@@ -131,14 +131,10 @@ namespace csound {
         std::cout << "       Element size:  " << original_image.elemSize() << std::endl;
         std::cout << "Converted image type: " << cv::typeToString(imageHSVFloat.type())<< std::endl;
         std::cout << "        Element size: " << imageHSVFloat.elemSize() << std::endl;
-        // Display the images (optional)
-        /// cv::imshow("Original Image", original_image);
-        /// cv::imshow("HSV Float Image (Scaled)", imageHSVFloat);
-        /// cv::waitKey(0);
         System::inform("Loaded image file \"%s\".\n", image_filename.c_str());
         System::inform("Read image: columns: %d rows: %d type: %d depth: %d\n", original_image.cols, original_image.rows, original_image.type(), original_image.depth());
         // First we process the image, then we translate it.
-        cv::Mat source_image = original_image;
+        cv::Mat source_image = imageHSVFloat;
         if(do_blur) {
             System::inform("Blur...\n");
             cv::Mat output_image;
@@ -199,18 +195,12 @@ namespace csound {
         double status = 144.;
         event_.setStatus(status);
         double time_ = double(column) / processed_image.cols;
-        ///time_ = time_ * score.scaleTargetRanges.getTime() + score.scaleTargetMinima.getTime();
         event_.setTime(time_);
         double instrument = hsv[0];
-        ///instrument = instrument * score.scaleTargetRanges.getInstrument() + score.scaleTargetMinima.getInstrument();
-        ///instrument = std::round(instrument);
         event_.setInstrument(instrument);
         double key = double(processed_image.rows - row) / processed_image.rows;
-        ///key = key * score.scaleTargetRanges.getKey() + score.scaleTargetMinima.getKey();
-        ///key = std::round(key);
         event_.setKey(key);
         double velocity = hsv[2];
-        ///velocity = velocity * score.scaleTargetRanges.getVelocity() + score.scaleTargetMinima.getVelocity();
         event_.setVelocity(velocity);
     }
 
@@ -230,7 +220,7 @@ namespace csound {
         // purposes.
         //
         // In OpenCV, {0, 0} is the center of the upper left pixel.
-        cv::cvtColor(processed_image, processed_image, cv::COLOR_BGR2HSV_FULL);
+        score.clear();
         Event startingEvent;
         Event endingEvent;
         Score startingEvents;
@@ -253,16 +243,26 @@ namespace csound {
             }
             return false;
         };
+        // Split the HSV image into H, S, and V channels
+        std::vector<cv::Mat> channels;
+        cv::split(processed_image, channels);
+        // Calculate min and max for each channel
+        double h_min, h_max, s_min, s_max, v_min, v_max;
+        cv::minMaxLoc(channels[0], &h_min, &h_max); // H channel
+        cv::minMaxLoc(channels[1], &s_min, &s_max); // S channel
+        cv::minMaxLoc(channels[2], &v_min, &v_max); // V channel
+        std::cout << "Hue (H): Min = " << h_min << ", Max = " << h_max << std::endl;
+        std::cout << "Saturation (S): Min = " << s_min << ", Max = " << s_max << std::endl;
+        std::cout << "Value (V): Min = " << v_min << ", Max = " << v_max << std::endl;
         auto unique_notes = std::set<csound::Event, decltype(note_less)>(note_less);
         // No more than one note can start at the same time on the same row, even
         // though several adjacent rows can be mapped to the same MIDI key.
         std::map<int, csound::Event> pending_events;
         for(int row = 0; row < processed_image.rows; ++row) {
             System::debug("Processing row %d...\n", int(row));
-            for(int column = 0; column < processed_image.cols; ++column) {
-                // Find starting events, i.e. events based on pixels whose value
-                // exceeds the threshhold but the prior pixels did not.
-                // The lowest note is row 0.
+            // On each row, we compare the current pixel both to the prior 
+            // pixel and to the next pixel.
+            for(int column = 0; column < (processed_image.cols - 1); ++column) {
                 if(column == 0) {
                     prior_pixel = 0.;
                 } else {
@@ -270,13 +270,13 @@ namespace csound {
                 }
                 current_pixel = processed_image.at<cv::Vec3f>(row, column);
                 if(column < processed_image.cols) {
-                    next_pixel = processed_image.at<cv::Vec3f>(int(row), column + 1);
+                    next_pixel = processed_image.at<cv::Vec3f>(row, column + 1);
                 } else {
                     next_pixel = 0.;
                 }
-                // A note is starting.
-                // Another way of doing this is, if the value increases.
-                if(prior_pixel[2] < value_threshhold && current_pixel[2] >= value_threshhold) {
+                // A note is starting if the prior value is below the value threshhold, 
+                // and the current value is greater than or equal to the value threshhold.
+                 if((prior_pixel[2] < value_threshhold) && (current_pixel[2] >= value_threshhold)) {
                     pixel_to_event(column, row, current_pixel, startingEvent);
                     startingEvent.setDuration(0);
                     if(pending_events.find(row) == pending_events.end() && pending_events.size() < getMaximumVoiceCount()) {
@@ -286,9 +286,9 @@ namespace csound {
                         pending_events[row] = startingEvent;
                     }
                 }
-                // A note is ending.
-                // Another way of doing this is, if the value decreases.
-                if(current_pixel[2] >= value_threshhold && next_pixel[2] < value_threshhold) {
+                // A note is ending if the current value is greater than or equal to the 
+                // value threshhold, and the next value is less than the value threshhold.
+                if((current_pixel[2] >= value_threshhold) && (next_pixel[2] < value_threshhold)) {
                     if(pending_events.find(row) != pending_events.end()) {
                         csound::Event new_note = pending_events[row];
                         pixel_to_event(column, row, current_pixel, endingEvent);

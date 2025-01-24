@@ -816,7 +816,7 @@ endin
     csound::ImageToScore2 image_to_score_node;
     rescale_node.addChild(&image_to_score_node);
     image_to_score_node.setImageFilename("./20180827_212842-1.png");
-    image_to_score_node.threshhold(100000);
+    image_to_score_node.threshhold(8);
     image_to_score_node.setMaximumVoiceCount(25);
     //image_to_score_node.condense(72);
     image_to_score_node.generateLocally();
@@ -829,16 +829,20 @@ endin
     rescale_node.setRescale(csound::Event::TIME, true, false, 0., 0.);
     rescale_node.setRescale(csound::Event::INSTRUMENT, true, true, 1., 6.999);
     rescale_node.setRescale(csound::Event::VELOCITY, true, true, 40., 10.);
-    rescale_node.setRescale(csound::Event::DURATION, true, true, 2., 4.);
     model.generate();
-    auto score = model.getScore();
+    auto &score = model.getScore();
     score.temper(12.);
-    std::cout << "Move to origin duration:" << score.getDuration() << std::endl;
+    std::cout << "Move to origin duration:         " << score.getDuration() << std::endl;
     score.setDuration(240.0);
-    std::cout << "set duration:           " << score.getDuration() << std::endl;
+    std::cout << "set duration:                    " << score.getDuration() << std::endl;
+    std::cout << "Before tieing overlapping notes: " << score.size() << std::endl;
     score.tieOverlappingNotes(true);
+    std::cout << "After tieing overlapping notes:  " << score.size() << std::endl;
     score.findScale();
+    std::cout << "set duration:                    " << score.getDuration() << std::endl;
     std::cout << "Generated score:" << std::endl << score.getCsoundScore() << std::endl;
+    // We have post-processed the generated score, therefore we call perform 
+    // here, rather than render.
     model.perform();
 }
 
