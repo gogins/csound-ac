@@ -22,7 +22,7 @@ sr = 48000
 ksmps = 128
 nchnls = 2
 nchnls_i = 2
-0dbfs = 40
+0dbfs = 1
 
 connect "FMWaterBell", "outleft",  "ReverbSC", "inleft"
 connect "FMWaterBell", "outright", "ReverbSC", "inright"
@@ -816,8 +816,8 @@ endin
     csound::ImageToScore2 image_to_score_node;
     rescale_node.addChild(&image_to_score_node);
     image_to_score_node.setImageFilename("./20180827_212842-1.png");
-    image_to_score_node.threshhold(8);
-    image_to_score_node.setMaximumVoiceCount(25);
+    image_to_score_node.threshhold(90);
+    image_to_score_node.setMaximumVoiceCount(20);
     //image_to_score_node.condense(72);
     image_to_score_node.generateLocally();
     csound::Score &image_score = image_to_score_node.getScore();
@@ -828,9 +828,11 @@ endin
     }
     rescale_node.setRescale(csound::Event::TIME, true, false, 0., 0.);
     rescale_node.setRescale(csound::Event::INSTRUMENT, true, true, 1., 6.999);
-    rescale_node.setRescale(csound::Event::VELOCITY, true, true, 40., 10.);
+    rescale_node.setRescale(csound::Event::KEY, true, true, 36., 60.);
+    rescale_node.setRescale(csound::Event::VELOCITY, true, true, 60., 10.);
+    model.generateAllNames();
     model.generate();
-    auto &score = model.getScore();
+    csound::Score &score = model.getScore();
     score.temper(12.);
     std::cout << "Move to origin duration:         " << score.getDuration() << std::endl;
     score.setDuration(240.0);
