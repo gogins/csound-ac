@@ -1,17 +1,17 @@
-csd = r'''
 <CsoundSynthesizer>
 <CsLicense>
-This piece tests combinations of instr definitions.
+This example demonstrates the use of the <CsScore bin="python3"> method of 
+generating Csound scores using a Python script embedded in the .csd files.
 </CsLicense>
 <CsOptions>
--m32 -d -+msg_color=0 -odac
+-m0 -d -odac
 </CsOptions>
 <CsInstruments>
 
 sr = 48000
 ksmps = 128
 nchnls = 2
-0dbfs = 4
+0dbfs = 2
 
 connect "FMWaterBell", "outleft",  "ReverbSC", "inleft"
 connect "FMWaterBell", "outright", "ReverbSC", "inright"
@@ -239,7 +239,7 @@ gk_Melody_midi_dynamic_range chnexport "gk_Melody_midi_dynamic_range", 3 ; 127
 gk_Melody_level chnexport "gk_Melody_level", 3 ; 0
 
 gk_Melody_midi_dynamic_range init 20
-gk_Melody_level init 30
+gk_Melody_level init 0
 
 gi_Melody_chebyshev ftgen 0, 0, 65537, -7, -1, 150, 0.1, 110, 0, 252, 0
 gi_Melody_sine ftgen 0, 0, 65537, 10, 1
@@ -432,6 +432,7 @@ outleta "outleft", a_out_left
 outleta "outright", a_out_right
 outs a_out_left, a_out_right
 endin
+
 
 gk_WGPluck_midi_dynamic_range chnexport "gk_WGPluck_midi_dynamic_range", 3 ;  127
 gk_WGPluck_level chnexport "gk_WGPluck_level", 3 ;  0
@@ -793,23 +794,34 @@ prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p
 endin
 
 </CsInstruments>
-<CsScore>
-</CsScore>
-</CsoundSynthesizer>
+<CsScore bin="python3.12">
 '''
-
+The way this works is not intuitive, but fortunately it is simple. The "bin" 
+attribute of the <CsScore> element mey be used to specify a program that will 
+read and execute the script that is contained in the <CsScore> element. In 
+this example, that program is Python. sys.argv[0] may contain the name of an 
+existing file that the script can read from (not used here), and sys.argv[1] 
+will contain a generated filename that the script should write to, and that 
+will be read back at the start of performance by Csound as a standard score.
+'''
+import sys
+print("External filename to read from: ", sys.argv[0])
+print("Score filename to write to:     ", sys.argv[1])
 import CsoundAC
 music_model = CsoundAC.MusicModel()
 score_node = CsoundAC.ScoreNode()
 music_model.addChild(score_node)
 for i in range(100):
-    p1 = 1 + (i % 7)
-    p2 = i / 4
-    p3 = 6
-    p4 = 36 + (i % 60)
-    p5 = 60
-    score_node.getScore().add(p2, p3, 144, p1, p4, p5)
+  p1 = 1 + (i % 7)
+  p2 = i / 4
+  p3 = 6
+  p4 = 36 + (i % 60)
+  p5 = 60
+  score_node.getScore().add(p2, p3, 144, p1, p4, p5)
+music_model.generate()
 print("Generated score:")
-print(score_node.getScore().getCsoundScore())
-music_model.setCsd(csd)
-music_model.render()
+print(music_model.getScore().getCsoundScore())
+with open(sys.argv[1], 'w') as scofile:
+  scofile.write(music_model.getScore().getCsoundScore())
+</CsScore>
+</CsoundSynthesizer>
