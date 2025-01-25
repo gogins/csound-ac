@@ -449,6 +449,7 @@ void Composition::generateAllNames()
     System::inform("output_directory:                %s\n", output_directory.c_str());
     System::inform("base_filepath:                   %s\n", base_filepath.c_str());
     System::inform("master_filepath:                 %s\n", master_filepath.c_str());
+    System::inform("midi_filepath:                   %s\n", midi_filepath.c_str());
     System::inform("normalized_master_filepath:      %s\n", normalized_master_filepath.c_str());
     System::inform("cd_quality_filepath:             %s\n", cd_quality_filepath.c_str());
     System::inform("mp3_filepath:                    %s\n", mp3_filepath.c_str());
