@@ -834,14 +834,21 @@ unused = 0
 
 print("Generating score...")
 
+# Open a temporary score file, the name of which is provided by Csound in 
+# argv[1].
 with open(sys.argv[1], 'w') as sco_file:
-  for i in range(100):
+  # Generate the score exactly as in the basic Python example.
+  for i in range(60):
       p1 = 1 + (i % 7)
-      p2 = i / 4
+      p2 = i / 3
       p3 = 6
       p4 = 36 + (i % 60)
       p5 = 60
+      # For each note, format a Csound "i" statement and write it to the 
+      # temporary file.
       i_statement = f"i {p1} {p2} {p3} {p4} {p5}\n"
       sco_file.write(i_statement)
+# When this script has finished writing the temporary score file, 
+# Csound will read it back in and perform it.
 </CsScore>
 </CsoundSynthesizer>

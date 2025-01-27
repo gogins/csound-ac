@@ -2,9 +2,6 @@ import CsoundAC
 
 csd = r'''
 <CsoundSynthesizer>
-<CsLicense>
-This piece tests combinations of instr definitions.
-</CsLicense>
 <CsOptions>
 -m32 -d -+msg_color=0 -odac
 </CsOptions>
@@ -13,7 +10,7 @@ This piece tests combinations of instr definitions.
 sr = 48000
 ksmps = 128
 nchnls = 2
-0dbfs = 4
+0dbfs = 1.5
 
 connect "FMWaterBell", "outleft",  "ReverbSC", "inleft"
 connect "FMWaterBell", "outright", "ReverbSC", "inright"
@@ -801,18 +798,30 @@ f 0 30
 </CsoundSynthesizer>
 '''
 
+# Create an instance of a CsoundAC MusicModel, the container for a 
+# composition.
 music_model = CsoundAC.MusicModel()
+# Set the complete Csound orchestra in the music model.
+music_model.setCsd(csd)
+# Set basic metadata, which is used to creaate filenames.
 music_model.setAuthor("CsoundAC Tutorial");
 music_model.setTitle("csoundac_basic_python");
 music_model.generateAllNames()
+# Create a ScoreNode to hold the generated score.
 score_node = CsoundAC.ScoreNode()
+# Add the score node to the music model.
 music_model.addChild(score_node)
-for i in range(100):
+# Generate the notes exactly as in the basic-python.py example.
+for i in range(60):
     p1 = 1 + (i % 7)
-    p2 = i / 4
+    p2 = i / 3
     p3 = 6
     p4 = 36 + (i % 60)
     p5 = 60
+    # Add each generated note to the CsoundAC score node. The format and order 
+    # of the pfields is a litte bit different.
     score_node.getScore().append(p2, p3, 144, p1, p4, p5)
-music_model.setCsd(csd)
+# Call the render method, which will perform a depth-first traversal of all 
+# Nodes in the MusicModel to generate a performable score, compile the Csound 
+# orchestra, and use it perform the generated score.
 music_model.render()

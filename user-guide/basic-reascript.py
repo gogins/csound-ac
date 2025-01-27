@@ -19,11 +19,14 @@ import ac_reaper
 # But here, they are numbered like the pfields in the Csound
 # instrument definitions.
 score = []
-for i in range(100):
-    p1 = 1 + (i % 8)
-    p2 = i / 4
+for i in range(60):
+    p1 = 1 + (i % 7)
+    p2 = i / 3
     p3 = 6
     p4 = 36 + (i % 60)
     p5 = 60
     score.append([p2, p3, 144, p1, p4, p5])
+# Call the ac_reaper module's score_to_midiitem function, which 
+# will translate each note in the generated score to a Reaper MIDI 
+# note in the selected MIDI item.
 ac_reaper.score_to_midiitem(score)
