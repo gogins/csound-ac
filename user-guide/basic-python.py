@@ -1,10 +1,10 @@
 from ctcsound import *
 
+# Embed the complete Csound orchestra, in .csd file format, in the Python 
+# code as a string literal.
+
 csd = r'''
 <CsoundSynthesizer>
-<CsLicense>
-This piece tests combinations of instr definitions.
-</CsLicense>
 <CsOptions>
 -m32 -d -+msg_color=0 -odac
 </CsOptions>
@@ -13,7 +13,7 @@ This piece tests combinations of instr definitions.
 sr = 48000
 ksmps = 128
 nchnls = 2
-0dbfs = 4
+0dbfs = 1.5
 
 connect "FMWaterBell", "outleft",  "ReverbSC", "inleft"
 connect "FMWaterBell", "outright", "ReverbSC", "inright"
@@ -796,19 +796,30 @@ endin
 
 </CsInstruments>
 <CsScore>
+; Allot just enough time to perform the generated score.
 f 0 30
 </CsScore>
 </CsoundSynthesizer>
 '''
 
+# Create an instance of Csound using the ctcsound module.
 csound = Csound()
+# Compile the Csound orchestra from the string literal.
 csound.compileCsdText(csd)
+# Start Csound to open inputs and outputs, but without actually running. This 
+# enables sending the notes of a generated score to Csound.
 csound.start()
-for i in range(100):
+# Generate an ascending chromatc scale using several of the instruments, and 
+# send the notes to Csound, which stores them for performance.
+for i in range(60):
     p1 = 1 + (i % 7)
-    p2 = i / 4
+    p2 = i / 3
     p3 = 6
     p4 = 36 + (i % 60)
     p5 = 60
+    # Send each note separately, formatted as a Csound score "i" statement.
     csound.inputMessage(f"i {p1} {p2} {p3} {p4} {p5}\n")
+# Start the Csound performance, which will render the generated and stored 
+# score. The "f" statement in the .csd file will step the performance after 
+# a preset time.
 csound.perform()

@@ -35,7 +35,9 @@ Composition::Composition() :
     tonesPerOctave(12.0),
     conformPitches(false),
     tieOverlappingNotes(false),
-    duration(0)
+    duration(0),
+    stem("Title"),
+    author("Composer")
 {
 }
 

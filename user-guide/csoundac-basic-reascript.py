@@ -13,19 +13,25 @@ for p in sys.path:
 import ac_reaper
 import CsoundAC
 
+# The only difference from the basic-reascript.py example is that the 
+# generated score is stored in a CsoundAC ScoreNode.
+
 music_model = CsoundAC.MusicModel()
+music_model.setCsd(csd)
 music_model.setAuthor("CsoundAC Tutorial");
 music_model.setTitle("csoundac_basic_reascript");
 music_model.generateAllNames()
 score_node = CsoundAC.ScoreNode()
 music_model.addChild(score_node)
-for i in range(100):
+for i in range(60):
     p1 = 1 + (i % 7)
-    p2 = i / 4
+    p2 = i / 3
     p3 = 6
     p4 = 36 + (i % 60)
     p5 = 60
     score_node.getScore().append(p2, p3, 144, p1, p4, p5)
-music_model.setCsd(csd)
+# Call music_model generate to actually create a performable score.
 music_model.generate()
+# The ac_reaper module score_to_midiitem function can translate both scores as 
+# raw Python arrays of notes, or scores as CsoundAC Scores.
 ac_reaper.score_to_midiitem(music_model.getScore())
