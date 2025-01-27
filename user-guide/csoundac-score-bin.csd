@@ -809,6 +809,8 @@ print("External filename to read from: ", sys.argv[0])
 print("Score filename to write to:     ", sys.argv[1])
 import CsoundAC
 music_model = CsoundAC.MusicModel()
+music_model.setAuthor("CsoundAC Tutorial");
+music_model.setTitle("csoundac_score_bin");
 score_node = CsoundAC.ScoreNode()
 music_model.addChild(score_node)
 for i in range(100):

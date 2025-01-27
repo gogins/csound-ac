@@ -802,6 +802,8 @@ f 0 30
 '''
 
 music_model = CsoundAC.MusicModel()
+music_model.setAuthor("CsoundAC Tutorial");
+music_model.setTitle("csoundac_basic_python");
 music_model.generateAllNames()
 score_node = CsoundAC.ScoreNode()
 music_model.addChild(score_node)
