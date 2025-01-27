@@ -60,7 +60,7 @@ Linux binaries can be built as follows:
 
 \subsubsection{Configuring CsoundAC}
 
-Copy  \lstinline{\_CsoundAC.so} and \lstinline{Csound.py}, as well as \lstinline{GeneralizedContextualGroup.py}, to the \lstinline{site-packages} directory for that version, e.g. on macOS it could be \lstinline|/opt/homebrew/lib/python3.12/site-packages/_CsoundAC.so|.
+Copy  \lstinline{_CsoundAC.so} and \lstinline{Csound.py}, as well as \lstinline{GeneralizedContextualGroup.py}, to the \lstinline{site-packages} directory for the version of Python with which CsoundAC was built,, e.g. on macOS it could be \lstinline|/opt/homebrew/lib/python3.12/site-packages/_CsoundAC.so|.
 
 Test your installation by running the correct version of Python and importing the CsoundAC and GeneralizedContextualGroup modules. There should be no error.
 
@@ -73,9 +73,9 @@ Type "help", "copyright", "credits" or "license" for more information.
 >>> 
 \end{lstlisting}
 
-\subsubsection{Confiiguring ctcsound}
+\subsubsection{Configuring ctcsound}
 
-Each published release of Csound comes with a Python interface to the complete CsoundAC, defined in the \lstinline|ctcsound.py| module. To enable ctcsound:
+Each published release of Csound comes with a Python interface to the complete Csound API, defined in the \lstinline|ctcsound.py| module. This module will work with any version of Python, but is built for a specific version of Csound. To enable ctcsound:
 
 \begin{enumerate}
 \item Go the Csound GitHub repository, select the \lstinline|csound6| branch, and copy or download the \lstinline|interfaces/ctcsound.py| file to the \lstinline|site-packages| directory for the version of Python that you will use, e.g. \lstinline|/opt/homebrew/lib/python3.12/site-packages/ctcsound.py|.
@@ -144,7 +144,7 @@ The following examples proceed step by step, repeating each example in standalon
 
 Here, the same very basic example is run in three environments. All three examples use the same Csound orchestra, \lstinline|simple.csd|, which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple \lstinline|for| loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run, and how they interface with Csound. CsoundAC is not used --- these examples show only the most basic, low-level method of generating a score.
 
-For insight into the code, open the code in an editor and read it, there are many explanatory comments.
+For insight into the code, open the examples in an editor and read them in order, there are many explanatory comments.
 
 \subsubsection{Running in Python: \lstinline{basic-python.py}}
 
@@ -170,7 +170,7 @@ You should see the \emph{ReaScript console output} dialog, with output from the 
 
 \subsection{Minimal CsoundAC Examples}
 
-These three examples re-create the three basic examples above, changing them only to generate the ascending chromatic scale as a CsoundAC Score object, and to render the Score using CsoundAC's integration with Csound.
+These three examples re-create the three basic examples above, changing them only to generate the ascending chromatic scale as a CsoundAC ScoreNde object, and to render that using CsoundAC's integration with Csound.
 
 \begin{enumerate}
 
@@ -184,7 +184,7 @@ These three examples re-create the three basic examples above, changing them onl
 
 \subsection{Compositional Examples}
 
-These three examples are more complex, and demonstrate typical uses of CsoundAC. Two implementations are provided for each example, for standalone Pytghon and as Python ReaScript for Reaper.
+These three examples are more complex, and demonstrate typical uses of CsoundAC. Two implementations are provided for each example, as standalone Python and as Python ReaScript for Reaper.
 
 \subsubsection{Transforming Source Material: \lstinline|python-trans-scale.py|}
 
@@ -205,7 +205,7 @@ This piece takes a high-resolution digital photograph, applies some visual proce
 
 \subsubsection{Lindenmayer Systems in Chord Space: \lstinline|python-duo-dualities.py|}
 
-This piece uses a \href{https://algorithmicbotany.org/papers/abop/abop.pdf}{Lindenmayer system} defined in the \href{https://dmitri.mycpanel.princeton.edu/files/publications/science2.pdf}{voice-leading spaces} of Callendar, Quinn, and Tymoczko} to implement the \href{https://www.mtosmt.org/issues/mto.05.11.3/mto.05.11.3.fiore_satyendra.pdf}{Generalized Contextual Group} of chord transformations identified by Fiore and Satyendra. Here I use the Generalized Contextual Group to capture the duality of major and minor so constitutive of Western music in an abstract and generative form that is not specifically ``tonal." This Lindenmayer system, \href{https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=dd8623bbe8c889b2c56d6a1fc0fc55c61b362ee4}{presented by me at the 2009 International Computer Music Conference}, generates a score as movements of chords by transformation through chord space, writing notes of the chords to create the score. 
+This piece uses a \href{https://algorithmicbotany.org/papers/abop/abop.pdf}{Lindenmayer system} defined in the \href{https://dmitri.mycpanel.princeton.edu/files/publications/science2.pdf}{voice-leading spaces} of Callendar, Quinn, and Tymoczko to implement the \href{https://www.mtosmt.org/issues/mto.05.11.3/mto.05.11.3.fiore_satyendra.pdf}{Generalized Contextual Group} of chord transformations identified by Fiore and Satyendra. Here I use the Generalized Contextual Group to capture the duality of major and minor so constitutive of Western music in an abstract and generative form that is not specifically ``tonal." This Lindenmayer system, \href{https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=dd8623bbe8c889b2c56d6a1fc0fc55c61b362ee4}{presented by me at the 2009 International Computer Music Conference}, generates a score as movements of chords by transformation through chord space, writing notes of the chords to create the score. 
 
 
 
