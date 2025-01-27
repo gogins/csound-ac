@@ -14,6 +14,8 @@ import ac_reaper
 import CsoundAC
 
 music_model = CsoundAC.MusicModel()
+music_model.setAuthor("CsoundAC Tutorial");
+music_model.setTitle("csoundac_basic_reascript");
 music_model.generateAllNames()
 score_node = CsoundAC.ScoreNode()
 music_model.addChild(score_node)
