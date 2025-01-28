@@ -146,25 +146,27 @@ For insight into the code, go to the hyperlinked source code or open the example
 
 \subsection{Basic Python Usage}
 
-Here, the same very basic example is run in three environments. All three examples use the same Csound orchestra, \href{xxx}{\lstinline|basic.csd|,} which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple \lstinline|for| loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run, and how they interface with Csound. CsoundAC is not used --- these examples show only the most basic, low-level method of generating a score.
+Here, the same very basic example is run in three environments. All three examples use the same Csound orchestra, \href{https://github.com/gogins/csound-ac/blob/master/user-guide/basic.csd}{\lstinline|basic.csd|,} which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple \lstinline|for| loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run, and how they interface with Csound. CsoundAC is not used --- these examples show only the most basic, low-level method of generating a score.
 
-\subsubsection{Running in Python: \lstinline{basic-python.py}}
+\subsubsection{Running in Python: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/basic-python.py}{\lstinline{basic-python.py}}}
 
 Running in Python has the advantage of being easy to understand. A composition is just a Python program. This example uses the ctcsound module to perform the example.
 
 Open a terminal, change to the \lstinline|csound-ac/user-guide| directory, and execute \lstinline|python3.12 basic-python.py|
 
-\subsubsection{Running in Csound: \lstinline|basic-score-bin.csd|}
+\subsubsection{Running in Csound: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/basic-score-bin.csd}{\lstinline|basic-score-bin.csd|}}
 
 Running in Csound has the advantage of requiring no additional installation or configuration apart from Csound, Python, and CsoundAC. All of the elements of a composition are defined in one .csd file. In this case the Csound orchestra is defined outside of the Python code, which is embedded in the .csd file.
 
-Thus, code for running Csound is not needed, as Csound is already running; instead, the generated score is written to a temporary filename and read back into Csound for performance. 
+Thus, code for running Csound is not needed, as Csound is already running; instead, the script writes the generated score to a temporary filename, and Csound reads that score and performs it. for performance. 
 
 Open a terminal, change to the \lstinline|csound-ac/user-guide| directory, and execute \lstinline|csound basic-score-bin.csd|.
 
-\subsubsection{Running in Reaper: \lstinline|basic-reascript.py|}
+\subsubsection{Running in Reaper: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/basic-reascript.py}{\lstinline|basic-reascript.py|}}
 
-Running in Reaper has the advantages of automatically providing a piano roll score, or even music notation, for generated scores; enabling other synthesis programs besides Csound to render CsoundAC scores; and in general, integrating with contemporary music production practice. The Csound orchestra is defined in the state of a \href{https://github.com/gogins/csound-vst3}{CsoundVST3} plugin, which receives MIDI input from the DAW. The compositional code is defined in a Python ReaScript file, which is loaded into Reaper as an Action. This separation of concerns between composition and synthesis enables CsoundAC to send MIDI to the DAW and to other plugins, and for Csound to receive MIDI and audio from any track or plugin in Reaper.
+Running in Reaper has the advantages of automatically providing a piano roll score, or even music notation, for generated scores; enabling other synthesis plugins besides Csound to render CsoundAC scores; and in general, integrating with contemporary music production practice. The Csound orchestra is defined in the state of a \href{https://github.com/gogins/csound-vst3}{CsoundVST3} plugin, which receives MIDI input from the DAW. The compositional code is defined in a Python ReaScript file, which is loaded into Reaper as an Action. 
+
+This separation of concerns between composition and synthesis enables CsoundAC to send MIDI to the DAW and to other plugins, and for Csound to receive MIDI and audio from any track or plugin in Reaper.
 
 Use the \emph{Actions} menu, \emph{New action...} dialog, ``Load ReaScript..." dialog to load the \lstinline|basic-reascript.py| script. Create a track with a blank MIDI item, and select that item. Use the\emph{Actions} menu, \emph{Show action list...} dialog, select the \emph{basic-reascript.py} script, and click on the \emph{Run} button. 
 
@@ -172,23 +174,23 @@ You should see the \emph{ReaScript console output} dialog, with output from the 
 
 \subsection{Minimal CsoundAC Examples}
 
-These three examples re-create the three basic examples above, changing them only to generate the ascending chromatic scale as a CsoundAC ScoreNde object, and to render that using CsoundAC's integration with Csound.
+These three examples re-create the three basic examples above, changing them only to generate the ascending chromatic scale as a CsoundAC ScoreNode object, and to render that using CsoundAC's integration with Csound.
 
 \begin{enumerate}
 
-\item Running in Python: \lstinline|csoundac-basic-python.py|.
+\item Running in Python: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/csoundac-basic-python.py}{\lstinline|csoundac-basic-python.py|}.
 
-\item Running in Csound: \lstinline|csoundac-basic-score-bin.csd|.
+\item Running in Csound: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/csoundac-basic-score-bin.csd}{\lstinline|csoundac-basic-score-bin.csd|}.
 
-\item Running in Reaper: \lstinline|csoundac-basic-reascript.py|.
+\item Running in Reaper: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/csoundac-basic-reascript.py}{\lstinline|csoundac-basic-reascript.py|}.
 
 \end{enumerate}
 
 \subsection{Compositional Examples}
 
-These three examples are more complex, and demonstrate typical uses of CsoundAC. Two implementations are provided for each example, as standalone Python and as Python ReaScript for Reaper.
+The following three examples are more complex, and demonstrate some typical uses of CsoundAC. Two implementations are provided for each example: as standalone Python, and as Python ReaScript for Reaper.
 
-\subsubsection{Transforming Source Material: \lstinline|python-trans-scale.py|}
+\subsubsection{Transforming Source Material: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/python-trans-scale.py}{\lstinline|python-trans-scale.py|}}
 
 This piece takes the ascending chromatic scale of the previous examples, and uses CsoundAC to transform and elaborate it. 
 
@@ -197,17 +199,19 @@ This piece takes the ascending chromatic scale of the previous examples, and use
 \item Repeat that scale, shuffled so that notes are in random order.
 \item Repeat that transformed scale, and randomize the note durations.
 \item Repeat that transformed scale, quantizing the note onsets and durations.
-\item Repeat that transformed scale three times, as a canon at the fifth.
+\item Repeat that transformed scale three times, as a canon at the third.
 \item Repeat that canon, and apply to it randomized chord progressions and modulations.
 \end{enumerate}
 
-\subsubsection{Translating Images to Scores:  \lstinline|python-imagery.py|}
+\subsubsection{Translating Images to Scores:  \href{https://github.com/gogins/csound-ac/blob/master/user-guide/python-imagery.py}{\lstinline|python-imagery.py|}}
 
 This piece takes a high-resolution digital photograph, applies some visual processing, translates the processed image to a CsoundAC score, and renders it using Csound.
 
-\subsubsection{Lindenmayer Systems in Chord Space: \lstinline|python-duo-dualities.py|}
+\subsubsection{Lindenmayer Systems in Chord Space: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/python-duo-dualities.py}{\lstinline|python-duo-dualities.py|}}
 
-This piece uses a \href{https://algorithmicbotany.org/papers/abop/abop.pdf}{Lindenmayer system} defined in the \href{https://dmitri.mycpanel.princeton.edu/files/publications/science2.pdf}{voice-leading spaces} of Callendar, Quinn, and Tymoczko to implement the \href{https://www.mtosmt.org/issues/mto.05.11.3/mto.05.11.3.fiore_satyendra.pdf}{Generalized Contextual Group} of chord transformations identified by Fiore and Satyendra. Here I use the Generalized Contextual Group to capture the duality of major and minor so constitutive of Western music, in an abstract and generative form that is not specifically ``tonal." This Lindenmayer system, \href{https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=dd8623bbe8c889b2c56d6a1fc0fc55c61b362ee4}{presented by me at the 2009 International Computer Music Conference}, generates a score as movements of chords by transformation through chord space, writing notes of the chords to create the score. This piece is a modified and elaborated form of \emph{Two Dualities} by me, presented at the 2010 International Computer Music Conference in the listening rooms as part of the \href{http://www.voxnovus.com/60x60/2010_Crimson_Mix.htm}{360 degrees of 60x60 (Crimson Mix)}.
+This piece uses a \href{https://algorithmicbotany.org/papers/abop/abop.pdf}{Lindenmayer system} defined in the \href{https://dmitri.mycpanel.princeton.edu/files/publications/science2.pdf}{voice-leading spaces} of Callendar, Quinn, and Tymoczko to implement the \href{https://www.mtosmt.org/issues/mto.05.11.3/mto.05.11.3.fiore_satyendra.pdf}{Generalized Contextual Group} of chord transformations identified by Fiore and Satyendra. Here I use the Generalized Contextual Group to capture the duality of major and minor so constitutive of Western music, in an abstract and generative form that is not specifically ``tonal." This Lindenmayer system, \href{https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=dd8623bbe8c889b2c56d6a1fc0fc55c61b362ee4}{presented by me at the 2009 International Computer Music Conference}, generates a score as movements of chords by transformation through chord space and time, writing notes of the chords to create the score. 
+
+The piece is a modified and elaborated form of \href{https://music.youtube.com/watch?v=3_ahbL44p-E}{\emph{Two Dualities} }by me, presented at the 2010 International Computer Music Conference in the listening rooms as part of \href{http://www.voxnovus.com/60x60/2010_Crimson_Mix.htm}{360 degrees of 60x60 (Crimson Mix)}.
 
 
 

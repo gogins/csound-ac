@@ -5,9 +5,6 @@ import GeneralizedContextualGroup
 
 csd = r'''
 <CsoundSynthesizer>
-<CsLicense>
-This piece tests combinations of instr definitions.
-</CsLicense>
 <CsOptions>
 -m32 -d -+msg_color=0 -odac
 </CsOptions>
