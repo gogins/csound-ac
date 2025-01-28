@@ -1,7 +1,4 @@
 <CsoundSynthesizer>
-<CsLicense>
-This piece tests combinations of instr definitions.
-</CsLicense>
 <CsOptions>
 -m163 -+msg_color=0 -MN -QN -d --midi-key=4 --midi-velocity=5 --daemon
 </CsOptions>
