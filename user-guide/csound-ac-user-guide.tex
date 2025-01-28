@@ -1,4 +1,4 @@
-\documentclass[letterpaper,10pt,DIV=12]{scrartcl}
+\documentclass[letterpaper,10pt,DIV=12,parskip=half]{scrartcl}
 \usepackage[utf8]{inputenc}
 \usepackage{microtype} % Improved justification and kerning
 \usepackage{lmodern}   % Improved font rendering
@@ -25,7 +25,11 @@
 
 \section{Introduction}
 
-CsoundAC is a class library and software toolkit designed to support the algorithmic composition of music. CsoundAC has C++, Python, and JavaScript application programming interfaces (APIs). This \emph{\textbf{Guide}} is based on the Python interface. The major features of CsoundAC are:
+CsoundAC is a class library and software toolkit designed to support the algorithmic composition of music. CsoundAC has C++, Python, and JavaScript application programming interfaces (APIs). This \emph{\textbf{Guide}} is based on the Python interface. 
+
+References herein are all in the form of colored hyperlinks to resources on the World Wide Web. Reference documentation for CsoundAC is \href{https://github.com/gogins/csound-ac/blob/master/csound-ac.pdf}{here}.
+
+The major features of CsoundAC are:
 
 \begin{itemize}
 \item  \href{https://quod.lib.umich.edu/i/icmc/bbp2372.1998.298/1}{Music graphs}, a hierarchical representation of musical scores and processes, modeled upon the computer graphics idea of scene graphs. 
@@ -39,8 +43,6 @@ CsoundAC is a class library and software toolkit designed to support the algorit
 \end{itemize}
 
 \noindent The core of CsoundAC is written in platform-neutral standard C++. The \href{https://github.com/gogins/csound-ac}{CsoundAC repository} also includes a Python interface to CsoundAC. A JavaScript interface to a WebAssembly (WASM) build of CsoundAC (and of Csound) is available in the \href{https://github.com/gogins/csound-wasm}{csound-wasm} repository. 
-
-Reference documentation for CsoundAC is \href{https://github.com/gogins/csound-ac/blob/master/csound-ac.pdf}{here}.
 
 \section{Getting Started}
 
@@ -140,11 +142,11 @@ The following examples proceed step by step, repeating each example in standalon
 \item CsoundAC compositions demonstrating some capabilities of CsoundAC.
 \end{enumerate}
 
+For insight into the code, go to the hyperlinked source code or open the examples in an editor, and read them in order; there are many explanatory comments.
+
 \subsection{Basic Python Usage}
 
-Here, the same very basic example is run in three environments. All three examples use the same Csound orchestra, \lstinline|simple.csd|, which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple \lstinline|for| loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run, and how they interface with Csound. CsoundAC is not used --- these examples show only the most basic, low-level method of generating a score.
-
-For insight into the code, open the examples in an editor and read them in order, there are many explanatory comments.
+Here, the same very basic example is run in three environments. All three examples use the same Csound orchestra, \href{xxx}{\lstinline|basic.csd|,} which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple \lstinline|for| loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run, and how they interface with Csound. CsoundAC is not used --- these examples show only the most basic, low-level method of generating a score.
 
 \subsubsection{Running in Python: \lstinline{basic-python.py}}
 
@@ -205,7 +207,7 @@ This piece takes a high-resolution digital photograph, applies some visual proce
 
 \subsubsection{Lindenmayer Systems in Chord Space: \lstinline|python-duo-dualities.py|}
 
-This piece uses a \href{https://algorithmicbotany.org/papers/abop/abop.pdf}{Lindenmayer system} defined in the \href{https://dmitri.mycpanel.princeton.edu/files/publications/science2.pdf}{voice-leading spaces} of Callendar, Quinn, and Tymoczko to implement the \href{https://www.mtosmt.org/issues/mto.05.11.3/mto.05.11.3.fiore_satyendra.pdf}{Generalized Contextual Group} of chord transformations identified by Fiore and Satyendra. Here I use the Generalized Contextual Group to capture the duality of major and minor so constitutive of Western music in an abstract and generative form that is not specifically ``tonal." This Lindenmayer system, \href{https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=dd8623bbe8c889b2c56d6a1fc0fc55c61b362ee4}{presented by me at the 2009 International Computer Music Conference}, generates a score as movements of chords by transformation through chord space, writing notes of the chords to create the score. 
+This piece uses a \href{https://algorithmicbotany.org/papers/abop/abop.pdf}{Lindenmayer system} defined in the \href{https://dmitri.mycpanel.princeton.edu/files/publications/science2.pdf}{voice-leading spaces} of Callendar, Quinn, and Tymoczko to implement the \href{https://www.mtosmt.org/issues/mto.05.11.3/mto.05.11.3.fiore_satyendra.pdf}{Generalized Contextual Group} of chord transformations identified by Fiore and Satyendra. Here I use the Generalized Contextual Group to capture the duality of major and minor so constitutive of Western music, in an abstract and generative form that is not specifically ``tonal." This Lindenmayer system, \href{https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=dd8623bbe8c889b2c56d6a1fc0fc55c61b362ee4}{presented by me at the 2009 International Computer Music Conference}, generates a score as movements of chords by transformation through chord space, writing notes of the chords to create the score. This piece is a modified and elaborated form of \emph{Two Dualities} by me, presented at the 2010 International Computer Music Conference in the listening rooms as part of the \href{http://www.voxnovus.com/60x60/2010_Crimson_Mix.htm}{360 degrees of 60x60 (Crimson Mix)}.
 
 
 
