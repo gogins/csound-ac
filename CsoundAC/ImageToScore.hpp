@@ -53,7 +53,7 @@ protected:
     cv::Mat original_image;
     cv::Mat processed_image;
     size_t maximum_voice_count = 7;
-    virtual void pixel_to_event(int column, int row, const cv::Vec3f &hsv, Event &event) const;
+    virtual csound::Event pixel_to_event(int column, int row) const;
 public:
     ImageToScore2();
     virtual ~ImageToScore2();
