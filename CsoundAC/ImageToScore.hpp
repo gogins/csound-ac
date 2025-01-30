@@ -118,7 +118,8 @@ public:
     
     /**
      * Perform any image processing, then translate the resulting image to
-     * notes.
+     * notes. The generated score must then be rescaled to fit musically 
+     * useful dimensions.
      */
     virtual void processImage();
     virtual void generateLocally();
