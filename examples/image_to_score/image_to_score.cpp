@@ -1,4 +1,5 @@
 #include <Composition.hpp>
+#include <ChordSpace.hpp>
 #include <Eigen/Dense>
 #include <functional>
 #include <memory>
@@ -812,8 +813,7 @@ endin
     model.setYear("2022");
     model.setPerformanceRightsOrganization("Irreducible Productions, ASCAP");
     csound::Rescale rescale_node;
-    model.addChild(&rescale_node);
-    csound::ImageToScore2 image_to_score_node;
+     csound::ImageToScore2 image_to_score_node;
     rescale_node.addChild(&image_to_score_node);
     //image_to_score_node.setImageFilename("./43636356874_79c6d44f79_o.jpg");
     //image_to_score_node.setImageFilename("./51735821033_f930358ef4_o.jpg");
@@ -829,6 +829,20 @@ endin
     rescale_node.setRescale(csound::Event::INSTRUMENT, true, true, 1., 6.999);
     rescale_node.setRescale(csound::Event::KEY, true, true, 36., 60.);
     rescale_node.setRescale(csound::Event::VELOCITY, true, true, 60., 10.);
+    auto duration = image_to_score_node.getScore().getDuration();
+    std::cout << "Duration of score from image: " << duration << std::endl;
+
+    // Create chord progressions and modulations.
+    csound::Scale scale = csound::scaleForName("D major");
+    csound::VoiceleadingNode voiceleading_node;
+    voiceleading_node.chord(scale.chord(1,  5), duration * .1);
+    voiceleading_node.chord(scale.chord(2,  4), duration * .2);
+    voiceleading_node.chord(scale.chord(7,  5), duration * .3);
+    voiceleading_node.chord(scale.chord(11, 4), duration * .4);
+    voiceleading_node.addChild(&rescale_node);
+    model.addChild(&voiceleading_node);
+
+
     model.generateAllNames();
     model.generate();
     csound::Score &score = model.getScore();
