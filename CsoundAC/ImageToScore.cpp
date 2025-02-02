@@ -191,17 +191,20 @@ namespace csound {
         System::inform("ImageToScore2::processImage.\n");
     }
 
-    void ImageToScore2::pixel_to_event(int column, int row, const cv::Vec3f &hsv, Event &event_) const {
+    csound::Event ImageToScore2::pixel_to_event(int column, int row) const {
+        const cv::Vec3f &hsv = processed_image.at<cv::Vec3f>(row, column);
+        csound::Event event_;
         double status = 144.;
         event_.setStatus(status);
-        double time_ = double(column) / processed_image.cols;
+        double time_ = column;
         event_.setTime(time_);
         double instrument = hsv[0];
         event_.setInstrument(instrument);
-        double key = double(processed_image.rows - row) / processed_image.rows;
+        double key = row;
         event_.setKey(key);
         double velocity = hsv[2];
         event_.setVelocity(velocity);
+        return event_;
     }
 
     void ImageToScore2::generateLocally() {
@@ -219,92 +222,82 @@ namespace csound {
         // translate to HSV, which seems to be the best color model for our
         // purposes.
         //
-        // In OpenCV, {0, 0} is the center of the upper left pixel.
         score.clear();
-        Event startingEvent;
-        Event endingEvent;
-        Score startingEvents;
-        Score endingEvents;
-        cv::Vec3f prior_pixel;
-        cv::Vec3f current_pixel;
-        cv::Vec3f next_pixel;
-        auto note_less = [](const csound::Event &a, const csound::Event &b) {
-            if(a.getChannel() < b.getChannel()) {
+        auto note_salience_less = [](const csound::Event &a, const csound::Event &b) {
+            if (a.getVelocity() < b.getVelocity()) {
                 return true;
+            } else {
+                return false;
             }
-            if(a.getTime() < b.getTime()) {
-                return true;
-            }
-            if(a.getOffTime() < b.getOffTime()) {
-                return true;
-            }
-            if(a.getKeyNumber() < b.getKeyNumber()) {
-                return true;
-            }
-            return false;
         };
+        // First we print out the size of the image on all dimensions.
         // Split the HSV image into H, S, and V channels
         std::vector<cv::Mat> channels;
         cv::split(processed_image, channels);
-        // Calculate min and max for each channel
+        // Calculate min and max for each channel.
         double h_min, h_max, s_min, s_max, v_min, v_max;
         cv::minMaxLoc(channels[0], &h_min, &h_max); // H channel
         cv::minMaxLoc(channels[1], &s_min, &s_max); // S channel
         cv::minMaxLoc(channels[2], &v_min, &v_max); // V channel
-        std::cout << "Hue (H): Min = " << h_min << ", Max = " << h_max << std::endl;
-        std::cout << "Saturation (S): Min = " << s_min << ", Max = " << s_max << std::endl;
-        std::cout << "Value (V): Min = " << v_min << ", Max = " << v_max << std::endl;
-        auto unique_notes = std::set<csound::Event, decltype(note_less)>(note_less);
-        // No more than one note can start at the same time on the same row, even
-        // though several adjacent rows can be mapped to the same MIDI key.
-        std::map<int, csound::Event> pending_events;
-        for(int row = 0; row < processed_image.rows; ++row) {
-            System::debug("Processing row %d...\n", int(row));
-            // On each row, we compare the current pixel both to the prior 
-            // pixel and to the next pixel.
-            for(int column = 0; column < (processed_image.cols - 1); ++column) {
-                if(column == 0) {
-                    prior_pixel = 0.;
-                } else {
-                    prior_pixel = processed_image.at<cv::Vec3f>(row, column - 1);
-                }
-                current_pixel = processed_image.at<cv::Vec3f>(row, column);
-                if(column < processed_image.cols) {
-                    next_pixel = processed_image.at<cv::Vec3f>(row, column + 1);
-                } else {
-                    next_pixel = 0.;
-                }
-                // A note is starting if the prior value is below the value threshhold, 
-                // and the current value is greater than or equal to the value threshhold.
-                 if((prior_pixel[2] < value_threshhold) && (current_pixel[2] >= value_threshhold)) {
-                    pixel_to_event(column, row, current_pixel, startingEvent);
-                    startingEvent.setDuration(0);
-                    if(pending_events.find(row) == pending_events.end() && pending_events.size() < getMaximumVoiceCount()) {
-                        if(System::getMessageLevel() >= System::DEBUGGING_LEVEL) {
-                            System::debug("Starting event at   column: %5d row: %5d value: %12.4g  %s\n", column, row, current_pixel[2], startingEvent.toString().c_str());
-                        }
-                        pending_events[row] = startingEvent;
-                    }
-                }
-                // A note is ending if the current value is greater than or equal to the 
-                // value threshhold, and the next value is less than the value threshhold.
-                if((current_pixel[2] >= value_threshhold) && (next_pixel[2] < value_threshhold)) {
-                    if(pending_events.find(row) != pending_events.end()) {
-                        csound::Event new_note = pending_events[row];
-                        pixel_to_event(column, row, current_pixel, endingEvent);
-                        new_note.setOffTime(endingEvent.getTime());
-                        if(System::getMessageLevel() >= System::DEBUGGING_LEVEL) {
-                            System::debug("Ending event at:    column: %5d row: %5d value: %12.4g  %s\n", column, row, current_pixel[2], new_note.toString().c_str());
-                        }
-                        score.append(new_note);
-                        pending_events.erase(row);
-                    }
+        std::cout << "Columns (time steps):        " << processed_image.cols << std::endl;
+        std::cout << "Rows (distinct pitches):     " << processed_image.rows << std::endl;
+        std::cout << "Hue (instrument): Min =      " << h_min << ", Max = " << h_max << std::endl;
+        std::cout << "Saturation (not used): Min = " << s_min << ", Max = " << s_max << std::endl;
+        std::cout << "Value (loudness): Min =      " << v_min << ", Max = " << v_max << std::endl;
+        std::vector<csound::Event> prior_notes;
+        std::map<int, csound::Event> prior_notes_for_rows;
+        std::vector<csound::Event> current_notes;
+        std::map<int, csound::Event> current_notes_for_rows;
+        std::map<int, csound::Event> pending_notes_for_rows;
+        // Score time is simply column index. This should later be rescaaled.
+        for (int prior_column = 0, current_column = 1; current_column < processed_image.cols; ++prior_column, ++current_column) {
+            // Score pitch is simply row index. This should later be rescaled. 
+            // In OpenCV, {0, 0} is the center of the upper left pixel, so 
+            // pitch is upside down. Only one note may sound on a row at any 
+            // given time.
+            System::inform("Processing column %6d\n", prior_column);
+            for (int row = processed_image.rows - 1; row >= 0; --row) {
+                auto prior_note = pixel_to_event(prior_column, row);
+                prior_notes.push_back(prior_note);
+                auto current_note = pixel_to_event(current_column, row);
+                current_notes.push_back(current_note);
+            }
+            // Sort the notes by decreasing loudness.
+            std::sort(prior_notes.begin(), prior_notes.end(), note_salience_less);
+            std::sort(current_notes.begin(), current_notes.end(), note_salience_less);
+            // Remove all excess notes. Louder notes come first.
+            if (maximum_voice_count < prior_notes.size()) {
+                prior_notes.erase(prior_notes.begin() + maximum_voice_count, prior_notes.end());
+            }
+            if (maximum_voice_count < current_notes.size()) {
+                current_notes.erase(current_notes.begin() + maximum_voice_count, current_notes.end());
+            }
+            // A note is beginning if a current note has no matching prior note. 
+            // Add it to the pending notes.
+            for (auto &current_note : current_notes) {
+                auto current_key = current_note.getKey();
+                if (prior_notes_for_rows.find(current_key) == prior_notes_for_rows.end()) {
+                   pending_notes_for_rows[current_key] = current_note;
                 }
             }
-            // TODO: Thin the score to remove less salient events, by tracking
-            // overlapping notes and sorting them by salience and clering less
-            // salient ones.
-            score.sort();
+            // A note is ending if a prior note has no matching current note.
+            // Set the pending note's off time and add it to the score.
+            for (auto &prior_note : prior_notes) {
+                auto prior_key = prior_note.getKey();
+                if (current_notes_for_rows.find(prior_key) == current_notes_for_rows.end()) {
+                    auto &pending_note = pending_notes_for_rows[prior_key];
+                    pending_note.setDuration(current_column - pending_note.getTime());
+                    if ((pending_note.getDuration() > 0) && (pending_note.getStatus() == 144)) {
+                        System::inform("Adding note: %s\n", pending_note.toString().c_str());
+                        score.push_back(pending_note);
+                    }
+                    pending_notes_for_rows.erase(pending_note.getKey());
+                }
+            }
+            prior_notes.clear();
+            prior_notes_for_rows.clear();
+            current_notes.clear();
+            current_notes_for_rows.clear();
         }
         System::inform("ImageToScore2::generateLocally with %d events.\n", score.size());
     }

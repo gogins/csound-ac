@@ -1,4 +1,5 @@
 #include <Composition.hpp>
+#include <ChordSpace.hpp>
 #include <Eigen/Dense>
 #include <functional>
 #include <memory>
@@ -812,30 +813,50 @@ endin
     model.setYear("2022");
     model.setPerformanceRightsOrganization("Irreducible Productions, ASCAP");
     csound::Rescale rescale_node;
-    model.addChild(&rescale_node);
-    csound::ImageToScore2 image_to_score_node;
+     csound::ImageToScore2 image_to_score_node;
     rescale_node.addChild(&image_to_score_node);
-    image_to_score_node.setImageFilename("./20180827_212842-1.png");
-    image_to_score_node.threshhold(90);
-    image_to_score_node.setMaximumVoiceCount(20);
+    //image_to_score_node.setImageFilename("./43636356874_79c6d44f79_o.jpg");
+    //image_to_score_node.setImageFilename("./51735821033_f930358ef4_o.jpg");
+    //image_to_score_node.setImageFilename("./44025833484_70440d3a59_o.jpg");
+    image_to_score_node.setImageFilename("./53524503918_e673294ee0_o.jpg");
+
+    
+    image_to_score_node.threshhold(150);
+    image_to_score_node.setMaximumVoiceCount(16);
     //image_to_score_node.condense(72);
     image_to_score_node.generateLocally();
     csound::Score &image_score = image_to_score_node.getScore();
     std::mt19937 mersenneTwister;
     std::uniform_real_distribution<> randomvariable(.1, .9);
-    for (int i = 0, n = image_score.size(); i < n; ++i) {
-         image_score[i].setPan(randomvariable(mersenneTwister));
-    }
     rescale_node.setRescale(csound::Event::TIME, true, false, 0., 0.);
     rescale_node.setRescale(csound::Event::INSTRUMENT, true, true, 1., 6.999);
     rescale_node.setRescale(csound::Event::KEY, true, true, 36., 60.);
     rescale_node.setRescale(csound::Event::VELOCITY, true, true, 60., 10.);
+    auto duration = image_to_score_node.getScore().getDuration();
+    std::cout << "Duration of score from image: " << duration << std::endl;
+
+    // Create chord progressions and modulations.
+    csound::Scale scale = csound::scaleForName("D major");
+    csound::VoiceleadingNode voiceleading_node;
+    voiceleading_node.chord(scale.chord(1,  5), duration *  0);
+    voiceleading_node.chord(scale.chord(2,  4), duration * .1);
+    voiceleading_node.chord(scale.chord(7,  5), duration * .2);
+    voiceleading_node.chord(scale.chord(1,  4), duration * .3);
+    voiceleading_node.NOP(duration * .4);
+    voiceleading_node.addChild(&rescale_node);
+    model.addChild(&voiceleading_node);
+
+
     model.generateAllNames();
     model.generate();
     csound::Score &score = model.getScore();
+    for (int i = 0, n = image_score.size(); i < n; ++i) {
+         score[i].setPan(randomvariable(mersenneTwister));
+         score[i].setDuration(score[i].getDuration() * 10);
+    }
     score.temper(12.);
     std::cout << "Move to origin duration:         " << score.getDuration() << std::endl;
-    score.setDuration(240.0);
+    score.setDuration(180.0);
     std::cout << "set duration:                    " << score.getDuration() << std::endl;
     std::cout << "Before tieing overlapping notes: " << score.size() << std::endl;
     score.tieOverlappingNotes(true);
