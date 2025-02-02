@@ -46,6 +46,7 @@ VoiceleadingOperation::VoiceleadingOperation() :
     K_(DBL_MAX),
     Q_(DBL_MAX),
     V_(DBL_MAX),
+    N_(false),
     L_(false),
     begin(0),
     end(0),
@@ -95,6 +96,9 @@ std::ostream &operator << (std::ostream &stream, const VoiceleadingOperation &op
     if (!(operation.V_ == DBL_MAX)) {
         stream << "  V:                 " << operation.V_ << std::endl;
     }
+    if (operation.N_) {
+        stream << "  NOP:               " << operation.N_ << std::endl;
+    }
     if (operation.L_) {
         stream << "  L:                 " << int(operation.L_) << std::endl;
     }
@@ -128,7 +132,8 @@ void VoiceleadingNode::apply(Score &score, const VoiceleadingOperation &priorOpe
         (operation.C_ == DBL_MAX) && 
         (operation.K_ == DBL_MAX) && 
         (operation.Q_ == DBL_MAX) && 
-        (operation.V_ == DBL_MAX)) {
+        (operation.V_ == DBL_MAX) &&
+        (operation.N_ == false)) {
         auto epcs_ = operation.chord.epcs();
         std::vector<double> pcs;
         for (int voice = 0, voices = epcs_.voices(); voice < voices; ++voice) {
@@ -423,6 +428,12 @@ void VoiceleadingNode::V(double time, double V_)
 {
     operations[time].beginTime = time;
     operations[time].V_ = V_;
+}
+
+void VoiceleadingNode::NOP(double time)
+{
+    operations[time].beginTime = time;
+    operations[time].N_ = true;
 }
 
 void VoiceleadingNode::L(double time, bool avoidParallels)

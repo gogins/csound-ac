@@ -93,6 +93,11 @@ public:
      */
     double V_;
     /**
+     * If true, no harmony or voice-leading operations are performed in this 
+     * segment.
+     */
+    bool N_;
+    /**
      * Actual instance of csound::Chord.
      */
     Chord chord;
@@ -333,6 +338,10 @@ public:
      * voice-leading.
      */
     void L(double time, bool avoidParallels = true);
+    /**
+     * Perform no harmony or voice-leading operations in this segment.
+     */
+    void NOP(double time);
     /**
      * Apply the specified chord to the current segement.
      */
