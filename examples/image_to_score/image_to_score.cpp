@@ -817,9 +817,12 @@ endin
     rescale_node.addChild(&image_to_score_node);
     //image_to_score_node.setImageFilename("./43636356874_79c6d44f79_o.jpg");
     //image_to_score_node.setImageFilename("./51735821033_f930358ef4_o.jpg");
-    image_to_score_node.setImageFilename("./44025833484_70440d3a59_o.jpg");
-    image_to_score_node.threshhold(50);
-    image_to_score_node.setMaximumVoiceCount(8);
+    //image_to_score_node.setImageFilename("./44025833484_70440d3a59_o.jpg");
+    image_to_score_node.setImageFilename("./53524503918_e673294ee0_o.jpg");
+
+    
+    image_to_score_node.threshhold(150);
+    image_to_score_node.setMaximumVoiceCount(16);
     //image_to_score_node.condense(72);
     image_to_score_node.generateLocally();
     csound::Score &image_score = image_to_score_node.getScore();
@@ -835,10 +838,11 @@ endin
     // Create chord progressions and modulations.
     csound::Scale scale = csound::scaleForName("D major");
     csound::VoiceleadingNode voiceleading_node;
-    voiceleading_node.chord(scale.chord(1,  5), duration * .1);
-    voiceleading_node.chord(scale.chord(2,  4), duration * .2);
-    voiceleading_node.chord(scale.chord(7,  5), duration * .3);
-    voiceleading_node.chord(scale.chord(11, 4), duration * .4);
+    voiceleading_node.chord(scale.chord(1,  5), duration *  0);
+    voiceleading_node.chord(scale.chord(2,  4), duration * .1);
+    voiceleading_node.chord(scale.chord(7,  5), duration * .2);
+    voiceleading_node.chord(scale.chord(1,  4), duration * .3);
+    voiceleading_node.NOP(duration * .4);
     voiceleading_node.addChild(&rescale_node);
     model.addChild(&voiceleading_node);
 
@@ -852,7 +856,7 @@ endin
     }
     score.temper(12.);
     std::cout << "Move to origin duration:         " << score.getDuration() << std::endl;
-    score.setDuration(240.0);
+    score.setDuration(180.0);
     std::cout << "set duration:                    " << score.getDuration() << std::endl;
     std::cout << "Before tieing overlapping notes: " << score.size() << std::endl;
     score.tieOverlappingNotes(true);
