@@ -190,6 +190,17 @@ These three examples re-create the three basic examples above, changing them onl
 
 The following three examples are more complex, and demonstrate some typical uses of CsoundAC. Two implementations are provided for each example: as standalone Python, and as Python ReaScript for Reaper.
 
+For better understanding of how CsoundAC works:
+
+\begin{itemize}
+\item A musical composition is contained in an instance of the MusicModel class, which also contains a Csound orchestra.
+\item A MusicModel is a directed acyclical graph, or tree, of Nodes. Some Nodes generate Events (usually notes), and other Nodes transform Events.
+\item Each Node has its own local transformation of coordinate system. By default, this is the identity matrix.
+\item When a score is generated, the tree of Nodes is traversed from the bottom up to the top (depth-first traversal). The traversal function carries along a global transformation of coordinate system, and a Score for collecting any Events produced or transformed by child nodes.
+\item Each node applies its local transformation of coordinate system to the global coordinate system, and the result is applied to generated or transformed Events, which are then added to the global Score.
+\item Once the global Score has been generated, the MusicModel uses an embedded instance of Csound to compile its orchestra, translates the global CsoundAC Score to a Csound score, and renders that score with the orchestra.
+\end{itemize}
+
 \subsubsection{Transforming Source Material: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/python-trans-scale.py}{\lstinline|python-trans-scale.py|}}
 
 This piece takes the ascending chromatic scale of the previous examples, and uses CsoundAC to transform and elaborate it. 
@@ -203,10 +214,28 @@ This piece takes the ascending chromatic scale of the previous examples, and use
 \item Repeat that canon, and apply to it randomized chord progressions and modulations.
 \end{enumerate}
 
+Read the code for more details.
+
 \subsubsection{Translating Images to Scores:  \href{https://github.com/gogins/csound-ac/blob/master/user-guide/python-imagery.py}{\lstinline|python-imagery.py|}}
 
-This piece takes a high-resolution digital photograph, applies some visual processing, translates the processed image to a CsoundAC score, and renders it using Csound.
+This piece takes a high-resolution digital photograph, and uses CsoundAC to:
 
+\begin{enumerate}
+\item Load the photograph in an ImageToScore node.
+\item Set a threshold to filter out much of the image, and use only the brighter features.
+\item Set a maximum number of simultaneous voices.
+\item Call ImageToScore.generateLocally to translate  the brighter features to CsoundAC Events (notes). Hue (color) is instrument, and Value (brightness) is loudness. Saturation is not used.
+\item Add the ImageToScore node to a Rescale node.
+\item Set appropriate ranges for the various dimensions of the score space in the Rescale node. \emph{Please note: time is not rescaled!} That is so that the duration of the score created by the ImageToScore node can be used to determine the intervals between chords.
+\item Use the CsoundAC Scale class to generate a series of chord progressions and modulations.
+\item Add the resulting Chords to a VoiceleadingNode, which will apply them to the Events in the generated and rescaled score.
+\item Add the Rescale node to the VoiceleadingNode.
+\item Add the VoiceleadingNode to the MusicModel.
+\item Call MusicModel.generate to the generate the score, applying each node to the notes produced by its children.
+\item Set the final generateed score to the desired length.
+\item Call MusicModel.perform to render the score using the Csound orchestra.
+
+\end{enumerate}
 \subsubsection{Lindenmayer Systems in Chord Space: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/python-duo-dualities.py}{\lstinline|python-duo-dualities.py|}}
 
 This piece uses a \href{https://algorithmicbotany.org/papers/abop/abop.pdf}{Lindenmayer system} defined in the \href{https://dmitri.mycpanel.princeton.edu/files/publications/science2.pdf}{voice-leading spaces} of Callendar, Quinn, and Tymoczko to implement the \href{https://www.mtosmt.org/issues/mto.05.11.3/mto.05.11.3.fiore_satyendra.pdf}{Generalized Contextual Group} of chord transformations identified by Fiore and Satyendra. Here I use the Generalized Contextual Group to capture the duality of major and minor so constitutive of Western music, in an abstract and generative form that is not specifically ``tonal." This Lindenmayer system, \href{https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=dd8623bbe8c889b2c56d6a1fc0fc55c61b362ee4}{presented by me at the 2009 International Computer Music Conference}, generates a score as movements of chords by transformation through chord space and time, writing notes of the chords to create the score. 

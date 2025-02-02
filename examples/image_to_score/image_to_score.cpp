@@ -813,7 +813,7 @@ endin
     model.setYear("2022");
     model.setPerformanceRightsOrganization("Irreducible Productions, ASCAP");
     csound::Rescale rescale_node;
-     csound::ImageToScore2 image_to_score_node;
+    csound::ImageToScore2 image_to_score_node;
     rescale_node.addChild(&image_to_score_node);
     //image_to_score_node.setImageFilename("./43636356874_79c6d44f79_o.jpg");
     //image_to_score_node.setImageFilename("./51735821033_f930358ef4_o.jpg");
