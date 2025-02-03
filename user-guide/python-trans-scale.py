@@ -799,62 +799,84 @@ endin
 '''
 
 import CsoundAC
+import random
+
 music_model = CsoundAC.MusicModel()
-# The sequence will hold the three sections of this piece.
+# The sequence will hold all sections of this piece.
 sequence = CsoundAC.Sequence()
 music_model.addChild(sequence)
-score_node = CsoundAC.ScoreNode()
+scale_node = CsoundAC.ScoreNode()
 # The first section is just an asdending chromatic scale.
-sequence.addChild(score_node)
-for i in range(100):
+sequence.addChild(scale_node)
+for i in range(60):
     p1 = 1 + (i % 7)
     p2 = i / 4
     p3 = 6
     p4 = 36 + (i % 60)
     p5 = 60
-    score_node.getScore().add(p2, p3, 144, p1, p4, p5)
-# The second section shortens the notes of the chromatc scale 
-# and plays it in a three voice canon.
-canon = CsoundAC.Node()
-sequence.addChild(canon)
-voice_1 = CsoundAC.Rescale()
-canon.addChild(voice_1)
-voice_1.addChild(score_node)
-voice_1.setRescale(0, True, False, 0, 0)
-voice_1.setRescale(4, True, False, 36+3, 0)
-voice_1.setRescale(1, True, True, .5, .4)
-voice_1.setRescale(3, True, True, 2, 0)
-voice_2 = CsoundAC.Rescale()
-canon.addChild(voice_2)
-voice_2.addChild(score_node)
-voice_2.setRescale(0, True, False, 1.5, 0)
-voice_2.setRescale(4, True, False, 36+6, 0)
-voice_2.setRescale(1, True, True, .5, .4)
-voice_2.setRescale(3, True, True, 5, 0)
-voice_3 = CsoundAC.Rescale()
-canon.addChild(voice_3)
-voice_3.addChild(score_node)
-voice_3.setRescale(0, True, False, 3, 0)
-voice_3.setRescale(4, True, False, 36+9, 0)
-voice_3.setRescale(1, True, True, .5, .4)
-voice_3.setRescale(3, True, True, 7, 0)
-# The third section adds a harmony that is applied 
-# to the canon.
-harmonized = CsoundAC.VoiceleadingNode()
-sequence.addChild(harmonized)
-harmonized.addChild(canon)
-# The times are not delta times, and chords are 
-# applied from that time until the next chord.
-harmonized.C_name(0, "CM9")
-harmonized.C_name(5, "Dm7")
-harmonized.C_name(15, "G9")
-harmonized.C_name(20, "Am9")
-harmonized.C_name(25, "D9b5")
-harmonized.C_name(30, "G9")
-harmonized.C_name(35, "CM9")
-music_model.setCsd(csd)
+    scale_node.getScore().add(p2, p3, 144, p1, p4, p5)
+    
+# Add a section that randomizes the note onsets.
+random_times_node = CsoundAC.ScoreNode()
+sequence.addChild(random_times_node)
+# Copy the orginal scale, and at the same time, compile a list of note onsets.
+note_onsets = []
+for i in range(scale_node.getScore().size()):
+    event = scale_node.getScore().get(i)
+    random_times_node.getScore().append_event(event)
+    note_onsets.append(event.getTime())
+# Shuffle the note onsets and update the events in this node.
+print(note_onsets)
+random.shuffle(note_onsets)
+for i in range(len(note_onsets)):
+    random_times_node.getScore().get(i).setTime(note_onsets[i])
+
+# Add a section that randomizes (and shortens) the durations.
+random_durations_node = CsoundAC.ScoreNode()
+sequence.addChild(random_durations_node)
+for i in range(random_times_node.getScore().size()):
+    event = random_times_node.getScore().get(i)
+    duration = random.uniform(.025, 2.)
+    event.setDuration(duration)
+    random_durations_node.getScore().append_event(event)
+
+# Add a section that quantizes the onsets and durations.
+quantized_node = CsoundAC.ScoreNode()
+sequence.addChild(quantized_node)
+quantum = 1./12.
+for i in range(random_durations_node.getScore().size()):
+    event = random_times_node.getScore().get(i)
+    time = event.getTime()
+    time = round(time / quantum) * quantum
+    event.setTime(time)
+    duration = event.getDuration()
+    duration = round(duration / quantum) * quantum
+    event.setDuration(duration)
+    quantized_node.getScore().append_event(event)
+
+# Add a section that is a canon of three voices at the third.
+canon_node = CsoundAC.ScoreNode()
+sequence.addChild(canon_node)
+for i in range(quantized_node.getScore().size()):
+    event = quantized_node.getScore().get(i)
+    t1 = event.getTime()
+    t2 = t1 + quantum * 4
+    t3 = t2 + quantum * 4
+    d = event.getDuration()
+    s = event.getStatus()
+    i = event.getInstrument()
+    k1 = event.getKey() - 3
+    k2 = k1 + 3
+    k3 = k2 + 3
+    v = event.getVelocity()
+    canon_node.getScore().append(t1, d, s, 2, k1, v)
+    canon_node.getScore().append(t2, d, s, 1, k2, v)
+    canon_node.getScore().append(t3, 2, s, 6, k2, v)
+
+# Add a section that applies harmony and modulations to the canon.
 music_model.generate()
 print("Generated score:")
 print(music_model.getScore().getCsoundScore())
+music_model.setCsd(csd)
 music_model.perform()
 
