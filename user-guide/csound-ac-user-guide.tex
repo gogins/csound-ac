@@ -188,18 +188,45 @@ These three examples re-create the three basic examples above, changing them onl
 
 \subsection{Compositional Examples}
 
-The following three examples are more complex, and demonstrate some typical uses of CsoundAC. Two implementations are provided for each example: as standalone Python, and as Python ReaScript for Reaper.
+\subsubsection{How CsoundAC Works}
 
-For better understanding of how CsoundAC works:
+CsoundAC is based upon the concept of a \emph{\href{https://quod.lib.umich.edu/i/icmc/bbp2372.1998.298/1}{music graph},} which is a tree (directed acyclical graph) of Nodes in score space. This concept is quite similar to the concept of a \emph{\href{https://dl.acm.org/doi/pdf/10.1145/360349.360354}{scene graph}} in 3-dimensional computer graphics, in which objects in a scene are similarly organized as a tree of nodes in 3-dimensonal space. Score space, however, has 12 dimensions:
+
+\begin{description}
+\item[TIME] Time in seconds relative to the origin of the space.
+\item[DURATION] The duration of this event in seconds.
+\item[STATUS] MIDI status number, normally 144 for "note on."
+\item[INSTRUMENT] MIDI channel number or Csound instrument number - 1.
+\item[KEY] MIDI key number from 0 to 127 in semitones; may have a fractional part to represent microtones; middle C is 60.
+\item[VELOCITY] MID velocity number from 0 to 127; can loosely be considered decibels of sound pressure level.
+\item[PHASE] Phase of the sound, used mostly for Events that represent grains of sound.
+\item[PAN] Location in physical space from left to right, in the interval [0, 1] where .5 is the center.
+\item[DEPTH] Location in physical space from in front to behind, in the interval [0, 1] where .5 is the center.
+\item[HEIGHT] Location in physical space from below to above, in the interval [0, 1] where .5 is the center.
+\item[PITCHES] Represents a pitch-class set as a sum of powers of 2 where each power represents one of the pitch-classes in 12 tone equal temperament.
+\item[HOMOGENEITY] Set to 1 to enable transformation of Events using homogeneous matrix transformations.
+\end{description}
+
+A point in score space most often represents a musical note, but can also represent a chord or scale, a change in a control parameter, or even a grain of sound. The semantics of these dimensions is based on MIDI channel messages, but has floating-point precision and adds duration and other fields.
+
+The following algorithm is used by CsoundAC to generate scores. A composition is an instance of the MusicModel class, which contains a tree of child Nodes representing the music graph, a Csound orchestra, and an embedded instance of Csound. The algorithm performs a depth-first traversal of the music graph by recursively calling each child's \lstinline|void Node::traverse(const Eigen::MatrixXd &global_coordinates, Score &global_score)| method:
 
 \begin{itemize}
-\item A musical composition is contained in an instance of the MusicModel class, which also contains a Csound orchestra.
-\item A MusicModel is a directed acyclical graph, or tree, of Nodes. Some Nodes generate Events (usually notes), and other Nodes transform Events.
-\item Each Node has its own local transformation of coordinate system. By default, this is the identity matrix.
-\item When a score is generated, the tree of Nodes is traversed from the bottom up to the top (depth-first traversal). The traversal function carries along a global transformation of coordinate system, and a Score for collecting any Events produced or transformed by child nodes.
-\item Each node applies its local transformation of coordinate system to the global coordinate system, and the result is applied to generated or transformed Events, which are then added to the global Score.
-\item Once the global Score has been generated, the MusicModel uses an embedded instance of Csound to compile its orchestra, translates the global CsoundAC Score to a Csound score, and renders that score with the orchestra.
+\item Multiply the global coordinates by the local coordinates to obtain composite coordinates.
+\item Descend into each of this Node's child Nodes with the composite coordinates and an empty Score.
+\item Call \lstinline|Node::transform| to transform any or all Events produced by the child nodes, which are in the composite coordinate system.
+\item Add the child Events to the global score.
+\item Create another empty Score in which to optionally generate new Events, and call \lstinline|Score::transform| to move these new Events into the composite coordinate system.
+\item Add these generated Events to the global score.
 \end{itemize}
+
+In standalone Python, once the global Score has been generated, the MusicModel uses an embedded instance of Csound to compile its orchestra, translates the global CsoundAC Score to a Csound score, and renders that score with the orchestra.
+
+In Csound using the \lstinline|<CsScore bin=python3>| facility, the generated Score must be translated to a Csound score and written to the temporary filename.
+
+In Python ReaScript, the generated Score must be passed to the \lstinline|ac_reaper.score_to_midiitem| function.
+
+The following three examples demonstrate some typical uses of CsoundAC. Two implementations are provided for each example: as standalone Python, and as Python ReaScript for Reaper.
 
 \subsubsection{Transforming Source Material: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/python-trans-scale.py}{\lstinline|python-trans-scale.py|}}
 
@@ -224,16 +251,16 @@ This piece takes a high-resolution digital photograph, and uses CsoundAC to:
 \item Load the photograph in an ImageToScore node.
 \item Set a threshold to filter out much of the image, and use only the brighter features.
 \item Set a maximum number of simultaneous voices.
-\item Call ImageToScore.generateLocally to translate  the brighter features to CsoundAC Events (notes). Hue (color) is instrument, and Value (brightness) is loudness. Saturation is not used.
+\item Call \lstinline|ImageToScore.generateLocally| to translate  the brighter features to CsoundAC Events (notes). Hue (color) is instrument, and Value (brightness) is loudness. Saturation is not used.
 \item Add the ImageToScore node to a Rescale node.
 \item Set appropriate ranges for the various dimensions of the score space in the Rescale node. \emph{Please note: time is not rescaled!} That is so that the duration of the score created by the ImageToScore node can be used to determine the intervals between chords.
 \item Use the CsoundAC Scale class to generate a series of chord progressions and modulations.
 \item Add the resulting Chords to a VoiceleadingNode, which will apply them to the Events in the generated and rescaled score.
 \item Add the Rescale node to the VoiceleadingNode.
 \item Add the VoiceleadingNode to the MusicModel.
-\item Call MusicModel.generate to the generate the score, applying each node to the notes produced by its children.
-\item Set the final generateed score to the desired length.
-\item Call MusicModel.perform to render the score using the Csound orchestra.
+\item Call \lstinline|MusicModel.generate| to the generate the score, applying each node to the notes produced by its children.
+\item Set the final generated score to the desired length.
+\item Call \lstinline|MusicModel.perform| to render the score using the Csound orchestra.
 
 \end{enumerate}
 \subsubsection{Lindenmayer Systems in Chord Space: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/python-duo-dualities.py}{\lstinline|python-duo-dualities.py|}}
