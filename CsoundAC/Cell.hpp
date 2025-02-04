@@ -1,5 +1,4 @@
-#ifndef CELL_HPP_INCLUDED
-#define CELL_HPP_INCLUDED
+#pragma once
 /*
  * C S O U N D
  *
@@ -332,6 +331,3 @@ public:
     virtual void shuffle(size_t start, size_t end, size_t stride);
 };
 }
-
-#endif
-
