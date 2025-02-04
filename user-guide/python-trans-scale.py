@@ -4,14 +4,14 @@ csd = r'''
 This piece tests combinations of instr definitions.
 </CsLicense>
 <CsOptions>
--m32 -d -+msg_color=0 -odac
+-m32 -d -+msg_color=0
 </CsOptions>
 <CsInstruments>
 
 sr = 48000
 ksmps = 128
 nchnls = 2
-0dbfs = 4
+0dbfs = 1.5
 
 connect "FMWaterBell", "outleft",  "ReverbSC", "inleft"
 connect "FMWaterBell", "outright", "ReverbSC", "inright"
@@ -801,8 +801,9 @@ endin
 import CsoundAC
 import random
 
+CsoundAC.System.setMessageLevel(15)
 music_model = CsoundAC.MusicModel()
-# The sequence will hold all sections of this piece.
+# This sequence will hold all sections of this piece.
 sequence = CsoundAC.Sequence()
 music_model.addChild(sequence)
 scale_node = CsoundAC.ScoreNode()
@@ -854,18 +855,31 @@ for i in range(random_durations_node.getScore().size()):
     event.setDuration(duration)
     quantized_node.getScore().append_event(event)
 
-# Add a section that is a canon of three voices at the third.
+# Add a section that is a canon of three voices at the third. To make the 
+# canon audible, leaps must be removed from the voices.
 canon_node = CsoundAC.ScoreNode()
 sequence.addChild(canon_node)
+prior_key = 0
+key = 0
+quanta = 8
 for i in range(quantized_node.getScore().size()):
     event = quantized_node.getScore().get(i)
     t1 = event.getTime()
-    t2 = t1 + quantum * 4
-    t3 = t2 + quantum * 4
+    t2 = t1 + quantum * quanta
+    t3 = t2 + quantum * quanta
     d = event.getDuration()
     s = event.getStatus()
     i = event.getInstrument()
-    k1 = event.getKey() - 3
+    # Remove leaps from the voice and create the canon.
+    if i == 0:
+      prior_key = event.getKey()
+    else:
+      prior_key = key;
+    key = event.getKey()
+    interval = (prior_key - key) % 4
+    k1 = (prior_key + interval) - 3
+    if k1 < 0:
+        k1 = abs(k1)
     k2 = k1 + 3
     k3 = k2 + 3
     v = event.getVelocity()
@@ -873,10 +887,32 @@ for i in range(quantized_node.getScore().size()):
     canon_node.getScore().append(t2, d, s, 1, k2, v)
     canon_node.getScore().append(t3, 2, s, 6, k2, v)
 
-# Add a section that applies harmony and modulations to the canon.
+# Add a section that applies chord transformations from the Generalized 
+# Contextual Group to the canon. We make this one twice as long.
+harmonized_node = CsoundAC.VoiceleadingNode()
+sequence.addChild(harmonized_node)
+harmonized_node.addChild(canon_node)
+duration = canon_node.getScore().getDuration()
+transformations = 12
+chord = CsoundAC.chordForName("BM9")
+modality = CsoundAC.chordForName("BM9")
+for transformation in range(transformations):
+    time = duration * (transformation / transformations)
+    if transformation % 3 == 0:
+      chord = chord.K()
+    else:
+      semitones = random.choice([2, 4])
+      chord = chord.Q(semitones, modality)
+    harmonized_node.chord(chord, time)
+
+# Generate and render the piece.
 music_model.generate()
 print("Generated score:")
 print(music_model.getScore().getCsoundScore())
+# Set basic metadata, which is used to creaate filenames.
+music_model.setAuthor("CsoundAC Tutorial");
+music_model.setTitle("python-trans-scale");
+music_model.generateAllNames()
 music_model.setCsd(csd)
 music_model.perform()
 
