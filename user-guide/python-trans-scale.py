@@ -746,7 +746,7 @@ gk_ReverbSC_wet chnexport "gk_ReverbSC_wet", 3
 gi_ReverbSC_delay_modulation chnexport "gi_ReverbSC_delay_modulation", 3
 gk_ReverbSC_frequency_cutoff chnexport "gk_ReverbSC_frequency_cutoff", 3
 
-gk_ReverbSC_feedback init 0.875
+gk_ReverbSC_feedback init 0.8
 gk_ReverbSC_wet init 0.5
 gi_ReverbSC_delay_modulation init 0.0075
 gk_ReverbSC_frequency_cutoff init 15000
@@ -801,13 +801,17 @@ endin
 import CsoundAC
 import random
 
+# Uncomment the next line if you need to see more about what is going on.
 CsoundAC.System.setMessageLevel(15)
 music_model = CsoundAC.MusicModel()
+
 # This sequence will hold all sections of this piece.
 sequence = CsoundAC.Sequence()
 music_model.addChild(sequence)
 scale_node = CsoundAC.ScoreNode()
-# The first section is just an asdending chromatic scale.
+
+# The first section is just the ascending chromatic scale from the earlier 
+# examples.
 sequence.addChild(scale_node)
 for i in range(60):
     p1 = 1 + (i % 7)
@@ -844,7 +848,7 @@ for i in range(random_times_node.getScore().size()):
 # Add a section that quantizes the onsets and durations.
 quantized_node = CsoundAC.ScoreNode()
 sequence.addChild(quantized_node)
-quantum = 1./12.
+quantum = 1. / 12.
 for i in range(random_durations_node.getScore().size()):
     event = random_times_node.getScore().get(i)
     time = event.getTime()
@@ -856,7 +860,7 @@ for i in range(random_durations_node.getScore().size()):
     quantized_node.getScore().append_event(event)
 
 # Add a section that is a canon of three voices at the third. To make the 
-# canon audible, leaps must be removed from the voices.
+# canon easier to hear, leaps must be removed from the voices.
 canon_node = CsoundAC.ScoreNode()
 sequence.addChild(canon_node)
 prior_key = 0
@@ -864,6 +868,9 @@ key = 0
 quanta = 8
 for i in range(quantized_node.getScore().size()):
     event = quantized_node.getScore().get(i)
+    i1 = 2
+    i2 = 1
+    i3 = 6
     t1 = event.getTime()
     t2 = t1 + quantum * quanta
     t3 = t2 + quantum * quanta
@@ -876,24 +883,32 @@ for i in range(quantized_node.getScore().size()):
     else:
       prior_key = key;
     key = event.getKey()
-    interval = (prior_key - key) % 4
+    interval = (prior_key - key) % 3
     k1 = (prior_key + interval) - 3
     if k1 < 0:
         k1 = abs(k1)
     k2 = k1 + 3
     k3 = k2 + 3
     v = event.getVelocity()
-    canon_node.getScore().append(t1, d, s, 2, k1, v)
-    canon_node.getScore().append(t2, d, s, 1, k2, v)
-    canon_node.getScore().append(t3, 2, s, 6, k2, v)
+    canon_node.getScore().append(t1, d, s, i1, k1, v)
+    canon_node.getScore().append(t2, d, s, i2, k2, v)
+    canon_node.getScore().append(t3, 2, s, i3, k2, v)
 
 # Add a section that applies chord transformations from the Generalized 
-# Contextual Group to the canon. We make this one twice as long.
+# Contextual Group to the canon. 
 harmonized_node = CsoundAC.VoiceleadingNode()
 sequence.addChild(harmonized_node)
-harmonized_node.addChild(canon_node)
-duration = canon_node.getScore().getDuration()
-transformations = 12
+cell_repeat = CsoundAC.Cell()
+cell_repeat.setRepeatCount(2)
+# Use a negative time to cut out the tail of the first cell, and create a 
+# seamless segue to the second cell.
+cell_repeat.setDurationSeconds(-2.5)
+harmonized_node.addChild(cell_repeat)
+# We make this one twice as long simply by repeating it.
+cell_repeat.addChild(canon_node)
+duration = canon_node.getScore().getDuration() * 2
+transformations = 16
+# Create chord transformations using the chord space operations of CsoundAC.
 chord = CsoundAC.chordForName("BM9")
 modality = CsoundAC.chordForName("BM9")
 for transformation in range(transformations):
@@ -901,8 +916,10 @@ for transformation in range(transformations):
     if transformation % 3 == 0:
       chord = chord.K()
     else:
-      semitones = random.choice([2, 4])
+      semitones = random.choice([2, 5])
       chord = chord.Q(semitones, modality)
+    # Use the VoiceleadingNode to schedule the transformed chords to be 
+    # to the notes in the canon.
     harmonized_node.chord(chord, time)
 
 # Generate and render the piece.
