@@ -6,14 +6,13 @@ import GeneralizedContextualGroup
 csd = r'''
 <CsoundSynthesizer>
 <CsOptions>
--m32 -d -+msg_color=0 -odac
 </CsOptions>
 <CsInstruments>
 
 sr = 48000
 ksmps = 128
 nchnls = 2
-0dbfs = 4
+0dbfs = 1.5
 
 connect "FMWaterBell", "outleft",  "ReverbSC", "inleft"
 connect "FMWaterBell", "outright", "ReverbSC", "inright"
@@ -835,6 +834,9 @@ rescale.addChild(gcg)
 
 model.addChild(rescale)
 model.setCsd(csd)
+model.setAuthor("CsoundAC Tutorial");
+model.setTitle("python-duo-dualities");
+model.generateAllNames()
 model.generate()
 model.getScore().save("test.mid")
 model.perform()
