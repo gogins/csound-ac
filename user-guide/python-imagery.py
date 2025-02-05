@@ -3,14 +3,13 @@ csd = r'''
 <CsLicense>
 </CsLicense>
 <CsOptions>
--m32 -d -+msg_color=0 -otest.wav
 </CsOptions>
 <CsInstruments>
 
 sr = 48000
 ksmps = 128
 nchnls = 2
-0dbfs = 2
+0dbfs = 4
 
 connect "FMWaterBell", "outleft",  "ReverbSC", "inleft"
 connect "FMWaterBell", "outright", "ReverbSC", "inright"
@@ -808,15 +807,20 @@ rescale_node = CsoundAC.Rescale()
 rescale_node.setRescale(CsoundAC.Event.TIME, True, False, 0., 0.);
 rescale_node.setRescale(CsoundAC.Event.INSTRUMENT, True, True, 1., 6.999);
 rescale_node.setRescale(CsoundAC.Event.KEY, True, True, 36., 60.);
-rescale_node.setRescale(CsoundAC.Event.VELOCITY, True, True, 60., 10.);
+rescale_node.setRescale(CsoundAC.Event.VELOCITY, True, True, 80., 10.);
 sequence.addChild(rescale_node)
 image_node = CsoundAC.ImageToScore2()
 rescale_node.addChild(image_node)
-image_node.setImageFilename("FRACT186.png")
-image_node.threshhold(180)
-image_node.setMaximumVoiceCount(40)
+# image_node.setImageFilename("./FRACT186.png")
+# image_node.setImageFilename("./54011216051_f577def471_o.jpg")
+image_node.setImageFilename("./54298975269_273c970344_o.jpg")
+image_node.threshhold(80)
+image_node.setMaximumVoiceCount(48)
 image_node.generateLocally()
 music_model.setCsd(csd)
+music_model.setAuthor("CsoundAC Tutorial")
+music_model.setTitle("python-imagery")
+music_model.generateAllNames()
 music_model.generate()
 print("Generated score:")
 music_model.getScore().setDuration(180.)

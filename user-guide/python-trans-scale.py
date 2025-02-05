@@ -4,7 +4,6 @@ csd = r'''
 This piece tests combinations of instr definitions.
 </CsLicense>
 <CsOptions>
--m32 -d -+msg_color=0
 </CsOptions>
 <CsInstruments>
 
@@ -811,13 +810,13 @@ music_model.addChild(sequence)
 scale_node = CsoundAC.ScoreNode()
 
 # The first section is just the ascending chromatic scale from the earlier 
-# examples.
+# examples, only played more slowly.
 sequence.addChild(scale_node)
 for i in range(60):
     p1 = 1 + (i % 7)
-    p2 = i / 4
+    p2 = i / 2
     p3 = 6
-    p4 = 36 + (i % 60)
+    p4 = 36 + i
     p5 = 60
     scale_node.getScore().add(p2, p3, 144, p1, p4, p5)
     
@@ -923,13 +922,13 @@ for transformation in range(transformations):
     harmonized_node.chord(chord, time)
 
 # Generate and render the piece.
-music_model.generate()
-print("Generated score:")
-print(music_model.getScore().getCsoundScore())
 # Set basic metadata, which is used to creaate filenames.
 music_model.setAuthor("CsoundAC Tutorial");
 music_model.setTitle("python-trans-scale");
 music_model.generateAllNames()
+music_model.generate()
+print("Generated score:")
+print(music_model.getScore().getCsoundScore())
 music_model.setCsd(csd)
 music_model.perform()
 
