@@ -816,7 +816,7 @@ for i in range(60):
     p1 = 1 + (i % 7)
     p2 = i / 3
     p3 = 6
-    p4 = 36 + (i % 60)
+    p4 = 36 +i
     p5 = 60
     # Add each generated note to the CsoundAC score node. The format and order 
     # of the pfields is a litte bit different.

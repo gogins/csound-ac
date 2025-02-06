@@ -292,8 +292,8 @@ void VoiceleadingNode::apply(Score &score, const VoiceleadingOperation &priorOpe
                                    divisionsPerOctave);
         }
     } else {
-        System::inform("  Operation: V\n");
         if (!(operation.V_ == DBL_MAX)) {
+            System::inform("  Operation: V\n");
             std::vector<double> ptv = score.getPTV(operation.begin,
                                                    operation.end,
                                                    base,

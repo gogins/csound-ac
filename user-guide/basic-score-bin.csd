@@ -842,7 +842,7 @@ with open(sys.argv[1], 'w') as sco_file:
       p1 = 1 + (i % 7)
       p2 = i / 3
       p3 = 6
-      p4 = 36 + (i % 60)
+      p4 = 36 + i
       p5 = 60
       # For each note, format a Csound "i" statement and write it to the 
       # temporary file.
