@@ -798,25 +798,46 @@ f 0 190
 '''
 
 import CsoundAC
+import random
+
 CsoundAC.System.setMessageLevel(15)
 music_model = CsoundAC.MusicModel()
 music_model.generateAllNames()
 sequence = CsoundAC.Sequence()
-music_model.addChild(sequence)
 rescale_node = CsoundAC.Rescale()
 rescale_node.setRescale(CsoundAC.Event.TIME, True, False, 0., 0.);
 rescale_node.setRescale(CsoundAC.Event.INSTRUMENT, True, True, 1., 6.999);
 rescale_node.setRescale(CsoundAC.Event.KEY, True, True, 36., 60.);
 rescale_node.setRescale(CsoundAC.Event.VELOCITY, True, True, 80., 10.);
-sequence.addChild(rescale_node)
 image_node = CsoundAC.ImageToScore2()
-rescale_node.addChild(image_node)
 # image_node.setImageFilename("./FRACT186.png")
 # image_node.setImageFilename("./54011216051_f577def471_o.jpg")
-image_node.setImageFilename("./54298975269_273c970344_o.jpg")
+# image_node.setImageFilename("./54298975269_273c970344_o.jpg")
+image_node.setImageFilename("./44025833484_70440d3a59_o.jpg")
 image_node.threshhold(80)
-image_node.setMaximumVoiceCount(48)
+image_node.setMaximumVoiceCount(6)
 image_node.generateLocally()
+image_node.getScore().tieOverlappingNotes(False)
+duration = image_node.getScore().getDuration()
+
+# Create chord progressions and modulations.
+voiceleading_node = CsoundAC.VoiceleadingNode()
+scale = CsoundAC.scaleForName("D major")
+tyme = 0
+progressions = [1, 2, 3, 5]
+quanta = [100, 150, 300, 500]
+degree = 1
+while tyme < duration:
+    chord = scale.chord(degree, 5, 3)
+    voiceleading_node.chord(chord, tyme)
+    tyme = tyme + random.choice(quanta)
+    progression = random.choice(progressions)
+    degree = 1 + int(degree + progression) % 7
+voiceleading_node.addChild(image_node)
+rescale_node.addChild(voiceleading_node)
+sequence.addChild(rescale_node)
+music_model.addChild(sequence)
+
 music_model.setCsd(csd)
 music_model.setAuthor("CsoundAC Tutorial")
 music_model.setTitle("python-imagery")

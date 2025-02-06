@@ -472,7 +472,9 @@ std::string Event::toCsoundIStatementRelease(int tag, double tempering) const
 std::string Event::toString() const
 {
     char buffer[0x100];
-    snprintf(buffer, sizeof(buffer), "Event: t%8.3f d%8.3f s%3.0f i%6.2f k%6.2f v%6.2f y%5.2f pcs%8.2f %s",
+    // Fields have more digits than may seem necessary, because generative 
+    // algorithms may create Events that span a very broad range.
+    snprintf(buffer, sizeof(buffer), "Event: t%9.3f d%9.3f s%4.0f i%8.2f k%8.2f v%8.2f y%8.2f pcs%8.2f %s",
             getTime(),
             getDuration(),
             getStatus(),

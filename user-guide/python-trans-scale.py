@@ -745,7 +745,7 @@ gk_ReverbSC_wet chnexport "gk_ReverbSC_wet", 3
 gi_ReverbSC_delay_modulation chnexport "gi_ReverbSC_delay_modulation", 3
 gk_ReverbSC_frequency_cutoff chnexport "gk_ReverbSC_frequency_cutoff", 3
 
-gk_ReverbSC_feedback init 0.8
+gk_ReverbSC_feedback init 0.77
 gk_ReverbSC_wet init 0.5
 gi_ReverbSC_delay_modulation init 0.0075
 gk_ReverbSC_frequency_cutoff init 15000
@@ -834,56 +834,60 @@ print(note_onsets)
 random.shuffle(note_onsets)
 for i in range(len(note_onsets)):
     random_times_node.getScore().get(i).setTime(note_onsets[i])
+# This needs to be sorted to satisfy assumptions of further processing.
+random_times_node.getScore().sort()
 
-# Add a section that randomizes (and shortens) the durations.
-random_durations_node = CsoundAC.ScoreNode()
-sequence.addChild(random_durations_node)
-for i in range(random_times_node.getScore().size()):
+# Add a section that creates a connected line from the shuffled events.
+connected_line_node = CsoundAC.ScoreNode()
+sequence.addChild(connected_line_node)
+print("connected_line_score before:")
+print(random_times_node.getScore().getCsoundScore())
+for i in range(random_times_node.getScore().size() - 1):
     event = random_times_node.getScore().get(i)
-    duration = random.uniform(.025, 2.)
-    event.setDuration(duration)
-    random_durations_node.getScore().append_event(event)
+    next_event = random_times_node.getScore().get(i + 1)
+    event.setOffTime(next_event.getTime())
+    connected_line_node.getScore().append_event(event)
+print("connected_line_score after:")
+event.setInstrument(7)
+print(connected_line_node.getScore().getCsoundScore())
 
-# Add a section that quantizes the onsets and durations.
-quantized_node = CsoundAC.ScoreNode()
-sequence.addChild(quantized_node)
-quantum = 1. / 12.
-for i in range(random_durations_node.getScore().size()):
-    event = random_times_node.getScore().get(i)
-    time = event.getTime()
-    time = round(time / quantum) * quantum
-    event.setTime(time)
-    duration = event.getDuration()
-    duration = round(duration / quantum) * quantum
-    event.setDuration(duration)
-    quantized_node.getScore().append_event(event)
+# Add a section that removes most leaps from the line.
+smoother_line_node = CsoundAC.ScoreNode()
+print("smoother_line_score before:")
+print(connected_line_node.getScore().getCsoundScore())
+sequence.addChild(smoother_line_node)
+for i in range(connected_line_node.getScore().size() - 1):
+    event = connected_line_node.getScore().get(i)
+    next_event = connected_line_node.getScore().get(i + 1)
+    key = event.getKey()
+    next_key= next_event.getKey()
+    interval = next_key - key
+    interval = round(interval / 4)
+    next_key = key + interval
+    next_event.setKey(key)
+    smoother_line_node.getScore().append_event(event)
+print("smoother_line_score after:")
+print(smoother_line_node.getScore().getCsoundScore())
 
-# Add a section that is a canon of three voices at the third. To make the 
-# canon easier to hear, leaps must be removed from the voices.
+# Add a section that is a canon of three voices at the third. 
 canon_node = CsoundAC.ScoreNode()
 sequence.addChild(canon_node)
 prior_key = 0
 key = 0
-quanta = 8
-for i in range(quantized_node.getScore().size()):
-    event = quantized_node.getScore().get(i)
+quanta = 3
+for i in range(smoother_line_node.getScore().size()):
+    event = smoother_line_node.getScore().get(i)
     i1 = 2
     i2 = 1
     i3 = 6
     t1 = event.getTime()
+    quantum = event.getDuration()
     t2 = t1 + quantum * quanta
     t3 = t2 + quantum * quanta
     d = event.getDuration()
     s = event.getStatus()
     i = event.getInstrument()
-    # Remove leaps from the voice and create the canon.
-    if i == 0:
-      prior_key = event.getKey()
-    else:
-      prior_key = key;
-    key = event.getKey()
-    interval = (prior_key - key) % 3
-    k1 = (prior_key + interval) - 3
+    k1 = event.getKey() - 3
     if k1 < 0:
         k1 = abs(k1)
     k2 = k1 + 3

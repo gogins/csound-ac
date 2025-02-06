@@ -27,7 +27,7 @@ for i in range(60):
     p1 = 1 + (i % 7)
     p2 = i / 3
     p3 = 6
-    p4 = 36 + (i % 60)
+    p4 = 36 + i
     p5 = 60
     score_node.getScore().append(p2, p3, 144, p1, p4, p5)
 # Call music_model generate to actually create a performable score.
