@@ -7,7 +7,7 @@ cd dependencies
 cd ..
 cd build-linux
 rm -f CMakeCache.txt
-cmake -Wno-dev .. -DCMAKE_PREFIX_PATH=/usr/local:/usr
+cmake -Wno-dev .. -DCMAKE_PREFIX_PATH=/usr/local:/usr "$@"
 make -j6 VERBOSE=1
 echo "Building packages..."
 sudo make package

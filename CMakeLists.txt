@@ -27,7 +27,7 @@ endif()
 
 # CMAKE_SYSTEM_NAME relevant here can be Darwin, Windows, Linux, or Android.
 set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
-set(GENERATE_DOCUMENTS ON)
+set(GENERATE_DOCUMENTATION ON CACHE BOOL "Enable building documentation.")
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME "csound-ac")
 if(DARWIN)
     set(CMAKE_MACOSX_RPATH ON)
@@ -146,7 +146,7 @@ endfunction(check_deps)
 add_subdirectory(dependencies/libmusicxml/build)
 add_subdirectory(CsoundAC)
 
-if(${GENERATE_DOCUMENTS})
+if(GENERATE_DOCUMENTATION)
 message("Generating documentation.")
 add_custom_target(doxygen_reference
     ALL
@@ -172,7 +172,7 @@ set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
 install(FILES ${CMAKE_SOURCE_DIR}/copyright.txt
     DESTINATION share/doc/${CPACK_PACKAGE_NAME}
     RENAME copyright)
-if(${GENERATE_DOCUMENTS})
+if(GENERATE_DOCUMENTATION)
 install(FILES ${CMAKE_SOURCE_DIR}/doc/latex/csound-ac.pdf
     DESTINATION share/doc/${CPACK_PACKAGE_NAME})
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/doc/html

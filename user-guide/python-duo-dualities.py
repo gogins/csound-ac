@@ -1,8 +1,8 @@
-#!/usr/bin/python
+ #!/usr/bin/python
 import sys
 import CsoundAC
 import GeneralizedContextualGroup
-
+ 
 csd = r'''
 <CsoundSynthesizer>
 <CsOptions>
@@ -91,7 +91,7 @@ i_amplitude = ampdb(i_midi_velocity) * i_normalization * 1.6
 k_gain = ampdb(gk_FMWaterBell_level)
 i_releasing_attack = 3 / min(i_frequency, 256)
 i_releasing_release = .01
-a_signal fmbell	1, i_frequency, gk_FMWaterBell_index, gk_FMWaterBell_crossfade, gk_FMWaterBell_vibrato_depth, gk_FMWaterBell_vibrato_rate, gi_FMWaterBell_cosine, gi_FMWaterBell_cosine, gi_FMWaterBell_cosine, gi_FMWaterBell_cosine, gi_FMWaterBell_cosine ;, gi_FMWaterBell_sustain
+a_signal fmbell  1, i_frequency, gk_FMWaterBell_index, gk_FMWaterBell_crossfade, gk_FMWaterBell_vibrato_depth, gk_FMWaterBell_vibrato_rate, gi_FMWaterBell_cosine, gi_FMWaterBell_cosine, gi_FMWaterBell_cosine, gi_FMWaterBell_cosine, gi_FMWaterBell_cosine ;, gi_FMWaterBell_sustain
 a_envelope transeg 0, gi_FMWaterBell_attack, 6,  1, gi_FMWaterBell_sustain, -6,  0
 a_declicking cossegr 0, i_releasing_attack, 1, gi_FMWaterBell_sustain - 1, 1, i_releasing_release, 0
 ;;;a_signal = a_signal * i_amplitude * a_envelope * a_declicking * k_gain
@@ -151,7 +151,7 @@ a_physical_envelope transeg 1.0, i_physical_decay, -25.0, 0.0
 apluck pluck i_amplitude * k_gain, kHz, iHz, 0, 1
 aharp poscil a_physical_envelope, kHz, gi_Harpsichord_harptable
 aharp2 balance apluck, aharp
-a_signal	= (apluck + aharp2)
+a_signal  = (apluck + aharp2)
 i_attack = .0005
 i_sustain = p3
 i_release = 0.01
@@ -815,7 +815,7 @@ gcg.addRule('a4',   'L*2 a4k a4q D/1.28 a4 arp a3 D/1.25 a3k a4 D*1.25 D*1.25 L/
 gcg.addRule('a4k',  'K  WV ')
 gcg.addRule('a4q',  'Q3 WV K V+1 WC')
 
-gcg.addRule('arp',  'V+17 WC V-10 WC V-9') 
+gcg.addRule('arp',  'V+17 WC V+5 WC V-10 WC V-9') 
 gcg.addRule('arp1', 'L/2 D/2.125 Q5 WV Q5 WV Q5 WV Q5 WV D*2.125 L*2') 
 gcg.addRule('arp2', 'L/2 D/2.125 Q5 WV Q5 WV Q5 WV Q5 WV Q5 WV Q5 WV D*2.125 L*2') 
 gcg.addRule('dd',   'WV WV ') 

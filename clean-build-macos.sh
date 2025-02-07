@@ -6,6 +6,6 @@ sudo rm -rfd dependencies/libmusicxml/build/lib/*
 sudo rm -rfd dependencies/libmusicxml/build/bin/*
 sudo find . -wholename "*_pycache_*" -delete
 sudo -k
-bash build-macos.sh
+bash build-macos.sh "$@"
 unzip -l build-macos/csound-ac-0.5.0-Darwin.zip 
 echo "Finished cleaning and rebuilding all macOS artifacts from `pwd`."
