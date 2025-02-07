@@ -814,9 +814,14 @@ image_node = CsoundAC.ImageToScore2()
 # image_node.setImageFilename("./54011216051_f577def471_o.jpg")
 # image_node.setImageFilename("./54298975269_273c970344_o.jpg")
 image_node.setImageFilename("./44025833484_70440d3a59_o.jpg")
-image_node.threshhold(80)
-image_node.setMaximumVoiceCount(6)
+image_node.threshhold(90)
+image_node.setMaximumVoiceCount(5)
 image_node.generateLocally()
+for i in range(image_node.getScore().size()):
+    event = image_node.getScore().get(i)
+    duration = event.getDuration()
+    duration *= 4.
+    event.setDuration(duration)
 image_node.getScore().tieOverlappingNotes(False)
 duration = image_node.getScore().getDuration()
 
@@ -824,8 +829,8 @@ duration = image_node.getScore().getDuration()
 voiceleading_node = CsoundAC.VoiceleadingNode()
 scale = CsoundAC.scaleForName("D major")
 tyme = 0
-progressions = [1, 2, 3, 5]
-quanta = [100, 150, 300, 500]
+progressions = [2, 3, 5]
+quanta = [100, 150, 300, 800]
 degree = 1
 while tyme < duration:
     chord = scale.chord(degree, 5, 3)
