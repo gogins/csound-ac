@@ -47,9 +47,9 @@ jobs:
           # REQUIRED: Specify the required boost version
           # A list of supported versions can be found here: 
           # https://github.com/actions/boost-versions/blob/main/versions-manifest.json
-          boost_version: 1.86.0
+          boost_version: 1.84.0
           # OPTIONAL: Specify a platform version
-          platform_version: 15
+          platform_version: 11
           # OPTIONAL: Specify a custom install location
           # Should be $GITHUB_WORKSPACE
           # boost_install_dir: ${{ env.GITHUB_WORKSPACE }}
