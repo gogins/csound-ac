@@ -856,16 +856,11 @@ smoother_line_node = CsoundAC.ScoreNode()
 print("smoother_line_score before:")
 print(connected_line_node.getScore().getCsoundScore())
 sequence.addChild(smoother_line_node)
-for i in range(connected_line_node.getScore().size() - 1):
+for i in range(connected_line_node.getScore().size()):
     event = connected_line_node.getScore().get(i)
-    next_event = connected_line_node.getScore().get(i + 1)
-    key = event.getKey()
-    next_key= next_event.getKey()
-    interval = next_key - key
-    interval = round(interval / 4)
-    next_key = key + interval
-    next_event.setKey(key)
     smoother_line_node.getScore().append_event(event)
+smoother_line_node.getScore().rescale(CsoundAC.Event.KEY, True, 48, True, 9)
+smoother_line_node.getScore().temper()
 print("smoother_line_score after:")
 print(smoother_line_node.getScore().getCsoundScore())
 
@@ -874,12 +869,12 @@ canon_node = CsoundAC.ScoreNode()
 sequence.addChild(canon_node)
 prior_key = 0
 key = 0
-quanta = 3
+quanta = 6
 for i in range(smoother_line_node.getScore().size()):
     event = smoother_line_node.getScore().get(i)
-    i1 = 2
-    i2 = 1
-    i3 = 6
+    i1 = 4
+    i2 = 5
+    i3 = 7
     t1 = event.getTime()
     quantum = event.getDuration()
     t2 = t1 + quantum * quanta
@@ -887,11 +882,9 @@ for i in range(smoother_line_node.getScore().size()):
     d = event.getDuration()
     s = event.getStatus()
     i = event.getInstrument()
-    k1 = event.getKey() - 3
-    if k1 < 0:
-        k1 = abs(k1)
+    k1 = event.getKey() - 12
     k2 = k1 + 3
-    k3 = k2 + 3
+    k3 = k2 + 12
     v = event.getVelocity()
     canon_node.getScore().append(t1, d, s, i1, k1, v)
     canon_node.getScore().append(t2, d, s, i2, k2, v)
@@ -905,7 +898,7 @@ cell_repeat = CsoundAC.Cell()
 cell_repeat.setRepeatCount(2)
 # Use a negative time to cut out the tail of the first cell, and create a 
 # seamless segue to the second cell.
-cell_repeat.setDurationSeconds(-2.5)
+cell_repeat.setDurationSeconds(-4)
 harmonized_node.addChild(cell_repeat)
 # We make this one twice as long simply by repeating it.
 cell_repeat.addChild(canon_node)
