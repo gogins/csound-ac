@@ -23,7 +23,7 @@ jobs:
       matrix:
         config:
         - name: "macOS Latest Clang"
-          os: "macos-14"
+          os: "macos-15"
           cc: "clang"
           cxx: "clang++"
         - name: "Ubuntu Latest GCC"
@@ -40,14 +40,14 @@ jobs:
         uses: actions/checkout@v3
                 
       - name: Install boost on macOS
-        uses: MarkusJx/install-boost@v2.4.5
+        uses: MarkusJx/install-boost@v2.5.0
         id: install-boost-macos
         if: runner.os == 'macOS' 
         with:
           # REQUIRED: Specify the required boost version
           # A list of supported versions can be found here: 
           # https://github.com/actions/boost-versions/blob/main/versions-manifest.json
-          boost_version: 1.79.0
+          boost_version: 1.87.0
           # OPTIONAL: Specify a platform version
           platform_version: 11
           # OPTIONAL: Specify a custom install location
@@ -64,7 +64,7 @@ jobs:
           # REQUIRED: Specify the required boost version
           # A list of supported versions can be found here: 
           # https://github.com/actions/boost-versions/blob/main/versions-manifest.json
-          boost_version: 1.79.0
+          boost_version: 1.87.0
           # OPTIONAL: Specify a platform version
           platform_version: 20.04
           # OPTIONAL: Specify a custom install location
