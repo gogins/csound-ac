@@ -49,7 +49,7 @@ jobs:
           # https://github.com/actions/boost-versions/blob/main/versions-manifest.json
           boost_version: 1.87.0
           # OPTIONAL: Specify a platform version
-          platform_version: 11
+          platform_version: 15
           # OPTIONAL: Specify a custom install location
           # Should be $GITHUB_WORKSPACE
           # boost_install_dir: ${{ env.GITHUB_WORKSPACE }}
