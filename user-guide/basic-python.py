@@ -809,7 +809,7 @@ csound.compileCsdText(csd)
 # Start Csound to open inputs and outputs, but without actually running. This 
 # enables sending the notes of a generated score to Csound.
 csound.start()
-# Generate an ascending chromatc scale using several of the instruments, and 
+# Generate an ascending chromatic scale using several of the instruments, and 
 # send the notes to Csound, which stores them for performance.
 for i in range(60):
     p1 = 1 + (i % 7)
