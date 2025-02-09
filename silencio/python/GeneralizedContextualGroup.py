@@ -197,7 +197,59 @@ class Turtle(object):
 # using a context-free deterministic Lindenmayer system
 # with a vocabulary of voice-leading operations
 # extending neo-Riemannian operations to the 
-# Generalized Contextual Group.
+# Generalized Contextual Group of Fiore and Satyendra
+# (https://mtosmt.org/issues/mto.05.11.3/mto.05.11.3.fiore_satyendra.pdf)
+#
+# A context-free Lindenmayer system consists of an alphabet from which words 
+# are formed. The words may be predefined commands, or user-defined commands.
+# The system includes a user-defined set of rules for replacing commands with 
+# lists of commands. The system has a predefined number of iterations. Finally 
+# there is a user-defined axiom, an initial command or list of commands.
+#
+# In this particular system, the commands create and transform chords, not  
+# individual notes.
+# 
+# As the system is iterated, the initial state (e.g. the axiom) is parsed into 
+# commands, and each one is replaced according to its replacement rule, or by 
+# itself if it has no rule. After a few iterations, what began as a few 
+# commands can become a very long and elaborate string of commands. When the 
+# iterations are completed, the commands are interpeted as instructions for a 
+# "turtle" that moves fordward on a score, writing down notes. The state of 
+# this turtle includes a pitch-class set, a "modality" that is a "minor" or 
+# "major" chord or scale, a range of permitted pitches, an index of octavewise 
+# revoicings within that range, and the assignment of instruments to the 
+# voices of the chord.
+#
+# In this system the following commands are predefined:
+#
+# [ -- Push the state of the turtle on a stack, saving its position.
+# ] -- Pop the state of the turtle from the stack, returning it to the 
+#      position from which it was saved.
+# D*n or D/n -- Multiply or divide the duration of the chord by n.
+# Iv=i -- Assign instrument i to voice v of the turtle chord.
+# K -- Apply the "K" transformation from the Generalized Contextual Group to 
+#      the turtle chord; this has the effect of making it minor if it was major, 
+#      or major if it was minor.
+# L*n or L/n -- Multiply or divide the loudness of the chord by n.
+# Pn -- Change the prime form of the chord to the nth prime form in the 
+#      enumeration of prime forms; the new chord will be at the 
+#      smoothest voiceleading from the previously written chord.
+# Qn -- Contextually transpose the chord; if the chord is minor, transpose it up or 
+#      down by n semitones; if the chord is major, traspose it down or up by n 
+#      semitones.
+# Rn -- Change the range within which the chord transformations take place.
+# Spcs -- Set the pitch-class set of the turtle chord, and also make that the 
+#      modality of the "turtle."
+# Tn -- Transpose the pitch-class set of the chord up or down by n semitones.
+# V+n or v-n -- Revoice the turtle chord by n octavewise revoicings up or 
+#      down n times.
+# WCn -- Write the current state of the turtle chord onto the score, taking into 
+#      account the current voicing of the chord. The chord is written n times, 
+#      and these are considered to be tied to create a longer chord.
+# Wn -- Write the current state of the turtle chord onto the score, as the 
+#      smoothest possible voice-leading from the previously written chord. The 
+#      chord is written n times, and these are considered to be tied to create 
+#      a longer chord.
 class GeneralizedContextualGroup(CsoundAC.ScoreNode):
     def __init__(self, debug = False):
         CsoundAC.ScoreNode.__init__(self)
