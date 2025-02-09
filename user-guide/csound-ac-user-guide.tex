@@ -48,14 +48,14 @@ The major features of CsoundAC are:
 
 \subsection{Installation}
 
-Prebuilt binaries of CsoundAC for macOS are available as GitHub releases. These are built for a specific version of Python, and will work only with that version. If you don't have the correct version of Python, you should install that version alongside your existing Python. 
+Prebuilt binaries of CsoundAC for macOS and Linux are available as GitHub releases. These are built for a specific version of Python, and will work only with that version. If you don't have the correct version of Python, you should install that version alongside your existing Python. 
 
-Linux binaries can be built as follows:
+Linux binaries can also be built by the user as follows:
 
 \begin{enumerate}
 \item Clone the \href{https://github.com/gogins/csound-ac}{csound-ac} repository, and open a terminal in the repository's root directory.
 \item Install dependencies by running the \lstinline{update-dependencies.sh} script.
-\item Perform a fresh build by running, e.g., the \lstinline{clean-build-macos.sh} script.
+\item Perform a fresh build by running the \lstinline{clean-build-linux.sh} script.
 \end{enumerate}
 
 \subsection{Configuration}
@@ -98,12 +98,21 @@ Type "help", "copyright", "credits" or "license" for more information.
 Additional configuration is required to enable Python and CsoundAC in Reaper. To enable Python scripting:
 
 \begin{enumerate}
-\item In Reaper, open the \emph{REAPER} menu \emph{Settings...} dialog.
+\item In Reaper, open the \emph{REAPER} menu \emph{Settings...} dialog (might be \emph{Configuration...} on other versions of Reaper).
 \item Go to the end of the list of settings, and select \emph{ReaScript}.
 \item In the ReaScript settings, check the \emph{Enable Python for use with ReaScript} box.
+\item On macOS:
+\begin{enumerate}
 \item In the \emph{Force ReaScript to use specific Python .dylib} text field, enter the filename of the Python shared library for the version required by CsoundAC, e.g. \lstinline|libpython3.12.dylib|. 
 \item In the \emph{Custom path to Python dll directory} field, enter the full path to the Python library root directory, e.g. \lstinline|/opt/homebrew/Cellar/python@3.12/3.12.8/Frameworks/Python.framework/Versions/3.12/lib|. You can use the \emph{Browse} button to select this directory.
 \item If the configuration is correct, you will see something like \emph{Python: libpython3.12.dylib installed}.
+\end{enumerate}
+\item On Linux:
+\begin{enumerate}
+\item In the \emph{Force ReaScript to use specific Python .so} text field, enter the filename of the Python shared library for the version required by CsoundAC, e.g. \lstinline|libpython3.12.so|. 
+\item In the \emph{Custom path to Python dll directory} field, enter the full path to the Python library root directory, e.g. \lstinline|/usr/lib/libpython3.12.so| or \lstinline|/usr/lib/x86_64-linux-gnu/libpython2.12.so|. You can use the \emph{Browse} button to select this directory.
+\item If the configuration is correct, you will see something like \emph{Python: libpython3.12.so installed}.
+\end{enumerate}
 \end{enumerate}
 
 \noindent To enable CsoundAC:
