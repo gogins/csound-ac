@@ -820,6 +820,6 @@ for i in range(60):
     # Send each note separately, formatted as a Csound score "i" statement.
     csound.inputMessage(f"i {p1} {p2} {p3} {p4} {p5}\n")
 # Start the Csound performance, which will render the generated and stored 
-# score. The "f" statement in the .csd file will step the performance after 
+# score. The "f" statement in the .csd file will stop the performance after 
 # a preset time.
 csound.perform()
