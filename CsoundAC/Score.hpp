@@ -120,11 +120,14 @@ public:
     virtual void dump(std::ostream &stream);
     virtual std::string toString();
     /**
-     * Returns the time from the first event to the last event.
+     * Returns the time from the beginning of the earliest-starting event to 
+     * the ending of the last-ending event. Does not assume that events are 
+     * sorted, or that all no events start earlier than time 0.
      */
     virtual double getDuration();
     /**
-     * Returns the time from 0 to the final off time. 
+     * Returns the time from time 0 to the final off time. Does not assume 
+     * that events are sorted, or that no events start earlier than time 0.
      */
     virtual double getDurationFromZero() const;
     /**

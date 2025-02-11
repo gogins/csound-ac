@@ -107,7 +107,7 @@ gk_Harpsichord_pluck chnexport "gk_Harpsichord_pluck", 3
 gk_Harpsichord_midi_dynamic_range chnexport "gk_Harpsichord_midi_dynamic_range", 3
 gk_Harpsichord_space_left_to_right chnexport "gk_Harpsichord_space_left_to_right", 3
 
-gk_Harpsichord_level init 0
+gk_Harpsichord_level init -6
 gk_Harpsichord_pick init .075
 gk_Harpsichord_reflection init .5
 gk_Harpsichord_pluck init .75
@@ -169,7 +169,7 @@ outleta "outright", a_out_right
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 gk_HeavyMetal_level chnexport "gk_HeavyMetal_level", 3
-gk_HeavyMetal_level init 7
+gk_HeavyMetal_level init 3
 gk_HeavyMetal_midi_dynamic_range chnexport "gk_HeavyMetal_midi_dynamic_range", 3 ; 127
 gk_HeavyMetal_midi_dynamic_range init 30
 gk_HeavyMetal_space_left_to_right chnexport "gk_HeavyMetal_space_left_to_right", 3
@@ -238,7 +238,7 @@ gk_Melody_midi_dynamic_range chnexport "gk_Melody_midi_dynamic_range", 3 ; 127
 gk_Melody_level chnexport "gk_Melody_level", 3 ; 0
 
 gk_Melody_midi_dynamic_range init 20
-gk_Melody_level init 30
+gk_Melody_level init 33
 
 gi_Melody_chebyshev ftgen 0, 0, 65537, -7, -1, 150, 0.1, 110, 0, 252, 0
 gi_Melody_sine ftgen 0, 0, 65537, 10, 1
@@ -345,7 +345,7 @@ gk_Sweeper_britel init .01
 gk_Sweeper_briteh init 5
 gk_Sweeper_britels init .5
 gk_Sweeper_britehs init 1.75
-gk_Sweeper_level init 0
+gk_Sweeper_level init -11
 gk_Sweeper_space_left_to_right chnexport "gk_Sweeper_space_left_to_right", 3
 gk_Sweeper_space_left_to_right init .5
 
@@ -500,7 +500,7 @@ gi_ZakianFLute_seed chnexport "gi_ZakianFLute_seed", 3 ;  .5
 gi_ZakianFLute_space_left_to_front chnexport "gi_ZakianFLute_space_left_to_front", 3 ;  .5
 
 gk_ZakianFlute_midi_dynamic_range init 20
-gk_ZakianFlute_level init 0
+gk_ZakianFlute_level init -8
 gk_ZakianFlute_pan init .5
 gi_ZakianFLute_seed init .5
 gi_ZakianFLute_space_left_to_front init .5
@@ -819,42 +819,52 @@ for i in range(60):
     p4 = 36 + i
     p5 = 60
     scale_node.getScore().add(p2, p3, 144, p1, p4, p5)
+print("scale_node:")
+print(scale_node.getScore().toString())
     
-# Add a section that randomizes the note onsets.
+# Add a section that randomizes the onsets of the notes in the scale.
 random_times_node = CsoundAC.ScoreNode()
 sequence.addChild(random_times_node)
-# Copy the orginal scale, and at the same time, compile a list of note onsets.
+# Copy the orginal scale, and at the same time, compile a list of its note 
+# onsets.
 note_onsets = []
 for i in range(scale_node.getScore().size()):
     event = scale_node.getScore().get(i)
     random_times_node.getScore().append_event(event)
     note_onsets.append(event.getTime())
-# Shuffle the note onsets and update the events in this node.
+# Shuffle the note onsets and then update the events in this node, which 
+# are value copies of the events in the original scale.
 print(note_onsets)
 random.shuffle(note_onsets)
 for i in range(len(note_onsets)):
     random_times_node.getScore().get(i).setTime(note_onsets[i])
-# This needs to be sorted to satisfy assumptions of further processing.
+    random_times_node.getScore().get(i).setInstrument(1)
+# The new score needs to be sorted to satisfy assumptions of further 
+# processing.
 random_times_node.getScore().sort()
+print("random_times_node:")
+print(random_times_node.getScore().toString())
 
 # Add a section that creates a connected line from the shuffled events.
 connected_line_node = CsoundAC.ScoreNode()
 sequence.addChild(connected_line_node)
-print("connected_line_score before:")
-print(random_times_node.getScore().getCsoundScore())
 for i in range(random_times_node.getScore().size() - 1):
     event = random_times_node.getScore().get(i)
     next_event = random_times_node.getScore().get(i + 1)
-    event.setOffTime(next_event.getTime())
+    off_time = next_event.getTime() # - .1
     connected_line_node.getScore().append_event(event)
-print("connected_line_score after:")
-event.setInstrument(7)
-print(connected_line_node.getScore().getCsoundScore())
+    # The issue of references vs. values needs care.
+    # So first we copy the note into the new score, then we update the off 
+    # time of that note, leaving the original note unchanged.
+    event = connected_line_node.getScore().get(i)
+    event.setOffTime(off_time)
+    event.setVelocity(event.getVelocity() + 9)
+connected_line_node.getScore().rescale(CsoundAC.Event.INSTRUMENT, True, 7, True, 0)
+print("connected_line_node:")
+print(connected_line_node.getScore().toString())
 
 # Add a section that removes most leaps from the line.
 smoother_line_node = CsoundAC.ScoreNode()
-print("smoother_line_score before:")
-print(connected_line_node.getScore().getCsoundScore())
 sequence.addChild(smoother_line_node)
 smoother_line_node.getScore().append(connected_line_node.getScore().get(0))
 for i in range(1, connected_line_node.getScore().size()):
@@ -863,38 +873,45 @@ for i in range(1, connected_line_node.getScore().size()):
     # Move no more than a major third.
     movement = (next_event.getKey() - event.getKey())
     movement = ((movement > 0) - (movement < 0)) * abs(movement % 4)
-    next_event.setKey(event.getKey() + movement)
+    # Again, the issue of references vs. values needs care. Append 
+    # the event to create a copy, then update the copy.
     smoother_line_node.getScore().append_event(next_event)
+    next_event = smoother_line_node.getScore().get(i)
+    next_event.setKey(movement)
+# Rescale the smoother line to start higher.
 smoother_line_node.getScore().rescale(CsoundAC.Event.KEY, True, 48, False, 0)
-smoother_line_node.getScore().temper()
-print("smoother_line_score after:")
-print(smoother_line_node.getScore().getCsoundScore())
+# Tieing overlapping notes makes the line easier to hear.
+smoother_line_node.getScore().tieOverlappingNotes(True)
+print("smoother_line_node:")
+print(smoother_line_node.getScore().toString())
 
-# Add a section that is a canon of three voices at the third. 
+# Add a section that is a canon of three voices.
 canon_node = CsoundAC.ScoreNode()
 sequence.addChild(canon_node)
 prior_key = 0
 key = 0
-quanta = 6
+quanta = 2
+# Here, we handle the issue of references vs. values by 
+# working with fields, and appending the fields to the new score.
 for i in range(smoother_line_node.getScore().size()):
     event = smoother_line_node.getScore().get(i)
-    i1 = 4
-    i2 = 5
-    i3 = 7
-    t1 = event.getTime()
+    i1 = 1
+    i2 = 1
+    i3 = 1
     quantum = event.getDuration()
+    t1 = event.getTime()
     t2 = t1 + quantum * quanta
     t3 = t2 + quantum * quanta
     d = event.getDuration()
     s = event.getStatus()
     i = event.getInstrument()
-    k1 = event.getKey() - 12
-    k2 = k1 + 3
-    k3 = k2 + 12
+    k1 = event.getKey() 
+    k2 = k1 + 12
+    k3 = k2 + 24
     v = event.getVelocity()
     canon_node.getScore().append(t1, d, s, i1, k1, v)
     canon_node.getScore().append(t2, d, s, i2, k2, v)
-    canon_node.getScore().append(t3, 2, s, i3, k2, v)
+    canon_node.getScore().append(t3, d, s, i3, k3, v)
 
 # Add a section that applies chord transformations from the Generalized 
 # Contextual Group to the canon. 

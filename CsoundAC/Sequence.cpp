@@ -35,27 +35,25 @@ Sequence::~Sequence()
 void Sequence::traverse(const Eigen::MatrixXd &globalCoordinates,
                         Score &collectingScore)
 {
-    // Obtain the composite transformation of coordinate system
-    // by post-concatenating the local transformation of coordinate system
-    // with the global, or enclosing, transformation of coordinate system.
     Eigen::MatrixXd compositeCoordinates = getLocalCoordinates() * globalCoordinates;
-    // Make a bookmark for the current end of the score.
-    //    size_t beginAt = score.size();
-    // Descend into each of the child nodes.
-    // Keep track of each child's relative time and
-    // place the child nodes in strict temporal sequence.
-    Score childScore;
-    double deltaTime = 0.0;
-    for(size_t i = 0, n = children.size(); i < n; i++) {
-        childScore.clear();
-        children[i]->traverse(compositeCoordinates, childScore);
-        System::message("Sequence node at time %f: child %d of %d has %d notes.\n", deltaTime, i, n, childScore.size());
-        for(size_t j = 0, k = childScore.size(); j < k; j++) {
-            Event event = childScore[j];
-            event.setTime(event.getTime() + deltaTime);
+    // Child node times are rescaled to start from 0, and the next child node 
+    // starts at the prior child node's last off time.
+    Score child_score;
+
+    double earliest_on_time = 0.0;
+    double latest_off_time = 0.0;
+    for (size_t child_i = 0, child_n = children.size(); child_i < child_n; ++child_i) {
+        child_score.clear();
+        children[child_i]->traverse(compositeCoordinates, child_score);
+        earliest_on_time = child_score.getFirstOnTime();
+        System::message("Sequence node at time %f: child %d of %d has %d notes.\n", earliest_on_time, child_i, child_n, child_score.size());
+        for(size_t event_i = 0, event_n = child_score.size(); event_i < event_n; ++event_i) {
+            Event event(child_score.at(event_i));
+            event.setTime(event.getTime() - earliest_on_time + latest_off_time);
+            System::inform("    %s\n", event.toString().c_str());
             collectingScore.push_back(event);
         }
-        deltaTime = deltaTime + childScore.getDuration();
+        latest_off_time = latest_off_time + child_score.getLastOffTime();
     }
 }
 
