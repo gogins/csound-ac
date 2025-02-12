@@ -848,10 +848,14 @@ print(random_times_node.getScore().toString())
 # Add a section that creates a connected line from the shuffled events.
 connected_line_node = CsoundAC.ScoreNode()
 sequence.addChild(connected_line_node)
-for i in range(random_times_node.getScore().size() - 1):
+size = random_times_node.getScore().size()
+for i in range(size):
     event = random_times_node.getScore().get(i)
-    next_event = random_times_node.getScore().get(i + 1)
-    off_time = next_event.getTime() # - .1
+    if i < (size - 1):
+        next_event = random_times_node.getScore().get(i + 1)
+        off_time = next_event.getTime() # - .1
+    else:
+        off_time = event.getTime() + 1
     connected_line_node.getScore().append_event(event)
     # The issue of references vs. values needs care.
     # So first we copy the note into the new score, then we update the off 
@@ -866,13 +870,15 @@ print(connected_line_node.getScore().toString())
 # Add a section that removes most leaps from the line.
 smoother_line_node = CsoundAC.ScoreNode()
 sequence.addChild(smoother_line_node)
-smoother_line_node.getScore().append(connected_line_node.getScore().get(0))
-for i in range(1, connected_line_node.getScore().size()):
-    event = connected_line_node.getScore().get(i - 1)
-    next_event = connected_line_node.getScore().get(i)
-    # Move no more than a major third.
-    movement = (next_event.getKey() - event.getKey())
-    movement = ((movement > 0) - (movement < 0)) * abs(movement % 4)
+for i in range(connected_line_node.getScore().size()):
+    if i == 0:
+        next_event = connected_line_node.getScore().get(i)
+        movement = 0
+    else:
+        event = connected_line_node.getScore().get(i - 1)
+        next_event = connected_line_node.getScore().get(i)
+        movement = (next_event.getKey() - event.getKey())
+        movement = ((movement > 0) - (movement < 0)) * abs(movement % 5)
     # Again, the issue of references vs. values needs care. Append 
     # the event to create a copy, then update the copy.
     smoother_line_node.getScore().append_event(next_event)
@@ -880,8 +886,7 @@ for i in range(1, connected_line_node.getScore().size()):
     next_event.setKey(movement)
 # Rescale the smoother line to start higher.
 smoother_line_node.getScore().rescale(CsoundAC.Event.KEY, True, 48, False, 0)
-# Tieing overlapping notes makes the line easier to hear.
-smoother_line_node.getScore().tieOverlappingNotes(True)
+smoother_line_node.getScore().sort()
 print("smoother_line_node:")
 print(smoother_line_node.getScore().toString())
 
@@ -890,14 +895,15 @@ canon_node = CsoundAC.ScoreNode()
 sequence.addChild(canon_node)
 prior_key = 0
 key = 0
-quanta = 2
+# Stagger or syncopate the voices.
+quanta = 3.5
 # Here, we handle the issue of references vs. values by 
 # working with fields, and appending the fields to the new score.
 for i in range(smoother_line_node.getScore().size()):
     event = smoother_line_node.getScore().get(i)
-    i1 = 1
-    i2 = 1
-    i3 = 1
+    i1 = 7
+    i2 = 7
+    i3 = 7
     quantum = event.getDuration()
     t1 = event.getTime()
     t2 = t1 + quantum * quanta
@@ -906,12 +912,13 @@ for i in range(smoother_line_node.getScore().size()):
     s = event.getStatus()
     i = event.getInstrument()
     k1 = event.getKey() 
-    k2 = k1 + 12
-    k3 = k2 + 24
+    k2 = k1 + 9
+    k3 = k2 + 18
     v = event.getVelocity()
     canon_node.getScore().append(t1, d, s, i1, k1, v)
     canon_node.getScore().append(t2, d, s, i2, k2, v)
     canon_node.getScore().append(t3, d, s, i3, k3, v)
+canon_node.getScore().sort()
 
 # Add a section that applies chord transformations from the Generalized 
 # Contextual Group to the canon. 
@@ -926,17 +933,17 @@ harmonized_node.addChild(cell_repeat)
 # We make this one twice as long simply by repeating it.
 cell_repeat.addChild(canon_node)
 duration = canon_node.getScore().getDuration() * 2
-transformations = 16
+chords = 16
 # Create chord transformations using the chord space operations of CsoundAC.
-chord = CsoundAC.chordForName("BM9")
-modality = CsoundAC.chordForName("BM9")
-for transformation in range(transformations):
-    time = duration * (transformation / transformations)
-    if transformation % 3 == 0:
-      chord = chord.K()
-    else:
-      semitones = random.choice([2, 5])
-      chord = chord.Q(semitones, modality)
+scale = CsoundAC.scaleForName("E major")
+scale_step = 1
+for chord_ in range(chords):
+    time = duration * (chord_ / chords)
+    movement = random.choice([2, 2, 5, -1])
+    scale_step = 1 + ((scale_step + movement) % 7)
+    chord = scale.chord(scale_step, 5)
+    if (chord_ % 5) == 0:
+        scale = scale.modulations(chord)[0]
     # Use the VoiceleadingNode to schedule the transformed chords to be 
     # to the notes in the canon.
     harmonized_node.chord(chord, time)
@@ -948,6 +955,8 @@ music_model.setTitle("python-trans-scale");
 music_model.generateAllNames()
 music_model.generate()
 print("Generated score:")
+# Tieing overlapping notes makes the line easier to hear.
+music_model.getScore().tieOverlappingNotes(True)
 print(music_model.getScore().getCsoundScore())
 music_model.setCsd(csd)
 music_model.perform()
