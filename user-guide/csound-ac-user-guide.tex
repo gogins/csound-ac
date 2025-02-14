@@ -49,7 +49,11 @@ The major features of CsoundAC are:
 
 \subsection{Installation}
 
-Prebuilt binaries of CsoundAC for macOS and Linux are available as GitHub releases. These are built for a specific version of Python, and will work only with that version. If you don't have the correct version of Python, you should install that version alongside your existing Python. 
+\subsubsection{Installing Prebuilt Binaries}
+
+Prebuilt binaries of CsoundAC for macOS and Linux are available as GitHub releases. These are built for a specific version of Python, and will work only with that version. If you don't have the correct version of Python, you should install that version alongside your existing Python. There are also dependencies on a number of other \href{https://github.com/gogins/csound-ac/blob/master/dependencies/update-dependency-packages.sh}{packages}.
+
+\subsubsection{Building from Source Code}
 
 Linux binaries can also be built by the user as follows:
 
@@ -81,7 +85,9 @@ Type "help", "copyright", "credits" or "license" for more information.
 Each published release of Csound comes with a Python interface to the complete Csound API, defined in the \lstinline|ctcsound.py| module. This module will work with any version of Python, but is built for a specific version of Csound. To enable ctcsound:
 
 \begin{enumerate}
+
 \item Go the Csound GitHub repository, select the \lstinline|csound6| branch, and copy or download the \lstinline|interfaces/ctcsound.py| file to the \lstinline|site-packages| directory for the version of Python that you will use, e.g. \lstinline|/opt/homebrew/lib/python3.12/site-packages/ctcsound.py|.
+
 \item Test your installation by running the correct version of Python and importing the ctcsound module. There should be no error.
 
 \begin{lstlisting}[basicstyle=\small\ttfamily]
@@ -154,15 +160,23 @@ The following examples proceed step by step, repeating each example in standalon
 
 For insight into the code, go to the hyperlinked source code or open the examples in an editor, and read them in order; there are many explanatory comments.
 
+\begin{mdframed}
+And in the following, specifically \emph{compositional} remarks are framed like this.
+\end{mdframed}
+
 \subsection{Basic Python Usage}
 
-Here, the same very basic example is run in three environments. All three examples use the same Csound orchestra, \href{https://github.com/gogins/csound-ac/blob/master/user-guide/basic.csd}{\lstinline|basic.csd|,} which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple \lstinline|for| loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run, and how they interface with Csound. CsoundAC is not used --- these examples show only the most basic, low-level method of generating a score.
+Here, the same very basic example is run in three environments. All three examples use the same Csound orchestra, \href{https://github.com/gogins/csound-ac/blob/master/user-guide/basic.csd}{\lstinline|basic.csd|}, which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple \lstinline|for| loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run, and how they interface with Csound. CsoundAC is not used --- these examples show only the most basic, low-level method of generating a score with Python.
 
-\subsubsection{Running in Python: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/basic-python.py}{\lstinline{basic-python.py}}}
+\begin{mdframed}
+The ascending scale is used as a deliberately simple starting point. However, note that the alternation of Csound instruments in overlapping notes, some of which contain internally varying sounds, creates a more complex texture than might be expected.
+\end{mdframed}
+
+\subsubsection{Running in Python: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/basic-python.py}{\lstinline|basic-python.py|}}
 
 Running in Python has the advantage of being easy to understand. A composition is just a Python program. This example uses the ctcsound module to perform the example.
 
-Open a terminal, change to the \lstinline|csound-ac/user-guide| directory, and execute \lstinline|python3.12 basic-python.py|
+Open a terminal, change to the \lstinline|csound-ac/user-guide| directory, and execute \lstinline|python3.12 basic-python.py|.
 
 \subsubsection{Running in Csound: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/basic-score-bin.csd}{\lstinline|basic-score-bin.csd|}}
 
@@ -198,10 +212,6 @@ These three examples re-create the three basic examples above, changing them onl
 
 \subsection{Compositional Examples}
 
-\begin{mdframed}
-In the following, specifically compositional remarks are framed like this.
-\end{mdframed}
-
 \subsubsection{How CsoundAC Works}
 
 CsoundAC is based upon the concept of a \emph{\href{https://quod.lib.umich.edu/i/icmc/bbp2372.1998.298/1}{music graph},} which is a tree (directed acyclical graph) of Nodes in score space. This concept is quite similar to the concept of a \emph{\href{https://dl.acm.org/doi/pdf/10.1145/360349.360354}{scene graph}} in 3-dimensional computer graphics, in which objects in a scene are similarly organized as a tree of nodes in 3-dimensonal space. Score space, however, has 12 dimensions:
@@ -221,7 +231,7 @@ CsoundAC is based upon the concept of a \emph{\href{https://quod.lib.umich.edu/i
 \item[HOMOGENEITY] Set to 1 to enable transformation of Events using homogeneous matrix transformations.
 \end{description}
 
-A point in score space most often represents a musical note, but can also represent a chord or scale, a change in a control parameter, or even a grain of sound. The semantics of these dimensions is based on MIDI channel messages, but has floating-point precision and adds duration and other fields.
+A point in score space most often represents a musical note, but can also represent a chord or scale, a change in a control parameter, or even a grain of sound. The semantics of these dimensions is based on MIDI channel messages, but they have floating-point precision and add duration and other fields.
 
 The following algorithm is used by CsoundAC to generate scores. A composition is an instance of the MusicModel class, which contains a tree of child Nodes representing the music graph, a Csound orchestra, and an embedded instance of Csound. The algorithm performs a depth-first traversal of the music graph by recursively calling each child's \lstinline|void Node::traverse(const Eigen::MatrixXd &global_coordinates, Score &global_score)| method:
 
@@ -249,13 +259,17 @@ This piece takes the ascending chromatic scale of the previous examples, and use
 \begin{enumerate}
 \item Play the scale.
 \item Repeat that scale, shuffled so that notes are in random order.
-\item Repeat that transformed scale, and randomize the note durations.
-\item Repeat that transformed scale, quantizing the note onsets and durations.
-\item Repeat that transformed scale three times, as a canon at the third, after first cutting down the jumps in the transformed scale in order to make the canon easier to hear.
-\item Repeat that canon, and apply to it semi-randomized chord progressions and modulations.
+\item Repeat that transformed scale, but change the note durations so that the random notes form a connected line.
+\item Repeat that connected scale, but make the movements of the voice from note to note occur within a more restricted range.
+\item Repeat that transformed scale three times, as a canon at the sixth, on offset beats.
+\item Repeat that canon, and apply to it semi-randomized tonal chord progressions and modulations.
 \end{enumerate}
 
 Read the code for more details.
+
+\begin{mdframed}
+CsoundAC provides two facilities for working with harmony. The first is based on neo-Riemannian chord transformations, e.g. the \href{https://www.mtosmt.org/issues/mto.05.11.3/mto.05.11.3.fiore_satyendra.pdf}{Generalized Contextual Groups} of Fiore and Satyendra, implemented in the \href{https://dmitri.mycpanel.princeton.edu/files/publications/science2.pdf}{chord spaces} studied by Callendar, Quinn, and Tymoczko. The second is based on \href{https://doi.org/10.1093/oso/9780197577103.001.0001}{tonal harmony as schematized by Tymoczko}, also implemented by me in chord space. The final section of \lstinline|python-trans-scale.py| piece uses my implementation of Tymoczko's scheme.
+\end{mdframed}
 
 \subsubsection{Translating Images to Scores:  \href{https://github.com/gogins/csound-ac/blob/master/user-guide/python-imagery.py}{\lstinline|python-imagery.py|}}
 
@@ -265,7 +279,7 @@ This piece takes a high-resolution digital photograph, and uses CsoundAC to:
 \item Load the photograph in an ImageToScore node.
 \item Set a threshold to filter out much of the image, and use only the brighter features.
 \item Set a maximum number of simultaneous voices.
-\item Call \lstinline|ImageToScore.generateLocally| to translate  the brighter features to CsoundAC Events (notes). Hue (color) is instrument, and Value (brightness) is loudness. Saturation is not used.
+\item Call \lstinline|ImageToScore.generateLocally| to translate the brighter features to CsoundAC Events (notes). Hue (color) is instrument, and Value (brightness) is loudness. Saturation is not used.
 \item Add the ImageToScore node to a Rescale node.
 \item Set appropriate ranges for the various dimensions of the score space in the Rescale node. \emph{Please note: time is not rescaled!} That is so that the duration of the score created by the ImageToScore node can be used to determine the intervals between chords.
 \item Use the CsoundAC Scale class to generate a series of chord progressions and modulations.
@@ -275,29 +289,36 @@ This piece takes a high-resolution digital photograph, and uses CsoundAC to:
 \item Call \lstinline|MusicModel.generate| to the generate the score, applying each node to the notes produced by its children.
 \item Set the final generated score to the desired length.
 \item Call \lstinline|MusicModel.perform| to render the score using the Csound orchestra.
-
 \end{enumerate}
+
+\begin{mdframed}
+In a piece like this, the composer must have a starting point such as a specific image, an idea of the density of texture desired, and the Csound orchestra. But then, the piece can only be improved by an iterative process of trial and error. Best practices:
+\begin{itemize}
+\item Before changing anything, make a backup copy of the current state of the piece. This can be done either by commenting out a line or block of code that has been changed, or by saving versions under different names, or by committing each variant of the piece to a version control system such as Git.
+\item Change one thing.
+\item Listen to both versions, if necessary all the way through, or even more than time.
+\item It may be useful to load two versions into a multiitrack audio editor that can show both the spectrum and the wavefrom of each track, and to toggle back and forth between the versions while playing.
+\item What may sound worthless at first can sometimes be improved a great deal.
+\item If a series of changes ends up spoiling the piece, go back to the last version that you did not make worse, and try changing something other than what you had changed.
+\item In the ImageToScore node, there are parameters that can produce different textures from the same image, such as threshold or maximum number of voices,
+\item Each pixel in an image might become a separate note, and in a high resolution image, the tempo and density can be high. For example, the image in this example has 4,032 columns (time steps). In fact, with a fast tempo and a large number of voices, notes will blur into granular type sounds; a score 3 minutes long at this density could have some notes lasting only 0.045 seconds. This may be desirable, or not. If you need a slower tempo, multiply the duration of each note in ImageToScore's score by some factor, and then call \lstinline|ImageToScore.getScore().tieOverlappingNotes()|; or, of course, increase the duration of the piece.
+\end{itemize}
+\end{mdframed}
+
 \subsubsection{Lindenmayer Systems in Chord Space: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/python-duo-dualities.py}{\lstinline|python-duo-dualities.py|}}
 
-This piece uses a \href{https://algorithmicbotany.org/papers/abop/abop.pdf}{Lindenmayer system} defined in the \href{https://dmitri.mycpanel.princeton.edu/files/publications/science2.pdf}{voice-leading spaces} of Callendar, Quinn, and Tymoczko to implement the \href{https://www.mtosmt.org/issues/mto.05.11.3/mto.05.11.3.fiore_satyendra.pdf}{Generalized Contextual Group} of chord transformations identified by Fiore and Satyendra. Here I use the Generalized Contextual Group to capture the duality of major and minor so constitutive of Western music, in an abstract and generative form that is not specifically ``tonal." This Lindenmayer system, \href{https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=dd8623bbe8c889b2c56d6a1fc0fc55c61b362ee4}{presented by me at the 2009 International Computer Music Conference}, generates a score as movements of chords by transformation through chord space and time, writing notes of the chords to create the score. 
+This piece uses a \href{https://algorithmicbotany.org/papers/abop/abop.pdf}{Lindenmayer system} defined in the \href{https://dmitri.mycpanel.princeton.edu/files/publications/science2.pdf}{voice-leading spaces} of Callendar, Quinn, and Tymoczko to implement the \href{https://www.mtosmt.org/issues/mto.05.11.3/mto.05.11.3.fiore_satyendra.pdf}{Generalized Contextual Groups} of chord transformations identified by Fiore and Satyendra. Here I use the Generalized Contextual Groups to capture the duality of major and minor so constitutive of Western music, in an abstract and generative form that is not specifically ``tonal." This Lindenmayer system, \href{https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=dd8623bbe8c889b2c56d6a1fc0fc55c61b362ee4}{presented by me at the 2009 International Computer Music Conference}, generates a score as movements of chords by transformation through chord space and time, writing notes of the chords to create the score. 
 
-The piece is a modified and elaborated form of \href{https://music.youtube.com/watch?v=3_ahbL44p-E}{\emph{Two Dualities} }by me, presented at the 2010 International Computer Music Conference in the listening rooms as part of \href{http://www.voxnovus.com/60x60/2010_Crimson_Mix.htm}{360 degrees of 60x60 (Crimson Mix)}.
+The piece is a modified and elaborated form of \href{https://music.youtube.com/watch?v=3_ahbL44p-E}{\emph{Two Dualities}} by me, presented at the 2010 International Computer Music Conference in the listening rooms as part of \href{http://www.voxnovus.com/60x60/2010_Crimson_Mix.htm}{360 degrees of 60x60 (Crimson Mix)}.
 
 For some hints as to the Lindenmayer system commands in \lstinline|GeneralizedContextualGroup.py|, see the \href{https://github.com/gogins/csound-ac/blob/master/silencio/python/GeneralizedContextualGroup.py}{comments in the source code}.
 
+\begin{mdframed}
+In the Lindenmayer system for Generalized Contextual Groups, the times that the chords are played are determined solely by the order in which they are written to the score, and their durations. The reason for this is to prevent more than one chord from playing at the same time. Mathematically speaking, in most music, even atonal music, the harmony is always a function of time. This restriction in the Lindenmayer system means that in it, also, the harmony is always a function of time.
 
+As a result, the structure of a piece cannot be determined by specifying the times of the chords. But the structure can be determined indirectly by using the push and pop commands, which can insert a sequence in the middle of a sequence. Changing the durations and voicings of chords also has an effect on structure.
 
-
-
-
-
-
-
-
-
-
-
-
-
+Please note, the Generalized Contextual Groups have no notion whatsoever of scale, key, cadence, or modulation. Nevertheless, by stringing together chord transformations that can produce a sense of switching between``major" and ``minor," and by generally performing the close voice-leadings typical of tonal music, the Lindemayer system can generate a flow of what might be called ``quasi-tonal" music.
+\end{mdframed}
 
 \end{document}
