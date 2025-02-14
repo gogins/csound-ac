@@ -797,7 +797,7 @@ endin
 <CsScore bin="python3">
 '''
 The way this works is not intuitive, but fortunately it is simple. The "bin" 
-attribute of the <CsScore> element mey be used to specify a program that will 
+attribute of the <CsScore> element may be used to specify a program that will 
 read and execute the script that is contained in the <CsScore> element. In 
 this example, that program is Python. sys.argv[0] may contain the name of an 
 existing file that the script can read from (not used here), and sys.argv[1] 
