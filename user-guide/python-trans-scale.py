@@ -896,7 +896,7 @@ sequence.addChild(canon_node)
 prior_key = 0
 key = 0
 # Stagger or syncopate the voices.
-quanta = 3.5
+delay = 2.75
 # Here, we handle the issue of references vs. values by 
 # working with fields, and appending the fields to the new score.
 for i in range(smoother_line_node.getScore().size()):
@@ -904,10 +904,9 @@ for i in range(smoother_line_node.getScore().size()):
     i1 = 7
     i2 = 7
     i3 = 7
-    quantum = event.getDuration()
     t1 = event.getTime()
-    t2 = t1 + quantum * quanta
-    t3 = t2 + quantum * quanta
+    t2 = t1 + delay
+    t3 = t2 + delay
     d = event.getDuration()
     s = event.getStatus()
     i = event.getInstrument()
