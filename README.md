@@ -140,7 +140,7 @@ these files to your home directory or other places.
 
 The following instructions are for macOS. Linux is similar. For 
 more information, look at `./github/cmake.yaml`. However, on Linux it may be 
-better to build Csound for source code.
+better to build Csound from source code.
 
 1.  Clone this Git repository.
 
@@ -165,13 +165,16 @@ better to build Csound for source code.
  
 4.  Build like this:
 ```
-    mkdir -p build-macos
-    cd build-macos
+    mkdir -p build-linux
+    cd build-linux
     rm -f CMakeCache.txt
     cmake -Wno-dev .. -DCMAKE_PREFIX_PATH=/usr/local:/usr 
     make -j6 VERBOSE=1
     sudo make install
 ```
+
+To uninstall, change to the build directory and execute 
+"xargs rm -v < install_manifest.txt".
 
 ## Release Notes
 

@@ -744,7 +744,7 @@ gk_ReverbSC_wet chnexport "gk_ReverbSC_wet", 3
 gi_ReverbSC_delay_modulation chnexport "gi_ReverbSC_delay_modulation", 3
 gk_ReverbSC_frequency_cutoff chnexport "gk_ReverbSC_frequency_cutoff", 3
 
-gk_ReverbSC_feedback init 0.875
+gk_ReverbSC_feedback init 0.78
 gk_ReverbSC_wet init 0.5
 gi_ReverbSC_delay_modulation init 0.0075
 gk_ReverbSC_frequency_cutoff init 15000
@@ -810,37 +810,44 @@ rescale_node.setRescale(CsoundAC.Event.INSTRUMENT, True, True, 1., 6.999);
 rescale_node.setRescale(CsoundAC.Event.KEY, True, True, 36., 60.);
 rescale_node.setRescale(CsoundAC.Event.VELOCITY, True, True, 80., 10.);
 image_node = CsoundAC.ImageToScore2()
-# image_node.setImageFilename("./FRACT186.png")
-# image_node.setImageFilename("./54011216051_f577def471_o.jpg")
-# image_node.setImageFilename("./54298975269_273c970344_o.jpg")
 image_node.setImageFilename("./44025833484_70440d3a59_o.jpg")
-image_node.threshhold(90)
-image_node.setMaximumVoiceCount(5)
+image_node.threshhold(80)
+image_node.setMaximumVoiceCount(20)
 image_node.generateLocally()
 for i in range(image_node.getScore().size()):
     event = image_node.getScore().get(i)
     duration = event.getDuration()
-    duration *= 4.
+    duration *= 2.
     event.setDuration(duration)
-image_node.getScore().tieOverlappingNotes(False)
+image_node.getScore().tieOverlappingNotes(True)
 duration = image_node.getScore().getDuration()
 
 # Create chord progressions and modulations.
 voiceleading_node = CsoundAC.VoiceleadingNode()
-scale = CsoundAC.scaleForName("D major")
+scale = CsoundAC.scaleForName("D minor")
 tyme = 0
 progressions = [2, 3, 5]
-quanta = [100, 150, 300, 800]
+durations = [50, 150, 75, 250]
 degree = 1
+chord_count = 1
 while tyme < duration:
     chord = scale.chord(degree, 5, 3)
+    chord_count = chord_count + 1
     voiceleading_node.chord(chord, tyme)
-    tyme = tyme + random.choice(quanta)
+    tyme = tyme + random.choice(durations)
+    print(f"chord {chord_count}: {chord.eOP().name()} in scale: {scale.name()}: time: {tyme}")
     progression = random.choice(progressions)
     degree = 1 + int(degree + progression) % 7
-voiceleading_node.addChild(image_node)
-rescale_node.addChild(voiceleading_node)
-sequence.addChild(rescale_node)
+    if (chord_count % 7) == 0:
+        modulations = scale.modulations(chord)
+        if modulations.size() > 0:
+            scale = random.choice(modulations)
+        
+voiceleading_node.rescaleTimes = True
+# Must be a child of the voiceleading node.
+voiceleading_node.addChild(rescale_node)
+rescale_node.addChild(image_node)
+sequence.addChild(voiceleading_node)
 music_model.addChild(sequence)
 
 music_model.setCsd(csd)
@@ -849,7 +856,7 @@ music_model.setTitle("python-imagery")
 music_model.generateAllNames()
 music_model.generate()
 print("Generated score:")
-music_model.getScore().setDuration(180.)
+music_model.getScore().setDuration(720.)
 print(music_model.getScore().getCsoundScore())
 music_model.perform()
 
