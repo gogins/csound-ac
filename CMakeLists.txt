@@ -179,13 +179,11 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/doc/html
     DESTINATION share/doc/${CPACK_PACKAGE_NAME})
 endif()
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/patches
-    DESTINATION share/${CPACK_PACKAGE_NAME}/doc)
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/patches
-    DESTINATION share/${CPACK_PACKAGE_NAME}/doc)
+    DESTINATION share/doc/${CPACK_PACKAGE_NAME}/patches)
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/playpen
-    DESTINATION share${CPACK_PACKAGE_NAME}/doc)
+    DESTINATION share/doc/${CPACK_PACKAGE_NAME}/playpen)
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/user-guide/" 
-    DESTINATION  share/${CPACK_PACKAGE_NAME}/user-guide
+    DESTINATION  share/doc/${CPACK_PACKAGE_NAME}/user-guide
     FILES_MATCHING 
     PATTERN "*.py"
     PATTERN "44025833484_70440d3a59_o.jpg"
