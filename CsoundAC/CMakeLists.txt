@@ -160,20 +160,18 @@ if(BUILD_CSOUND_AC)
             ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}")
 
         message(STATUS "SWIG_MODULE_CsoundAC_REAL_NAME: ${SWIG_MODULE_CsoundAC_REAL_NAME}")
+        
         install(TARGETS "${SWIG_MODULE_CsoundAC_REAL_NAME}"
             DESTINATION "${Python3_SITEARCH}")
             
         install(FILES "${BUILD_DIR}/CsoundAC.py"
             DESTINATION "${Python3_SITEARCH}")
             
-        install(TARGETS "${SWIG_MODULE_CsoundAC_REAL_NAME}"
-            DESTINATION "site-packages")
-            
-        install(FILES "${BUILD_DIR}/CsoundAC.py"
-            DESTINATION "site-packages")
-
         install(FILES "${CMAKE_SOURCE_DIR}/silencio/python/GeneralizedContextualGroup.py"
-            DESTINATION "site-packages")
+            DESTINATION "${Python3_SITEARCH}")
+
+        install(FILES "${CMAKE_SOURCE_DIR}/reaper/ac_reaper.py"
+            DESTINATION "${Python3_SITEARCH}")
 
             
     endif()

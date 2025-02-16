@@ -4,7 +4,6 @@ import math
 import os
 import string
 import sys
-sys.path.append('/Users/michaelgogins/csound-ac/reaper')
 import types
 import time
 from reaper_python import *

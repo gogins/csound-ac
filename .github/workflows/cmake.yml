@@ -106,7 +106,7 @@ jobs:
         run: |
           echo "Installing tools..."
           brew update
-          brew install python@3.11 --overwrite
+          brew install python@3.12 --overwrite
           brew upgrade
           brew install graphviz
           brew install doxygen
@@ -144,6 +144,7 @@ jobs:
         run: |
           echo "Installing tools..."
           sudo apt-get update
+          sudo apt-get install python3.12
           sudo apt-get install graphviz
           sudo apt-get install doxygen
           sudo apt-get install texlive

@@ -164,7 +164,7 @@ set(CPACK_GENERATOR TGZ)
 set(CPACK_PACKAGE_CONTACT "Michael Gogins <michael.gogins@gmail.com>")
 set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_SOURCE_DIR}/README.md")
 set(CPACK_PACKAGE_NAME "csound-ac")
-set(CPACK_PACKAGE_VERSION "0.5.0")
+set(CPACK_PACKAGE_VERSION "0.6.0")
 
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/copyright.txt")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
@@ -179,12 +179,17 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/doc/html
     DESTINATION share/doc/${CPACK_PACKAGE_NAME})
 endif()
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/patches
-    DESTINATION share/doc/${CPACK_PACKAGE_NAME})
+    DESTINATION share/${CPACK_PACKAGE_NAME}/doc)
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/patches
-    DESTINATION share/doc/${CPACK_PACKAGE_NAME})
+    DESTINATION share/${CPACK_PACKAGE_NAME}/doc)
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/playpen
-    DESTINATION share/doc/${CPACK_PACKAGE_NAME})
-
+    DESTINATION share${CPACK_PACKAGE_NAME}/doc)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/user-guide/" 
+    DESTINATION  share/${CPACK_PACKAGE_NAME}/user-guide
+    FILES_MATCHING 
+    PATTERN "*.py"
+    PATTERN "44025833484_70440d3a59_o.jpg"
+    PATTERN "*.pdf")
 # And all the README.md files, renamed to not conflict...
 
 install(FILES "README.md"
