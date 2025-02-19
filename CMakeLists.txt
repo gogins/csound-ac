@@ -159,8 +159,8 @@ endif()
 # These are the real targets: the packages.
 
 set(CPACK_COMPONENTS_ALL csound-ac)
-set(CPACK_COMPONENTS_ALL_IN_ONE_PACKAGE "OFF")
-set(CPACK_GENERATOR TGZ)
+set(CPACK_COMPONENTS_ALL_IN_ONE_PACKAGE "ON")
+set(CPACK_GENERATOR ZIP)
 set(CPACK_PACKAGE_CONTACT "Michael Gogins <michael.gogins@gmail.com>")
 set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_SOURCE_DIR}/README.md")
 set(CPACK_PACKAGE_NAME "csound-ac")
