@@ -129,6 +129,7 @@ if(BUILD_CSOUND_AC)
 
     if(BUILD_CSOUND_AC_PYTHON_INTERFACE)
         message(STATUS "Building CsoundAC Python interface.")
+        message(STATUS "CMAKE_INSTALL_LIBDIR: ${CMAKE_INSTALL_LIBDIR}")
         message(STATUS "Python3_SITEARCH: ${Python3_SITEARCH}")
         message(STATUS "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
         include_directories(${Python3_INCLUDE_DIRS})
@@ -160,9 +161,11 @@ if(BUILD_CSOUND_AC)
             ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}")
 
         message(STATUS "SWIG_MODULE_CsoundAC_REAL_NAME: ${SWIG_MODULE_CsoundAC_REAL_NAME}")
+
+        # For make install.
         
-        install(TARGETS "${SWIG_MODULE_CsoundAC_REAL_NAME}"
-            DESTINATION "${Python3_SITEARCH}")
+        install(TARGETS ${SWIG_MODULE_CsoundAC_REAL_NAME}
+            LIBRARY DESTINATION "${Python3_SITEARCH}")
             
         install(FILES "${BUILD_DIR}/CsoundAC.py"
             DESTINATION "${Python3_SITEARCH}")
@@ -173,7 +176,20 @@ if(BUILD_CSOUND_AC)
         install(FILES "${CMAKE_SOURCE_DIR}/reaper/ac_reaper.py"
             DESTINATION "${Python3_SITEARCH}")
 
+        # For CPack to ZIP.
+
+        install(TARGETS "${SWIG_MODULE_CsoundAC_REAL_NAME}"
+            DESTINATION "lib/python/site-packages")
             
+        install(FILES "${BUILD_DIR}/CsoundAC.py"
+            DESTINATION "lib/python/site-packages")
+            
+        install(FILES "${CMAKE_SOURCE_DIR}/silencio/python/GeneralizedContextualGroup.py"
+            DESTINATION "lib/python/site-packages")
+
+        install(FILES "${CMAKE_SOURCE_DIR}/reaper/ac_reaper.py"
+            DESTINATION "lib/python/site-packages")
+     
     endif()
 
 endif()

@@ -8,4 +8,5 @@ cmake -DCMAKE_INSTALL_PREFIX:PATH=/opt/homebrew -Wno-dev .. "$@"
 make -j6 VERBOSE=1
 sudo cpack -V -G ZIP
 sudo make install
+zip
 echo "Finished building all for macOS."
