@@ -11,8 +11,6 @@ for p in sys.path:
     RPR_ShowConsoleMsg(p + '\n')
 import ac_reaper
 import CsoundAC
-import GeneralizedContextualGroup
-
 import random
 
 # Uncomment the next line if you need to see more about what is going on.
@@ -34,8 +32,6 @@ for i in range(60):
     p4 = 36 + i
     p5 = 60
     scale_node.getScore().add(p2, p3, 144, p1, p4, p5)
-print("scale_node:")
-print(scale_node.getScore().toString())
     
 # Add a section that randomizes the onsets of the notes in the scale.
 random_times_node = CsoundAC.ScoreNode()
@@ -57,8 +53,6 @@ for i in range(len(note_onsets)):
 # The new score needs to be sorted to satisfy assumptions of further 
 # processing.
 random_times_node.getScore().sort()
-print("random_times_node:")
-print(random_times_node.getScore().toString())
 
 # Add a section that creates a connected line from the shuffled events.
 connected_line_node = CsoundAC.ScoreNode()
@@ -79,8 +73,6 @@ for i in range(size):
     event.setOffTime(off_time)
     event.setVelocity(event.getVelocity() + 9)
 connected_line_node.getScore().rescale(CsoundAC.Event.INSTRUMENT, True, 7, True, 0)
-print("connected_line_node:")
-print(connected_line_node.getScore().toString())
 
 # Add a section that removes most leaps from the line.
 smoother_line_node = CsoundAC.ScoreNode()
@@ -102,8 +94,6 @@ for i in range(connected_line_node.getScore().size()):
 # Rescale the smoother line to start higher.
 smoother_line_node.getScore().rescale(CsoundAC.Event.KEY, True, 48, False, 0)
 smoother_line_node.getScore().sort()
-print("smoother_line_node:")
-print(smoother_line_node.getScore().toString())
 
 # Add a section that is a canon of three voices.
 canon_node = CsoundAC.ScoreNode()
@@ -168,8 +158,10 @@ music_model.setAuthor("CsoundAC Tutorial");
 music_model.setTitle("python-trans-scale");
 music_model.generateAllNames()
 music_model.generate()
-# Tieing overlapping notes makes the line easier to hear.
+ # Tieing overlapping notes makes the line easier to hear.
 music_model.getScore().tieOverlappingNotes(True)
+
 # The ac_reaper module score_to_midiitem function can translate both scores as 
 # raw Python arrays of notes, or scores as CsoundAC Scores.
 ac_reaper.score_to_midiitem(music_model.getScore())
+
