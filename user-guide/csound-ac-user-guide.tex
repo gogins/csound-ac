@@ -7,7 +7,9 @@
 \usepackage{fancyvrb}
 \usepackage{listings}
 \usepackage{hyperref}
-\usepackage{xcolor, mdframed}
+\usepackage{xcolor}
+\usepackage{pstricks}
+\usepackage[framemethod=xcolor]{mdframed}
 
 % Define a global background color
 \definecolor{framebg}{rgb}{0.9,0.9,0.9} % Light gray background
@@ -21,9 +23,38 @@
     urlcolor=blue        % Colors URLs blue
 }
 
+\definecolor{palegray}{RGB}{245, 245, 245}  % Light gray
+\definecolor{palecanary}{RGB}{255, 255, 215} % Pale canary yellow
+
+% Set global mdframed options
+\mdfsetup{
+    skipabove=10pt,
+    skipbelow=10pt,
+    innertopmargin=5pt,
+    innerbottommargin=5pt,
+    innerleftmargin=10pt,
+    innerrightmargin=10pt,
+    linewidth=1pt,
+    roundcorner=5pt
+}
+
+% Define a framed style with a pale gray background
+\newmdenv[
+    backgroundcolor=palegray,
+    linecolor=black
+]{grayframed}
+
+% Define a framed style with a pale canary background
+\newmdenv[
+    backgroundcolor=palecanary,
+    linecolor=black
+]{canaryframed}
+
+\pagecolor{white}
+
 \begin{document}
 \definecolor{LstColor}{cmyk}{0.1,0.1,0,0.05} 
-\lstset{language=c++,basicstyle=\ttfamily\normalsize,commentstyle=\ttfamilynormalsize,tabsize=2,breaklines,backgroundcolor=\color{LstColor},fontadjust=true,fancyvrb=true,moredelim=[is][\textbf]{\\emph\{}{\}}}.
+\lstset{language=c++,basicstyle=\ttfamily\normalsize,commentstyle=\ttfamily\normalsize,tabsize=2,breaklines,backgroundcolor=\color{LstColor},fontadjust=true,fancyvrb=true,moredelim=[is][\textbf]{\\emph\{}{\}}}.
 
 \title{CsoundAC User Guide (Mostly for Python)}
 \author{Michael Gogins \\ \texttt{michael.gogins@gmail.com}}
@@ -72,27 +103,23 @@ Binaries for CsoundAC on Linux can also be built from source code by the user as
 
 The following instructions are for binary releases that you have downloaded from GitHub and unzipped in your home directory.
 
-\subsubsection{Configuring CsoundAC}
+\subsubsection{On macOS}
 
-On macOS, use the Terminal app to gain access to the macOS command line.   Add the following lines to your \lstinline|.zprofile| script:
+You need to have installed the Terminal app and, preferably, \href{https://brew.sh/}{Homebrew}.
 
-\begin{lstlisting}
-export DYLD_LIBRARY_PATH=~/csound-ac-0.5.0-Darwin/lib:$DYLD_LIBRARY_PATH
-export PYTHONPATH=~/csound-ac-0.5.0-lDarwin/site-packages:$PYTHONPATH
-\end{lstlisting}
-
-Then in your home directory, execute \lstinline|source .zprofile|.
-
-On Linux add the following lines to your \lstinline|.profile| script:
+Unzip the CsoundAC file, open a terminal, and change to the root directory of the unzipped files. Then copy the shared libraries to your Homebrew \lstinline|lib| directory and the \lstinline|site-packages| files to your Homebrew \lstinline|site-packages|. For example, if the Python version for CsoundAC is 3.12:
 
 \begin{lstlisting}
-export LD_LIBRARY_PATH=~/csound-ac-0.5.0-linux/lib:$LD_LIBRARY_PATH
-export PYTHONPATH=~/csound-ac-0.5.0-linux/site-packages:$PYTHONPATH
+cd ~Downloads
+unzip csound-ac-0.6.0-Darwin.zip -d csound-ac
+cd csound-ac
+cp lib/lib* /opt/homebrew/lib/
+cp lib/python/site-packages/* /opt/homebrew/lib/python3.12/site-packages/
 \end{lstlisting}
 
-Then in your home directory, execute \lstinline|source .profile|.
+These files must be installed in system directories so that Reaper can load them.
 
-Test your installation by running the correct version of Python and importing the CsoundAC and GeneralizedContextualGroup modules. There should be no error.
+Run the correct version of Python and import the CsoundAC and GeneralizedContextualGroup modules. 
 
 \begin{lstlisting}[basicstyle=\small\ttfamily]
 michaelgogins@macbookpro ~/csound-ac % python3.12
@@ -102,6 +129,40 @@ Type "help", "copyright", "credits" or "license" for more information.
 >>> import GeneralizedContextualGroup
 >>> 
 \end{lstlisting}
+
+The macOS Gatekeeper will probably refuse to open the shared libraries, and encourage you to delete them. Instruct the system to open these files anyway:
+
+\begin{enumerate}
+\item Open \emph{System Settings} → \emph{Privacy \& Security}.
+\item Scroll down to \emph{Security}.
+\item Look for a message about the blocked library and click \emph{Allow Anyway}.
+\end{enumerate}
+
+You will have to do this both for \lstinline|_CsoundAC.so| and \lstinline|libCsoundAC.dylib|. When both have been allowed, the import should succeed.
+
+\subsubsection{On Linux}
+
+On Linux, unzip the CsoundAC archive in your home directory add the following lines to your \lstinline|.profile| script:
+
+\begin{lstlisting}
+export LD_LIBRARY_PATH=~/csound-ac-0.6.0-linux/lib:$LD_LIBRARY_PATH
+export PYTHONPATH=~/csound-ac-0.6.0-linux/site-packages:$PYTHONPATH
+\end{lstlisting}
+
+Then in your home directory, execute \lstinline|source .profile|.
+
+Run the correct version of Python and import the CsoundAC and GeneralizedContextualGroup modules. 
+
+\begin{lstlisting}[basicstyle=\small\ttfamily]
+michaelgogins@macbookpro ~/csound-ac % python3.12
+Python 3.12.8 (main, Dec  3 2024, 18:42:41) [Clang 16.0.0 (clang-1600.0.26.4)] on darwin
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import CsoundAC
+>>> import GeneralizedContextualGroup
+>>> 
+\end{lstlisting}
+
+There should be no errors.
 
 \subsubsection{Configuring ctcsound}
 
@@ -151,7 +212,7 @@ Additional configuration is required to enable Python and CsoundAC in Reaper. To
 \item Exit Reaper, and run it again.
 \item Use the \emph{Actions} menu, \emph{New action...} dialog, ``Load ReaScript..." dialog to load the \lstinline|ac_reaper.py| script.
 \item Create a track with a blank MIDI item, and select that item.
-\item Use the\emph{Actions} menu, \emph{Show action list...} dialog, select the \emph{ac\_reaper.py} script, and click on the \emph{Run} button. 
+\item Use the \emph{Actions} menu, \emph{Show action list...} dialog, select the \emph{ac\_reaper.py} script, and click on the \emph{Run} button. 
 \item You should see the \emph{ReaScript console output} dialog, with output from the \emph{ac\_reaper.py} script. It should look something like this:
 
 \begin{lstlisting}[basicstyle=\small\ttfamily]
@@ -183,17 +244,17 @@ The following examples proceed step by step, repeating each example in standalon
 
 For insight into the code, go to the hyperlinked source code or open the examples in an editor, and read them in order; there are many explanatory comments.
 
-\begin{mdframed}
+\begin{canaryframed}
 And in the following, specifically \emph{compositional} remarks are framed like this.
-\end{mdframed}
+\end{canaryframed}
 
 \subsection{Basic Python Usage}
 
-Here, the same very basic example is run in three environments. All three examples use the same Csound orchestra, \href{https://github.com/gogins/csound-ac/blob/master/user-guide/basic.csd}{\lstinline|basic.csd|}, which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple \lstinline|for| loop to generate an ascending chromatic scale of notes. The only differences between the examples are in how they are run, and how they interface with Csound. CsoundAC is not used --- these examples show only the most basic, low-level method of generating a score with Python.
+Here, the same very basic example is run in three environments. All three examples use the same Csound orchestra, \href{https://github.com/gogins/csound-ac/blob/master/user-guide/basic.csd}{\lstinline|basic.csd|}, which is defined in the Python code as a Python string literal (\lstinline|(r"some string with perhaps many lines and escape characters"|). All three examples use a simple \lstinline|for| loop to generate an ascending chromatic scale of notes over five octaves. The only differences between the examples are in how they are run, and how they interface with Csound. CsoundAC is not used --- these examples show only the most basic, low-level method of generating a score with Python.
 
-\begin{mdframed}
+\begin{canaryframed}
 The ascending scale is used as a deliberately simple starting point. However, note that the alternation of Csound instruments in overlapping notes, some of which contain internally varying sounds, creates a more complex texture than might be expected.
-\end{mdframed}
+\end{canaryframed}
 
 \subsubsection{Running in Python: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/basic-python.py}{\lstinline|basic-python.py|}}
 
@@ -235,11 +296,11 @@ These three examples re-create the three basic examples above, changing them onl
 
 \subsection{Compositional Examples}
 
-\begin{mdframed}
+\begin{canaryframed}
 My paper \href{https://arxiv.org/pdf/2305.15601}{\emph{Metamathematics of Algorithmic Composition}} presents an analysis of the advantages and limitations of algorithmic composition in general. The paper is written at the level of undergraduate theoretical computer science. This reference can be skipped, but provides a deeper context for some of the remarks on algorithmic composition that follow below.
 
-To sum it up, algorithmic composition is capable of approximating, as closely as one likes, any possible piece of music. Furthermore, different algorithms can be placed in intelligible relationships to one another, such that it is possible,\emph{ in principle}, to compose by exploring a parametric map of the algorithms. Nevertheless, the number of possible algorithms is so vast that it is simply not possible, \emph{in practice,} to construct a usable map of related algorithms. That would take an impossibly long time.
-\end{mdframed}
+To sum it up, algorithmic composition is capable of approximating, as closely as one likes, any possible piece of music. Furthermore, different algorithms can be placed in musically intelligible relationships to one another, such that it is possible,\emph{ in principle}, to plot a map where each point on the map represents a composition, and compositions that are closely related to each other musically are located near each other on this map. It would then be possible to compose by interactively exploring this map. Nevertheless, the number of possible algorithms is so vast that it is simply not possible, \emph{in practice,} to construct a usable map of related algorithms. That would take an impossibly long time --- but much faster computers might make it possible.
+\end{canaryframed}
 
 \subsubsection{How CsoundAC Works}
 
@@ -296,9 +357,9 @@ This piece takes the ascending chromatic scale of the previous examples, and use
 
 Read the code for more details.
 
-\begin{mdframed}
+\begin{canaryframed}
 CsoundAC provides two facilities for working with harmony. The first is based on neo-Riemannian chord transformations, e.g. the \href{https://www.mtosmt.org/issues/mto.05.11.3/mto.05.11.3.fiore_satyendra.pdf}{Generalized Contextual Groups} of Fiore and Satyendra, implemented in the \href{https://dmitri.mycpanel.princeton.edu/files/publications/science2.pdf}{chord spaces} studied by Callendar, Quinn, and Tymoczko. The second is based on \href{https://doi.org/10.1093/oso/9780197577103.001.0001}{tonal harmony as schematized by Tymoczko}, also implemented by me in chord space. The final section of \lstinline|python-trans-scale.py| piece uses my implementation of Tymoczko's scheme.
-\end{mdframed}
+\end{canaryframed}
 
 \subsubsection{Translating Images to Scores:  \href{https://github.com/gogins/csound-ac/blob/master/user-guide/python-imagery.py}{\lstinline|python-imagery.py|}}
 
@@ -320,7 +381,7 @@ This piece takes a high-resolution digital photograph, and uses CsoundAC to:
 \item Call \lstinline|MusicModel.perform| to render the score using the Csound orchestra.
 \end{enumerate}
 
-\begin{mdframed}
+\begin{canaryframed}
 In a piece like this, the composer must have some sort of starting point such as a specific image, an idea of the density of texture desired, or a Csound orchestra. After that, the piece can only be improved by an iterative process of trial and error. Best practices:
 \begin{itemize}
 \item Before changing anything, make a backup copy of the current state of the piece. This can be done either by commenting out a line or block of code that has been changed, or by saving versions under different names, or by committing each variant of the piece to a version control system such as Git.
@@ -330,9 +391,9 @@ In a piece like this, the composer must have some sort of starting point such as
 \item What may sound worthless at first can sometimes be improved a great deal.
 \item If a series of changes ends up spoiling the piece, go back to the last version that you did not make worse, and try changing something other than what you had changed.
 \item In the ImageToScore node, there are parameters that can produce different textures from the same image, such as threshold or maximum number of voices.
-\item Each pixel in an image might become a separate note, and in a high resolution image, the tempo and density can be high. For example, the image in this example has 4,032 columns (time steps). In fact, with a fast tempo and a large number of voices, notes will blur into granular type sounds; a score 3 minutes long at this density could have some notes lasting only 0.045 seconds. This may be desirable, or not. If you need a slower tempo, multiply the duration of each note in ImageToScore's score by some factor, and then call \lstinline|ImageToScore.getScore().tieOverlappingNotes()|; or, of course, increase the duration of the piece.
+\item Each pixel in an image might become a separate note, and in a high resolution image, the tempo and density can be high. For example, the image in this example has 4,032 columns of pixels (time steps). In fact, with a fast tempo and a large number of voices, notes will blur into granular type sounds; a score 3 minutes long at this density could have some notes lasting only 0.045 seconds. This may be desirable, or not. If you need a slower tempo, multiply the duration of each note in ImageToScore's score by some factor, and then call \lstinline|ImageToScore.getScore().tieOverlappingNotes()|; or, of course, increase the duration of the piece.
 \end{itemize}
-\end{mdframed}
+\end{canaryframed}
 
 \subsubsection{Lindenmayer Systems in Chord Space: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/python-duo-dualities.py}{\lstinline|python-duo-dualities.py|}}
 
@@ -342,16 +403,14 @@ The piece is a modified and elaborated form of \href{https://music.youtube.com/w
 
 For some hints as to the Lindenmayer system commands in \lstinline|GeneralizedContextualGroup.py|, see the \href{https://github.com/gogins/csound-ac/blob/master/silencio/python/GeneralizedContextualGroup.py}{comments in the source code}.
 
-In the Python version, the same Csound orchestra as the other examples is used to render the piece. 
+In the Python version, the same Csound orchestra as the other examples is used to render the piece. In the Reaper version (\href{xxx}{reascript-duo-dualities.py} and \href{xxx}{duo-dualities.RPP}), MIDI channels 1 through 3 are routed to one synth (the free and open source \href{https://asb2m10.github.io/dexed/}{Dexed plugin}), and channels 4 through 7 are routed to another synth (the free and open source \href{https://surge-synthesizer.github.io/}{Surge XT plugin}). This demonstrates that the use of CsoundAC is by no means limited to Csound.
 
-In the Reaper version, MIDI channels 1 through 3 are routed to one synth (the free and open source \href{https://asb2m10.github.io/dexed/}{Dexed plugin}), and channels 4 through 7 are routed to another synth (the free and open source \href{https://surge-synthesizer.github.io/}{Surge XT plugin}). This demonstrates that the use of CsoundAC is by no means limited to Csound.
+\begin{canaryframed}
+In the Lindenmayer system for Generalized Contextual Groups, the times that the chords are played are determined solely by the order in which they are written to the score, and their durations. The reason for this is to prevent more than one chord from sounding at the same time. Mathematically speaking, in most music, even atonal music, the harmony is always a function of time. This restriction in the Lindenmayer system means that in it, also, the harmony is always a function of time.
 
-\begin{mdframed}
-In the Lindenmayer system for Generalized Contextual Groups, the times that the chords are played are determined solely by the order in which they are written to the score, and their durations. The reason for this is to prevent more than one chord from playing at the same time. Mathematically speaking, in most music, even atonal music, the harmony is always a function of time. This restriction in the Lindenmayer system means that in it, also, the harmony is always a function of time.
+As a result, the structure of a piece cannot be determined by directly specifying the times of the chords. But the structure can be indirectly controlled by using the push and pop commands, which can insert a sequence in the middle of a sequence. Changing the durations and voicings of chords also has an effect on structure.
 
-As a result, the structure of a piece cannot be determined by specifying the times of the chords. But the structure can be indirectly controlled by using the push and pop commands, which can insert a sequence in the middle of a sequence. Changing the durations and voicings of chords also has an effect on structure.
-
-Please note, the Generalized Contextual Groups have no notion whatsoever of scale, key, cadence, or modulation. Nevertheless, by stringing together chord transformations that can produce a sense of switching between``major" and ``minor," and by generally performing the close voice-leadings typical of tonal music, this Lindemayer system can generate a flow of what might be called ``quasi-tonal" music.
-\end{mdframed}
+Please note, the Generalized Contextual Groups have no notion whatsoever of scale, key, cadence, or modulation. Nevertheless, by stringing together chord transformations that can produce a sense of switching between``major" and ``minor," and by often performing the smooth voice-leadings typical of well-formed music, this Lindemayer system can generate a flow of what might be called ``quasi-tonal" music.
+\end{canaryframed}
 
 \end{document}

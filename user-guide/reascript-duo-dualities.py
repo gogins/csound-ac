@@ -4,7 +4,7 @@ import math
 import os
 import string
 import sys
-sudo xargs rm -v < install_manifest.txtimport types
+import types
 import time
 from reaper_python import *
 for p in sys.path:
