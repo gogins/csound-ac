@@ -338,7 +338,7 @@ In standalone Python, once the global Score has been generated, the MusicModel u
 
 In Csound using the \lstinline|<CsScore bin=python3>| facility, the generated Score must be translated to a Csound score and written to the temporary filename.
 
-In Python ReaScript, the generated Score must be passed to the \lstinline|ac_reaper.score_to_midiitem| function.
+In Python ReaScript, Csound is not used directly; the generated Score must be passed to the \lstinline|ac_reaper.score_to_midiitem| function; any synthesizer plugin (including CsoundVST3) can then be used to render the Score.
 
 The following three examples demonstrate some typical uses of CsoundAC. Two implementations are provided for each example: as standalone Python, and as Python ReaScript for Reaper.
 
@@ -403,7 +403,7 @@ The piece is a modified and elaborated form of \href{https://music.youtube.com/w
 
 For some hints as to the Lindenmayer system commands in \lstinline|GeneralizedContextualGroup.py|, see the \href{https://github.com/gogins/csound-ac/blob/master/silencio/python/GeneralizedContextualGroup.py}{comments in the source code}.
 
-In the Python version, the same Csound orchestra as the other examples is used to render the piece. In the Reaper version (\href{xxx}{reascript-duo-dualities.py} and \href{xxx}{duo-dualities.RPP}), MIDI channels 1 through 3 are routed to one synth (the free and open source \href{https://asb2m10.github.io/dexed/}{Dexed plugin}), and channels 4 through 7 are routed to another synth (the free and open source \href{https://surge-synthesizer.github.io/}{Surge XT plugin}). This demonstrates that the use of CsoundAC is by no means limited to Csound.
+In the Python version, the same Csound orchestra as the other examples is used to render the piece. In the Reaper version (\href{https://github.com/gogins/csound-ac/blob/master/user-guide/reascript-duo-dualities.py}{reascript-duo-dualities.py} and \href{https://github.com/gogins/csound-ac/blob/master/user-guide/duo-dualities.RPP}{duo-dualities.RPP}), MIDI channels 1 through 3 are routed to one synth (the free and open source \href{https://asb2m10.github.io/dexed/}{Dexed plugin}), and channels 4 through 7 are routed to another synth (the free and open source \href{https://surge-synthesizer.github.io/}{Surge XT plugin}). This demonstrates that the use of CsoundAC is by no means limited to Csound.
 
 \begin{canaryframed}
 In the Lindenmayer system for Generalized Contextual Groups, the times that the chords are played are determined solely by the order in which they are written to the score, and their durations. The reason for this is to prevent more than one chord from sounding at the same time. Mathematically speaking, in most music, even atonal music, the harmony is always a function of time. This restriction in the Lindenmayer system means that in it, also, the harmony is always a function of time.
