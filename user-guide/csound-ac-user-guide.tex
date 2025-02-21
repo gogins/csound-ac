@@ -340,7 +340,7 @@ In Csound using the \lstinline|<CsScore bin=python3>| facility, the generated Sc
 
 In Python ReaScript, Csound is not used directly; the generated Score must be passed to the \lstinline|ac_reaper.score_to_midiitem| function; any synthesizer plugin (including CsoundVST3) can then be used to render the Score.
 
-The following three examples demonstrate some typical uses of CsoundAC. Two implementations are provided for each example: as standalone Python, and as Python ReaScript for Reaper.
+The following three examples demonstrate some typical uses of CsoundAC. Two implementations are provided for each example: as standalone Python, and as Python ReaScript for Reaper. Please note, if Reaper hangs when running a Python script, that may be caused by code that calls Python's \lstinline|print| function rather than \lstinline|RPR_ShowConsoleMsg|. In that case, run Reaper from the Terminal command line by executing: \lstinline|/Applications/REAPER.app/Contents/MacOS/REAPER|.
 
 \subsubsection{Transforming Source Material: \href{https://github.com/gogins/csound-ac/blob/master/user-guide/python-trans-scale.py}{\lstinline|python-trans-scale.py|}}
 
