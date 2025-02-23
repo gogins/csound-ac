@@ -175,7 +175,8 @@ def score_to_midiitem(score, key_offset=0, start_offset=0):
     # Restore the remembered start time.
     RPR_SetMediaItemInfo_Value(selected_item, "D_POSITION", midi_item_start)
     RPR_MIDI_Sort(midi_take)
-    RPR_ShowConsoleMsg("MIDI notes added successfully! Check the editor.\n")
+    n = len(score)
+    RPR_ShowConsoleMsg(f"{n} MIDI notes added successfully! Check the editor.\n")
 
 # Test case.
 if __name__ == '__main__':  
