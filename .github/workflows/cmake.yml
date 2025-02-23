@@ -113,6 +113,7 @@ jobs:
           brew install texlive
           echo "Installing dependencies..."
           brew install opencv
+          brew install libsndfile
           brew install csound
           ls -ll
           echo "Updating all git submodules..."
