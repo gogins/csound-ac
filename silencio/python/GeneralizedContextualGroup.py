@@ -172,13 +172,17 @@ class Turtle(object):
         self.voicelead = False
         # The pitches implied by O, range, and r.
         self.R = None
+        # Legato (added duration) or staccato (shortened duration) in seconds.
+        self.overlap = 0
         self.instrumentsForVoices = {}
         for i in range(12):
             self.instrumentsForVoices[i] = i
     def write(self, score):
         for i in range(len(self.R)):
             t = self.time
-            d = self.duration
+            d = self.duration + self.overlap
+            if d < 0:
+                d = self.duration / 2
             s = 144.0
             k = self.R[i]
             v = self.loudness
@@ -231,6 +235,8 @@ class Turtle(object):
 #      the turtle chord; this has the effect of making it minor if it was major, 
 #      or major if it was minor.
 # L*n or L/n -- Multiply or divide the loudness of the chord by n.
+# On -- Remove (if n negative) or add (if n positive) duration n from the 
+#      duration o the event; i.e., make legato or staccato.
 # Pn -- Change the prime form of the chord to the nth prime form in the 
 #      enumeration of prime forms; the new chord will be at the 
 #      smoothest voiceleading from the previously written chord.
@@ -272,6 +278,7 @@ class GeneralizedContextualGroup(CsoundAC.ScoreNode):
         self.commands['I'] = self.commandI
         self.commands['K'] = self.commandK
         self.commands['L'] = self.commandL
+        self.commands['O'] = self.commandO
         self.commands['P'] = self.commandP
         self.commands['Q'] = self.commandQ
         self.commands['R'] = self.commandR
@@ -342,6 +349,12 @@ class GeneralizedContextualGroup(CsoundAC.ScoreNode):
                 self.turtle.loudness = self.turtle.loudness * float(token[2:])
             elif token[1] == '/':
                 self.turtle.loudness = self.turtle.loudness / float(token[2:])
+    # Controls legato/staccato. The overlap is an _absolute_ duration in 
+    # seconds that is added to (legato) or subtracted from (staccato) the 
+    # actual duration of the note. Does _not_ affect the duration of the 
+    # interval bdtween chords.
+    def commandO(self, token):
+        self.turtle.overlap = eval(token[1:])
     # Mutate the turtle chord from the current PTV (if any)
     # to a new PTV that is as close a voiceleading to the current PTV as possible.
     def commandP(self, token):

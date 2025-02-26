@@ -69,6 +69,7 @@ if(BUILD_CSOUND_AC)
     endif()
     if(EMSCRIPTEN)
     else()
+        i
         list(APPEND libcsoundac_SRCS "Soundfile.cpp")
     endif()
 
