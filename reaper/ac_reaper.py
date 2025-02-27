@@ -176,7 +176,10 @@ def score_to_midiitem(score, key_offset=0, start_offset=0):
     RPR_SetMediaItemInfo_Value(selected_item, "D_POSITION", midi_item_start)
     RPR_MIDI_Sort(midi_take)
     n = len(score)
-    RPR_ShowConsoleMsg(f"{n} MIDI notes added successfully! Check the editor.\n")
+    RPR_ShowConsoleMsg(f"Number of CsoundAC notes:  {n}.\n")
+    # (Int retval, MediaItem_Take take, Int notecntOut, Int ccevtcntOut, Int textsyxevtcntOut) = RPR_MIDI_CountEvts(take, notecntOut, ccevtcntOut, textsyxevtcntOut)
+    _, _, noteCount, _, _ = RPR_MIDI_CountEvts(midi_take, 0, 0, 0)
+    RPR_ShowConsoleMsg(f"Number of MIDI take notes: {noteCount}.\n")
 
 # Test case.
 if __name__ == '__main__':  
