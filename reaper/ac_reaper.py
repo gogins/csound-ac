@@ -84,7 +84,7 @@ def note_to_miditake(midi_take, start, duration, channel, key, velocity):
         )
         return
     RPR_ShowConsoleMsg(
-        f"Inserting note: Start: {start} Start PPQ: {start_ppq} End PPQ; {end_ppq} Key: {key} Velocity: {velocity}\n"
+        f"MIDI note: seconds: {start:9.3f} PPQ: {start_ppq:11.3f} to {end_ppq:11.3f} channel: {channel:3d} key: {key:3d} velocity: {velocity:3d}\n"
     )
     success = RPR_MIDI_InsertNote(
         midi_take,    # Take

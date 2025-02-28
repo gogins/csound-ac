@@ -331,10 +331,10 @@ class GeneralizedContextualGroup(CsoundAC.ScoreNode):
             elif token[1] == '/':
                 self.turtle.duration = self.turtle.duration / float(token[2:])
     def commandI(self, token):
-        arrangement = string.split(token[1:], '=')
+        arrangement = token[1:].split('=')
         v = int(arrangement[0])
         i = int(arrangement[1])
-        print('Assigning instrument %s for voice %s.' % (i, v))
+        print('Assigning instrument %s to voice %s.' % (i, v))
         self.turtle.instrumentsForVoices[v] = i
     def commandK(self, token):
         self.turtle.O = K(self.turtle.O)
