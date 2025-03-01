@@ -338,6 +338,7 @@ class GeneralizedContextualGroup(CsoundAC.ScoreNode):
         self.turtle.instrumentsForVoices[v] = i
     def commandK(self, token):
         self.turtle.O = K(self.turtle.O)
+        # self.turtle.O = order(pc(self.turtle.O))
     def commandL(self, token):
          if len(token) == 2:
             if token[1] == '*':
