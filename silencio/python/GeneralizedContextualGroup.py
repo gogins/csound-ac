@@ -157,6 +157,7 @@ def voice(chord, v, range):
 class Turtle(object):
     def __init__(self):
         # The size of R.
+        self.bass = 36.0
         self.range = 60.0
         # The state of this as a pitch-class segment or chord in O.
         self.O = ()
@@ -184,7 +185,7 @@ class Turtle(object):
             if d < 0:
                 d = self.duration / 2
             s = 144.0
-            k = self.R[i]
+            k = self.bass + self.R[i]
             v = self.loudness
             p = i
             instrument = self.instrumentsForVoices[i]
@@ -274,6 +275,7 @@ class GeneralizedContextualGroup(CsoundAC.ScoreNode):
         self.commands = {}
         self.commands['['] = self.commandPush
         self.commands[']'] = self.commandPop
+        self.commands['B'] = self.commandB
         self.commands['D'] = self.commandD
         self.commands['I'] = self.commandI
         self.commands['K'] = self.commandK
@@ -319,6 +321,8 @@ class GeneralizedContextualGroup(CsoundAC.ScoreNode):
         self.stack.append(copy.deepcopy(self.turtle))
     def commandPop(self, token):
         self.turtle = self.stack.pop()
+    def commandB(self, token):
+        self.turtle.bass = float(token[1:])
     def commandD(self, token):
         if len(token) == 2:
             if token[1] == '*':
