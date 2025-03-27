@@ -10,3 +10,9 @@
 [submodule "dependencies/eigen"]
 	path = dependencies/eigen
 	url = https://gitlab.com/libeigen/eigen.git
+[submodule "dependencies/stb"]
+	path = dependencies/stb
+	url = https://github.com/nothings/stb.git
+[submodule "dependencies/CImg"]
+	path = dependencies/CImg
+	url = https://github.com/GreycLab/CImg.git
