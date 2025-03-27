@@ -112,7 +112,6 @@ jobs:
           brew install doxygen
           brew install texlive
           echo "Installing dependencies..."
-          brew install opencv
           brew install libsndfile
           brew install csound
           ls -ll
@@ -150,7 +149,6 @@ jobs:
           sudo apt-get install doxygen
           sudo apt-get install texlive
           echo "Installing dependencies..."
-          sudo apt-get install libopencv-dev
           sudo apt-get install libsndfile1-dev
           sudo apt-get install libcsound64-dev
           sudo apt-get install libcsnd6-6.0v5
@@ -196,7 +194,6 @@ jobs:
           choco install graphviz -y
           choco install doxygen -y
           echo "Installing dependencies..."
-          choco install opencv -y 
           choco install libsndfile -y
           echo "Refreshing env..."
           refreshenv
@@ -205,8 +202,6 @@ jobs:
           echo "dir..."
           dir "${{github.workspace}}"
           #ls -r "C:\tools"
-          echo "info opencv..."
-          choco info opencv 
           echo "info libsndfile..."
           choco info libsndfile
           #ls -r "C:\Program Files\libsndfile"

@@ -27,7 +27,8 @@
 #include <complex>
 #include <set>
 #include <functional>
-#include <opencv2/imgcodecs.hpp>
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 namespace csound {
 
@@ -58,8 +59,7 @@ namespace csound {
         sigma_x = sigma_x_;
         sigma_y = sigma_y_;
         kernel_size = kernel_size_;
-        kernel_shape = kernel_shape_;
-    }
+     }
 
     void ImageToScore2::condense(int row_count_) {
         do_condense = true;
@@ -69,20 +69,17 @@ namespace csound {
     void ImageToScore2::contrast(double gain_, double bias_) {
         do_contrast = true;
         gain = gain_;
-        bias = bias_;
     }
 
     void ImageToScore2::dilate(int kernel_shape_, int kernel_size_, int iterations_) {
         do_dilate = true;
         kernel_size = kernel_size_;
-        kernel_shape = kernel_shape_;
         iterations = iterations_;
     }
 
     void ImageToScore2::erode(int kernel_shape_, int kernel_size_, int iterations_) {
         do_erode = true;
         kernel_size = kernel_size_;
-        kernel_shape = kernel_shape_;
         iterations = iterations_;
     }
 
@@ -101,108 +98,72 @@ namespace csound {
         value_threshhold = value_threshhold_;
     }
 
-    void ImageToScore2::write_processed_file(std::string operation, const cv::Mat &processed_image) const {
-        char buffer[0x200];
-        std::snprintf(buffer, 0x200, "%s-%s.jpg", image_filename.c_str(), operation.c_str());
-        cv::imwrite(buffer, processed_image);
-    }
-
     void ImageToScore2::processImage() {
         System::inform("ImageToScore2::processImage...\n");
         System::inform("image_filename: %s\n", image_filename.c_str());
-        original_image = cv::imread(image_filename.c_str(), cv::IMREAD_UNCHANGED);
-        if (original_image.empty()) {
+        int width;
+        int height;
+        int channels;
+        float* data = stbi_loadf(image_filename.c_str(), &width, &height, &channels, 0);
+        if (data == nullptr) {
             System::error("Failed to open image!\n");
             return;
         }
-        // Ensure the image has 3 channels (convert grayscale to RGB if needed)
-        cv::Mat imageBGR;
-        if (original_image.channels() == 1) {
-            cv::cvtColor(original_image, imageBGR, cv::COLOR_GRAY2BGR);
-        } else {
-            imageBGR = original_image; // Already in a compatible format
+        if (channels < 3) {
+            System::error("Image file must have at least 3 channels!\n");
+            return;
         }
-        cv::Mat imageHSV;
-        cv::cvtColor(imageBGR, imageHSV, cv::COLOR_BGR2HSV);
-        cv::Mat imageHSVFloat;
-        imageHSV.convertTo(imageHSVFloat, CV_32FC3);
-        auto element_size = imageHSV.elemSize();    
-        std::cout << "Original image type:  " << cv::typeToString(original_image.type()) << std::endl;
-        std::cout << "       Element size:  " << original_image.elemSize() << std::endl;
-        std::cout << "Converted image type: " << cv::typeToString(imageHSVFloat.type())<< std::endl;
-        std::cout << "        Element size: " << imageHSVFloat.elemSize() << std::endl;
-        System::inform("Loaded image file \"%s\".\n", image_filename.c_str());
-        System::inform("Read image: columns: %d rows: %d type: %d depth: %d\n", original_image.cols, original_image.rows, original_image.type(), original_image.depth());
+        original_image.assign(data, width, height, 1, channels, true);
+        stbi_image_free(data);
+        processed_image = original_image.get_RGBtoHSV();
+        System::inform("Read image: columns: %d rows: %d channels: %d\n", width, height, channels);
         // First we process the image, then we translate it.
-        cv::Mat source_image = imageHSVFloat;
         if(do_blur) {
             System::inform("Blur...\n");
-            cv::Mat output_image;
-            cv::GaussianBlur(source_image, output_image, cv::Size(kernel_size, kernel_size), sigma_x, sigma_y);
-            write_processed_file("Blur", output_image);
-            source_image = output_image;
+            processed_image.blur(sigma_x, sigma_y);
         }
         if(do_sharpen) {
             System::inform("Sharpen...\n");
-            cv::Mat output_image;
-            cv::GaussianBlur(source_image, output_image, cv::Size(kernel_size, kernel_size), sigma_x, sigma_y);
-            cv::Mat sharpened_image;
-            cv::addWeighted(source_image, alpha, output_image, beta, gamma, sharpened_image);
-            write_processed_file("Sharpen", output_image);
-            source_image = sharpened_image;
-        }
+            processed_image.sharpen(alpha);
+         }
         if(do_erode) {
             System::inform("Erode..\n");
-            cv::Mat output_image;
-            cv::Mat kernel = cv::getStructuringElement(kernel_shape, cv::Size(kernel_size, kernel_size));
-            for(int i = 0; i < iterations; ++i) {
-                cv::erode(source_image, output_image, kernel);
-                source_image = output_image;
+            for (int i = 0; i < iterations; ++i) {
+                processed_image.erode(kernel_size);
             }
-            write_processed_file("Erode", output_image);
         }
         if(do_dilate) {
             System::inform("Dilate...\n");
-            cv::Mat output_image;
-            cv::Mat kernel = cv::getStructuringElement(kernel_shape, cv::Size(kernel_size, kernel_size));
             for(int i = 0; i < iterations; ++i) {
-                cv::dilate(source_image, output_image, kernel);
-                source_image = output_image;
+                processed_image.dilate(kernel_size);
             }
-            write_processed_file("Dilate", output_image);
         }
         if(do_contrast) {
             System::inform("Contrast...\n");
-            cv::Mat output_image =  cv::Mat::zeros(source_image.size(), source_image.type());
-            source_image.convertTo(output_image, -1, gain, bias);
-            write_processed_file("Contrast", output_image);
-            source_image = output_image;
+            processed_image.get_channel(2) * gain;
         }
-       if(do_condense) {
+        if(do_condense) {
             System::inform("Condense...\n");
-            cv::Mat output_image;
-            cv::resize(source_image, output_image, cv::Size(source_image.cols, row_count), cv::INTER_AREA);
-            System::inform("New size columns: %5d  rows: %5d\n", output_image.cols, output_image.rows);
-            write_processed_file("Condense", output_image);
-            source_image = output_image;
+            processed_image.resize(width, row_count);
         }
-        processed_image = source_image;
-        write_processed_file("Processed", processed_image);
         System::inform("ImageToScore2::processImage.\n");
     }
 
     csound::Event ImageToScore2::pixel_to_event(int column, int row) const {
-        const cv::Vec3f &hsv = processed_image.at<cv::Vec3f>(row, column);
+        // 3rd parameter is slice, 0 for this 2-d image.
+        float h = processed_image(column, row, 0, 0);
+        float s = processed_image(column, row, 0, 1);
+        float v = processed_image(column, row, 0, 2);
         csound::Event event_;
         double status = 144.;
         event_.setStatus(status);
         double time_ = column;
         event_.setTime(time_);
-        double instrument = hsv[0];
+        double instrument = h;
         event_.setInstrument(instrument);
         double key = row;
         event_.setKey(key);
-        double velocity = hsv[2];
+        double velocity = v;
         event_.setVelocity(velocity);
         return event_;
     }
@@ -232,15 +193,20 @@ namespace csound {
         };
         // First we print out the size of the image on all dimensions.
         // Split the HSV image into H, S, and V channels
-        std::vector<cv::Mat> channels;
-        cv::split(processed_image, channels);
+        ///std::vector<cv::Mat> channels;
+        ///cv::split(processed_image, channels);
         // Calculate min and max for each channel.
         double h_min, h_max, s_min, s_max, v_min, v_max;
-        cv::minMaxLoc(channels[0], &h_min, &h_max); // H channel
-        cv::minMaxLoc(channels[1], &s_min, &s_max); // S channel
-        cv::minMaxLoc(channels[2], &v_min, &v_max); // V channel
-        std::cout << "Columns (time steps):        " << processed_image.cols << std::endl;
-        std::cout << "Rows (distinct pitches):     " << processed_image.rows << std::endl;
+        // Extract channels
+        cimg_library::CImg<float> H = processed_image.get_channel(0);
+        cimg_library::CImg<float> S = processed_image.get_channel(1);
+        cimg_library::CImg<float> V = processed_image.get_channel(2);
+        // Compute min and max values
+        h_min = H.min(), h_max = H.max();
+        s_min = S.min(), s_max = S.max();
+        v_min = V.min(), v_max = V.max();
+        std::cout << "Columns (time steps):        " << processed_image.width() << std::endl;
+        std::cout << "Rows (distinct pitches):     " << processed_image.height() << std::endl;
         std::cout << "Hue (instrument): Min =      " << h_min << ", Max = " << h_max << std::endl;
         std::cout << "Saturation (not used): Min = " << s_min << ", Max = " << s_max << std::endl;
         std::cout << "Value (loudness): Min =      " << v_min << ", Max = " << v_max << std::endl;
@@ -250,13 +216,13 @@ namespace csound {
         std::map<int, csound::Event> current_notes_for_rows;
         std::map<int, csound::Event> pending_notes_for_rows;
         // Score time is simply column index. This should later be rescaaled.
-        for (int prior_column = 0, current_column = 1; current_column < processed_image.cols; ++prior_column, ++current_column) {
+        for (int prior_column = 0, current_column = 1; current_column < processed_image.width(); ++prior_column, ++current_column) {
             // Score pitch is simply row index. This should later be rescaled. 
             // In OpenCV, {0, 0} is the center of the upper left pixel, so 
             // pitch is upside down. Only one note may sound on a row at any 
             // given time.
             System::inform("Processing column %6d\n", prior_column);
-            for (int row = processed_image.rows - 1; row >= 0; --row) {
+            for (int row = processed_image.height() - 1; row >= 0; --row) {
                 auto prior_note = pixel_to_event(prior_column, row);
                 prior_notes.push_back(prior_note);
                 auto current_note = pixel_to_event(current_column, row);
