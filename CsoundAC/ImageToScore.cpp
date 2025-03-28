@@ -191,10 +191,6 @@ namespace csound {
                 return false;
             }
         };
-        // First we print out the size of the image on all dimensions.
-        // Split the HSV image into H, S, and V channels
-        ///std::vector<cv::Mat> channels;
-        ///cv::split(processed_image, channels);
         // Calculate min and max for each channel.
         double h_min, h_max, s_min, s_max, v_min, v_max;
         // Extract channels
@@ -218,7 +214,6 @@ namespace csound {
         // Score time is simply column index. This should later be rescaaled.
         for (int prior_column = 0, current_column = 1; current_column < processed_image.width(); ++prior_column, ++current_column) {
             // Score pitch is simply row index. This should later be rescaled. 
-            // In OpenCV, {0, 0} is the center of the upper left pixel, so 
             // pitch is upside down. Only one note may sound on a row at any 
             // given time.
             System::inform("Processing column %6d\n", prior_column);

@@ -95,7 +95,7 @@
 #include "Random.hpp"
 #if !defined(EMSCRIPTEN)
 #include "ImageToScore.hpp"
-#include "Soundfile.hpp"
+//#include "Soundfile.hpp"
 #endif
 #include "StrangeAttractor.hpp"
 #include "Lindenmayer.hpp"

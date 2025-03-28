@@ -36,12 +36,10 @@ namespace csound
 {
 
 /**
-* Translates images files to scores.
-* The OpenCV library is used to do an improved mapping
-* from images to scores. Various image processing algorithms may be applied to
-* the original image before the resulting image is translated to notes. Any
-* number of such operations may be specified, but the order of processing is
-* fixed.
+* Translates images files to scores. Various image processing algorithms may 
+* be applied to the original image before the resulting image is translated to 
+* notes. Any number of such operations may be specified, but the order of 
+* processing is fixed.
 */
 class SILENCE_PUBLIC ImageToScore2 : public ScoreNode
 {
