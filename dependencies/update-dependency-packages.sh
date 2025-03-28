@@ -29,6 +29,4 @@ echo "Updating libsox-dev..."
 apt-get install libsox-dev
 echo "Updating python3.12-dev..."
 apt-get install python3.12-dev
-echo "Updating OpenCV..."
-apt-get libopencv-dev --fix-missig
 echo "Finished updating all packages required for csound-ac."

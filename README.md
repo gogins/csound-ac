@@ -76,9 +76,7 @@ https://gogins.github.io/csound-examples.
     1.4  The [Boost C++ Libraries](https://www.boost.org/). Only the header 
          files are used.
     
-    1.5  The [OpenCV](https://opencv.org/) library for image processing.
-    
-    1.6  The [Python](https://www.python.org/) programming language, version 
+    1.5  The [Python](https://www.python.org/) programming language, version 
          3.12 or higher.
     
 2.  There are prebuilt binary releases for this package available at 
@@ -150,7 +148,6 @@ better to build Csound from source code.
     brew upgrade
     brew install graphviz
     brew install doxygen
-    brew install opencv
     brew install csound
     brew install bwfmetaedit
     brew install sox

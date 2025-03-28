@@ -55,6 +55,7 @@ if(BUILD_CSOUND_AC)
         Voicelead.cpp
         VoiceleadingNode.cpp
         ExternalNode.cpp
+        ImageToScore.cpp
          ../dependencies/portsmf/allegro.cpp
         ../dependencies/portsmf/allegrord.cpp
         ../dependencies/portsmf/allegroserial.cpp
@@ -64,9 +65,6 @@ if(BUILD_CSOUND_AC)
         ../dependencies/portsmf/mfmidi.cpp
         ../dependencies/portsmf/strparse.cpp
         trace.cpp)
-    if(OPENCV_FOUND)
-        list(APPEND libcsoundac_SRCS "ImageToScore.cpp")
-    endif()
     message(STATUS "libcsoundac_SRCS: " ${libcsoundac_SRCS})
 
     if (MSVC)
@@ -80,6 +78,8 @@ if(BUILD_CSOUND_AC)
     target_include_directories(libCsoundAC PRIVATE ${EIGEN3_INCLUDE_DIRS})
     target_include_directories(libCsoundAC PRIVATE ${Boost_INCLUDE_DIR})
     target_include_directories(libCsoundAC PRIVATE ../dependencies/portsmf)
+    target_include_directories(libCsoundAC PRIVATE ../dependencies/stb)
+    target_include_directories(libCsoundAC PRIVATE ../dependencies/CImg)
     if (MUSICXML_FOUND)
         target_include_directories(libCsoundAC PRIVATE ${MUSICXML_INCLUDE_DIRS})
     endif()
@@ -91,7 +91,7 @@ if(BUILD_CSOUND_AC)
         LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
         ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}")
 
-    target_link_libraries(libCsoundAC PRIVATE ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${OpenCV_LIBRARIES} ${LIBSNDFILE_LIBRARY})
+    target_link_libraries(libCsoundAC PRIVATE ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY})
  
     if(WIN32) # for MSYS2/mingw64
         #  mingw64 needs this to create a valid .pyd.
@@ -136,7 +136,7 @@ if(BUILD_CSOUND_AC)
         swig_add_library(CsoundAC 
             LANGUAGE python 
             SOURCES CsoundAC.i)
-        swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${OpenCV_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
+        swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
         target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} PRIVATE ${EIGEN3_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${CSOUND_SOURCE_HOME}/include)
         if(APPLE)
             target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} SYSTEM PRIVATE ${LIBSNDFILE_INCLUDE_DIR})
