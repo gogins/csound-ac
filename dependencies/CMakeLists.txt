@@ -1,4 +1,5 @@
 include(ExternalProject)
+include(FetchContent)
 
 #add_subdirectory(libmusicxml/build)
 
@@ -25,7 +26,7 @@ ExternalProject_Add(stk
     INSTALL_COMMAND "")
     
 add_custom_target(csound-dependencies ALL
-    DEPENDS liblo libmusicxml libsndfile stk luajit)
+    DEPENDS liblo libmusicxml libsndfile stk luajit cimg)
 
 #add_custom_target(csound ALL
 #    DEPENDS csound-dependencies)

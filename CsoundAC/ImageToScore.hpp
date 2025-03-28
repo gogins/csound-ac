@@ -1,5 +1,4 @@
-#ifndef IMAGETOSCORE_HPP_INCLUDED
-#define IMAGETOSCORE_HPP_INCLUDED
+#pragma once
 /*
 * C S O U N D
 *
@@ -28,30 +27,26 @@
 %}
 #else
 #include "Silence.hpp"
-#include <opencv2/core/core.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
+// To avoid dependency on X11 libraries.
+#define cimg_display 0
+#include <CImg.h>
 #endif
-
-class Fl_Image;
 
 namespace csound
 {
 
 /**
-* Translates images files to scores.
-* The OpenCV library is used to do an improved mapping
-* from images to scores. Various image processing algorithms may be applied to
-* the original image before the resulting image is translated to notes. Any
-* number of such operations may be specified, but the order of processing is
-* fixed.
+* Translates images files to scores. Various image processing algorithms may 
+* be applied to the original image before the resulting image is translated to 
+* notes. Any number of such operations may be specified, but the order of 
+* processing is fixed.
 */
 class SILENCE_PUBLIC ImageToScore2 : public ScoreNode
 {
 protected:
     std::string image_filename;
-    cv::Mat original_image;
-    cv::Mat processed_image;
+    cimg_library::CImg<float> original_image;
+    cimg_library::CImg<float> processed_image;
     size_t maximum_voice_count = 7;
     virtual csound::Event pixel_to_event(int column, int row) const;
 public:
@@ -65,11 +60,10 @@ public:
      * Blur the image using a Gaussian kernel before translating the image to
      * notes. Kernel size should be odd.
      */
-    virtual void gaussianBlur(double sigma_x_, double sigma_y_ = 0, int kernel_size_ = 9, int kernel_shape_ = cv::MORPH_RECT);
+    virtual void gaussianBlur(double sigma_x_, double sigma_y_ = 0, int kernel_size_ = 9, int kernel_shape_ = 0 /* = cv::MORPH_RECT */);
     bool do_blur = false;
     double sigma_x;
     double sigma_y;
-    int kernel_shape = cv::MORPH_RECT;
     int kernel_size = 9;
     /**
      * Translate the image to the specified number of rows before translating
@@ -80,12 +74,10 @@ public:
     bool do_condense = false;
     int row_count = -1;
     /**
-     * Change the contrast of the image by the specified factors before
-     * translating it to notes.
+     * Change the contrast of the image
      */
     virtual void contrast(double gain_, double bias_);
     double gain = 0;
-    double bias = 0;
     bool do_contrast = false;
     /**
      * Increase the thickness of features in the image before translating it to
@@ -114,7 +106,6 @@ public:
     virtual void threshhold(double value_threshhold_);
     bool do_threshhold = false;
     double value_threshhold = 0;
-    void write_processed_file(std::string operation, const cv::Mat &processed_image) const;
     
     /**
      * Perform any image processing, then translate the resulting image to
@@ -131,5 +122,3 @@ public:
 typedef ImageToScore2 ImageToScore;
 
 }
-
-#endif

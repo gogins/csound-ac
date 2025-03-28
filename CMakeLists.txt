@@ -88,7 +88,6 @@ include_directories("/Library/Frameworks/CsoundLib64.framework/Versions/6.0/Head
 find_package(SndFile REQUIRED)
 set(EIGEN3_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/dependencies/eigen")
 message("[DEBUG] EIGEN3_INCLUDE_DIRS: ${EIGEN3_INCLUDE_DIRS}")
-find_package(OpenCV)
 find_package(Boost REQUIRED)
 message("[DEBUG] Boost_INCLUDE_DIR: ${Boost_INCLUDE_DIR}")
 message("[DEBUG] Boost_COMPONENTS: ${Boost_COMPONENTS}")
