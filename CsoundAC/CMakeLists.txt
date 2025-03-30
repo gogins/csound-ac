@@ -56,7 +56,7 @@ if(BUILD_CSOUND_AC)
         VoiceleadingNode.cpp
         ExternalNode.cpp
         ImageToScore.cpp
-         ../dependencies/portsmf/allegro.cpp
+        ../dependencies/portsmf/allegro.cpp
         ../dependencies/portsmf/allegrord.cpp
         ../dependencies/portsmf/allegroserial.cpp
         ../dependencies/portsmf/allegrosmfrd.cpp
@@ -138,6 +138,7 @@ if(BUILD_CSOUND_AC)
             SOURCES CsoundAC.i)
         swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
         target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} PRIVATE ${EIGEN3_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${CSOUND_SOURCE_HOME}/include)
+        set(SWIG_USE_TARGET_INCLUDE_DIRECTORIES True)
         if(APPLE)
             target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} SYSTEM PRIVATE ${LIBSNDFILE_INCLUDE_DIR})
         endif()
