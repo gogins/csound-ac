@@ -131,6 +131,7 @@ if(BUILD_CSOUND_AC)
         # Had: 	    SWIG_FLAGS "-threads"
         set_source_files_properties(CsoundAC.i
             PROPERTIES CPLUSPLUS ON
+            SWIG_USE_TARGET_INCLUDE_DIRECTORIES ON
             SWIG_MODULE_NAME CsoundAC)
 
         swig_add_library(CsoundAC 
