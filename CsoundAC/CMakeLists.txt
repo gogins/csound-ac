@@ -1,6 +1,8 @@
 # Build CsoundAC
 cmake_minimum_required(VERSION 3.10)
 include(CheckIncludeFiles)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SNDFILE REQUIRED sndfile)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_CXX_STANDARD 17)
