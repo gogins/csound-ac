@@ -133,7 +133,6 @@ if(BUILD_CSOUND_AC)
             PROPERTIES CPLUSPLUS ON
             SWIG_USE_TARGET_INCLUDE_DIRECTORIES ON
             SWIG_MODULE_NAME CsoundAC)
-
         swig_add_library(CsoundAC 
             LANGUAGE python 
             SOURCES CsoundAC.i)
@@ -141,7 +140,7 @@ if(BUILD_CSOUND_AC)
         target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} PRIVATE ${EIGEN3_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${CSOUND_SOURCE_HOME}/include)
         set(SWIG_USE_TARGET_INCLUDE_DIRECTORIES True)
         if(APPLE)
-            target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} SYSTEM PRIVATE ${LIBSNDFILE_INCLUDE_DIR})
+            target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/stb ${CMAKE_SOURCE_DIR}/dependencies/CImg ${LIBSNDFILE_INCLUDE_DIR})
         endif()
         set_property(TARGET ${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTY SWIG_INCLUDE_DIRECTORIES ${EIGEN3_INCLUDE_DIRS} ${Boost_INCLUDE_DIR})
  
