@@ -142,7 +142,6 @@ function(check_deps option)
     endif()
 endfunction(check_deps)
 
-
 add_subdirectory(dependencies/libmusicxml/build)
 add_subdirectory(CsoundAC)
 
