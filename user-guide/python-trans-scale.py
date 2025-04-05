@@ -811,6 +811,7 @@ scale_node = CsoundAC.ScoreNode()
 
 # The first section is just the ascending chromatic scale from the earlier 
 # examples, only played more slowly.
+print("SECTION: Generating chromatic scale.")
 sequence.addChild(scale_node)
 for i in range(60):
     p1 = 1 + (i % 7)
@@ -823,6 +824,7 @@ print("scale_node:")
 print(scale_node.getScore().toString())
     
 # Add a section that randomizes the onsets of the notes in the scale.
+print("SECTION: Randomizing onsets.")
 random_times_node = CsoundAC.ScoreNode()
 sequence.addChild(random_times_node)
 # Copy the orginal scale, and at the same time, compile a list of its note 
@@ -846,6 +848,7 @@ print("random_times_node:")
 print(random_times_node.getScore().toString())
 
 # Add a section that creates a connected line from the shuffled events.
+print("SECTION: Connecting shuffled notes.")
 connected_line_node = CsoundAC.ScoreNode()
 sequence.addChild(connected_line_node)
 size = random_times_node.getScore().size()
@@ -868,6 +871,7 @@ print("connected_line_node:")
 print(connected_line_node.getScore().toString())
 
 # Add a section that removes most leaps from the line.
+print("SECTION: Removing leaps from the line.")
 smoother_line_node = CsoundAC.ScoreNode()
 sequence.addChild(smoother_line_node)
 for i in range(connected_line_node.getScore().size()):
@@ -891,6 +895,7 @@ print("smoother_line_node:")
 print(smoother_line_node.getScore().toString())
 
 # Add a section that is a canon of three voices.
+print("SECTION: Canon of three voices.")
 canon_node = CsoundAC.ScoreNode()
 sequence.addChild(canon_node)
 prior_key = 0
@@ -921,6 +926,7 @@ canon_node.getScore().sort()
 
 # Add a section that applies chord transformations from the Generalized 
 # Contextual Group to the canon. 
+print("SECTION: Harmonizing canon.")
 harmonized_node = CsoundAC.VoiceleadingNode()
 sequence.addChild(harmonized_node)
 cell_repeat = CsoundAC.Cell()
