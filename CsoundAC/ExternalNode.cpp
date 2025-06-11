@@ -25,6 +25,8 @@
 #include <iostream>
 #include <fstream>
 #include <boost/process.hpp>
+#include <boost/process/v1/io.hpp>
+#include <boost/process/v1/child.hpp>
 #include <boost/tokenizer.hpp>
 #include "System.hpp"
 
@@ -85,8 +87,6 @@ static void parse_line(std::string line, Score &score) {
     score.push_back(event);
 }
 
-// TODO: This is POSIX-specific.
-
 void ExternalNode::generateLocally()
 {
     score.clear();
@@ -101,17 +101,17 @@ void ExternalNode::generateLocally()
     auto bytes_written = fwrite(getScript().c_str(), sizeof(getScript().front()), getScript().length(), script_file);
     std::fclose(script_file);
     System::inform("ExternalNode::generateLocally: Wrote %d bytes.\n", bytes_written);
-    boost::process::ipstream stdout_stream;
+    boost::process::v1::ipstream stdout_stream;
     char command_line[0x500];
     std::snprintf(command_line, sizeof(command_line), "%s %s", getCommand().c_str(), script_filename);
     System::inform("ExternalNode::generateLocally: Executing: %s\n", command_line);
-    boost::process::child child_process(const_cast<const char *>(command_line), boost::process::std_out > stdout_stream);
+    boost::process::v1::child child_process(const_cast<const char *>(command_line), boost::process::v1::std_out > stdout_stream);
     std::string line;
     while (stdout_stream && std::getline(stdout_stream, line)) {
         System::debug("ExternalNode::generateLocally: parsing: %s\n", line.c_str());
         parse_line(line, score);
     }
-    child_process.wait();
+    child_process.wait(); 
     score.sort();
     if (duration != 0.0) {
         score.setDuration(duration);
