@@ -89,7 +89,9 @@ pkg_check_modules(SNDFILE REQUIRED sndfile)
 
 set(EIGEN3_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/dependencies/eigen")
 message("[DEBUG] EIGEN3_INCLUDE_DIRS: ${EIGEN3_INCLUDE_DIRS}")
-find_package(Boost REQUIRED)
+
+find_package(Boost 1.65 REQUIRED COMPONENTS system filesystem process)
+
 message("[DEBUG] Boost_INCLUDE_DIR: ${Boost_INCLUDE_DIR}")
 message("[DEBUG] Boost_COMPONENTS: ${Boost_COMPONENTS}")
 find_package(Python3 3.12 EXACT COMPONENTS Interpreter Development)

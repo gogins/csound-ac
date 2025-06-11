@@ -91,14 +91,14 @@ if(BUILD_CSOUND_AC)
         LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
         ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}")
 
-    target_link_libraries(libCsoundAC PRIVATE ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY})
+    target_link_libraries(libCsoundAC PRIVATE Boost::system Boost::filesystem Boost::process ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY})
  
     if(WIN32) # for MSYS2/mingw64
         #  mingw64 needs this to create a valid .pyd.
         if(NOT MSVC AND CMAKE_SIZEOF_VOID_P EQUAL 8)
             target_compile_definitions(libCsoundAC PRIVATE -DMS_WIN64)
         endif()
-        target_link_libraries(libCsoundAC PRIVATE ${JPEG_LIBRARY} ${PNG_LIBRARY} ${Z_LIBRARY})
+        target_link_libraries(libCsoundAC PRIVATE Boost::system Boost::filesystem Boost::process ${JPEG_LIBRARY} ${PNG_LIBRARY} ${Z_LIBRARY})
     endif()
 
     if(HAVE_UNISTD_H)

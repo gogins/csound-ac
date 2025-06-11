@@ -43,6 +43,9 @@
 #include <set>
 #include <sstream>
 #include <vector>
+#include <cctype>
+#include <stdexcept>
+#include <regex>
 %}
 %include "std_string.i"
 %include "std_vector.i"
@@ -58,7 +61,6 @@
 #include <csignal>
 #include <cstdarg>
 #include <Eigen/Dense>
-
 #include <functional>
 #include <iostream>
 #include <iterator>
@@ -67,6 +69,9 @@
 #include <set>
 #include <sstream>
 #include <vector>
+#include <cctype>
+#include <stdexcept>
+#include <regex>
 #endif
 
 #pragma GCC diagnostic push
@@ -1563,6 +1568,14 @@ class SILENCE_PUBLIC Scale : public Chord {
         Scale(std::string name, const std::vector<double> &scale_pitches);
         virtual ~Scale();
         virtual Scale &operator = (const Scale &other);
+        /** 
+         * Recreates this Scale with a new name as a set of pitches from the 
+         * text of a Scala file. Note that the tonic of the scale is always 
+         * MIDI key 0 (C-1)! Thus to have, e.g., a D-1 just intonation scale, 
+         * one would create the default C-1 just intonation scale, then add 2 
+         * to each pitch.
+         */
+        virtual void from_scala(const std::string &name, const std::string &scala);
         /** 
          * Returns the chord for the indicated scale degree, number of voices
          * in the chord, and interval in scale degrees of the chord (defaults 
@@ -5406,6 +5419,51 @@ inline SILENCE_PUBLIC std::map<Chord, Chord> &prime_forms_for_chords() {
 inline SILENCE_PUBLIC std::map<Chord, Chord> &inverse_prime_forms_for_chords() {
     static std::map<Chord, Chord> cache;
     return cache;
+}
+
+inline SILENCE_PUBLIC void Scale::from_scala(const std::string &name, const std::string &scala_text) {
+    std::istringstream stream(scala_text);
+    std::string line;
+    std::vector<std::string> lines;
+    // Collect non-empty, non-comment lines
+    while (std::getline(stream, line)) {
+        // Remove leading/trailing whitespace
+        line = std::regex_replace(line, std::regex("^\\s+|\\s+$"), "");
+        if (line.empty() || line[0] == '!') continue;
+        lines.push_back(line);
+    }
+    if (lines.size() < 2) {
+        throw std::runtime_error("Invalid Scala file: not enough data.");
+    }
+    int num_pitches = std::stoi(lines[1]);
+    if ((int)lines.size() < 2 + num_pitches) {
+        throw std::runtime_error("Invalid Scala file: fewer pitches than declared.");
+    }
+    resize(num_pitches);
+    // Scala scale always starts from 0.0 (the fundamental).
+    int voice = 0;
+    setPitch(voice, 0);
+    for (int i = 2; i < 2 + num_pitches; ++i) {
+        const std::string& pitch_str = lines[i];
+        double midi_key;
+        // Check if it's cents.
+        if (std::regex_match(pitch_str, std::regex("^[0-9\\.]+$"))) {
+            double cents = std::stod(pitch_str);
+            midi_key = cents / 100.0;
+        } else if (std::regex_match(pitch_str, std::regex("^[0-9]+/[0-9]+$"))) {
+            // Check if it's a ratio like 3/2.
+            size_t slash = pitch_str.find('/');
+            double numerator = std::stod(pitch_str.substr(0, slash));
+            double denominator = std::stod(pitch_str.substr(slash + 1));
+            double ratio = numerator / denominator;
+            midi_key = std::log2(ratio) * 12.0;
+        } else {
+            throw std::runtime_error("Invalid pitch format: " + pitch_str);
+        }
+        setPitch(voice, midi_key);
+        voice++;
+    }
+    add_scale(name, *this);
 }
 
 } // End of namespace csound.
