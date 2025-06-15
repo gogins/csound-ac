@@ -24,10 +24,12 @@
 #include <cstring>
 #include <iostream>
 #include <fstream>
+#if !defined(__EMSCRIPTEN__)
 #include <boost/process.hpp>
 #include <boost/process/v1/io.hpp>
 #include <boost/process/v1/child.hpp>
 #include <boost/tokenizer.hpp>
+#endif
 #include "System.hpp"
 
 namespace csound

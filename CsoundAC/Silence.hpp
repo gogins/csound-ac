@@ -104,6 +104,5 @@
 #include "VoiceleadingNode.hpp"
 #include "ChordLindenmayer.hpp"
 #include "HarmonyIFS.hpp"
-#include "ExternalNode.hpp"
 
 #endif
