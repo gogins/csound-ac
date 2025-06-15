@@ -86,14 +86,10 @@ message("CSOUND_INCLUDE_PATH: ${CSOUND_INCLUDE_PATH}")
 include_directories("/Library/Frameworks/CsoundLib64.framework/Versions/6.0/Headers/")
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SNDFILE REQUIRED sndfile)
-
 set(EIGEN3_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/dependencies/eigen")
 message("[DEBUG] EIGEN3_INCLUDE_DIRS: ${EIGEN3_INCLUDE_DIRS}")
-
-find_package(Boost 1.65 REQUIRED COMPONENTS system filesystem process)
-
+find_package(Boost 1.65 REQUIRED)
 message("[DEBUG] Boost_INCLUDE_DIR: ${Boost_INCLUDE_DIR}")
-message("[DEBUG] Boost_COMPONENTS: ${Boost_COMPONENTS}")
 find_package(Python3 3.12 EXACT COMPONENTS Interpreter Development)
 find_package(SWIG)
 include(UseSWIG)
