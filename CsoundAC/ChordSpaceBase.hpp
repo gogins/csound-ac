@@ -1568,7 +1568,6 @@ class SILENCE_PUBLIC Scale : public Chord {
         Scale(std::string name, const std::vector<double> &scale_pitches);
         virtual ~Scale();
         virtual Scale &operator = (const Scale &other);
-#if !defined(__EMSCRIPTEN__)
         /** 
          * Recreates this Scale with a new name as a set of pitches from the 
          * text of a Scala file. Note that the tonic of the scale is always 
@@ -1577,7 +1576,6 @@ class SILENCE_PUBLIC Scale : public Chord {
          * to each pitch.
          */
         virtual void from_scala(const std::string &name, const std::string &scala);
-#endif
         /** 
          * Returns the chord for the indicated scale degree, number of voices
          * in the chord, and interval in scale degrees of the chord (defaults 
@@ -5422,7 +5420,6 @@ inline SILENCE_PUBLIC std::map<Chord, Chord> &inverse_prime_forms_for_chords() {
     static std::map<Chord, Chord> cache;
     return cache;
 }
-#if !defined(__EMSCRIPTEN__)
 inline SILENCE_PUBLIC void Scale::from_scala(const std::string &name, const std::string &scala_text) {
     std::istringstream stream(scala_text);
     std::string line;
@@ -5467,7 +5464,6 @@ inline SILENCE_PUBLIC void Scale::from_scala(const std::string &name, const std:
     }
     add_scale(name, *this);
 }
-#endif
 
 } // End of namespace csound.
 
