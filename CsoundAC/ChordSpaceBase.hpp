@@ -1569,6 +1569,13 @@ class SILENCE_PUBLIC Scale : public Chord {
         virtual ~Scale();
         virtual Scale &operator = (const Scale &other);
         /** 
+         * Sets the pitch of the specified voice of this as a (possibly 
+         * fractional) MIDI key number, derived from the specified frequency 
+         * ratio. The Scale must first have enough voices to hold all pitches 
+         * set in this way.
+         */
+        virtual void set_ratio(const int voice, const double numerator, const double denominator);
+        /** 
          * Recreates this Scale with a new name as a set of pitches from the 
          * text of a Scala file. Note that the tonic of the scale is always 
          * MIDI key 0 (C-1)! Thus to have, e.g., a D-1 just intonation scale, 
@@ -5420,6 +5427,13 @@ inline SILENCE_PUBLIC std::map<Chord, Chord> &inverse_prime_forms_for_chords() {
     static std::map<Chord, Chord> cache;
     return cache;
 }
+
+inline SILENCE_PUBLIC void Scale::set_ratio(const int voice, const double numerator, const double denominator) {
+    const double ratio = numerator / denominator;
+    const double midi_key = std::log2(ratio) * 12.0;
+    setPitch(voice, midi_key);
+}
+
 inline SILENCE_PUBLIC void Scale::from_scala(const std::string &name, const std::string &scala_text) {
     std::istringstream stream(scala_text);
     std::string line;
@@ -5449,17 +5463,16 @@ inline SILENCE_PUBLIC void Scale::from_scala(const std::string &name, const std:
         if (std::regex_match(pitch_str, std::regex("^[0-9\\.]+$"))) {
             double cents = std::stod(pitch_str);
             midi_key = cents / 100.0;
+            setPitch(voice, midi_key);
         } else if (std::regex_match(pitch_str, std::regex("^[0-9]+/[0-9]+$"))) {
             // Check if it's a ratio like 3/2.
             size_t slash = pitch_str.find('/');
             double numerator = std::stod(pitch_str.substr(0, slash));
             double denominator = std::stod(pitch_str.substr(slash + 1));
-            double ratio = numerator / denominator;
-            midi_key = std::log2(ratio) * 12.0;
+            set_ratio(voice, numerator, denominator);
         } else {
             throw std::runtime_error("Invalid pitch format: " + pitch_str);
         }
-        setPitch(voice, midi_key);
         voice++;
     }
     add_scale(name, *this);
