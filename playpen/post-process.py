@@ -27,7 +27,7 @@ cwd = os.getcwd()
 print('cwd:                    ', cwd)
 source_filepath = sys.argv[1]
 author = 'Michael Gogins'
-year = '2021'
+year = '2025'
 license = 'ASCAP'
 publisher = 'Irreducible Productions, ASCAP'
 notes = 'Electroacoustic Music'
@@ -35,7 +35,7 @@ notes = 'Electroacoustic Music'
 directory, basename = os.path.split(source_filepath)
 rootname = os.path.splitext(basename)[0].split('.')[0]
 title = rootname.replace("-", " ").replace("_", " ")
-label = '%s -- %s' % (author, title)
+label = '%s, %s' % (author, title)
 master_filename = '%s.normalized.wav' % label
 spectrogram_filename = '%s.png' % label
 cd_quality_filename = '%s.cd.wav' % label
@@ -71,7 +71,7 @@ str_title              = title
 str_artist             = author
 str_date               = year
 str_license            = license
-sox_normalize_command = '''sox -S "%s" "%s" gain -n -3''' % (source_filepath, master_filename + 'untagged.wav')
+sox_normalize_command = '''sox -S "%s" -b 24 "%s" gain -n -3''' % (source_filepath, master_filename + 'untagged.wav')
 print('sox_normalize command:  ', sox_normalize_command)
 os.system(sox_normalize_command)
 tag_wav_command = '''sndfile-metadata-set "%s" --bext-description "%s" --bext-originator "%s" --bext-orig-ref "%s" --str-comment "%s" --str-title "%s" --str-copyright "%s" --str-artist  "%s" --str-date "%s" --str-license "%s" "%s"''' % (master_filename + 'untagged.wav', bext_description, bext_originator, bext_orig_ref, str_comment, str_title, str_copyright, str_artist, str_date, str_license, master_filename)

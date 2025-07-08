@@ -59,14 +59,14 @@ namespace csound {
             }
         }
         auto result = pclose(pipe);
-        max_volume = (max_volume + 6) * -1;
+        max_volume = (max_volume + 1) * -1;
         std::fprintf(stderr, "Correction: %9.4f dB\n", max_volume);
         if (csound == nullptr) {
         } else {
             csound->Message("Correction: %9.4f dB\n", max_volume);
         }
         
-        const char *volume_command = "ffmpeg -y -i %s.%s -filter:a \"volume=%fdB\" -codec:a pcm_s32le -format:a flt %s \"%s-normalized.wav\"";
+        const char *volume_command = "ffmpeg -y -i %s.%s -filter:a \"volume=%fdB\" -sample_fmt s32 -c:a pcm_s24le %s \"%s-normalized.wav\"";
         std::snprintf(buffer, 0x1000, volume_command, filename_base.c_str(), filename_extension.c_str(), max_volume, tag_options.c_str(), filename_base.c_str());
         std::fprintf(stderr, "Volume command:      %s\n", buffer);
         if (csound == nullptr) {
