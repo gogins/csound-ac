@@ -26,7 +26,7 @@ python3 playpen.py csound-patch {source.inc}
     opens the soundfile using the editor specified in playpen.ini.
     
 python3 playpen.py html-localhost {source.html}
-    Uses Python to opens source.html from a local webserver.
+    Uses Python to open source.html from a local webserver.
 
 python3 playpen html-nw {source.html}
     Creates a package.json file for the specified HTML file, and runs that 
@@ -135,17 +135,14 @@ print("HTTP server port:        " + port)
 soundfile_editor = settings.get("playpen", "soundfile-editor")
 print("soundfile_editor:        " + soundfile_editor)
 directory, basename = os.path.split(source_filepath)
-rootname, extension = os.path.splitext(basename)
-title = rootname.replace("-", " ").replace("_", " ")
-label = '%s -- %s' % (metadata_author, rootname)
-label = label.replace(" ", "_")
-output_filename = label + ".wav"
-master_filename = '%s.normalized.wav' % label
-spectrogram_filename = '%s.png' % label
-cd_quality_filename = '%s.cd.wav' % label
-mp3_filename = '%s.mp3' % label
-mp4_filename = '%s.mp4' % label
-flac_filename = '%s.flac' % label
+title, extension = os.path.splitext(basename)
+output_filename = title + ".wav"
+normalized_filename = f'{title}.normalized.wav' 
+spectrogram_filename = f'{title}.png' 
+cd_quality_filename = f'{title}.cd.wav' 
+mp3_filename = f'{title}.mp3' 
+mp4_filename = f'{title}.mp4'
+flac_filename = f'{title}.flac'
 common_csound_options = "-RWd -m163 -W -+msg_color=0 --midi-key=4 --midi-velocity=5"
 compiler_command = settings.get("cplusplus", "compiler-command")
 nwjs_command = settings.get("nwjs", "nwjs-command")
@@ -162,7 +159,7 @@ print('Licence:                ', metadata_license)
 print('Publisher:              ', metadata_publisher)
 print('Notes:                  ', metadata_notes)
 print('Output filename:        ', output_filename)
-print('Master filename:        ', master_filename)
+print('Master filename:        ', normalized_filename)
 print('Spectrogram filename:   ', spectrogram_filename)
 print('CD quality filename:    ', cd_quality_filename)
 print('MP3 filename:           ', mp3_filename)
@@ -176,12 +173,11 @@ bext_orig_ref          = basename
 
 def csd_audio():
     try:
-        print("\ncsd_audio: {} to {}...".format(source_filepath, csound_audio_output))
+        print(f"\ncsd_audio: {source_filepath} to {csound_audio_output}...")
         csound_command = "csound {} -o{}".format(source_filepath, csound_audio_output)
         print("csound command: {}".format(csound_command))
         result = subprocess.run(csound_command, shell=True)
         print("csound command: {} {}".format(csound_command, result))
-       
     except:
         traceback.print_exc()
     finally:
@@ -195,6 +191,7 @@ def csd_soundfile():
         print("csound command: {}".format(csound_command))
         result = subprocess.run(csound_command, shell=True)
         print("csd_soundfile result: {}".format(result))
+        post_process()
     except:
         traceback.print_exc()
     finally:
@@ -230,30 +227,30 @@ def post_process():
         str_artist             = metadata_author
         str_date               = metadata_year
         str_license            = metadata_license
-        sox_normalize_command = '''sox -S "%s" "%s" norm -6''' % (output_filename, master_filename + 'untagged.wav')
+        sox_normalize_command = f'sox {output_filename} {normalized_filename} norm -1 -b 24'
         print('sox_normalize command:  ', sox_normalize_command)
         os.system(sox_normalize_command)
-        tag_wav_command = '''sndfile-metadata-set "%s" --bext-description "%s" --bext-originator "%s" --bext-orig-ref "%s" --str-comment "%s" --str-title "%s" --str-copyright "%s" --str-artist  "%s" --str-date "%s" --str-license "%s" "%s"''' % (master_filename + 'untagged.wav', bext_description, bext_originator, bext_orig_ref, str_comment, str_title, str_copyright, str_artist, str_date, str_license, master_filename)
+        tag_wav_command = '''sndfile-metadata-set "%s" --bext-description "%s" --bext-originator "%s" --bext-orig-ref "%s" --str-comment "%s" --str-title "%s" --str-copyright "%s" --str-artist  "%s" --str-date "%s" --str-license "%s" "%s"''' % (normalized_filename, bext_description, bext_originator, bext_orig_ref, str_comment, str_title, str_copyright, str_artist, str_date, str_license, normalized_filename)
         print('tag_wav_command:        ', tag_wav_command)
         os.system(tag_wav_command)
-        sox_spectrogram_command = '''sox -S "%s" -n spectrogram -x 1200 -Y 1200 -o "%s" -t"'%s' by %s" -c"%s"''' % (master_filename, spectrogram_filename, title, metadata_author, str_copyright + ' (%s' % metadata_publisher)
+        sox_spectrogram_command = '''sox -S "%s" -n spectrogram -x 1200 -Y 1200 -o "%s" -t"'%s' by %s" -c"%s"''' % (normalized_filename, spectrogram_filename, title, metadata_author, str_copyright + ' (%s' % metadata_publisher)
         print('sox_spectrogram_command:', sox_spectrogram_command)
         os.system(sox_spectrogram_command)
-        resize_spectrogram_command = '''magick convert %s -resize 1400x1400! %s-cdbaby.png''' % (spectrogram_filename, label)
+        resize_spectrogram_command = '''magick %s -resize 1400x1400! %s-cdbaby.png''' % (spectrogram_filename, label)
         os.system(resize_spectrogram_command)
-        sox_cd_command = '''sox -S "%s" -b 16 -r 44100 "%s"''' % (master_filename, cd_quality_filename + 'untagged.wav')
+        sox_cd_command = '''sox -S "%s" -b 16 -d -r 44100 "%s"''' % (normalized_filename, cd_quality_filename + 'untagged.wav')
         print('sox_cd_command:         ', sox_cd_command)
         os.system(sox_cd_command)
         tag_wav_command = '''sndfile-metadata-set "%s" --bext-description "%s" --bext-originator "%s" --bext-orig-ref "%s" --str-comment "%s" --str-title "%s" --str-copyright "%s" --str-artist  "%s" --str-date "%s" --str-license "%s" "%s"''' % (cd_quality_filename + 'untagged.wav', bext_description, bext_originator, bext_orig_ref, str_comment, str_title, str_copyright, str_artist, str_date, str_license, cd_quality_filename)
         print('tag_wav_command:        ', tag_wav_command)
         os.system(tag_wav_command)
-        mp3_command = '''lame --add-id3v2 --tt "%s" --ta "%s" --ty "%s" --tn "%s" --tg "%s"  "%s" "%s"''' % (title, "Michael Gogins", metadata_year, metadata_notes, "Electroacoustic", master_filename, mp3_filename)
+        mp3_command = '''lame --add-id3v2 --tt "%s" --ta "%s" --ty "%s" --tn "%s" --tg "%s"  "%s" "%s"''' % (title, "Michael Gogins", metadata_year, metadata_notes, "Electroacoustic", normalized_filename, mp3_filename)
         print('mp3_command:            ', mp3_command)
         os.system(mp3_command)
-        sox_flac_command = '''sox -b 24 -S "%s" "%s"''' % (master_filename, flac_filename)
+        sox_flac_command = '''sox -b 24 -S "%s" "%s"''' % (normalized_filename, flac_filename)
         print('sox_flac_command:       ', sox_flac_command)
         os.system(sox_flac_command)
-        mp4_command = '''%s -r 1 -i "%s" -i "%s" -codec:a aac -strict -2 -b:a 384k -c:v libx264 -b:v 500k "%s"''' % ('ffmpeg', os.path.join(cwd, spectrogram_filename), os.path.join(cwd, master_filename), os.path.join(cwd, mp4_filename))
+        mp4_command = '''%s -r 1 -i "%s" -i "%s" -codec:a aac -strict -2 -b:a 384k -c:v libx264 -b:v 500k "%s"''' % ('ffmpeg', os.path.join(cwd, spectrogram_filename), os.path.join(cwd, normalized_filename), os.path.join(cwd, mp4_filename))
         mp4_metadata =  '-metadata title="%s" ' % title
         mp4_metadata += '-metadata date="%s" ' % metadata_year
         mp4_metadata += '-metadata genre="%s" ' % metadata_notes
@@ -261,7 +258,7 @@ def post_process():
         mp4_metadata += '-metadata composer="%s" ' % metadata_author
         mp4_metadata += '-metadata artist="%s" ' % metadata_author
         mp4_metadata += '-metadata publisher="%s" ' % metadata_publisher
-        mp4_command = '''"%s" -y -loop 1 -framerate 2 -i "%s" -i "%s" -c:v libx264 -preset medium -tune stillimage -crf 18 -codec:a aac -strict -2 -b:a 384k -r:a 48000 -shortest -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" %s "%s"''' % ('ffmpeg', os.path.join(cwd, spectrogram_filename), os.path.join(cwd, master_filename), mp4_metadata, os.path.join(cwd, mp4_filename))
+        mp4_command = '''"%s" -y -loop 1 -framerate 2 -i "%s" -i "%s" -c:v libx264 -preset medium -tune stillimage -crf 18 -codec:a aac -strict -2 -b:a 384k -r:a 48000 -shortest -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" %s "%s"''' % ('ffmpeg', os.path.join(cwd, spectrogram_filename), os.path.join(cwd, normalized_filename), mp4_metadata, os.path.join(cwd, mp4_filename))
         mp4_command = mp4_command.replace('\\', '/')
         print('mp4_command:            ', mp4_command)
         os.system(mp4_command)
@@ -274,7 +271,7 @@ def post_process():
 def play():
     try:
         print("play: {}".format(source_filepath))
-        master_filepath = os.path.join(cwd, master_filename)
+        master_filepath = os.path.join(cwd, normalized_filename)
         print("master_filepath: {}".format(master_filepath))
         if platform_system == "Darwin":
             command = "open {} -a {}".format(master_filepath, soundfile_editor)            
@@ -320,7 +317,7 @@ def html_nw():
     try:
         # It seems the string.format method does not work with multi-line 
         # strings.
-        package_json = package_json_template % (basename, rootname, rootname)
+        package_json = package_json_template % (basename, stem, stem)
         print("package.json:", package_json)
         with open("package.json", "w") as file:
             file.write(package_json)
@@ -366,7 +363,7 @@ def cpp_app():
         print("platform_system:", platform_system)
         print("cpp_app: {}...".format(source_filepath))
         command = compiler_command + " -o{}; ls -ll {};./{}"
-        command = command.format(source_filepath, rootname, rootname, rootname)
+        command = command.format(source_filepath, stem, stem, stem)
         subprocess.run(command, shell=True)
     except:
         traceback.print_exc()
@@ -377,7 +374,7 @@ def cpp_app():
 def cpp_audio():
     try:
         command = compiler_command + " -o{};ls -ll {};./{} --csound --audio PortAudio --device {}"
-        command = command.format(source_filepath, rootname, rootname, rootname, csound_audio_output)
+        command = command.format(source_filepath, stem, stem, stem, csound_audio_output)
         print("Executing compiler command:", command)
         pid = subprocess.Popen(command, shell=True, stderr=subprocess.STDOUT)
     except:
@@ -390,7 +387,7 @@ def cpp_soundfile():
     print("platform_system:", platform_system)
     try:
         command = compiler_command + " -o{};ls -ll {};./{} --csound {} -o{}"
-        command = command.format(source_filepath, rootname, rootname, rootname, common_csound_options, output_filename)
+        command = command.format(source_filepath, stem, stem, stem, common_csound_options, output_filename)
         print("Executing compiler command:", command)
         pid = subprocess.run(command, shell=True, stderr=subprocess.STDOUT)
     except:
