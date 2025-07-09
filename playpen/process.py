@@ -100,7 +100,8 @@ cwd = os.getcwd()
 
 running_subprocess = None
 
-# repeatable "random" segment so renderings can be compared.
+# repeatable "random" segment, so that renderings can be compared.
+
 random.seed(119480)
 
 if len(sys.argv) < 2:
@@ -110,6 +111,7 @@ command = sys.argv[1]
 if command == 'help':
     print(__doc__)
     exit(0)
+print()
 print(f"command:                        {command}")
 print()
 print("Configuration file:")
@@ -128,6 +130,7 @@ print(f'csound_audio_output:           {csound_audio_output}')
 port = playpen_ini.get("playpen", "port")
 print(f'HTTP server port:              {port}')
 soundfile_editor = playpen_ini.get("playpen", "soundfile-editor")
+print(f'Soundfile editor:              {soundfile_editor}')
 
 metadata_album = ''
 metadata_artist = ini_author
@@ -177,7 +180,29 @@ print(f'metadata_genre:                 {metadata_genre}')
 print(f'metadata_performer:             {metadata_performer}')
 print(f'metadata_publisher:             {metadata_publisher}')
 print(f'metadata_source:                {metadata_source}')
+print(f'metadata_title:                 {metadata_title}')
 print()
 
+ffmpeg_concert_command = f'ffmpeg -i "{rendered_audio_filename}" -filter:a "volume=-1dB" -c:a pcm_s24le -f wav \
+-metadata album="{metadata_album}" \
+-metadata artist="{metadata_artist}" \
+-metadata comment="{metadata_comment}" \
+-metadata composer="{metadata_composer}" \
+-metadata copyright="{metadata_copyright}" \
+-metadata date="{metadata_date}" \
+-metadata genre="{metadata_genre}" \
+-metadata performer="{metadata_performer}" \
+-metadata publisher="{metadata_publisher}" \
+-metadata source="{metadata_source}" \
+-metadata title="{metadata_title}" \
+"{concert_filename}"'
+
+print(f'ffmpeg_concert_command:         {ffmpeg_concert_command}')
+os.system(ffmpeg_concert_command)
+print(f'ffmpeg_flac_command:            {ffmpeg_concert_command}')
+print(f'ffmpeg_cd_command:              {ffmpeg_concert_command}')
+print(f'ffmpeg_mp3_command:             {ffmpeg_concert_command}')
+print(f'ffmpeg_png_command:             {ffmpeg_concert_command}')
+print(f'ffmpeg_mp4_command:             {ffmpeg_concert_command}')
 
 
