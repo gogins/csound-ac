@@ -87,12 +87,14 @@ try:
 except:
     pass
 import datetime
+import json
 import os
 import os.path
 import random
 import string
 import subprocess
 import sys
+import tempfile
 import time
 import traceback
 
@@ -148,6 +150,7 @@ metadata_title, ext = os.path.splitext(composition_filename)
 rendered_audio_filename = os.path.splitext(composition_filename)[0] + ".wav"
 metadata_track = ''
 
+normalized_filename = f'{metadata_title}-normalized.wav'
 concert_filename = f'{metadata_artist}, {metadata_title}.wav'
 flac_filename = f'{metadata_artist}, {metadata_title}.flac'
 cd_filename = f'{metadata_artist}, {metadata_title}.cd.wav'
@@ -161,6 +164,7 @@ print()
 print(f'current working directory:      {cwd}')
 print(f'composition_filename:           {composition_filename}')
 print(f'rendered_soundfile_filename:    {rendered_audio_filename}')
+print(f'normalized_filename:            {normalized_filename}')
 print(f'concert_filename:               {concert_filename}')
 print(f'flac_filename:                  {flac_filename}')
 print(f'cd_filename:                    {cd_filename}')
@@ -183,7 +187,48 @@ print(f'metadata_source:                {metadata_source}')
 print(f'metadata_title:                 {metadata_title}')
 print()
 
-ffmpeg_concert_command = f'ffmpeg -i "{rendered_audio_filename}" -filter:a "volume=-1dB" -c:a pcm_s24le -f wav \
+def measure_true_peak(input_file):
+    command = [
+        "ffmpeg", "-hide_banner", "-y", "-i", input_file,
+        "-af", "loudnorm=I=-23:TP=-1.0:LRA=7:print_format=json",
+        "-f", "null", "-"
+    ]
+    result = subprocess.run(command, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, text=True)
+    lines = result.stderr.splitlines()
+    print('lines:', ''.join(lines))
+    json_lines = []
+    recording = False
+    for line in lines:
+        if line.strip() == '{':
+            recording = True
+        if recording:
+            json_lines.append(line)
+        if line.strip() == '}':
+            break
+    print(json_lines)
+    loudnorm_data = json.loads('\n'.join(json_lines))
+    input_tp = float(loudnorm_data["input_tp"])
+    return input_tp
+
+def apply_gain(input_file, output_file, gain_db):
+    command = [
+        "ffmpeg", "-hide_banner", "-y", "-i", input_file,
+        "-af", f"volume={gain_db:.3f}dB",
+        "-c:a", "pcm_s24le", output_file
+    ]
+    subprocess.run(command, check=True)
+
+def normalize_to_minus1dbtp(input_file, output_file):
+    input_tp = measure_true_peak(input_file)
+    gain = -1.0 - input_tp
+    print(f"Input true peak: {input_tp:.2f} dBTP")
+    print(f"Applying gain: {gain:.2f} dB to reach -1 dBTP")
+    apply_gain(input_file, output_file, gain)
+    print(f"Output written to: {output_file}")
+
+normalize_to_minus1dbtp(rendered_audio_filename, normalized_filename)
+
+ffmpeg_concert_command = f'ffmpeg -y -i "{normalized_filename}" -filter:a "volume=-1dB" -c:a pcm_s24le -f wav \
 -metadata album="{metadata_album}" \
 -metadata artist="{metadata_artist}" \
 -metadata comment="{metadata_comment}" \
@@ -196,13 +241,59 @@ ffmpeg_concert_command = f'ffmpeg -i "{rendered_audio_filename}" -filter:a "volu
 -metadata source="{metadata_source}" \
 -metadata title="{metadata_title}" \
 "{concert_filename}"'
-
-print(f'ffmpeg_concert_command:         {ffmpeg_concert_command}')
+print(f'\nffmpeg_concert_command:\n{ffmpeg_concert_command}\n')
 os.system(ffmpeg_concert_command)
-print(f'ffmpeg_flac_command:            {ffmpeg_concert_command}')
-print(f'ffmpeg_cd_command:              {ffmpeg_concert_command}')
-print(f'ffmpeg_mp3_command:             {ffmpeg_concert_command}')
-print(f'ffmpeg_png_command:             {ffmpeg_concert_command}')
-print(f'ffmpeg_mp4_command:             {ffmpeg_concert_command}')
+
+ffmpeg_flac_command = f'''ffmpeg -y -i "{rendered_audio_filename}" \
+-af "loudnorm=I=-14:TP=-1.5:LRA=20:dual_mono=false" \
+-c:a flac -f flac \
+-metadata album="{metadata_album}" \
+-metadata artist="{metadata_artist}" \
+-metadata comment="{metadata_comment}" \
+-metadata composer="{metadata_composer}" \
+-metadata copyright="{metadata_copyright}" \
+-metadata date="{metadata_date}" \
+-metadata genre="{metadata_genre}" \
+-metadata performer="{metadata_performer}" \
+-metadata publisher="{metadata_publisher}" \
+-metadata source="{metadata_source}" \
+-metadata title="{metadata_title}" \
+"{flac_filename}"'''
+print(f'\nffmpeg_flac_command:\n{ffmpeg_flac_command}\n')
+os.system(ffmpeg_flac_command)
+
+ffmpeg_cd_command = f'ffmpeg -y -i "{normalized_filename}" \
+-af "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false" \
+-ar 44100 -ac 2 -sample_fmt s16 -c:a pcm_s16le -f wav \
+-metadata album="{metadata_album}" \
+-metadata artist="{metadata_artist}" \
+-metadata comment="{metadata_comment}" \
+-metadata composer="{metadata_composer}" \
+-metadata copyright="{metadata_copyright}" \
+-metadata date="{metadata_date}" \
+-metadata genre="{metadata_genre}" \
+-metadata performer="{metadata_performer}" \
+-metadata publisher="{metadata_publisher}" \
+-metadata source="{metadata_source}" \
+-metadata title="{metadata_title}" \
+"{cd_filename}"'
+print(f'\nffmpeg_cd_command:\n{ffmpeg_cd_command}\n')
+os.system(ffmpeg_cd_command)
+
+
+print(f'\nffmpeg_mp3_command:\n{ffmpeg_concert_command}\n')
+
+ffmpeg_png_command = (
+    f'ffmpeg -i "{concert_filename}" -filter_complex "'
+    '[0:a]showspectrumpic=s=1400x1200:legend=1:mode=separate[s]; '
+    'color=c=black@1:s=1400x1400:d=1[bg]; '
+    '[bg][s]overlay=0:0[tmp]; '
+    f"[tmp]drawtext=text='{metadata_artist}, {metadata_title}':x=50:y=1150:fontsize=28:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2"
+    f'" -vframes 1 "{png_filename}"'
+)
+print(f'\nffmpeg_png_command:\n{ffmpeg_png_command}\n')
+os.system(ffmpeg_png_command)
+
+print(f'\nffmpeg_mp4_command:\n{ffmpeg_concert_command}\n')
 
 
