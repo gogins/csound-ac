@@ -20,7 +20,7 @@ python3 playpen.py csd-soundfile {source.csd}
     playpen.ini, then post-processes the file to normalize it and save it in 
     various formats.
     
-python3 playpen.py post-process {sounfile_name}
+python3 playpen.py post-process {soundfile_name}
     Post-processes the file to normalize it and save it in various formats.
     
 python3 playpen.py csound-patch {source.inc}
@@ -133,11 +133,17 @@ ini_year = playpen_ini.get("metadata", "year")
 ini_notes = playpen_ini.get("metadata", "notes")
 ini_license = playpen_ini.get("metadata", "license")
 csound_audio_output = playpen_ini.get("csound", "audio-output")
-print(f'Csound audio output:           {csound_audio_output}')
+print(f'Csound audio output:            {csound_audio_output}')
 port = playpen_ini.get("playpen", "port")
-print(f'HTTP server port:              {port}')
+print(f'HTTP server port:               {port}')
 soundfile_editor = playpen_ini.get("playpen", "soundfile-editor")
-print(f'Soundfile editor:              {soundfile_editor}')
+print(f'Soundfile editor:               {soundfile_editor}')
+nwjs_command = playpen_ini.get("nwjs", "nwjs-command")
+print(f'nwjs_command:                   {nwjs_command}')
+common_csound_options = "-RWd -m163 -W -+msg_color=0 --midi-key=4 --midi-velocity=5"
+print(f'Common Csound options:          {common_csound_options}')
+compiler_command = playpen_ini.get("cplusplus", "compiler-command")
+print(f'C++ compiler command:           {compiler_command}')
 
 metadata_album = ''
 metadata_artist = ini_author
@@ -357,46 +363,33 @@ def csd_audio():
         
 def csd_soundfile():
     try:
-        print("\ncsd_soundfile: {} to {}...".format(composition_filepath, rendered_audio_filename))
-        csound_command = "csound {} -RWo{} --simple-sorted-score={}.srt".format(composition_filepath, rendered_audio_filename, composition_filepath)
-        print("csound command: {}".format(csound_command))
+        print(f"\ncsd_soundfile: {composition_filepath} to {rendered_audio_filename}...")
+        csound_command = f"csound {composition_filepath} -RWo{rendered_audio_filename} --simple-sorted-score={composition_filepath}.srt"
+        print(f"csound command: {csound_command}")
         result = subprocess.run(csound_command, shell=True)
-        print("csd_soundfile result: {}".format(result))
+        print(f"csd_soundfile result: {result}")
         post_process()
     except:
         traceback.print_exc()
     finally:
-        print("soundfile: {} to {}.\n".format(composition_filepath, rendered_audio_filename))
-        return
-        
-def inc_soundfile():
-    try:
-        print("\ninc_soundfile: {} to {}...".format(composition_filepath, rendered_audio_filename))
-        csound_command = "csound {} -RWo{} --simple-sorted-score={}.srt".format(composition_filepath, rendered_audio_filename, composition_filepath)
-        print("csound command: {}".format(csound_command))
-        result = subprocess.run(csound_command, shell=True)
-        print("csd_soundfile result: {}".format(result))
-    except:
-        traceback.print_exc()
-    finally:
-        print("soundfile: {} to {}.\n".format(composition_filepath, rendered_audio_filename))
+        print(f"csd_soundfile: {composition_filepath} to {rendered_audio_filename}.\n")
         return
          
 def play():
     try:
-        print("play: {}".format(composition_filepath))
+        print(f"play: {composition_filepath}")
         master_filepath = os.path.join(cwd, normalized_filename)
-        print("master_filepath: {}".format(master_filepath))
+        print(f"master_filepath: {master_filepath}")
         if platform_system == "Darwin":
-            command = "open {} -a {}".format(master_filepath, soundfile_editor)            
+            command = f"open {master_filepath} -a {soundfile_editor}"            
         else:
-            command = "{} {}".format(soundfile_editor, master_filepath)
-        print("playback command: {}".format(command))
+            command = f"{soundfile_editor} {master_filepath}"
+        print(f"playback command: {command}")
         subprocess.run(command, shell=True)
     except:
         traceback.print_exc()
     finally:
-        print("play: {} to {}.".format(composition_filepath, rendered_audio_filename))
+        print(f"play: {composition_filepath} to {rendered_audio_filename}.")
         return
         
 package_json_template = '''{
@@ -427,18 +420,20 @@ package_json_template = '''{
 }'''
         
 def html_nw():
-    print("html_nw on {}: {}...".format(platform_system, composition_filepath))
+    print(f"html_nw on {platform_system}: {composition_filepath}...")
     try:
         # It seems the string.format method does not work with multi-line 
         # strings.
-        package_json = package_json_template % (basename, stem, stem)
+        directory, basename = os.path.split(source_filepath)
+        title, extension = os.path.splitext(basename)
+        package_json = package_json_template % (basename, title, title)
         print("package.json:", package_json)
         with open("package.json", "w") as file:
             file.write(package_json)
-        print("Running on:", platform_system)
+        print(f"Running on: {platform_system}")
         if platform_system == "Darwin":
             os.chdir(directory)
-            print("cwd: ", os.getcwd())
+            print(f"cwd: ", os.getcwd())
         else:
             # Remove symlink to piece directory and link it again.
             try:
@@ -453,91 +448,90 @@ def html_nw():
             os.chdir("/home/mkg/nwjs");
             #nwjs_command = "./nw --context-mixed --experimental-modules --alsa-input-device=plughw:2,0 --alsa-output-device=plughw:2,0 --device-scale-factor=2 {}".format(directory)
             #command = "./nw --context-mixed --experimental-modules --device-scale-factor=2 {}".format(directory)
-        print("NW.js command:", nwjs_command)
+        print(f"NW.js command: {nwjs_command}")
         subprocess.run(nwjs_command, shell=True)
     except:
         traceback.print_exc()
     finally:
-        print("html_nw: {}.".format(composition_filepath))
+        print(f"html_nw: {composition_filepath}.")
         return
         
 def html_localhost():
     try:
-        print("html_localhost: {}...".format(composition_filepath))
-        command = "cp package-pnpm.json package.json; python3 -m webbrowser http://localhost:{}/{}".format(port, basename)
+        print(f"html_localhost: {composition_filename}...")
+        command = "cp package-pnpm.json package.json; python3 -m webbrowser http://localhost:{port}/{composition_filename}"
     except:
         traceback.print_exc()
     finally:
-        print("html_localhost: {}.".format(composition_filepath))
+        print(f"html_localhost: {composition_filename}.")
         subprocess.run(command, shell=True)
         return
         
 def cpp_app():
     try:
-        print("platform_system:", platform_system)
-        print("cpp_app: {}...".format(composition_filepath))
+        print(f"cpp_app: {composition_filepath}...")
         command = compiler_command + " -o{}; ls -ll {};./{}"
-        command = command.format(composition_filepath, stem, stem, stem)
+        command = command.format(composition_filepath, metadata_title, metadata_title, metadata_title)
         subprocess.run(command, shell=True)
     except:
         traceback.print_exc()
     finally:
-        print("cpp_app: {}.".format(composition_filepath))
+        print(f"cpp_app: {composition_filepath}.\n")
         return
 
 def cpp_audio():
     try:
         command = compiler_command + " -o{};ls -ll {};./{} --csound --audio PortAudio --device {}"
-        command = command.format(composition_filepath, stem, stem, stem, csound_audio_output)
-        print("Executing compiler command:", command)
+        command = command.format(composition_filepath, metadata_title, metadata_title, metadata_title, csound_audio_output)
+        print(f"Executing compiler command: {command}")
         pid = subprocess.Popen(command, shell=True, stderr=subprocess.STDOUT)
     except:
         traceback.print_exc()
     finally:
-        print("cpp_audio: {}.".format(composition_filepath))
+        print(f"cpp_audio: {composition_filepath}.\n")
         return
 
 def cpp_soundfile():
-    print("platform_system:", platform_system)
+    print(f"platform_system:", platform_system)
     try:
         command = compiler_command + " -o{};ls -ll {};./{} --csound {} -o{}"
-        command = command.format(composition_filepath, stem, stem, stem, common_csound_options, rendered_audio_filename)
-        print("Executing compiler command:", command)
+        command = command.format(composition_filepath, metadata_title, metadata_title, metadata_title, common_csound_options, rendered_audio_filename)
+        print(f"Executing compiler command: {command}")
         pid = subprocess.run(command, shell=True, stderr=subprocess.STDOUT)
     except:
         traceback.print_exc()
     finally:
-        print("cpp_soundfile: {}.".format(composition_filepath))
+        print(f"cpp_soundfile: {composition_filepath}.\n")
         return
 
 def man_csound():
     try:
-        command = "{} https://gogins.github.io/csound-extended-manual/indexframes.html".format(open_command)
+        command = f"{open_command} https://gogins.github.io/csound-extended-manual/indexframes.html"
         subprocess.run(command, shell=True)        
     except:
         traceback.print_exc()
     finally:
-        print("man_csound: {}.".format(composition_filepath))
+        print(f"man_csound: {composition_filepath}.\n")
         return
 
 def man_python():
     try:
-        command = "{} https://docs.python.org/3/".format(open_command)
+        command = f"{open_command} https://docs.python.org/3/"
         subprocess.run(command, shell=True)        
     except:
         traceback.print_exc()
     finally:
-        print("man_csound: {}.".format(composition_filepath))
+        print(f"man_csound: {composition_filepath}.\n")
         return
 
 def man_csoundac():
     try:
-        command = "{} file://$HOME/csound-extended/doc/html/index.html".format(open_command)
+        command = f"{open_command} file://$HOME/csound-extended/doc/html/index.html"
         subprocess.run(command, shell=True)        
     except:
         traceback.print_exc()
     finally:
-        print("man_csound: {}.".format(composition_filepath))
+        print(f"man_csoundac: {composition_filepath}.\n")
         return
 
 def cpp_astyle():
@@ -547,7 +541,7 @@ def cpp_astyle():
     except:
         traceback.print_exc()
     finally:
-        print("man_csound: {}.".format(composition_filepath))
+        print(f"cpp_astyle: {composition_filepath}.\n")
         return
         
 def generate_csd(patch_filepath, instrument_name, output):
@@ -704,24 +698,23 @@ def generate_standard_score():
         
 def csd_patch():
     try:
-        print("csd_patch: {}...".format(composition_filepath))
+        print(f"csd_patch: {composition_filepath}...")
         print(sys.argv)
         patch_filename = composition_filepath
-        patch_name = title
-        output = rendered_audio_filename
+        patch_name = metadata_title
         message_level = 1 + 2 + 32 + 128
         csound = ctcsound.Csound()
-        csound.message("Patch file: {} Patch name: {} Output: {}\n".format(patch_filename, patch_name, output))
+        csound.message("Patch file: {patch_filename} Patch name: {patch_name} Output: {}\n".format(patch_filename, patch_name, rendered_audio_filename))
         csd = generate_csd(patch_filename, patch_name, output)
         print(csd)
         csound.compileCsdText(csd)
         csound.start()
         csound.perform()
-        print("PERFORMING...")
+        print(f"PERFORMING...")
     except:
         traceback.print_exc()
     finally:
-        print("csd_patch: {}.".format(composition_filepath))
+        print(f"csd_patch: {composition_filepath}.\n")
         return
 
 if command == 'csd-audio':
