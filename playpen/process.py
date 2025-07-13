@@ -280,8 +280,23 @@ ffmpeg_cd_command = f'ffmpeg -y -i "{normalized_filename}" \
 print(f'\nffmpeg_cd_command:\n{ffmpeg_cd_command}\n')
 os.system(ffmpeg_cd_command)
 
-
-print(f'\nffmpeg_mp3_command:\n{ffmpeg_concert_command}\n')
+ffmpeg_mp3_command = f'ffmpeg -y -i "{normalized_filename}" \
+-af "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false" \
+-ar 44100 -ac 2 -sample_fmt s16 -c:a pcm_s16le -f wav \
+-metadata album="{metadata_album}" \
+-metadata artist="{metadata_artist}" \
+-metadata comment="{metadata_comment}" \
+-metadata composer="{metadata_composer}" \
+-metadata copyright="{metadata_copyright}" \
+-metadata date="{metadata_date}" \
+-metadata genre="{metadata_genre}" \
+-metadata performer="{metadata_performer}" \
+-metadata publisher="{metadata_publisher}" \
+-metadata source="{metadata_source}" \
+-metadata title="{metadata_title}" \
+"{mp3_filename}"'
+print(f'\ffmpeg_mp3_command:\n{ffmpeg_mp3_command}\n')
+os.system(ffmpeg_mp3_command)
 
 ffmpeg_png_command = (
     f'ffmpeg -y -i "{concert_filename}" -filter_complex "'
@@ -294,6 +309,24 @@ ffmpeg_png_command = (
 print(f'\nffmpeg_png_command:\n{ffmpeg_png_command}\n')
 os.system(ffmpeg_png_command)
 
-print(f'\nffmpeg_mp4_command:\n{ffmpeg_concert_command}\n')
+# Create a high-resolution static video with audio
+ffmpeg_mp4_command = f'ffmpeg -y -loop 1 -i "{png_filename}" -i "{normalized_filename}" \
+-af "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false" \
+-c:v libx264 -tune stillimage -pix_fmt yuv420p -r 1 \
+-c:a aac -b:a 320k -shortest \
+-metadata album="{metadata_album}" \
+-metadata artist="{metadata_artist}" \
+-metadata comment="{metadata_comment}" \
+-metadata composer="{metadata_composer}" \
+-metadata copyright="{metadata_copyright}" \
+-metadata date="{metadata_date}" \
+-metadata genre="{metadata_genre}" \
+-metadata performer="{metadata_performer}" \
+-metadata publisher="{metadata_publisher}" \
+-metadata source="{metadata_source}" \
+-metadata title="{metadata_title}" \
+"{mp4_filename}"'
+print(f'\nffmpeg_mp4_command:\n{ffmpeg_mp4_command}\n')
+os.system(ffmpeg_mp4_command)
 
 
