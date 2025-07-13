@@ -17,9 +17,11 @@ python3 playpen.py csd-audio {source.csd}
     
 python3 playpen.py csd-soundfile {source.csd}
     Renders the csd file to a soundfile constructed using metadata from 
-    playpen.ini, then post-processes the file to normalize it, save it in 
-    various formats, etc., and finally opens the soundfile using the editor 
-    specified in playpen.ini.
+    playpen.ini, then post-processes the file to normalize it and save it in 
+    various formats.
+    
+python3 playpen.py post-process {soundfile_name}
+    Post-processes the file to normalize it and save it in various formats.
     
 python3 playpen.py csound-patch {source.inc}
     Includes the inc file in a csd file, renders it to a soundfile, and 
@@ -64,8 +66,7 @@ python3 playpen.py cpp-astyle {source}
     Uses the astyle program to reform the source file, using 
     options configured in playpen.ini.
 
-For post-processing, the sndfile-metadata-set, sox, and ffmpeg programs need 
-to be installed.
+For post-processing, the ffmpeg program needs to be installed.
 
 For HTML related commands, NW.js needs to be installed.
 
@@ -73,10 +74,9 @@ For build commands, a C++ toolchain needs to be installed.
 
 For reformatting files, the astyle program needs to be installed.
 
-For playing, the audacity program is a good choice because it can display 
-soundfiles as sonograms, which can be very informative, and audacity can 
-export to various formats.
-
+For playing, the Audacity program is a good choice because it can display 
+soundfiles simultaneously as both waveforms and spectrograms, and export to 
+various formats.
 
 '''
 import configparser
@@ -85,6 +85,7 @@ try:
 except:
     pass
 import datetime
+import json
 import os
 import os.path
 import platform
@@ -92,13 +93,16 @@ import random
 import string
 import subprocess
 import sys
-import threading
+import tempfile
 import time
 import traceback
 
+cwd = os.getcwd()
+
 running_subprocess = None
 
-# repeatable "random" segment so renderings can be compared.
+# repeatable "random" segment, so that renderings can be compared.
+
 random.seed(119480)
 
 if len(sys.argv) < 2:
@@ -108,181 +112,284 @@ command = sys.argv[1]
 if command == 'help':
     print(__doc__)
     exit(0)
-print("command:                 {}".format(command))
-cwd = os.getcwd()
-print('cwd:                    ', cwd)
+print()
+print(f"Playpen command:                {command}")
 platform_system = platform.system()
+print(f'Platform:                       {platform_system}')
 if platform_system == "Darwin":
     open_command = "open"
 else:
     open_command = "xdg-open"
-source_filepath = ""
-if len(sys.argv) > 2:
-    source_filepath = sys.argv[2]
+print()
+print("Configuration file:")
+print()
 home_directory = os.environ["HOME"]
 playpen_ini_filepath = os.path.join(home_directory, "playpen.ini")
-settings = configparser.ConfigParser()
-settings.read_file(open(playpen_ini_filepath))
-metadata_author = settings.get("metadata", "author")
-metadata_publisher = settings.get("metadata", "publisher")
-metadata_year = settings.get("metadata", "year")
-metadata_notes = settings.get("metadata", "notes")
-metadata_license = settings.get("metadata", "license")
-csound_audio_output = settings.get("csound", "audio-output")
-print("csound_audio_output:     " + csound_audio_output)
-port = settings.get("playpen", "port")
-print("HTTP server port:        " + port)
-soundfile_editor = settings.get("playpen", "soundfile-editor")
-print("soundfile_editor:        " + soundfile_editor)
-directory, basename = os.path.split(source_filepath)
-title, extension = os.path.splitext(basename)
-output_filename = title + ".wav"
-normalized_filename = f'{title}.normalized.wav' 
-spectrogram_filename = f'{title}.png' 
-cd_quality_filename = f'{title}.cd.wav' 
-mp3_filename = f'{title}.mp3' 
-mp4_filename = f'{title}.mp4'
-flac_filename = f'{title}.flac'
+playpen_ini = configparser.ConfigParser()
+playpen_ini.read_file(open(playpen_ini_filepath))
+ini_author = playpen_ini.get("metadata", "author")
+ini_publisher = playpen_ini.get("metadata", "publisher")
+ini_year = playpen_ini.get("metadata", "year")
+ini_notes = playpen_ini.get("metadata", "notes")
+ini_license = playpen_ini.get("metadata", "license")
+csound_audio_output = playpen_ini.get("csound", "audio-output")
+print(f'Csound audio output:            {csound_audio_output}')
+port = playpen_ini.get("playpen", "port")
+print(f'HTTP server port:               {port}')
+soundfile_editor = playpen_ini.get("playpen", "soundfile-editor")
+print(f'Soundfile editor:               {soundfile_editor}')
+nwjs_command = playpen_ini.get("nwjs", "nwjs-command")
+print(f'nwjs_command:                   {nwjs_command}')
 common_csound_options = "-RWd -m163 -W -+msg_color=0 --midi-key=4 --midi-velocity=5"
-compiler_command = settings.get("cplusplus", "compiler-command")
-nwjs_command = settings.get("nwjs", "nwjs-command")
-print('Common Csound options:  ', common_csound_options)
-print('Source file:            ', source_filepath)
-print('Directory:               ', directory)
-print('Basename:               ', basename)
-print('Author:                 ', metadata_author)
-print('Title:                  ', title)
-print('Year:                   ', metadata_year)
-str_copyright          = 'Copyright %s by %s' % (metadata_year, metadata_author)
-print('Copyright:              ', str_copyright)
-print('Licence:                ', metadata_license)
-print('Publisher:              ', metadata_publisher)
-print('Notes:                  ', metadata_notes)
-print('Output filename:        ', output_filename)
-print('Master filename:        ', normalized_filename)
-print('Spectrogram filename:   ', spectrogram_filename)
-print('CD quality filename:    ', cd_quality_filename)
-print('MP3 filename:           ', mp3_filename)
-print('MP4 filename:           ', mp4_filename)
-print('FLAC filename:          ', flac_filename)
-print('C++ compiler command:   ', compiler_command)
-print('NW.js command:          ', nwjs_command)
-bext_description       = metadata_notes
-bext_originator        = metadata_author
-bext_orig_ref          = basename
+print(f'Common Csound options:          {common_csound_options}')
+compiler_command = playpen_ini.get("cplusplus", "compiler-command")
+print(f'C++ compiler command:           {compiler_command}')
 
-def csd_audio():
+metadata_album = ''
+metadata_artist = ini_author
+metadata_comment = ''
+metadata_composer = ini_author
+metadata_copyright = ini_author
+metadata_date = ini_year
+metadata_genre = 'electroacoustic'
+metadata_performer = 'csound'
+metadata_publisher = ini_publisher
+metadata_source = 'csound'
+composition_filepath = sys.argv[2]
+composition_filename = os.path.basename(composition_filepath)
+metadata_title, ext = os.path.splitext(composition_filename)
+rendered_audio_filename = os.path.splitext(composition_filename)[0] + ".wav"
+metadata_track = ''
+
+normalized_filename = f'{metadata_title}-normalized.wav'
+concert_filename = f'{metadata_artist}, {metadata_title}.wav'
+flac_filename = f'{metadata_artist}, {metadata_title}.flac'
+cd_filename = f'{metadata_artist}, {metadata_title}.cd.wav'
+mp3_filename = f'{metadata_artist}, {metadata_title}.mp3'
+png_filename = f'{metadata_artist}, {metadata_title}.png'
+mp4_filename = f'{metadata_artist}, {metadata_title}.mp4'
+
+print()
+print('Filenames:')
+print()
+print(f'current working directory:      {cwd}')
+print(f'composition_filename:           {composition_filename}')
+print(f'rendered_soundfile_filename:    {rendered_audio_filename}')
+print(f'normalized_filename:            {normalized_filename}')
+print(f'concert_filename:               {concert_filename}')
+print(f'flac_filename:                  {flac_filename}')
+print(f'cd_filename:                    {cd_filename}')
+print(f'mp3_filename:                   {mp3_filename}')
+print(f'png_filename:                   {png_filename}')
+print(f'mp4_filename:                   {mp4_filename}')
+print()
+print('Metadata:')
+print()
+print(f'metadata_album:                 {metadata_album}')
+print(f'metadata_artist:                {metadata_artist}')
+print(f'metadata_comment:               {metadata_comment}')
+print(f'metadata_composer:              {metadata_composer}')
+print(f'metadata_copyright:             {metadata_copyright}')
+print(f'metadata_date:                  {metadata_date}')
+print(f'metadata_genre:                 {metadata_genre}')
+print(f'metadata_performer:             {metadata_performer}')
+print(f'metadata_publisher:             {metadata_publisher}')
+print(f'metadata_source:                {metadata_source}')
+print(f'metadata_title:                 {metadata_title}')
+print()
+
+def measure_true_peak(input_file):
+    command = [
+        "ffmpeg", "-hide_banner", "-y", "-i", input_file,
+        "-af", "loudnorm=I=-23:TP=-1.0:LRA=7:print_format=json",
+        "-f", "null", "-"
+    ]
+    result = subprocess.run(command, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, text=True)
+    lines = result.stderr.splitlines()
+    print('lines:', ''.join(lines))
+    json_lines = []
+    recording = False
+    for line in lines:
+        if line.strip() == '{':
+            recording = True
+        if recording:
+            json_lines.append(line)
+        if line.strip() == '}':
+            break
+    print(json_lines)
+    loudnorm_data = json.loads('\n'.join(json_lines))
+    input_tp = float(loudnorm_data["input_tp"])
+    return input_tp
+
+def apply_gain(input_file, output_file, gain_db):
+    command = [
+        "ffmpeg", "-hide_banner", "-y", "-i", input_file,
+        "-af", f"volume={gain_db:.3f}dB",
+        "-c:a", "pcm_s24le", output_file
+    ]
+    subprocess.run(command, check=True)
+
+def normalize_to_minus1dbtp(input_file, output_file):
+    input_tp = measure_true_peak(input_file)
+    gain = -1.0 - input_tp
+    print(f"Input true peak: {input_tp:.2f} dBTP")
+    print(f"Applying gain: {gain:.2f} dB to reach -1 dBTP")
+    apply_gain(input_file, output_file, gain)
+    print(f"Output written to: {output_file}")
+
+def post_process():
     try:
-        print(f"\ncsd_audio: {source_filepath} to {csound_audio_output}...")
-        csound_command = "csound {} -o{}".format(source_filepath, csound_audio_output)
-        print("csound command: {}".format(csound_command))
-        result = subprocess.run(csound_command, shell=True)
-        print("csound command: {} {}".format(csound_command, result))
+        print(f"\npost_process: {composition_filename}...\n")
+        normalize_to_minus1dbtp(rendered_audio_filename, normalized_filename)
+
+        ffmpeg_concert_command = f'ffmpeg -y -i "{normalized_filename}" -filter:a "volume=-1dB" -c:a pcm_s24le -f wav \
+        -metadata album="{metadata_album}" \
+        -metadata artist="{metadata_artist}" \
+        -metadata comment="{metadata_comment}" \
+        -metadata composer="{metadata_composer}" \
+        -metadata copyright="{metadata_copyright}" \
+        -metadata date="{metadata_date}" \
+        -metadata genre="{metadata_genre}" \
+        -metadata performer="{metadata_performer}" \
+        -metadata publisher="{metadata_publisher}" \
+        -metadata source="{metadata_source}" \
+        -metadata title="{metadata_title}" \
+        "{concert_filename}"'
+        print(f'\nffmpeg_concert_command:\n{ffmpeg_concert_command}\n')
+        os.system(ffmpeg_concert_command)
+
+        ffmpeg_flac_command = f'''ffmpeg -y -i "{rendered_audio_filename}" \
+        -af "loudnorm=I=-14:TP=-1.5:LRA=20:dual_mono=false" \
+        -c:a flac -f flac \
+        -metadata album="{metadata_album}" \
+        -metadata artist="{metadata_artist}" \
+        -metadata comment="{metadata_comment}" \
+        -metadata composer="{metadata_composer}" \
+        -metadata copyright="{metadata_copyright}" \
+        -metadata date="{metadata_date}" \
+        -metadata genre="{metadata_genre}" \
+        -metadata performer="{metadata_performer}" \
+        -metadata publisher="{metadata_publisher}" \
+        -metadata source="{metadata_source}" \
+        -metadata title="{metadata_title}" \
+        "{flac_filename}"'''
+        print(f'\nffmpeg_flac_command:\n{ffmpeg_flac_command}\n')
+        os.system(ffmpeg_flac_command)
+
+        ffmpeg_cd_command = f'ffmpeg -y -i "{normalized_filename}" \
+        -af "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false" \
+        -ar 44100 -ac 2 -sample_fmt s16 -c:a pcm_s16le -f wav \
+        -metadata album="{metadata_album}" \
+        -metadata artist="{metadata_artist}" \
+        -metadata comment="{metadata_comment}" \
+        -metadata composer="{metadata_composer}" \
+        -metadata copyright="{metadata_copyright}" \
+        -metadata date="{metadata_date}" \
+        -metadata genre="{metadata_genre}" \
+        -metadata performer="{metadata_performer}" \
+        -metadata publisher="{metadata_publisher}" \
+        -metadata source="{metadata_source}" \
+        -metadata title="{metadata_title}" \
+        "{cd_filename}"'
+        print(f'\nffmpeg_cd_command:\n{ffmpeg_cd_command}\n')
+        os.system(ffmpeg_cd_command)
+
+        ffmpeg_mp3_command = f'ffmpeg -y -i "{normalized_filename}" \
+        -af "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false" \
+        -ar 44100 -ac 2 -sample_fmt s16 -c:a pcm_s16le -f wav \
+        -metadata album="{metadata_album}" \
+        -metadata artist="{metadata_artist}" \
+        -metadata comment="{metadata_comment}" \
+        -metadata composer="{metadata_composer}" \
+        -metadata copyright="{metadata_copyright}" \
+        -metadata date="{metadata_date}" \
+        -metadata genre="{metadata_genre}" \
+        -metadata performer="{metadata_performer}" \
+        -metadata publisher="{metadata_publisher}" \
+        -metadata source="{metadata_source}" \
+        -metadata title="{metadata_title}" \
+        "{mp3_filename}"'
+        print(f'\ffmpeg_mp3_command:\n{ffmpeg_mp3_command}\n')
+        os.system(ffmpeg_mp3_command)
+
+        ffmpeg_png_command = (
+            f'ffmpeg -y -i "{concert_filename}" -filter_complex "'
+            '[0:a]showspectrumpic=s=1100x1200:legend=1:mode=separate[s]; '
+            'color=c=black@1:s=1400x1400:d=1[bg]; '
+            '[bg][s]overlay=0:0[tmp]; '
+            f"[tmp]drawtext=text='{metadata_artist}, {metadata_title}':x=(w-text_w)/2:y=1340:fontsize=28:fontcolor=white"
+            f'" -vframes 1 "{png_filename}"'
+        )
+        print(f'\nffmpeg_png_command:\n{ffmpeg_png_command}\n')
+        os.system(ffmpeg_png_command)
+
+        # Create a high-resolution static video with audio
+        ffmpeg_mp4_command = f'ffmpeg -y -loop 1 -i "{png_filename}" -i "{normalized_filename}" \
+        -af "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false" \
+        -c:v libx264 -tune stillimage -pix_fmt yuv420p -r 1 \
+        -c:a aac -b:a 320k -shortest \
+        -metadata album="{metadata_album}" \
+        -metadata artist="{metadata_artist}" \
+        -metadata comment="{metadata_comment}" \
+        -metadata composer="{metadata_composer}" \
+        -metadata copyright="{metadata_copyright}" \
+        -metadata date="{metadata_date}" \
+        -metadata genre="{metadata_genre}" \
+        -metadata performer="{metadata_performer}" \
+        -metadata publisher="{metadata_publisher}" \
+        -metadata source="{metadata_source}" \
+        -metadata title="{metadata_title}" \
+        "{mp4_filename}"'
+        print(f'\nffmpeg_mp4_command:\n{ffmpeg_mp4_command}\n')
+        os.system(ffmpeg_mp4_command)
     except:
         traceback.print_exc()
     finally:
-        print("csd_audio: {} to {}.".format(source_filepath, csound_audio_output))
+        print(f"\npost_process: {composition_filename}.\n")
+        return
+
+def csd_audio():
+    try:
+        print(f"\ncsd_audio: {composition_filepath} to {csound_audio_output}...")
+        csound_command = f"csound {composition_filepath} -o{csound_audio_output}"
+        print(f"csound command: {csound_command}")
+        result = subprocess.run(csound_command, shell=True)
+        print(f"csound command: {csound_command} {result}")
+    except:
+        traceback.print_exc()
+    finally:
+        print(f"\ncsd_audio: {composition_filepath} to {csound_audio_output}.\n")
         return
         
 def csd_soundfile():
     try:
-        print("\ncsd_soundfile: {} to {}...".format(source_filepath, output_filename))
-        csound_command = "csound {} -RWo{} --simple-sorted-score={}.srt".format(source_filepath, output_filename, source_filepath)
-        print("csound command: {}".format(csound_command))
+        print(f"\ncsd_soundfile: {composition_filepath} to {rendered_audio_filename}...")
+        csound_command = f"csound {composition_filepath} -RWo{rendered_audio_filename} --simple-sorted-score={composition_filepath}.srt"
+        print(f"csound command: {csound_command}")
         result = subprocess.run(csound_command, shell=True)
-        print("csd_soundfile result: {}".format(result))
+        print(f"csd_soundfile result: {result}")
         post_process()
     except:
         traceback.print_exc()
     finally:
-        print("soundfile: {} to {}.\n".format(source_filepath, output_filename))
+        print(f"csd_soundfile: {composition_filepath} to {rendered_audio_filename}.\n")
         return
-        
-def inc_soundfile():
-    try:
-        print("\ninc_soundfile: {} to {}...".format(source_filepath, output_filename))
-        csound_command = "csound {} -RWo{} --simple-sorted-score={}.srt".format(source_filepath, output_filename, source_filepath)
-        print("csound command: {}".format(csound_command))
-        result = subprocess.run(csound_command, shell=True)
-        print("csd_soundfile result: {}".format(result))
-    except:
-        traceback.print_exc()
-    finally:
-        print("soundfile: {} to {}.\n".format(source_filepath, output_filename))
-        return
-        
-def post_process():
-    try:
-        print("\npost_process: {}...".format(source_filepath))
-        bext_description       = metadata_notes
-        bext_originator        = metadata_author
-        bext_orig_ref          = basename
-        #bext_umid              = xxx
-        #bext_orig_date         = xxx
-        #bext_orig_time         = xxx
-        #bext_coding_hist       = xxx
-        #bext_time_ref          = xxx
-        str_comment            = metadata_notes
-        str_title              = title
-        str_artist             = metadata_author
-        str_date               = metadata_year
-        str_license            = metadata_license
-        sox_normalize_command = f'sox {output_filename} {normalized_filename} norm -1 -b 24'
-        print('sox_normalize command:  ', sox_normalize_command)
-        os.system(sox_normalize_command)
-        tag_wav_command = '''sndfile-metadata-set "%s" --bext-description "%s" --bext-originator "%s" --bext-orig-ref "%s" --str-comment "%s" --str-title "%s" --str-copyright "%s" --str-artist  "%s" --str-date "%s" --str-license "%s" "%s"''' % (normalized_filename, bext_description, bext_originator, bext_orig_ref, str_comment, str_title, str_copyright, str_artist, str_date, str_license, normalized_filename)
-        print('tag_wav_command:        ', tag_wav_command)
-        os.system(tag_wav_command)
-        sox_spectrogram_command = '''sox -S "%s" -n spectrogram -x 1200 -Y 1200 -o "%s" -t"'%s' by %s" -c"%s"''' % (normalized_filename, spectrogram_filename, title, metadata_author, str_copyright + ' (%s' % metadata_publisher)
-        print('sox_spectrogram_command:', sox_spectrogram_command)
-        os.system(sox_spectrogram_command)
-        resize_spectrogram_command = '''magick %s -resize 1400x1400! %s-cdbaby.png''' % (spectrogram_filename, label)
-        os.system(resize_spectrogram_command)
-        sox_cd_command = '''sox -S "%s" -b 16 -d -r 44100 "%s"''' % (normalized_filename, cd_quality_filename + 'untagged.wav')
-        print('sox_cd_command:         ', sox_cd_command)
-        os.system(sox_cd_command)
-        tag_wav_command = '''sndfile-metadata-set "%s" --bext-description "%s" --bext-originator "%s" --bext-orig-ref "%s" --str-comment "%s" --str-title "%s" --str-copyright "%s" --str-artist  "%s" --str-date "%s" --str-license "%s" "%s"''' % (cd_quality_filename + 'untagged.wav', bext_description, bext_originator, bext_orig_ref, str_comment, str_title, str_copyright, str_artist, str_date, str_license, cd_quality_filename)
-        print('tag_wav_command:        ', tag_wav_command)
-        os.system(tag_wav_command)
-        mp3_command = '''lame --add-id3v2 --tt "%s" --ta "%s" --ty "%s" --tn "%s" --tg "%s"  "%s" "%s"''' % (title, "Michael Gogins", metadata_year, metadata_notes, "Electroacoustic", normalized_filename, mp3_filename)
-        print('mp3_command:            ', mp3_command)
-        os.system(mp3_command)
-        sox_flac_command = '''sox -b 24 -S "%s" "%s"''' % (normalized_filename, flac_filename)
-        print('sox_flac_command:       ', sox_flac_command)
-        os.system(sox_flac_command)
-        mp4_command = '''%s -r 1 -i "%s" -i "%s" -codec:a aac -strict -2 -b:a 384k -c:v libx264 -b:v 500k "%s"''' % ('ffmpeg', os.path.join(cwd, spectrogram_filename), os.path.join(cwd, normalized_filename), os.path.join(cwd, mp4_filename))
-        mp4_metadata =  '-metadata title="%s" ' % title
-        mp4_metadata += '-metadata date="%s" ' % metadata_year
-        mp4_metadata += '-metadata genre="%s" ' % metadata_notes
-        mp4_metadata += '-metadata copyright="%s" ' % str_copyright
-        mp4_metadata += '-metadata composer="%s" ' % metadata_author
-        mp4_metadata += '-metadata artist="%s" ' % metadata_author
-        mp4_metadata += '-metadata publisher="%s" ' % metadata_publisher
-        mp4_command = '''"%s" -y -loop 1 -framerate 2 -i "%s" -i "%s" -c:v libx264 -preset medium -tune stillimage -crf 18 -codec:a aac -strict -2 -b:a 384k -r:a 48000 -shortest -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" %s "%s"''' % ('ffmpeg', os.path.join(cwd, spectrogram_filename), os.path.join(cwd, normalized_filename), mp4_metadata, os.path.join(cwd, mp4_filename))
-        mp4_command = mp4_command.replace('\\', '/')
-        print('mp4_command:            ', mp4_command)
-        os.system(mp4_command)
-    except:
-        traceback.print_exc()
-    finally:
-        print("post_process: {}.".format(source_filepath))
-        return
-    
+         
 def play():
     try:
-        print("play: {}".format(source_filepath))
+        print(f"play: {composition_filepath}")
         master_filepath = os.path.join(cwd, normalized_filename)
-        print("master_filepath: {}".format(master_filepath))
+        print(f"master_filepath: {master_filepath}")
         if platform_system == "Darwin":
-            command = "open {} -a {}".format(master_filepath, soundfile_editor)            
+            command = f"open {master_filepath} -a {soundfile_editor}"            
         else:
-            command = "{} {}".format(soundfile_editor, master_filepath)
-        print("playback command: {}".format(command))
+            command = f"{soundfile_editor} {master_filepath}"
+        print(f"playback command: {command}")
         subprocess.run(command, shell=True)
     except:
         traceback.print_exc()
     finally:
-        print("play: {} to {}.".format(source_filepath, output_filename))
+        print(f"play: {composition_filepath} to {rendered_audio_filename}.")
         return
         
 package_json_template = '''{
@@ -313,18 +420,20 @@ package_json_template = '''{
 }'''
         
 def html_nw():
-    print("html_nw on {}: {}...".format(platform_system, source_filepath))
+    print(f"html_nw on {platform_system}: {composition_filepath}...")
     try:
         # It seems the string.format method does not work with multi-line 
         # strings.
-        package_json = package_json_template % (basename, stem, stem)
+        directory, basename = os.path.split(source_filepath)
+        title, extension = os.path.splitext(basename)
+        package_json = package_json_template % (basename, title, title)
         print("package.json:", package_json)
         with open("package.json", "w") as file:
             file.write(package_json)
-        print("Running on:", platform_system)
+        print(f"Running on: {platform_system}")
         if platform_system == "Darwin":
             os.chdir(directory)
-            print("cwd: ", os.getcwd())
+            print(f"cwd: ", os.getcwd())
         else:
             # Remove symlink to piece directory and link it again.
             try:
@@ -339,101 +448,100 @@ def html_nw():
             os.chdir("/home/mkg/nwjs");
             #nwjs_command = "./nw --context-mixed --experimental-modules --alsa-input-device=plughw:2,0 --alsa-output-device=plughw:2,0 --device-scale-factor=2 {}".format(directory)
             #command = "./nw --context-mixed --experimental-modules --device-scale-factor=2 {}".format(directory)
-        print("NW.js command:", nwjs_command)
+        print(f"NW.js command: {nwjs_command}")
         subprocess.run(nwjs_command, shell=True)
     except:
         traceback.print_exc()
     finally:
-        print("html_nw: {}.".format(source_filepath))
+        print(f"html_nw: {composition_filepath}.")
         return
         
 def html_localhost():
     try:
-        print("html_localhost: {}...".format(source_filepath))
-        command = "cp package-pnpm.json package.json; python3 -m webbrowser http://localhost:{}/{}".format(port, basename)
+        print(f"html_localhost: {composition_filename}...")
+        command = "cp package-pnpm.json package.json; python3 -m webbrowser http://localhost:{port}/{composition_filename}"
     except:
         traceback.print_exc()
     finally:
-        print("html_localhost: {}.".format(source_filepath))
+        print(f"html_localhost: {composition_filename}.")
         subprocess.run(command, shell=True)
         return
         
 def cpp_app():
     try:
-        print("platform_system:", platform_system)
-        print("cpp_app: {}...".format(source_filepath))
+        print(f"cpp_app: {composition_filepath}...")
         command = compiler_command + " -o{}; ls -ll {};./{}"
-        command = command.format(source_filepath, stem, stem, stem)
+        command = command.format(composition_filepath, metadata_title, metadata_title, metadata_title)
         subprocess.run(command, shell=True)
     except:
         traceback.print_exc()
     finally:
-        print("cpp_app: {}.".format(source_filepath))
+        print(f"cpp_app: {composition_filepath}.\n")
         return
 
 def cpp_audio():
     try:
         command = compiler_command + " -o{};ls -ll {};./{} --csound --audio PortAudio --device {}"
-        command = command.format(source_filepath, stem, stem, stem, csound_audio_output)
-        print("Executing compiler command:", command)
+        command = command.format(composition_filepath, metadata_title, metadata_title, metadata_title, csound_audio_output)
+        print(f"Executing compiler command: {command}")
         pid = subprocess.Popen(command, shell=True, stderr=subprocess.STDOUT)
     except:
         traceback.print_exc()
     finally:
-        print("cpp_audio: {}.".format(source_filepath))
+        print(f"cpp_audio: {composition_filepath}.\n")
         return
 
 def cpp_soundfile():
-    print("platform_system:", platform_system)
+    print(f"platform_system:", platform_system)
     try:
         command = compiler_command + " -o{};ls -ll {};./{} --csound {} -o{}"
-        command = command.format(source_filepath, stem, stem, stem, common_csound_options, output_filename)
-        print("Executing compiler command:", command)
+        command = command.format(composition_filepath, metadata_title, metadata_title, metadata_title, common_csound_options, rendered_audio_filename)
+        print(f"Executing compiler command: {command}")
         pid = subprocess.run(command, shell=True, stderr=subprocess.STDOUT)
     except:
         traceback.print_exc()
     finally:
-        print("cpp_soundfile: {}.".format(source_filepath))
+        print(f"cpp_soundfile: {composition_filepath}.\n")
         return
 
 def man_csound():
     try:
-        command = "{} https://gogins.github.io/csound-extended-manual/indexframes.html".format(open_command)
+        command = f"{open_command} https://gogins.github.io/csound-extended-manual/indexframes.html"
         subprocess.run(command, shell=True)        
     except:
         traceback.print_exc()
     finally:
-        print("man_csound: {}.".format(source_filepath))
+        print(f"man_csound: {composition_filepath}.\n")
         return
 
 def man_python():
     try:
-        command = "{} https://docs.python.org/3/".format(open_command)
+        command = f"{open_command} https://docs.python.org/3/"
         subprocess.run(command, shell=True)        
     except:
         traceback.print_exc()
     finally:
-        print("man_csound: {}.".format(source_filepath))
+        print(f"man_csound: {composition_filepath}.\n")
         return
 
 def man_csoundac():
     try:
-        command = "{} file://$HOME/csound-extended/doc/html/index.html".format(open_command)
+        command = f"{open_command} file://$HOME/csound-extended/doc/html/index.html"
         subprocess.run(command, shell=True)        
     except:
         traceback.print_exc()
     finally:
-        print("man_csound: {}.".format(source_filepath))
+        print(f"man_csoundac: {composition_filepath}.\n")
         return
 
 def cpp_astyle():
     try:
-        command = "astyle --style=1tbs --indent=spaces --indent-switches --indent-cases --indent-namespaces --unpad-paren --indent-classes --indent-after-parens --style=attach {}".format(source_filepath)
+        command = "astyle --style=1tbs --indent=spaces --indent-switches --indent-cases --indent-namespaces --unpad-paren --indent-classes --indent-after-parens --style=attach {}".format(composition_filepath)
         subprocess.run(command, shell=True)
     except:
         traceback.print_exc()
     finally:
-        print("man_csound: {}.".format(source_filepath))
+        print(f"cpp_astyle: {composition_filepath}.\n")
         return
         
 def generate_csd(patch_filepath, instrument_name, output):
@@ -590,24 +698,23 @@ def generate_standard_score():
         
 def csd_patch():
     try:
-        print("csd_patch: {}...".format(source_filepath))
+        print(f"csd_patch: {composition_filepath}...")
         print(sys.argv)
-        patch_filename = source_filepath
-        patch_name = title
-        output = output_filename
+        patch_filename = composition_filepath
+        patch_name = metadata_title
         message_level = 1 + 2 + 32 + 128
         csound = ctcsound.Csound()
-        csound.message("Patch file: {} Patch name: {} Output: {}\n".format(patch_filename, patch_name, output))
+        csound.message("Patch file: {patch_filename} Patch name: {patch_name} Output: {}\n".format(patch_filename, patch_name, rendered_audio_filename))
         csd = generate_csd(patch_filename, patch_name, output)
         print(csd)
         csound.compileCsdText(csd)
         csound.start()
         csound.perform()
-        print("PERFORMING...")
+        print(f"PERFORMING...")
     except:
         traceback.print_exc()
     finally:
-        print("csd_patch: {}.".format(source_filepath))
+        print(f"csd_patch: {composition_filepath}.\n")
         return
 
 if command == 'csd-audio':
