@@ -284,11 +284,11 @@ os.system(ffmpeg_cd_command)
 print(f'\nffmpeg_mp3_command:\n{ffmpeg_concert_command}\n')
 
 ffmpeg_png_command = (
-    f'ffmpeg -i "{concert_filename}" -filter_complex "'
-    '[0:a]showspectrumpic=s=1400x1200:legend=1:mode=separate[s]; '
+    f'ffmpeg -y -i "{concert_filename}" -filter_complex "'
+    '[0:a]showspectrumpic=s=1100x1200:legend=1:mode=separate[s]; '
     'color=c=black@1:s=1400x1400:d=1[bg]; '
     '[bg][s]overlay=0:0[tmp]; '
-    f"[tmp]drawtext=text='{metadata_artist}, {metadata_title}':x=50:y=1150:fontsize=28:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2"
+    f"[tmp]drawtext=text='{metadata_artist}, {metadata_title}':x=(w-text_w)/2:y=1340:fontsize=28:fontcolor=white"
     f'" -vframes 1 "{png_filename}"'
 )
 print(f'\nffmpeg_png_command:\n{ffmpeg_png_command}\n')
