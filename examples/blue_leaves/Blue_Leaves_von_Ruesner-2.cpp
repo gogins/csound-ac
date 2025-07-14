@@ -8,14 +8,12 @@
 #include <VoiceleadingNode.hpp>
 #include <vector>
 
-struct Cursor
-{
+struct Cursor {
     csound::Event note;
     csound::Chord chord;
 };
 
-auto generator = [] (const Cursor &cursor, int depth, csound::Score &score)
-{
+auto generator = [](const Cursor &cursor, int depth, csound::Score &score) {
     Cursor result = cursor;
     return result;
 };
@@ -31,21 +29,20 @@ auto generator = [] (const Cursor &cursor, int depth, csound::Score &score)
  * thus "writing" a "note" or other event on the "score."
  */
 void recurrent(std::vector< std::function<Cursor(const Cursor &,int, csound::Score &)> > &generators,
-        Eigen::MatrixXd &transitions,
-        int depth,
-        int transformationIndex,
-        const Cursor pen,
-        csound::Score &score)
-{
+    Eigen::MatrixXd &transitions,
+    int depth,
+    int transformationIndex,
+    const Cursor pen,
+    csound::Score &score) {
     depth = depth - 1;
-    if (depth == 0) {
+    if(depth == 0) {
         return;
     }
     // std::printf("recurrent(depth: %3d  index: %3d  %s)\n", depth, transformationIndex, pen.toString().c_str());
     // Index is that of the current transformation. The column vector at that index determines which
     // transformations may be applied.
-    for (int transitionIndex = 0, transitionN = transitions.rows(); transitionIndex < transitionN; ++transitionIndex) {
-        if (transitions(transformationIndex, transitionIndex)) {
+    for(int transitionIndex = 0, transitionN = transitions.rows(); transitionIndex < transitionN; ++transitionIndex) {
+        if(transitions(transformationIndex, transitionIndex)) {
             auto newCursor = generators[transitionIndex](pen, depth, score);
             recurrent(generators, transitions, depth, transitionIndex, newCursor, score);
         }
@@ -55,8 +52,7 @@ void recurrent(std::vector< std::function<Cursor(const Cursor &,int, csound::Sco
 /**
  * Try more reverb, less vibrato in all instruments, less obtrusive horn sound.
  */
-int main(int argc, const char **argv)
-{
+int main(int argc, const char **argv) {
     csound::MusicModel model;
     // These fields determine output filenames and ID 3 tags.
     model.setTitle("Blue Leaves von Ruesner 2");
@@ -77,7 +73,7 @@ int main(int argc, const char **argv)
 
     auto g1 = [&chordsForTimes, &modality](const Cursor &pen_, int depth, csound::Score &score) {
         Cursor pen = pen_;
-        if (depth <= 1) {
+        if(depth <= 1) {
             return pen;
         }
         pen.note[csound::Event::TIME] = pen.note[csound::Event::TIME] * .7 + .25;
@@ -85,20 +81,20 @@ int main(int argc, const char **argv)
         pen.note[csound::Event::INSTRUMENT] = 4.0 * 1.0 + double(depth % 4);
         pen.note[csound::Event::VELOCITY] =  1.0;
         pen.note[csound::Event::PAN] = .875;
-        score.append(pen.note);     
+        score.append(pen.note);
         return pen;
     };
     generators.push_back(g1);
 
     auto g2 = [&chordsForTimes, &modality](const Cursor &pen_, int depth, csound::Score &score) {
         Cursor pen = pen_;
-        if (depth <= 2) {
+        if(depth <= 2) {
             return pen;
         }
         pen.note[csound::Event::TIME] = pen.note[csound::Event::TIME] * .7464 - .203487;
         pen.note[csound::Event::KEY] = pen.note[csound::Event::KEY] *.99 + 3.0;
-        pen.note[csound::Event::INSTRUMENT] = 4.0 * 2.0 + double(depth % 4);      
-        pen.note[csound::Event::VELOCITY] =  2.0;                        
+        pen.note[csound::Event::INSTRUMENT] = 4.0 * 2.0 + double(depth % 4);
+        pen.note[csound::Event::VELOCITY] =  2.0;
         pen.note[csound::Event::PAN] = .675;
         score.append(pen.note);
         return pen;
@@ -107,7 +103,7 @@ int main(int argc, const char **argv)
 
     auto g3 = [&chordsForTimes, &modality](const Cursor &pen_, int depth, csound::Score &score) {
         Cursor pen = pen_;
-        if (depth <= 1) {
+        if(depth <= 1) {
             return pen;
         }
         pen.note[csound::Event::TIME] = pen.note[csound::Event::TIME] * .65 - .23;
@@ -116,7 +112,7 @@ int main(int argc, const char **argv)
         pen.note[csound::Event::VELOCITY] =  1.0;
         pen.note[csound::Event::PAN] = -.675;
         score.append(pen.note);
-        if (depth >= 5) {
+        if(depth >= 5) {
             pen.chord = pen.chord.Q(3., modality);
             chordsForTimes[pen.note.getTime()] = pen.chord;
         }
@@ -126,7 +122,7 @@ int main(int argc, const char **argv)
 
     auto g4 = [&chordsForTimes, &modality](const Cursor &pen_, int depth, csound::Score &score) {
         Cursor pen = pen_;
-        if (depth <= 0) {
+        if(depth <= 0) {
             return pen;
         }
         pen.note[csound::Event::TIME] = pen.note[csound::Event::TIME] * .79 + .2;
@@ -134,11 +130,11 @@ int main(int argc, const char **argv)
         pen.note[csound::Event::INSTRUMENT] = 4.0 * 4.0 + double(depth % 4);
         pen.note[csound::Event::VELOCITY] =  2.0;
         pen.note[csound::Event::PAN] = -.875;
-        if (depth == 5) {
+        if(depth == 5) {
             pen.chord = pen.chord.K();
             chordsForTimes[pen.note.getTime()] = pen.chord;
         }
-        
+
         return pen;
     };
     generators.push_back(g4);
@@ -146,9 +142,9 @@ int main(int argc, const char **argv)
     // Generate the score.
     Eigen::MatrixXd transitions(4,4);
     transitions <<  1, 1, 0, 1,
-                    1, 1, 0, 1,
-                    0, 1, 1, 0,
-                    1, 0, 1, 1;
+                1, 1, 0, 1,
+                0, 1, 1, 0,
+                1, 0, 1, 1;
     csound::ScoreNode scoreNode;
     model.addChild(&scoreNode);
     csound::Score &score = scoreNode.getScore();
@@ -161,21 +157,21 @@ int main(int argc, const char **argv)
     double endTime = score.back().getTime();
     std::cout << "Chord segments:         " << chordsForTimes.size() << std::endl;
     int size = 0;
-    for (auto it = chordsForTimes.rbegin(); it != chordsForTimes.rend(); ++it) {
+    for(auto it = chordsForTimes.rbegin(); it != chordsForTimes.rend(); ++it) {
         auto startTime = it->first;
         auto &chord = it->second;
         auto segment = csound::slice(score, startTime, endTime);
         size += segment.size();
         std::fprintf(stderr, "From %9.4f to %9.4f apply %s to %d notes.\n", startTime, endTime, chord.eOP().name().c_str(), segment.size());
         std::fprintf(stderr, "Before:\n");
-        for (int i = 0, n = segment.size(); i < n; ++i) {
+        for(int i = 0, n = segment.size(); i < n; ++i) {
             std::fprintf(stderr, "  %s\n", segment[i]->toString().c_str());
-        }  
+        }
         csound::apply(score, chord, startTime, endTime, true);
         std::fprintf(stderr, "After:\n");
-        for (int i = 0, n = segment.size(); i < n; ++i) {
+        for(int i = 0, n = segment.size(); i < n; ++i) {
             std::fprintf(stderr, "  %s\n", segment[i]->toString().c_str());
-        }  
+        }
         endTime = startTime;
     }
     std::cout << "Conformed notes:        " << size << std::endl;
@@ -194,7 +190,7 @@ int main(int argc, const char **argv)
     std::mt19937 mersenneTwister;
     std::uniform_real_distribution<> randomvariable(.05,.95);
     // I must get rid of or at least vary the repeated high notes in the last section.
-    for (int i = 0, n = score.size(); i < n; ++i) {
+    for(int i = 0, n = score.size(); i < n; ++i) {
         score[i].setPan(randomvariable(mersenneTwister));
         score[i].setDepth(randomvariable(mersenneTwister));
         score[i].setPhase(randomvariable(mersenneTwister));
@@ -2213,22 +2209,22 @@ aoutright                       =                       gkMasterLevel * ainright
 ;; Original Instruments
                                 
             )");
-  
-    model.arrange( 1,  9,-12.00); 
-    model.arrange( 2, 16,  7.00);
-    ///model.arrange( 3, 14,  1.00); 
-    model.arrange( 3, 14,  0.00); 
-    model.arrange( 4,  5,  1.00);
-    model.arrange( 5, 27,  0.75);
-    model.arrange( 6, 15,  5.00);
-    model.arrange( 7, 16,  7.00);
-    model.arrange( 8, 16,  7.00);
-    model.arrange( 9, 13, -7.00);
+
+    model.arrange(1,  9,-12.00);
+    model.arrange(2, 16,  7.00);
+    ///model.arrange( 3, 14,  1.00);
+    model.arrange(3, 14,  0.00);
+    model.arrange(4,  5,  1.00);
+    model.arrange(5, 27,  0.75);
+    model.arrange(6, 15,  5.00);
+    model.arrange(7, 16,  7.00);
+    model.arrange(8, 16,  7.00);
+    model.arrange(9, 13, -7.00);
     model.arrange(10, 11,  3.00);
-    model.arrange(11, 14,  5.00); 
+    model.arrange(11, 14,  5.00);
     model.arrange(12,  4,  5.00);
-    
-    
+
+
     model.processArgv(argc, argv);
 }
 
