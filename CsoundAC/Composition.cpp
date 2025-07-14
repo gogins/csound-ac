@@ -412,16 +412,15 @@ void Composition::generateAllNames()
     }
     label = buffer;
     base_filepath = label;
-     /// std::replace(base_filepath.begin(), base_filepath.end(), ' ', '\\ ');
     base_filepath = output_directory + "/" + base_filepath;
     master_filepath = base_filepath + ".wav";
     normalized_master_filepath = base_filepath + ".normalized.wav";
-    spectrogram_filepath = base_filepath + ".png";
-    cd_quality_filepath = base_filepath + ".cd.wav";
-    mp3_filepath = base_filepath + ".mp3";
-    mp4_filepath = base_filepath + ".mp4";
-    flac_filepath = base_filepath + ".flac";
-    midi_filepath = base_filepath+ + ".mid";
+    spectrogram_filepath = author + ", " + base_filepath + ".png";
+    cd_quality_filepath = author + ", " + base_filepath + ".cd.wav";
+    mp3_filepath = author + ", " + base_filepath + ".mp3";
+    mp4_filepath = author + ", " + base_filepath + ".mp4";
+    flac_filepath = author + ", " + base_filepath + ".flac";
+    midi_filepath = author + ", " + base_filepath+ + ".mid";
     if (notes.empty() == true) {
         notes = "Electroacoustic Music";
     }
