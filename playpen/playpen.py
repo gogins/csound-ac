@@ -34,10 +34,6 @@ python3 playpen html-nw {source.html}
     Creates a package.json file for the specified HTML file, and runs that 
     file as a NW.js application.
     
-python3 playpen.py cpp-lib {source.cpp}
-    Compiles and links source.cpp file as a shared library source.so or 
-    source.dylib, with build options for Csound plugin opcodes.
-    
 python3 playpen.py cpp-app {source.cpp}
     Compiles and links source.cpp file as a program source or source.app, 
     with build options for linking with libCsound64 and libCsoundAC.
@@ -155,7 +151,10 @@ metadata_genre = 'electroacoustic'
 metadata_performer = 'csound'
 metadata_publisher = ini_publisher
 metadata_source = 'csound'
-composition_filepath = sys.argv[2]
+if command in ['man-csound', 'man-csoundac', 'man-python']:
+    composition_filepath = 'dummy'
+else:
+    composition_filepath = sys.argv[2]
 composition_filename = os.path.basename(composition_filepath)
 metadata_title, ext = os.path.splitext(composition_filename)
 rendered_audio_filename = os.path.splitext(composition_filename)[0] + ".wav"
@@ -526,7 +525,8 @@ def man_python():
 
 def man_csoundac():
     try:
-        command = f"{open_command} file://$HOME/csound-extended/doc/html/index.html"
+        # TODO: a problem here.
+        command = f"{open_command} file://$HOME/csound-ac/doc/latex/csound-ac.pdf"
         subprocess.run(command, shell=True)        
     except:
         traceback.print_exc()
@@ -740,9 +740,15 @@ if command == 'cpp-audio':
     cpp_audio()
 if command == 'cpp-soundfile':
     cpp_soundfile()
+# TODO: C++ code writes the wrong soundfile name.
 if command == 'cpp-play':
     cpp_soundfile()
     post_process()
+    play()
+if command == 'post-process':
+    post_process()
+    play()
+if command == 'play':
     play()
 if command == 'man-csound':
     man_csound()

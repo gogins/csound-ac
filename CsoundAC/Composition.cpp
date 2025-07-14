@@ -405,17 +405,17 @@ void Composition::generateAllNames()
     output_directory = getOutputDirectory();
     char buffer[0x200];
     if (album.empty() == true || track.empty() == true) {
-        std::snprintf(buffer, 0x200, "%s -- %s", author.c_str(), stem.c_str());
+        /// std::snprintf(buffer, 0x200, "%s, %s", author.c_str(), stem.c_str());
+        std::snprintf(buffer, 0x200, "%s", stem.c_str());
     } else {
-        std::snprintf(buffer, 0x200, "%s -- %s -- Track %s -- %s", author.c_str(), album.c_str(), track.c_str(), stem.c_str());
+        std::snprintf(buffer, 0x200, "%s, %s -- Track %s -- %s", author.c_str(), album.c_str(), track.c_str(), stem.c_str());
     }
     label = buffer;
-    // Avoid all spaces in all actual filenames.
     base_filepath = label;
-    std::replace(base_filepath.begin(), base_filepath.end(), ' ', '_');
+     /// std::replace(base_filepath.begin(), base_filepath.end(), ' ', '\\ ');
     base_filepath = output_directory + "/" + base_filepath;
     master_filepath = base_filepath + ".wav";
-    normalized_master_filepath = base_filepath + ".norm.wav";
+    normalized_master_filepath = base_filepath + ".normalized.wav";
     spectrogram_filepath = base_filepath + ".png";
     cd_quality_filepath = base_filepath + ".cd.wav";
     mp3_filepath = base_filepath + ".mp3";
