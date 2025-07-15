@@ -594,17 +594,17 @@ alwayson "OrganOutOrganteq"
 #include "MasterOutput.inc"
 
 iampdbfs init 1
-prints "Default amplitude at 0 dBFS: %9.4f\n", iampdbfs
+prints "Default amplitude at 0 dBFS: %9.4f", iampdbfs
 idbafs init dbamp(iampdbfs)
-prints "dbA at 0 dBFS:               %9.4f\n", idbafs
+prints "dbA at 0 dBFS:               %9.4f", idbafs
 iheadroom init 6
-prints "Headroom (dB):               %9.4f\n", iheadroom
+prints "Headroom (dB):               %9.4f", iheadroom
 idbaheadroom init idbafs - iheadroom
-prints "dbA at headroom:             %9.4f\n", idbaheadroom
+prints "dbA at headroom:             %9.4f", idbaheadroom
 iampheadroom init ampdb(idbaheadroom)
-prints "Amplitude at headroom:       %9.4f\n", iampheadroom
-prints "Balance so the 'overall amps' at the end of performance is -6 dBFS.\n"
-prints "nchnls:                      %9.4f\n", nchnls
+prints "Amplitude at headroom:       %9.4f", iampheadroom
+prints "Balance so the 'overall amps' at the end of performance is -6 dBFS."
+prints "nchnls:                      %9.4f", nchnls
 
 connect "{instrument_name}", "outleft", "MasterOutput", "inleft"
 connect "{instrument_name}", "outright", "MasterOutput", "inright"
@@ -627,6 +627,8 @@ alwayson "MasterOutput"
         patch_text = file.read()
     standard_score = generate_standard_score()
     csd = csd.format(patch_text=patch_text, instrument_name=instrument_name, output=output, standard_score=standard_score)
+    with open('temp.csd', 'w') as file:
+        file.write(csd)
     return csd
 def generate_standard_score():
     score = 'f 0 300\n'
@@ -704,9 +706,11 @@ def csd_patch():
         patch_name = metadata_title
         message_level = 1 + 2 + 32 + 128
         csound = ctcsound.Csound()
-        csound.message("Patch file: {patch_filename} Patch name: {patch_name} Output: {}\n".format(patch_filename, patch_name, rendered_audio_filename))
-        csd = generate_csd(patch_filename, patch_name, output)
+        csound.message(f"Patch file: {patch_filename} Patch name: {patch_name} Output: {rendered_audio_filename}\n")
+        csd = generate_csd(patch_filename, patch_name, rendered_audio_filename)
+        print("\n>>>>>>>>>>>>>>>>>>>>")
         print(csd)
+        print(">>>>>>>>>>>>>>>>>>>>\n")
         csound.compileCsdText(csd)
         csound.start()
         csound.perform()
