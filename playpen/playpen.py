@@ -113,9 +113,10 @@ print(f"Playpen command:                {command}")
 platform_system = platform.system()
 print(f'Platform:                       {platform_system}')
 if platform_system == "Darwin":
-    open_command = "open"
+    open_command = "open "
 else:
-    open_command = "xdg-open"
+    open_command = "xdg-open "
+print(f'Open command:                   {open_command}')
 print()
 print("Configuration file:")
 print()
@@ -423,7 +424,7 @@ def html_nw():
     try:
         # It seems the string.format method does not work with multi-line 
         # strings.
-        directory, basename = os.path.split(source_filepath)
+        directory, basename = os.path.split(composition_filepath)
         title, extension = os.path.splitext(basename)
         package_json = package_json_template % (basename, title, title)
         print("package.json:", package_json)
@@ -458,7 +459,7 @@ def html_nw():
 def html_localhost():
     try:
         print(f"html_localhost: {composition_filename}...")
-        command = "cp package-pnpm.json package.json; python3 -m webbrowser http://localhost:{port}/{composition_filename}"
+        command = f"{open_command} http://localhost:{port}/{composition_filename}"
     except:
         traceback.print_exc()
     finally:
