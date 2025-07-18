@@ -151,11 +151,12 @@ metadata_date = ini_year
 metadata_genre = 'electroacoustic'
 metadata_performer = 'csound'
 metadata_publisher = ini_publisher
-metadata_source = 'csound'
 if command in ['man-csound', 'man-csoundac', 'man-python']:
     composition_filepath = 'dummy'
 else:
     composition_filepath = sys.argv[2]
+metadata_source = 'csound'
+metadata_comment = "source: '" + os.path.abspath(composition_filepath) + "'"
 composition_filename = os.path.basename(composition_filepath)
 metadata_title, ext = os.path.splitext(composition_filename)
 rendered_audio_filename = os.path.splitext(composition_filename)[0] + ".wav"
@@ -378,12 +379,12 @@ def csd_soundfile():
 def play():
     try:
         print(f"play: {composition_filepath}")
-        master_filepath = os.path.join(cwd, normalized_filename)
+        master_filepath = os.path.join(cwd, concert_filename)
         print(f"master_filepath: {master_filepath}")
         if platform_system == "Darwin":
-            command = f"open {master_filepath} -a {soundfile_editor}"            
+            command = f"open '{master_filepath}' -a {soundfile_editor}"            
         else:
-            command = f"{soundfile_editor} {master_filepath}"
+            command = f"{soundfile_editor} '{master_filepath}'"
         print(f"playback command: {command}")
         subprocess.run(command, shell=True)
     except:
