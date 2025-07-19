@@ -390,7 +390,7 @@ def play():
     except:
         traceback.print_exc()
     finally:
-        print(f"play: {composition_filepath} to {rendered_audio_filename}.")
+        print(f"play: {composition_filepath} to {concert_filename}.")
         return
         
 package_json_template = '''{
