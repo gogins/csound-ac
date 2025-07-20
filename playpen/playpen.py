@@ -86,6 +86,7 @@ import os
 import os.path
 import platform
 import random
+import shutil
 import string
 import subprocess
 import sys
@@ -162,8 +163,8 @@ metadata_title, ext = os.path.splitext(composition_filename)
 rendered_audio_filename = os.path.splitext(composition_filename)[0] + ".wav"
 metadata_track = ''
 
-normalized_filename = f'{metadata_title}-normalized.wav'
-concert_filename = f'{metadata_artist}, {metadata_title}.wav'
+float32_filename = f'{metadata_artist}, {metadata_title}.float32.wav'
+int24_filename = f'{metadata_artist}, {metadata_title}.int24.wav'
 flac_filename = f'{metadata_artist}, {metadata_title}.flac'
 cd_filename = f'{metadata_artist}, {metadata_title}.cd.wav'
 mp3_filename = f'{metadata_artist}, {metadata_title}.mp3'
@@ -176,8 +177,8 @@ print()
 print(f'current working directory:      {cwd}')
 print(f'composition_filename:           {composition_filename}')
 print(f'rendered_soundfile_filename:    {rendered_audio_filename}')
-print(f'normalized_filename:            {normalized_filename}')
-print(f'concert_filename:               {concert_filename}')
+print(f'float32_filename:               {float32_filename}')
+print(f'int24_filename:                 {int24_filename}')
 print(f'flac_filename:                  {flac_filename}')
 print(f'cd_filename:                    {cd_filename}')
 print(f'mp3_filename:                   {mp3_filename}')
@@ -222,11 +223,15 @@ def measure_true_peak(input_file):
     input_tp = float(loudnorm_data["input_tp"])
     return input_tp
 
+# Use ffmpeg instead of sox for normalizing amplitude, because ffmpeg uses the 
+# true peak amplitude, which can be higher than the amplitude of the loudest 
+# sample, due to interpolation.
+
 def apply_gain(input_file, output_file, gain_db):
     command = [
         "ffmpeg", "-hide_banner", "-y", "-i", input_file,
-        "-af", f"volume={gain_db:.3f}dB",
-        "-f", "wav",  
+        "-filter:a", f"volume={gain_db:.6f}dB",
+        "-c:a", "pcm_f32le",  # keep 32-bit float PCM
         output_file
     ]
     subprocess.run(command, check=True)
@@ -239,117 +244,106 @@ def normalize_to_minus1dbtp(input_file, output_file):
     apply_gain(input_file, output_file, gain)
     print(f"Output written to: {output_file}")
 
+'''
+Rewrites an audio file with new metadata using ffmpeg, overwriting the 
+original file.
+
+Parameters:
+    filename (str): Path to the original audio file (e.g. .wav, .flac, .mp3).
+    metadata (dict): Dictionary of tag name -> value (e.g. {'title': 'My Title'}).
+'''
+def embed_metadata(filename):
+    print("\nEmbedding metadata...\n")
+    temporary_output = filename + ".temp"
+    # Construct metadata arguments.
+    command = [
+        "ffmpeg", "-y", "-hide_banner",
+        "-i", filename,
+        '-metadata', f'album={metadata_album}', 
+        '-metadata', f'artist={metadata_artist}', 
+        '-metadata', f'comment={metadata_comment}', 
+        '-metadata', f'composer={metadata_composer}', 
+        '-metadata', f'copyright={metadata_copyright}', 
+        '-metadata', f'date={metadata_date}', 
+        '-metadata', f'genre={metadata_genre}', 
+        '-metadata', f'performer={metadata_performer}', 
+        '-metadata', f'publisher={metadata_publisher}', 
+        '-metadata', f'source={metadata_source}', 
+        '-metadata', f'title={metadata_title}', 
+        "-f", "wav",
+        temporary_output
+    ]
+    subprocess.run(command, check=True)
+    shutil.move(temporary_output, filename)
+ 
+# TODO: Switch to sox for dithering, e.g. sox input_float.wav -b 24 output.flac dither -s
+
 def post_process():
     try:
-        print(f"\npost_process: {composition_filename}...\n")
-        normalize_to_minus1dbtp(rendered_audio_filename, normalized_filename)
+        print(f"\nPost-processing: {metadata_title}...\n")
+        normalize_to_minus1dbtp(rendered_audio_filename, float32_filename)
 
-        ffmpeg_concert_command = f'''ffmpeg -y -i "{normalized_filename}" \
-        -af "aresample=dither_method=shibata" \
-        -c:a pcm_s24le -f wav \
-        -metadata album="{metadata_album}" \
-        -metadata artist="{metadata_artist}" \
-        -metadata comment="{metadata_comment}" \
-        -metadata composer="{metadata_composer}" \
-        -metadata copyright="{metadata_copyright}" \
-        -metadata date="{metadata_date}" \
-        -metadata genre="{metadata_genre}" \
-        -metadata performer="{metadata_performer}" \
-        -metadata publisher="{metadata_publisher}" \
-        -metadata source="{metadata_source}" \
-        -metadata title="{metadata_title}" \
-        "{concert_filename}"'''
-        print(f'\nffmpeg_concert_command:\n{ffmpeg_concert_command}\n')
-        os.system(ffmpeg_concert_command)
+        int24_command = f'sox -t wav "{float32_filename}" -t wav -e signed-integer -b 24 "{int24_filename}" dither -s'
+        print(f'\nint24_command:\n{int24_command}\n')
+        os.system(int24_command)
+        embed_metadata(int24_filename)
 
-        ffmpeg_flac_command = f'''ffmpeg -y -i "{rendered_audio_filename}" \
-        -af "loudnorm=I=-14:TP=-1.5:LRA=20:dual_mono=false" \
+        flac_command = f'''ffmpeg -y -hide_banner -i "{float32_filename}" \
+        -af "loudnorm=I=-14:TP=-1.5:LRA=20:dual_mono=false,aresample=dither_method=shibata" \
         -c:a flac -f flac \
-        -metadata album="{metadata_album}" \
-        -metadata artist="{metadata_artist}" \
-        -metadata comment="{metadata_comment}" \
-        -metadata composer="{metadata_composer}" \
-        -metadata copyright="{metadata_copyright}" \
-        -metadata date="{metadata_date}" \
-        -metadata genre="{metadata_genre}" \
-        -metadata performer="{metadata_performer}" \
-        -metadata publisher="{metadata_publisher}" \
-        -metadata source="{metadata_source}" \
-        -metadata title="{metadata_title}" \
         "{flac_filename}"'''
-        print(f'\nffmpeg_flac_command:\n{ffmpeg_flac_command}\n')
-        os.system(ffmpeg_flac_command)
+        print(f'\nflac_command:\n{flac_command}\n')
+        os.system(flac_command)
+        embed_metadata(flac_filename)
 
-        ffmpeg_cd_command = f'ffmpeg -y -i "{normalized_filename}" \
+        cd_command = f'ffmpeg -y -hide_banner -i "{float32_filename}" \
         -af "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false" \
         -ar 44100 -ac 2 -sample_fmt s16 -c:a pcm_s16le -f wav \
-        -metadata album="{metadata_album}" \
-        -metadata artist="{metadata_artist}" \
-        -metadata comment="{metadata_comment}" \
-        -metadata composer="{metadata_composer}" \
-        -metadata copyright="{metadata_copyright}" \
-        -metadata date="{metadata_date}" \
-        -metadata genre="{metadata_genre}" \
-        -metadata performer="{metadata_performer}" \
-        -metadata publisher="{metadata_publisher}" \
-        -metadata source="{metadata_source}" \
-        -metadata title="{metadata_title}" \
         "{cd_filename}"'
-        print(f'\nffmpeg_cd_command:\n{ffmpeg_cd_command}\n')
-        os.system(ffmpeg_cd_command)
+        print(f'\ncd_command:\n{cd_command}\n')
+        os.system(cd_command)
+        embed_metadata(cd_filename)
 
-        ffmpeg_mp3_command = f'ffmpeg -y -i "{normalized_filename}" \
+        mp3_command = f'''ffmpeg -y -hide_banner -i "{float32_filename}" \
         -af "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false" \
-        -ar 44100 -ac 2 -sample_fmt s16 -c:a pcm_s16le -f wav \
-        -metadata album="{metadata_album}" \
-        -metadata artist="{metadata_artist}" \
-        -metadata comment="{metadata_comment}" \
-        -metadata composer="{metadata_composer}" \
-        -metadata copyright="{metadata_copyright}" \
-        -metadata date="{metadata_date}" \
-        -metadata genre="{metadata_genre}" \
-        -metadata performer="{metadata_performer}" \
-        -metadata publisher="{metadata_publisher}" \
-        -metadata source="{metadata_source}" \
-        -metadata title="{metadata_title}" \
-        "{mp3_filename}"'
-        print(f'\ffmpeg_mp3_command:\n{ffmpeg_mp3_command}\n')
-        os.system(ffmpeg_mp3_command)
+        -ar 44100 -ac 2 -c:a libmp3lame -b:a 320k \
+        "{mp3_filename}"'''
+        print(f'\nmp3_command:\n{mp3_command}\n')
+        os.system(mp3_command)
+        embed_metadata(mp3_filename)
 
-        ffmpeg_png_command = (
-            f'ffmpeg -y -i "{concert_filename}" -filter_complex "'
+        spectrogram_command = (
+            f'ffmpeg -y -hide_banner -i "{int24_filename}" -filter_complex "'
             '[0:a]showspectrumpic=s=1100x1200:legend=1:mode=separate[s]; '
             'color=c=black@1:s=1400x1400:d=1[bg]; '
             '[bg][s]overlay=0:0[tmp]; '
             f"[tmp]drawtext=text='{metadata_artist}, {metadata_title}':x=(w-text_w)/2:y=1340:fontsize=28:fontcolor=white"
             f'" -vframes 1 "{png_filename}"'
         )
-        print(f'\nffmpeg_png_command:\n{ffmpeg_png_command}\n')
-        os.system(ffmpeg_png_command)
+        print(f'\nspectrogram_command:\n{spectrogram_command}\n')
+        os.system(spectrogram_command)
 
-        # Create a high-resolution static video with audio
-        ffmpeg_mp4_command = f'ffmpeg -y -loop 1 -i "{png_filename}" -i "{normalized_filename}" \
+        # Create a high-resolution static video with audio.
+        mp4_command = f'ffmpeg -y -hide_banner -loop 1 -i "{png_filename}" -i "{float32_filename}" \
         -af "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false" \
         -c:v libx264 -tune stillimage -pix_fmt yuv420p -r 1 \
         -c:a aac -b:a 320k -shortest \
-        -metadata album="{metadata_album}" \
-        -metadata artist="{metadata_artist}" \
-        -metadata comment="{metadata_comment}" \
-        -metadata composer="{metadata_composer}" \
-        -metadata copyright="{metadata_copyright}" \
-        -metadata date="{metadata_date}" \
-        -metadata genre="{metadata_genre}" \
-        -metadata performer="{metadata_performer}" \
-        -metadata publisher="{metadata_publisher}" \
-        -metadata source="{metadata_source}" \
-        -metadata title="{metadata_title}" \
         "{mp4_filename}"'
-        print(f'\nffmpeg_mp4_command:\n{ffmpeg_mp4_command}\n')
-        os.system(ffmpeg_mp4_command)
+        print(f'\nmp4_command:\n{mp4_command}\n')
+        os.system(mp4_command)
+        embed_metadata(mp4_filename)
+
+        subprocess.run(['sndfile-info', f"{rendered_audio_filename}"], check=True)
+        subprocess.run(['sndfile-info', f"{float32_filename}"], check=True)
+        subprocess.run(['sndfile-info', f"{int24_filename}"], check=True)
+        subprocess.run(['sndfile-info', f"{cd_filename}"], check=True)
+        subprocess.run(['sndfile-info', f"{mp3_filename}"], check=True)
+        subprocess.run(['sndfile-info', f"{mp4_filename}"], check=True)
+
     except:
         traceback.print_exc()
     finally:
-        print(f"\npost_process: {composition_filename}.\n")
+        print(f"\nPost-processing: {metadata_title}.\n")
         return
 
 def csd_audio():
@@ -382,7 +376,7 @@ def csd_soundfile():
 def play():
     try:
         print(f"play: {composition_filepath}")
-        master_filepath = os.path.join(cwd, concert_filename)
+        master_filepath = os.path.join(cwd, int24_filename)
         print(f"master_filepath: {master_filepath}")
         if platform_system == "Darwin":
             command = f"open '{master_filepath}' -a {soundfile_editor}"            
@@ -393,7 +387,7 @@ def play():
     except:
         traceback.print_exc()
     finally:
-        print(f"play: {composition_filepath} to {concert_filename}.")
+        print(f"play: {composition_filepath} to {int24_filename}.")
         return
         
 package_json_template = '''{
