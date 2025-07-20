@@ -226,7 +226,8 @@ def apply_gain(input_file, output_file, gain_db):
     command = [
         "ffmpeg", "-hide_banner", "-y", "-i", input_file,
         "-af", f"volume={gain_db:.3f}dB",
-        "-c:a", "pcm_s24le", output_file
+        "-f", "wav",  
+        output_file
     ]
     subprocess.run(command, check=True)
 
@@ -243,7 +244,9 @@ def post_process():
         print(f"\npost_process: {composition_filename}...\n")
         normalize_to_minus1dbtp(rendered_audio_filename, normalized_filename)
 
-        ffmpeg_concert_command = f'ffmpeg -y -i "{normalized_filename}" -filter:a "volume=-1dB" -c:a pcm_s24le -f wav \
+        ffmpeg_concert_command = f'''ffmpeg -y -i "{normalized_filename}" \
+        -af "aresample=dither_method=shibata" \
+        -c:a pcm_s24le -f wav \
         -metadata album="{metadata_album}" \
         -metadata artist="{metadata_artist}" \
         -metadata comment="{metadata_comment}" \
@@ -255,7 +258,7 @@ def post_process():
         -metadata publisher="{metadata_publisher}" \
         -metadata source="{metadata_source}" \
         -metadata title="{metadata_title}" \
-        "{concert_filename}"'
+        "{concert_filename}"'''
         print(f'\nffmpeg_concert_command:\n{ffmpeg_concert_command}\n')
         os.system(ffmpeg_concert_command)
 
