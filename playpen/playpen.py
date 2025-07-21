@@ -234,6 +234,7 @@ def apply_gain(input_file, output_file, gain_db):
         "-c:a", "pcm_f32le",  # keep 32-bit float PCM
         output_file
     ]
+    command[-1:-1] = metadata
     subprocess.run(command, check=True)
 
 def normalize_to_minus1dbtp(input_file, output_file):
@@ -244,102 +245,121 @@ def normalize_to_minus1dbtp(input_file, output_file):
     apply_gain(input_file, output_file, gain)
     print(f"Output written to: {output_file}")
 
-'''
-Rewrites an audio file with new metadata using ffmpeg, overwriting the 
-original file.
-
-Parameters:
-    filename (str): Path to the original audio file (e.g. .wav, .flac, .mp3).
-    metadata (dict): Dictionary of tag name -> value (e.g. {'title': 'My Title'}).
-'''
-def embed_metadata(filename):
-    print("\nEmbedding metadata...\n")
-    temporary_output = filename + ".temp"
-    # Construct metadata arguments.
-    command = [
-        "ffmpeg", "-y", "-hide_banner",
-        "-i", filename,
-        '-metadata', f'album={metadata_album}', 
-        '-metadata', f'artist={metadata_artist}', 
-        '-metadata', f'comment={metadata_comment}', 
-        '-metadata', f'composer={metadata_composer}', 
-        '-metadata', f'copyright={metadata_copyright}', 
-        '-metadata', f'date={metadata_date}', 
-        '-metadata', f'genre={metadata_genre}', 
-        '-metadata', f'performer={metadata_performer}', 
-        '-metadata', f'publisher={metadata_publisher}', 
-        '-metadata', f'source={metadata_source}', 
-        '-metadata', f'title={metadata_title}', 
-        "-f", "wav",
-        temporary_output
-    ]
-    subprocess.run(command, check=True)
-    shutil.move(temporary_output, filename)
- 
-# TODO: Switch to sox for dithering, e.g. sox input_float.wav -b 24 output.flac dither -s
+metadata = [
+        "-metadata", f"album={metadata_album}", 
+        "-metadata", f"artist={metadata_artist}", 
+        "-metadata", f"comment={metadata_comment}", 
+        "-metadata", f"composer={metadata_composer}", 
+        "-metadata", f"copyright={metadata_copyright}", 
+        "-metadata", f"date={metadata_date}", 
+        "-metadata", f"genre={metadata_genre}", 
+        "-metadata", f"performer={metadata_performer}", 
+        "-metadata", f"publisher={metadata_publisher}", 
+        "-metadata", f"source={metadata_source}", 
+        "-metadata", f"title={metadata_title}", 
+]
 
 def post_process():
     try:
         print(f"\nPost-processing: {metadata_title}...\n")
         normalize_to_minus1dbtp(rendered_audio_filename, float32_filename)
 
-        int24_command = f'sox -t wav "{float32_filename}" -t wav -e signed-integer -b 24 "{int24_filename}" dither -s'
+        # Use sox instead of ffmpeg for this, because sox has better dithering.
+
+        int24_command = [
+            "sox",
+            "-t", "wav", float32_filename,
+            "-t", "wav", "-e", "signed-integer", "-b", "24",
+            int24_filename,
+            "dither", "-s"
+        ]
         print(f'\nint24_command:\n{int24_command}\n')
-        os.system(int24_command)
-        embed_metadata(int24_filename)
+        subprocess.run(int24_command, check=True)
 
-        flac_command = f'''ffmpeg -y -hide_banner -i "{float32_filename}" \
-        -af "loudnorm=I=-14:TP=-1.5:LRA=20:dual_mono=false,aresample=dither_method=shibata" \
-        -c:a flac -f flac \
-        "{flac_filename}"'''
+        flac_command = [
+            "ffmpeg", "-y", "-hide_banner",
+            "-i", float32_filename,
+            "-af", "loudnorm=I=-14:TP=-1.5:LRA=20:dual_mono=false,aresample=dither_method=shibata",
+            "-c:a", "flac",
+            "-f", "flac",
+            flac_filename
+        ]
+        flac_command[-1:-1] = metadata
         print(f'\nflac_command:\n{flac_command}\n')
-        os.system(flac_command)
-        embed_metadata(flac_filename)
+        subprocess.run(flac_command, check=True)
 
-        cd_command = f'ffmpeg -y -hide_banner -i "{float32_filename}" \
-        -af "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false" \
-        -ar 44100 -ac 2 -sample_fmt s16 -c:a pcm_s16le -f wav \
-        "{cd_filename}"'
+        cd_command = [
+            "ffmpeg", "-y", "-hide_banner",
+            "-i", float32_filename,
+            "-af", "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false",
+            "-ar", "44100",
+            "-ac", "2",
+            "-sample_fmt", "s16",
+            "-c:a", "pcm_s16le",
+            "-f", "wav",
+            cd_filename
+        ]
+        cd_command[-1:-1] = metadata
         print(f'\ncd_command:\n{cd_command}\n')
-        os.system(cd_command)
-        embed_metadata(cd_filename)
+        subprocess.run(cd_command, check=True)
 
-        mp3_command = f'''ffmpeg -y -hide_banner -i "{float32_filename}" \
-        -af "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false" \
-        -ar 44100 -ac 2 -c:a libmp3lame -b:a 320k \
-        "{mp3_filename}"'''
-        print(f'\nmp3_command:\n{mp3_command}\n')
-        os.system(mp3_command)
-        embed_metadata(mp3_filename)
-
-        spectrogram_command = (
-            f'ffmpeg -y -hide_banner -i "{int24_filename}" -filter_complex "'
-            '[0:a]showspectrumpic=s=1100x1200:legend=1:mode=separate[s]; '
-            'color=c=black@1:s=1400x1400:d=1[bg]; '
-            '[bg][s]overlay=0:0[tmp]; '
-            f"[tmp]drawtext=text='{metadata_artist}, {metadata_title}':x=(w-text_w)/2:y=1340:fontsize=28:fontcolor=white"
-            f'" -vframes 1 "{png_filename}"'
-        )
+        mp3_command = [
+            "ffmpeg", "-y", "-hide_banner",
+            "-i", float32_filename,
+            "-af", "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false",
+            "-ar", "44100",
+            "-ac", "2",
+            "-c:a", "libmp3lame",
+            "-b:a", "320k",
+            mp3_filename
+        ]
+        mp3_command[-1:-1] = metadata
+        subprocess.run(mp3_command, check=True)
+ 
+        spectrogram_command = [
+            "ffmpeg", "-y", "-hide_banner",
+            "-i", int24_filename,
+            "-filter_complex",
+            (
+                "[0:a]showspectrumpic=s=1100x1200:legend=1:mode=separate[s]; "
+                "color=c=black@1:s=1400x1400:d=1[bg]; "
+                "[bg][s]overlay=0:0[tmp]; "
+                f"[tmp]drawtext=text='{metadata_artist}, {metadata_title}':"
+                "x=(w-text_w)/2:y=1340:fontsize=28:fontcolor=white"
+            ),
+            "-vframes", "1",
+            png_filename
+        ]
         print(f'\nspectrogram_command:\n{spectrogram_command}\n')
-        os.system(spectrogram_command)
+        subprocess.run(spectrogram_command, check=True)
 
         # Create a high-resolution static video with audio.
-        mp4_command = f'ffmpeg -y -hide_banner -loop 1 -i "{png_filename}" -i "{float32_filename}" \
-        -af "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false" \
-        -c:v libx264 -tune stillimage -pix_fmt yuv420p -r 1 \
-        -c:a aac -b:a 320k -shortest \
-        "{mp4_filename}"'
-        print(f'\nmp4_command:\n{mp4_command}\n')
-        os.system(mp4_command)
-        embed_metadata(mp4_filename)
 
+        mp4_command = [
+            "ffmpeg", "-y", "-hide_banner",
+            "-loop", "1",
+            "-i", png_filename,
+            "-i", float32_filename,
+            "-af", "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false",
+            "-c:v", "libx264",
+            "-tune", "stillimage",
+            "-pix_fmt", "yuv420p",
+            "-r", "1",
+            "-c:a", "aac",
+            "-b:a", "320k",
+            "-shortest",
+            mp4_filename
+        ]
+        mp4_command[-1:-1] = metadata
+        print(f'\nmp4_command:\n{mp4_command}\n')
+        subprocess.run(mp4_command, check=True)
+ 
         subprocess.run(['sndfile-info', f"{rendered_audio_filename}"], check=True)
         subprocess.run(['sndfile-info', f"{float32_filename}"], check=True)
         subprocess.run(['sndfile-info', f"{int24_filename}"], check=True)
         subprocess.run(['sndfile-info', f"{cd_filename}"], check=True)
         subprocess.run(['sndfile-info', f"{mp3_filename}"], check=True)
         subprocess.run(['sndfile-info', f"{mp4_filename}"], check=True)
-
     except:
         traceback.print_exc()
     finally:
