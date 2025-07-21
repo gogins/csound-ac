@@ -5,8 +5,8 @@ https://github.com/gogins<br>
 http://michaelgogins.tumblr.com
 
 This computer music playpen is a simple integrated development environment 
-__##specifically designed to support my particular style of algorithmic music 
-composition##__.
+___specifically designed to support my particular style of algorithmic music 
+composition___.
 
 I write music by writing code. I almost always use Csound to render my pieces 
 as fixed media, that is, soundfiles. I may use C++, Python, Common Lisp, or 
@@ -15,8 +15,8 @@ visual music. I generally find that the Csound instruments that I use need
 some pretty fine-tuned tweaking while the music is playing. What I need is to 
 minimize the time spent in the "edit code, render piece, listen to piece; edit 
 code again, render piece again, listen to piece again;..." cycle without, 
-however, in any way limiting the power of Csound, the power of Python, or the 
-power of HTML5.
+however, in any way limiting the power of Csound, the power of Python, the 
+power of HTML5, or the quality of the sound.
 
 In addition, long experience has taught me that keeping a finished piece as 
 one file of source code, with a minimum of external dependencies, and those 
