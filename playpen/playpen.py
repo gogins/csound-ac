@@ -275,6 +275,19 @@ def post_process():
         ]
         print(f'\nint24_command:\n{int24_command}\n')
         subprocess.run(int24_command, check=True)
+        # Embed metadata into existing file without re-encoding
+        temp_int24 = int24_filename + ".temp.wav"
+        ffmpeg_metadata_command = [
+            "ffmpeg", "-y", "-hide_banner",
+            "-i", int24_filename,
+            "-c:a", "pcm_s24le",  # preserve format
+            "-f", "wav",
+            *metadata,
+            temp_int24
+        ]
+        print(f'\nffmpeg_metadata_command:\n{ffmpeg_metadata_command}\n')
+        subprocess.run(ffmpeg_metadata_command, check=True)
+        os.replace(temp_int24, int24_filename)
 
         flac_command = [
             "ffmpeg", "-y", "-hide_banner",
