@@ -62,7 +62,7 @@ python3 playpen.py cpp-astyle {source}
     Uses the astyle program to reform the source file, using 
     options configured in playpen.ini.
 
-For post-processing, the ffmpeg program needs to be installed.
+For post-processing, the ffmpeg and sox programs need to be installed.
 
 For HTML related commands, NW.js needs to be installed.
 

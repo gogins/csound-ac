@@ -5,8 +5,8 @@ https://github.com/gogins<br>
 http://michaelgogins.tumblr.com
 
 This computer music playpen is a simple integrated development environment 
-__specifically designed to support my particular style of algorithmic music 
-composition__.
+__##specifically designed to support my particular style of algorithmic music 
+composition##__.
 
 I write music by writing code. I almost always use Csound to render my pieces 
 as fixed media, that is, soundfiles. I may use C++, Python, Common Lisp, or 
@@ -22,10 +22,7 @@ In addition, long experience has taught me that keeping a finished piece as
 one file of source code, with a minimum of external dependencies, and those 
 dependencies as standardized and widely used as possible (such as Csound, 
 Python, and HTML5), is essential to ensure that pieces are maintainable and 
-will play into the indefinite future. After all, I have been making computer 
-music now for 38 years. Of course, this means that I prefer to use a finished 
-piece as a template for a new piece, rather than to create and use a library, 
-because the template approach ensures the self-contained nature of the pieces.
+will play into the indefinite future. 
 
 Experience has also taught me that all-in-one systems such as CsoundQt never 
 actually do everything that I need, and may have bugs that I am unwilling or 
@@ -35,10 +32,9 @@ After exhaustively trying many alternatives I have ended up with the system
 that I maintain in this repository and, more specifically, in this directory.
 
 The basic principle is that each piece is always one single self-contained 
-file, preferably a Csound .csd file. Other code used in the piece, such as 
-C++, HTML/JavaScript, Python, or whatever, is if possible embedded in the .csd 
-file as multi-line strings, or as the contents of the score using the `bin` 
-attribute.
+source code file, e.g. an .html file, .csd file, or .py file. Other code used 
+in the piece is embedded, if possible, the source code file as multi-line 
+strings, or as the contents of the Csound score using the `bin` attribute.
 
 1.  I have added many Python functions for rendering Csound pieces, compiling 
     and running C++ code, and so on.
@@ -46,11 +42,11 @@ attribute.
     code editor that provides custom commands.
 4.  The `gedit/tools` directory defines such custom commands for the gedit 
     text editor.
-5.  The `.SciTEUser.properties` file defines such custom commands for the SciTE 
-    text editor.
+5.  The `.SciTEUser.properties` file defines such custom commands for the 
+    SciTE text editor.
 
-Then, if possible, these embedded languages are compiled and executed under 
-the direction of Csound, during the Csound performance, by plugin opcodes.
+Sometims, these embedded languages are compiled and executed under the 
+direction of Csound, during the Csound performance, by plugin opcodes.
 
 To this end, I have created the csound-cxx-opcodes that allow C++ source 
 code to be embedded in the Csound orchestra, and to be compiled, linked, 
@@ -62,21 +58,22 @@ interface the running instance of Csound.
 The other option is to embed Csound via its API in a C++, Python, or HTML file.
 
 If you compose by writing code, you may well find this system useful. If you 
-do not compose by writing code, you will probably _not_ find this system useful.
+do not compose by writing code, you will probably _not_ find this system 
+useful.
 
 ## Getting Started
 
 Support for the playpen is provided by the playpen.py file which contains 
 routines for rendering and post-processing .csd files, .cpp files, and 
-.html files. This file is used by external tools for the gedit text editor, 
-so that the gedit menu will have convenient commands for working with 
-algorithmic composition.
+.html files. This file is used by external tools for Visual Studio Code, 
+SciTE, or gedit, so that the editor menu will have convenient commands for 
+working with algorithmic composition.
 
-1.  Make a symbolic link in your home directory to csound-extended/playpen/
+1.  Make a symbolic link in your home directory to csound-ac/playpen/
     playpen.py.
-2.  Copy csound-extended/playpen/playpen.ini to your home directory and 
+2.  Copy csound-ac/playpen/playpen.ini to your home directory and 
     customize it for your system and your personal metadata.
-3.  Copy the csound-extended/playpen/gedit directory and contents to 
+3.  Copy the csound-ac/playpen/gedit directory and contents to 
     ~/.config/gedit.
     
 Install the following software requirements, each according to its own 
@@ -91,16 +88,16 @@ rendering Csound pieces and automatically post-processing them:
     instructions](https://github.com/csound/csound/blob/develop/BUILD.md).
 2.  The gedit text editor. On Ubuntu, execute `sudo apt install gedit`.
 3.  Configuration files and helper scripts for gedit in the 
-    `csound-extended/playpen` directory. If you have cloned the 
-    csound-extended repository, create symbolic links in your home directory 
-    to the following files in the `csound-extended/playpen` directory. 
+    `csound-ac/playpen` directory. If you have cloned the 
+    csound-ac repository, create symbolic links in your home directory 
+    to the following files in the `csound-ac/playpen` directory. 
     Alternatively, download the files to your home directory. You need to 
     customize at least `playpen.ini`, and perhaps others, for your system:
     1. Copy `playpen/gedit/tools/` and its contents to `~/.config/gedit/tools/`.
-    2. [instrument_test.py](https://github.com/gogins/csound-extended/blob/develop/playpen/instrument_test.py)
-    3. [effect_test.py](https://github.com/gogins/csound-extended/blob/develop/playpen/effect_test.py)
-    4. [playpen.ini](https://github.com/gogins/csound-extended/blob/develop/playpen/playpen.ini)
-    5. [post-process.py](https://github.com/gogins/csound-extended/blob/develop/playpen/post-process.py)
+    2. [instrument_test.py](https://github.com/gogins/csound-ac/blob/develop/playpen/instrument_test.py)
+    3. [effect_test.py](https://github.com/gogins/csound-ac/blob/develop/playpen/effect_test.py)
+    4. [playpen.ini](https://github.com/gogins/csound-ac/blob/develop/playpen/playpen.ini)
+    5. [post-process.py](https://github.com/gogins/csound-ac/blob/develop/playpen/post-process.py)
 4.  [sox](http://sox.sourceforge.net/). For Ubuntu, execute 
     `sudo apt install sox` and `sudo apt install libsox-fmt-all`.
 5.  [FFmpeg](https://ffmpeg.org/) for converting soundfiles to mp4 video format to be uploaded to YouTube.
@@ -118,11 +115,11 @@ installed for the __same version__ of Python. These instructions are for a globa
 installation, but you can also install in your home directory or in a virtual 
 environment.
 
-7.  [Python 3.9](https://www.python.org/downloads/) or higher. For Ubuntu Linux, 
+7.  [Python latest](https://www.python.org/downloads/). For Ubuntu Linux, 
     follow [these instructions](https://linuxize.com/post/how-to-install-python-3-9-on-ubuntu-20-04/).
 8.  Make sure that the `csound/interfaces/ctcsound.py` file 
     is the one that comes with your version of Csound and that it can be found 
-    in your Python site-packages directory, e.g. 
+    in your Python `site-packages` directory, e.g. 
     `/usr/local/lib/python3.9/dist-packages/ctcsound.py`. To use ctcsound you 
     also need numpy, which can be installed with 
     `sudo python3.8 -m pip install numpy`.
@@ -130,15 +127,16 @@ environment.
 Requirements for composing with CsoundAC (usable from C++, Python, or 
 JavaScript). These requirements also apply to composing with C++:
 
-9.  CsoundAC is part of this [csound-ac](https://github.com/gogins/csound-extended)
+9.  CsoundAC is part of this [csound-ac](https://github.com/gogins/csound-ac)
     repository. CsoundAC has advanced features for algorithmic composition, 
     including support for tonal harmony and counterpoint. Install if you can 
     or build if you must, according to instructions 
-    [here](https://github.com/gogins/csound-extended).
+    [here](https://github.com/gogins/csound-ac).
     
 Requirements for composing with HTML5:
 
-10. Install [csound-webserver-opcodes](https://github.com/gogins/csound-webserver-opcodes).
+10. Install [NW.js](https://nwjs.io/) or 
+    [csound-webserver-opcodes](https://github.com/gogins/csound-webserver-opcodes).
     
 Requirements for composing in C++:
 
@@ -155,7 +153,7 @@ Additional useful things:
     Ubuntu linux, [here](https://href.li/?https://drive.google.com/file/d/1mYHyjoD7RUrPpST3ISa9CsxIg5wTspXc/view?usp=sharing).
 18. [csound-vst3-opcodes](https://github.com/gogins/csound-vst3-opcodes) 
     enables Csound to use VST3 plugins.
-19. [csound-extended-nudruz](https://github.com/gogins/csound-extended-nudruz) 
+19. [csound-ac-nudruz](https://github.com/gogins/csound-ac-nudruz) 
     provides Csound suppport for composing in 
     Common Lisp using Drew Krause's extensions to Common Music.
 20. [musx](https://github.com/musx-admin/musx) is Rick Taube's translation of 
