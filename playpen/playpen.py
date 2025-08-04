@@ -95,6 +95,7 @@ import time
 import traceback
 
 cwd = os.getcwd()
+print(sys.argv)
 
 running_subprocess = None
 
@@ -155,7 +156,7 @@ metadata_publisher = ini_publisher
 if command in ['man-csound', 'man-csoundac', 'man-python']:
     composition_filepath = 'dummy'
 else:
-    composition_filepath = sys.argv[2]
+    composition_filepath = ' '.join(sys.argv[2:])
 metadata_source = 'csound'
 metadata_comment = "source: '" + os.path.abspath(composition_filepath) + "'"
 composition_filename = os.path.basename(composition_filepath)
@@ -382,7 +383,7 @@ def post_process():
 def csd_audio():
     try:
         print(f"\ncsd_audio: {composition_filepath} to {csound_audio_output}...")
-        csound_command = f"csound {composition_filepath} -o{csound_audio_output}"
+        csound_command = f'csound "{composition_filepath}" -o{csound_audio_output}'
         print(f"csound command: {csound_command}")
         result = subprocess.run(csound_command, shell=True)
         print(f"csound command: {csound_command} {result}")
@@ -399,7 +400,7 @@ def csd_soundfile():
         print(f"csound command: {csound_command}")
         result = subprocess.run(csound_command, shell=True)
         print(f"csd_soundfile result: {result}")
-        post_process()
+        ## post_process()
     except:
         traceback.print_exc()
     finally:
@@ -594,19 +595,6 @@ ksmps = 128
 nchnls = 2
 nchnls_i = 1
 0dbfs = 1
-
-// These must be initialized here to be in scope for both 
-// the note and the audio patches.
-
-//gi_Organteq vstinit "/home/mkg/Organteq\ 1/x86-64bit/Organteq\ 1.so", 0
-//vstinfo gi_Organteq 
-
-//gi_Fluidsynth fluidEngine 0, 0
-//gi_FluidSteinway fluidLoad "/home/mkg/Dropbox/Steinway_C.sf2", gi_Fluidsynth, 1
-//fluidProgramSelect gi_Fluidsynth, 0, gi_FluidSteinway, 0, 1
-
-//gi_Pianoteq vstinit "/home/mkg/Pianoteq\ 7/x86-64bit/Pianoteq\ 7.so", 0
-//vstinfo gi_Pianoteq 
 
 alwayson "PianoOutFluidsynth"
 alwayson "PianoOutPianoteq"
