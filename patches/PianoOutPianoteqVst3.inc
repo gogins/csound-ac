@@ -35,8 +35,7 @@ i_midi_velocity = p5
 ainleft init 0
 ainright init 0
 
-
-aoutleft, aoutright vst3audio gi_Pianoteq
+aoutleft, aoutright vst3audio gi_Pianoteq, ainleft, ainright
 a_signal = aoutleft + aoutright
 a_signal *= k_gain
 a_signal *= i_amplitude
