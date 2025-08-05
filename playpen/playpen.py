@@ -456,32 +456,33 @@ def html_nw():
     try:
         # It seems the string.format method does not work with multi-line 
         # strings.
-        directory, basename = os.path.split(composition_filepath)
-        title, extension = os.path.splitext(basename)
-        package_json = package_json_template % (basename, title, title)
-        print("package.json:", package_json)
-        with open("package.json", "w") as file:
-            file.write(package_json)
-        print(f"Running on: {platform_system}")
-        if platform_system == "Darwin":
-            os.chdir(directory)
-            print(f"cwd: ", os.getcwd())
-        else:
-            # Remove symlink to piece directory and link it again.
-            try:
-                os.remove("/home/mkg/nwjs/package.nw");
-            except:
-                pass
-            # os.symlink(target, linkname)
-            os.chdir("/home/mkg/nwjs")
-            linkname = "/home/mkg/nwjs/package.nw"
-            print(f"directory: {directory} link: {linkname}")
-            os.symlink(directory, linkname)
-            os.chdir("/home/mkg/nwjs");
-            #nwjs_command = "./nw --context-mixed --experimental-modules --alsa-input-device=plughw:2,0 --alsa-output-device=plughw:2,0 --device-scale-factor=2 {}".format(directory)
-            #command = "./nw --context-mixed --experimental-modules --device-scale-factor=2 {}".format(directory)
-        print(f"NW.js command: {nwjs_command}")
-        subprocess.run(nwjs_command, shell=True)
+        # directory, basename = os.path.split(composition_filepath)
+        # title, extension = os.path.splitext(basename)
+        # package_json = package_json_template % (basename, title, title)
+        # print("package.json:", package_json)
+        # with open("package.json", "w") as file:
+        #     file.write(package_json)
+        # print(f"Running on: {platform_system}")
+        # if platform_system == "Darwin":
+        #     os.chdir(directory)
+        #     print(f"cwd: ", os.getcwd())
+        # else:
+        #     # Remove symlink to piece directory and link it again.
+        #     try:
+        #         os.remove("/home/mkg/nwjs/package.nw");
+        #     except:
+        #         pass
+        #     # os.symlink(target, linkname)
+        #     os.chdir("/home/mkg/nwjs")
+        #     linkname = "/home/mkg/nwjs/package.nw"
+        #     print(f"directory: {directory} link: {linkname}")
+        #     os.symlink(directory, linkname)
+        #     os.chdir("/home/mkg/nwjs");
+        #     #nwjs_command = "./nw --context-mixed --experimental-modules --alsa-input-device=plughw:2,0 --alsa-output-device=plughw:2,0 --device-scale-factor=2 {}".format(directory)
+        #     #command = "./nw --context-mixed --experimental-modules --device-scale-factor=2 {}".format(directory)
+        command = f'{nwjs_command} {composition_filepath}'
+        print(f"NW.js command: {command}")
+        subprocess.run(command, shell=True)
     except:
         traceback.print_exc()
     finally:
