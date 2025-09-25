@@ -143,6 +143,8 @@ common_csound_options = "-RWd -m163 -W -+msg_color=0 --midi-key=4 --midi-velocit
 print(f'Common Csound options:          {common_csound_options}')
 compiler_command = playpen_ini.get("cplusplus", "compiler-command")
 print(f'C++ compiler command:           {compiler_command}')
+cloud5_web_root = playpen_ini.get("playpen", "cloud5-web-root")
+print(f'cloud-5 web root:               {cloud5_web_root}')
 
 metadata_album = ''
 metadata_artist = ini_author
@@ -423,14 +425,13 @@ def play():
     finally:
         print(f"play: {composition_filepath} to {int24_filename}.")
         return
-        
+    
 package_json_template = '''{
   "main": "%s",
   "name": "%s",
   "description": "HTML5 with Csound",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "keywords": [ "Csound", "node-webkit" ],
-  "nodejs": true,
   "window": {
     "title": "%s",
     "icon": "link.png",
@@ -440,47 +441,18 @@ package_json_template = '''{
     "position": "mouse",
     "fullscreen": true
   },
-  "webkit": {
-    "plugin": true
-  },
-  "chromium-args": {
-    "--enable-logging": true,
-    "--context-mixed": true,
-    "--v=1": 1,
-    "--device-scale-factor": 4
-  }
+   "chromium-args": "--enable-logging=stderr --v=1 --device-scale-factor=2 --allow-running-insecure-content"
 }'''
         
 def html_nw():
     print(f"html_nw on {platform_system}: {composition_filepath}...")
     try:
-        # It seems the string.format method does not work with multi-line 
-        # strings.
-        # directory, basename = os.path.split(composition_filepath)
-        # title, extension = os.path.splitext(basename)
-        # package_json = package_json_template % (basename, title, title)
-        # print("package.json:", package_json)
-        # with open("package.json", "w") as file:
-        #     file.write(package_json)
-        # print(f"Running on: {platform_system}")
-        # if platform_system == "Darwin":
-        #     os.chdir(directory)
-        #     print(f"cwd: ", os.getcwd())
-        # else:
-        #     # Remove symlink to piece directory and link it again.
-        #     try:
-        #         os.remove("/home/mkg/nwjs/package.nw");
-        #     except:
-        #         pass
-        #     # os.symlink(target, linkname)
-        #     os.chdir("/home/mkg/nwjs")
-        #     linkname = "/home/mkg/nwjs/package.nw"
-        #     print(f"directory: {directory} link: {linkname}")
-        #     os.symlink(directory, linkname)
-        #     os.chdir("/home/mkg/nwjs");
-        #     #nwjs_command = "./nw --context-mixed --experimental-modules --alsa-input-device=plughw:2,0 --alsa-output-device=plughw:2,0 --device-scale-factor=2 {}".format(directory)
-        #     #command = "./nw --context-mixed --experimental-modules --device-scale-factor=2 {}".format(directory)
-        command = f'{nwjs_command} {composition_filepath}'
+        package_json = package_json_template % (composition_filename, metadata_title, metadata_title)
+        print(f"NW.js package.json:\n{package_json}\n")
+        package_json_filepath = os.path.join(cloud5_web_root, 'package.json')
+        with open(package_json_filepath, 'w') as file:
+            file.write(package_json)
+        command = f'{nwjs_command} {cloud5_web_root}'
         print(f"NW.js command: {command}")
         subprocess.run(command, shell=True)
     except:
