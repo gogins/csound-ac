@@ -1,9 +1,10 @@
 /**
- * This script attempts to load, and to use, in order of decreasing 
+ * This module attempts to load, and to use, in order of decreasing 
  * preference: 
  * (1) Injected csound (e.g. Csound for Android or CsoundQt).
  * (2) csound.node.
- * (3) Csound for WebAssembly (CsoundAudioNode, based on AudioWorklet).
+ * (3) Csound for WebAssembly (csound.js, creates CsoudObj).
+ * (4) Csound for WebAssembly (CsoundAudioNode.js, based on AudioWorklet).
  * 
  * Please note, for WebAudio, code is asynchronous but is wrapped in promises 
  * using the async keyword to make calls behave synchronously; the calling 
@@ -27,10 +28,12 @@
  * message callback function to console.log.
  */
  
-// These are globals:
+// These are globals for this script. The global Csound and CsoundAC are set 
+// as properties of window.top.globalThis.
 
 csound_injected = null;
 csound_node = null;
+csound_obj = null;
 csound_audio_node = null;
 csound_is_loaded = false;
 
@@ -89,6 +92,7 @@ var load_csound = async function(csound_message_callback_) {
         // console.log.
         return;
     }
+    // TODO: Fix this so it detects Csound for Android! Yikes!
     if (typeof csound !== 'undefined') {
         if (csound != null) {
             csound_injected = csound;
@@ -114,20 +118,36 @@ var load_csound = async function(csound_message_callback_) {
         csound_message_callback_(e + '\n');
     }
     try {
-        csound_message_callback_("Trying to load CsoundAudioNode...\n");
+        csound_message_callback_("Trying to load csound.js...\n");
         var AudioContext = window.AudioContext || window.webkitAudioContext;
-        var audioContext = new AudioContext();
-        await audioContext.audioWorklet.addModule('CsoundAudioProcessor.js').then(function() {
+        var audioContext_ = new AudioContext();
+        let url = './csound.js';
+        const { Csound } = await import(url);
+        csound_obj = await Csound({audioContext: audioContext_});
+        csound_is_loaded = true;
+        csound_message_callback_("CsoundObj (AudioWorklet) is available in this JavaScript context.\n");
+        return;
+     } catch (e) {
+        csound_message_callback_(e + '\n');
+    }
+    try {
+        csound_message_callback_("Trying to load CsoundAudioNode.js...\n");
+        var AudioContext = window.AudioContext || window.webkitAudioContext;
+        var audioContext_ = new AudioContext();
+        await audioContext_.audioWorklet.addModule('CsoundAudioProcessor.js').then(function() {
             csound_message_callback_("Creating CsoundAudioNode...\n");
-            csound_audio_node = new CsoundAudioNode(audioContext, csound_message_callback_);
+            csound_audio_node = new CsoundAudioNode(audioContext_, csound_message_callback_);
             csound_is_loaded = true;
             csound_message_callback_("CsoundAudioNode (AudioWorklet) is available in this JavaScript context.\n");
+            return;
         }, function(error) {
            csound_message_callback_(error + '\n');
         });
     } catch (e) {
         csound_message_callback_(e + '\n');
     }
+    // Also ensure CsoundAC right away.
+    await get_csound_ac();
 }
 
 /**
@@ -141,18 +161,31 @@ var get_csound = async function(csound_message_callback_) {
         await load_csound(csound_message_callback_);
     }
     if (csound_injected != null) {
-        csound = csound_injected;
-        return csound_injected;
+        window.top.globalThis.csound = csound_injected;
+        return window.top.globalThis.csound;
     } else if (csound_node != null) {
-        csound = csound_node;
-        csound.SetMessageCallback(csound_message_callback_);
-        return csound_node;
+        window.top.globalThis.csound = csound_node;
+        csound.setMessageCallback(csound_message_callback_);
+        return window.top.globalThis.csound;
+    } else if (csound_obj != null) {
+        window.top.globalThis.csound = csound_obj;
+        await csound.on("message", csound_message_callback_);
+        return window.top.globalThis.csound;
     } else if (csound_audio_node != null) {
-        csound = csound_audio_node;
-        csound.SetMessageCallback(csound_message_callback_);
-        return csound_audio_node;
+        window.top.globalThis.csound = csound_audio_node;
+        csound.setMessageCallback(csound_message_callback_);
+        return window.top.globalThis.csound;
      } else {
         csound_message_callback_("Csound is still loading, wait a bit...\n");
     }
 }       
+
+var get_csound_ac = async function() {
+    if (window.top.globalThis.csound_ac) {
+        return window.top.globalThis.csound_ac;
+    }
+    // Calls into WebAssembly.
+    window.top.globalThis.csound_ac = await createCsoundAC();
+    return window.top.globalThis.csound_ac;
+}
 
