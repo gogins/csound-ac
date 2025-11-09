@@ -7,7 +7,7 @@
 sr      = 48000
 ksmps   = 64
 nchnls  = 2
-0dbfs   = 5 
+0dbfs   = 5000 
 
 #include "evoke_harmony_comb.inc"
 
