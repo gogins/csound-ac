@@ -11,15 +11,16 @@ nchnls = 2
 
 instr evoke_harmony_pvs
   ; ===== user controls =====
-  S_file             = "/Users/michaelgogins/Dropbox/imparting_harmonies/source_soundfiles/TASCAM_0101.normalized.wav"
-  i_n                = 4096
-  i_hop              = 512
-  i_win              = 1                 ; Hann
-  k_wet              init 0.75           ; 0..1 final wet/dry
-  k_mask_depth       init 1.0            ; 0..1 depth inside pvsfilter
-  i_mask_gain        init 1.0            ; post-gain inside pvsfilter (usually 1)
-  k_add_db           init -12            ; dB of chord spectrum to ADD (make less negative / positive to push harder)
-  i_oct_tilt_db      init -4             ; dB per octave up for template partials
+  S_file              = "/Users/michaelgogins/Dropbox/imparting_harmonies/source_soundfiles/TASCAM_0101.normalized.wav"
+  i_n                 = 4096
+  i_hop               = 512
+  i_win               = 1                 ; Hann
+  k_wet               init 0.75           ; 0..1 wet/dry for PVS-shaped branch
+  k_mask_strength_db  init 12             ; dB boost for the MASK template before analysis
+  k_add_db            init -12            ; dB level of TIME-DOMAIN additive chord (make –6..+6 for obvious)
+  i_oct_tilt_db       init -4             ; dB per octave up for both templates
+  k_depth             init 1.0            ; 0..1 depth inside pvsfilter
+  i_gain              init 1.0            ; post-gain inside pvsfilter
 
   ; chord notes (MIDI), pass -1 to disable
   i_note_1 = 60
@@ -32,7 +33,7 @@ instr evoke_harmony_pvs
   a_left, a_right  soundin S_file
   a_in             = 0.5 * (a_left + a_right)
 
-  ; ===== collect chord octave freqs (i-time) =====
+  ; ===== gather chord octave freqs (i-time) =====
   i_freqs[]  init 256
   i_gains[]  init 256
   i_count    init 0
@@ -59,9 +60,10 @@ instr evoke_harmony_pvs
     i_m = i_m + 1
   od
 
-  ; ===== build template audio at a-rate (steady chord spectrum) =====
+  ; ===== build chord template at a-rate (one pass, reused) =====
   a_tmpl    init 0
-  i_baseamp = 0.25                                ; pre-normalization partial level
+  i_baseamp = 0.25
+
   k_idx init 0
 loop_partials:
   if (k_idx < i_count) then
@@ -69,39 +71,43 @@ loop_partials:
     k_idx = k_idx + 1
     kgoto loop_partials
   endif
+
   a_tmpl butlp a_tmpl, 0.45*sr
 
-  ; normalize template RMS, then scale for additive strength (k_add_db)
-  k_trms     rms a_tmpl
-  k_trms_s   tonek k_trms, 5
-  k_target   init 0.35
-  k_eps      init 1e-9
-  k_norm     = (k_trms_s > k_eps ? k_target / k_trms_s : 1)
-  a_tmpl_n   = a_tmpl * k_norm
+  ; === normalize template RMS so levels are predictable ===
+  k_trms   rms a_tmpl
+  k_trms_s tonek k_trms, 5
+  k_eps    init 1e-9
+  k_ref    init 0.35
+  k_norm   = (k_trms_s > k_eps ? k_ref / k_trms_s : 1)
+  a_tmpl_n = a_tmpl * k_norm
+
+  ; === split into 2 roles: (A) MASK (PVS), (B) ADD (time-domain) ===
+  k_mask_lin = ampdb(k_mask_strength_db)
+  a_tmpl_mask = a_tmpl_n * k_mask_lin     ; stronger/lighter spectrum for mask analysis
+
   k_add_lin  = ampdb(k_add_db)
-  a_tmpl_add = a_tmpl_n * k_add_lin
+  a_tmpl_add = a_tmpl_n * k_add_lin       ; time-domain additive level
 
-  ; ===== analysis (identical params) =====
-  f_src    pvsanal a_in,       i_n, i_hop, i_n, i_win
-  f_mask   pvsanal a_tmpl_n,   i_n, i_hop, i_n, i_win    ; for shaping
-  f_add    pvsanal a_tmpl_add, i_n, i_hop, i_n, i_win    ; for injection
+  ; ===== analysis (IDENTICAL params) =====
+  f_src   pvsanal a_in,        i_n, i_hop, i_n, i_win
+  f_mask  pvsanal a_tmpl_mask, i_n, i_hop, i_n, i_win
 
-  ; ===== spectral shaping (mask) + spectral addition (inject energy) =====
-  f_shaped pvsfilter f_src, f_mask, k_mask_depth, i_mask_gain   ; shape/tilt toward chord
-  f_sum    pvsadd   f_shaped, f_add                              ; inject chord energy
-
-  ; ===== resynth & mix =====
-  a_wet_pvs  pvsynth f_sum
+  ; ===== spectral shaping =====
+  f_flt   pvsfilter f_src, f_mask, k_depth, i_gain
+  a_wet_pvs  pvsynth f_flt
   a_wet_bal  balance a_wet_pvs, a_in
-  a_mix      = (1 - k_wet) * a_in + k_wet * a_wet_bal
-  a_mix      dcblock2 a_mix
-  k_att      linseg 0, 0.01, 1
-  outs a_mix * k_att, a_mix * k_att
+
+  ; ===== final mix: dry + wet(PVS) + additive template =====
+  a_out = (1 - k_wet) * a_in + k_wet * a_wet_bal + a_tmpl_add
+  a_out dcblock2 a_out
+  k_att linseg 0, 0.01, 1
+  outs a_out * k_att, a_out * k_att
 endin
 
 </CsInstruments>
 <CsScore>
-; sine table for poscil (required by poscil)
+; sine table for poscil
 f 1 0 16384 10 1
 
 i "evoke_harmony_pvs" 0 481
