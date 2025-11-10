@@ -16,11 +16,12 @@ instr evoke_harmony_pvs
   i_hop               = 512
   i_win               = 1                 ; Hann
   k_wet               init 0.75           ; 0..1 wet/dry for PVS-shaped branch
-  k_mask_strength_db  init 12             ; dB boost for the MASK template before analysis
-  k_add_db            init -12            ; dB level of TIME-DOMAIN additive chord (make –6..+6 for obvious)
-  i_oct_tilt_db       init -4             ; dB per octave up for both templates
-  k_depth             init 1.0            ; 0..1 depth inside pvsfilter
-  i_gain              init 1.0            ; post-gain inside pvsfilter
+  k_mask_strength_db  init 12             ; dB boost for MASK template before analysis
+  k_add_db            init -12            ; dB level of additive (noise-shaped) chord energy
+  i_oct_tilt_db       init -4             ; dB per octave up (negative to roll off highs)
+  k_depth             init 1.0            ; 0..1 depth for pvsfilter
+  i_gain              init 1.0            ; post-gain in pvsfilter
+  i_q                 init 30             ; Q of bandpass filters for noise additive (20..50 good)
 
   ; chord notes (MIDI), pass -1 to disable
   i_note_1 = 60
@@ -33,7 +34,21 @@ instr evoke_harmony_pvs
   a_left, a_right  soundin S_file
   a_in             = 0.5 * (a_left + a_right)
 
-  ; ===== gather chord octave freqs (i-time) =====
+  ; input envelope & gate (avoid residual tones in silences)
+  k_in_rms     rms a_in
+  k_in_env     tonek k_in_rms, 3
+  k_gate_lo    init 0.0008
+  k_gate_hi    init 0.0030
+  if (k_in_env <= k_gate_lo) then
+    k_gate = 0
+  elseif (k_in_env >= k_gate_hi) then
+    k_gate = 1
+  else
+    k_gate = (k_in_env - k_gate_lo) / (k_gate_hi - k_gate_lo)
+  endif
+  k_gate_sm  tonek k_gate, 3
+
+  ; ===== collect chord octave freqs (i-time) =====
   i_freqs[]  init 256
   i_gains[]  init 256
   i_count    init 0
@@ -60,56 +75,69 @@ instr evoke_harmony_pvs
     i_m = i_m + 1
   od
 
-  ; ===== build chord template at a-rate (one pass, reused) =====
-  a_tmpl    init 0
-  i_baseamp = 0.25
-
-  k_idx init 0
-loop_partials:
-  if (k_idx < i_count) then
-    a_tmpl += poscil(i_baseamp * i_gains[k_idx], i_freqs[k_idx], 1)
-    k_idx = k_idx + 1
-    kgoto loop_partials
+  ; ===== MASK TEMPLATE (for PVS shaping) =====
+  ; Build a broad-band but chord-shaped template so the mask fsig is strong and non-whiny.
+  ; We use band-limited noise passed through gentle resonators at the chord octaves.
+  a_mask_tmpl init 0
+  k_idxm init 0
+mask_loop:
+  if (k_idxm < i_count) then
+    a_n       rand  0.5                              ; white-ish noise per tap
+    k_bw_hz   = i_freqs[k_idxm] / i_q                ; bandwidth from Q
+    a_bpf     butbp a_n, i_freqs[k_idxm], k_bw_hz
+    a_mask_tmpl = a_mask_tmpl + (a_bpf * i_gains[k_idxm])
+    k_idxm    = k_idxm + 1
+    kgoto mask_loop
   endif
+  ; normalize mask template RMS, then scale by mask strength and gate by input activity
+  k_mrms   rms a_mask_tmpl
+  k_mrms_s tonek k_mrms, 5
+  k_mref   init 0.35
+  k_meps   init 1e-9
+  k_mnorm  = (k_mrms_s > k_meps ? k_mref / k_mrms_s : 1)
+  a_mask_n = a_mask_tmpl * k_mnorm
+  k_mask_lin   = ampdb(k_mask_strength_db)
+  a_mask_final = a_mask_n * k_mask_lin * k_gate_sm
 
-  a_tmpl butlp a_tmpl, 0.45*sr
+  ; analyze source and mask (IDENTICAL params)
+  f_src   pvsanal a_in,         i_n, i_hop, i_n, i_win
+  f_mask  pvsanal a_mask_final, i_n, i_hop, i_n, i_win
 
-  ; === normalize template RMS so levels are predictable ===
-  k_trms   rms a_tmpl
-  k_trms_s tonek k_trms, 5
-  k_eps    init 1e-9
-  k_ref    init 0.35
-  k_norm   = (k_trms_s > k_eps ? k_ref / k_trms_s : 1)
-  a_tmpl_n = a_tmpl * k_norm
-
-  ; === split into 2 roles: (A) MASK (PVS), (B) ADD (time-domain) ===
-  k_mask_lin = ampdb(k_mask_strength_db)
-  a_tmpl_mask = a_tmpl_n * k_mask_lin     ; stronger/lighter spectrum for mask analysis
-
-  k_add_lin  = ampdb(k_add_db)
-  a_tmpl_add = a_tmpl_n * k_add_lin       ; time-domain additive level
-
-  ; ===== analysis (IDENTICAL params) =====
-  f_src   pvsanal a_in,        i_n, i_hop, i_n, i_win
-  f_mask  pvsanal a_tmpl_mask, i_n, i_hop, i_n, i_win
-
-  ; ===== spectral shaping =====
-  f_flt   pvsfilter f_src, f_mask, k_depth, i_gain
+  ; PVS shaping (depth scaled by gate)
+  f_flt   pvsfilter f_src, f_mask, (k_depth * k_gate_sm), i_gain
   a_wet_pvs  pvsynth f_flt
   a_wet_bal  balance a_wet_pvs, a_in
 
-  ; ===== final mix: dry + wet(PVS) + additive template =====
-  a_out = (1 - k_wet) * a_in + k_wet * a_wet_bal + a_tmpl_add
-  a_out dcblock2 a_out
+  ; ===== ADDITIVE (NOISE-SHAPED) CHORD ENERGY — NO SINES =====
+  a_add init 0
+  k_idxa init 0
+add_loop:
+  if (k_idxa < i_count) then
+    a_n2      rand  0.5
+    k_bw2_hz  = i_freqs[k_idxa] / i_q
+    a_bpf2    butbp a_n2, i_freqs[k_idxa], k_bw2_hz
+    a_add     = a_add + (a_bpf2 * i_gains[k_idxa])
+    k_idxa    = k_idxa + 1
+    kgoto add_loop
+  endif
+  ; normalize additive RMS and scale by k_add_db, also gate by input activity
+  k_arms   rms a_add
+  k_arms_s tonek k_arms, 5
+  k_aref   init 0.25
+  k_anorm  = (k_arms_s > 1e-9 ? k_aref / k_arms_s : 1)
+  a_add_n  = a_add * k_anorm
+  k_add_lin = ampdb(k_add_db)
+  a_add_g   = a_add_n * k_add_lin * k_gate_sm
+
+  ; ===== final mix =====
+  a_mix = (1 - k_wet) * a_in + k_wet * a_wet_bal + a_add_g
+  a_mix dcblock2 a_mix
   k_att linseg 0, 0.01, 1
-  outs a_out * k_att, a_out * k_att
+  outs a_mix * k_att, a_mix * k_att
 endin
 
 </CsInstruments>
 <CsScore>
-; sine table for poscil
-f 1 0 16384 10 1
-
 i "evoke_harmony_pvs" 0 481
 </CsScore>
 </CsoundSynthesizer>
