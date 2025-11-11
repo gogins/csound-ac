@@ -156,7 +156,7 @@ opcode evoke_harmony_convolution, a, akiijjjjj
     i_idx = i_idx + 1
   od
 
-  ; partitioned convolution from the normalized table
+  ; Partitioned convolution from the normalized table.
   i_partition_length = 128
   a_convolved ftconv a_source, i_impulse_response_table, i_partition_length
 
