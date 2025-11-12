@@ -11,7 +11,7 @@ nchnls  = 2
 
 #include "evoke_harmony_convolution.inc"
 
-instr walk
+instr evoke
   a_input_left, a_input_right soundin "/Users/michaelgogins/Dropbox/imparting_harmonies/source_soundfiles/TASCAM_0101.normalized.wav"
   a_input = a_input_left + a_input_right
   a_convolved evoke_harmony_convolution a_input, .03, .1, .05, 0, 4, 7, 11, 14
@@ -21,6 +21,6 @@ endin
 
 </CsInstruments>
 <CsScore>
-i "walk" 0 481 
+i "evoke" 0 481 
 </CsScore>
 </CsoundSynthesizer>
