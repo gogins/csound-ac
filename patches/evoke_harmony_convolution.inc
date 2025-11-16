@@ -6,7 +6,7 @@ evoke_harmony_convolution -- evoke some harmonic content from an input signal.
 ## Description 
 
 Evokes harmonic content from an input signal by convolving it with an impulse 
-response containing the harmony in the form of a grain of sound containing 
+response containing some harmony in the form of a grain of sound containing 
 each octave of one or more pitch-classes.
 
 ## Syntax
