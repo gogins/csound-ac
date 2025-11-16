@@ -1,7 +1,7 @@
 /**
-# evoke_harmony_convolution
+# harmony_convolver
 
-evoke_harmony_convolution -- evoke some harmonic content from an input signal.
+harmony_convolver -- evoke some harmonic content from an input signal.
 
 ## Description 
 
@@ -12,7 +12,7 @@ each octave of one or more pitch-classes.
 ## Syntax
 
 ```
-a_output evoke_harmony_convolution k_kernel_duration, i_impulse_gain, 
+a_output harmony_convolver k_kernel_duration, i_impulse_gain, 
   i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, 
   i_pitch_class_4, i_pitch_class_5
 ```
@@ -48,7 +48,7 @@ Note that harmonic content can be evoked from the input signal _only_ when
 there is at least _some_ energy at _some_ octave of one of the pitch-classes.
 
 */
-opcode evoke_harmony_convolution, a, akiijjjjj
+opcode harmony_convolver, a, akiijjjjj
   a_source, k_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5 xin
 
   ; clamp duration and copy to i-rate for table sizing/envelope timing

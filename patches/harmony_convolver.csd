@@ -1,6 +1,6 @@
 <CsoundSynthesizer>
 <CsOptions>
--m165 -RWdo "evoke_harmony_convolution.wav"  
+-m165 -RWdo "harmony_convolver.wav"  
 </CsOptions>
 <CsInstruments>
 
@@ -9,7 +9,7 @@ ksmps   = 32
 nchnls  = 2
 0dbfs   = 2
 
-#include "evoke_harmony_convolution.inc"
+#include "harmony_convolver.inc"
 
 instr demo
   ; source: band-limited noise burst
@@ -20,7 +20,7 @@ instr demo
 
   ; parameters: kernel duration, impulse gain, dirac level, pitch classes
   ; Output loudness remains stable despite these values.
-  a_convolved evoke_harmony_convolution a_source, .03, .1, .05, 0, 4, 7, 11, 14
+  a_convolved harmony_convolver a_source, .03, .1, .05, 0, 4, 7, 11, 14
 
   outs a_convolved, a_convolved
 endin

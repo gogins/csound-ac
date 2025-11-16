@@ -1,7 +1,7 @@
 '''
-Tests and demonstrates `evoke_harmony_convolution.inc`.
+Tests and demonstrates `harmony_convolver.inc`.
 
-The piece loops over changes of parameters to the `evoke_harmony_convolution` opcode, 
+The piece loops over changes of parameters to the `harmony_convolver` opcode, 
 and at each setting, plays first noise then an ascending sawtooth through the opcode,
 during which  ii-V-I chord progression is eoked from the source.
 '''
@@ -11,7 +11,7 @@ import ctcsound
 csound = ctcsound.Csound()
 csd = '''<CsoundSynthesizer>
 <CsOptions>
--m163 -RWdfo evoke_harmony_convolution_test.wav 
+-m163 -RWdfo harmony_convolver_test.wav 
 </CsOptions>
 <CsInstruments>
 sr = 48000
@@ -19,7 +19,7 @@ ksmps = 128
 nchnls = 2
 0dbfs = 1000
                       
-#include "evoke_harmony_convolution.inc"
+#include "harmony_convolver.inc"
                       
 alwayson "MasterOutput"  
                       
@@ -63,8 +63,8 @@ instr Evoker
   i_pitch_class_5 init p13
   a_source_left  = ga_input_left
   a_source_right = ga_input_right
-  a_processed_left evoke_harmony_convolution a_source_left, k_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5   
-  a_processed_right evoke_harmony_convolution a_source_right, k_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5   
+  a_processed_left harmony_convolver a_source_left, k_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5   
+  a_processed_right harmony_convolver a_source_right, k_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5   
   k_envelope linsegr 0, gi_fade, p3, gi_fade, 0
   ga_mix_left  += a_processed_left  * k_envelope
   ga_mix_right += a_processed_right * k_envelope
@@ -86,13 +86,13 @@ endin
 '''   
 
 '''
-a_output evoke_harmony_convolution k_kernel_duration, i_impulse_gain, 
+a_output harmony_convolver k_kernel_duration, i_impulse_gain, 
   i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, 
   i_pitch_class_4, i_pitch_class_5
 '''
-k_kernel_durations = [.01, .1, 1]
+k_kernel_durations = [.01, .1, 1, 4]
 i_impulse_gains = [.125, .25, .75]
-i_dirac_levels = [.75, .5, .25]
+i_dirac_levels = [.75, .5, .25, 1]
 source_instruments = [2, 1]
 chords = []
 chords.append([2, 5, 9, 12])   
