@@ -12,7 +12,9 @@ printks2 "Master gain: %f\n", k_gain
 iamp init 1
 aleft butterlp aleft, 18000
 aright butterlp aright, 18000
-outs aleft * k_gain, aright * k_gain
+a_output_left = aleft * k_gain
+a_output_right = aright * k_gain
+outs a_output_left, a_output_right
 ; We want something that will play on my phone.
 i_amplitude_adjustment = ampdbfs(-3) / 32767
 i_filename_length strlen gS_MasterOutput_filename
