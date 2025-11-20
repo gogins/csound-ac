@@ -12,7 +12,7 @@ each octave of one or more pitch-classes.
 ## Syntax
 
 ```
-a_output harmony_convolver k_kernel_duration, i_impulse_gain, 
+a_output harmony_convolver k_impulse_duration, i_impulse_gain, 
   i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, 
   i_pitch_class_4, i_pitch_class_5
 ```
@@ -38,7 +38,7 @@ specified or not greater than -1 are not used.
 `a_output` -- the monophonic audio output signal that results from convolving 
 `a_input` with the impulse response containing the harmony.
 
-`k_kernal_duration` -- the duration of the impulse response grain; determines 
+`k_impulse_duration` -- the duration of the impulse response grain; determines 
 the amount of time that energy in the input signal will 'ring' from the
 harmony in the impulse response.
 
@@ -49,11 +49,11 @@ there is at least _some_ energy at _some_ octave of one of the pitch-classes.
 
 */
 opcode harmony_convolver, a, akiijjjjj
-  a_source, k_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5 xin
+  a_source, k_impulse_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5 xin
 
   ; clamp duration and copy to i-rate for table sizing/envelope timing
-  k_kernel_duration = max(0.01, min(k_kernel_duration, 1.0))
-  i_kernel_duration = i(k_kernel_duration)
+  k_impulse_duration = max(0.01, min(k_impulse_duration, 1.0))
+  i_kernel_duration = i(k_impulse_duration)
 
   ; cache pitch classes
   i_pc1 = i_pitch_class_1

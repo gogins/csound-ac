@@ -7,7 +7,7 @@
 sr      = 48000
 ksmps   = 32
 nchnls  = 2
-0dbfs   = 10000
+0dbfs   = 1000
 
 #include "harmony_convolver.inc"
 
@@ -46,7 +46,7 @@ instr evoke
   a_convolved_right *= a_envelope
   outleta "leftout", a_convolved_left
   outleta "rightout", a_convolved_right
-  prints "Evoke:  seconds: %12.3f duration: %9.3f fadein: %5.2f fadeout: %5.2f kernel duration: %5.3f impulse gain: %5.3ff dirac level: %5.3f pitch classes: %3d %3d %3d %3d %3d\n", p2, p3, i_fadein, i_fadeout, k_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5
+  prints "Evoke:  seconds: %12.3f duration: %9.3f fadein: %5.2f fadeout: %5.2f impulse duration: %5.3f impulse gain: %5.3ff dirac level: %5.3f pitch-classes: %3d %3d %3d %3d %3d\n", p2, p3, i_fadein, i_fadeout, k_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5
 endin
 
 instr master_output
@@ -79,25 +79,27 @@ alwayson "master_output"
 <CsScore>
 ;           onset             duration  fadein  fadeout kernel_dur kernel_gain dirac pitch_classes
 ; Voices and cars
-i "evoke"   0.000   [ 29.266 -   0.000]   1.00     1.00       0.03         0.1   0.6   0 4 7 11 14 
+i "evoke"   0.000   [ 29.266 -   0.000]   1.00     1.00       0.03         0.3   0.6   0 4 7 11 14 
 i "evoke"  29.266   [ 44.929 -  29.266]   1.00     1.00       0.04         0.1   0.6   2 5 9 12 14
-i "evoke"  44.929   [ 97.100 -  44.929]   1.00     1.00       0.10         0.2   0.7   5 7 9 14
-i "evoke"  97.100   [123.308 -  97.100]   1.00     1.00       0.05         0.1   0.5   2 5 9 12 12
-; Three bell strikes
-i "evoke" 123.308   [125.140 - 123.308]   0.05     0.05       0.05         0.1   0.5  7 10 13 15
-i "evoke" 125.140   [126.922 - 125.140]   0.05     0.05       0.05         0.1   0.5  3 6 10 13 15
-i "evoke" 126.922   [149.000 - 126.922]   0.05    10.00       0.50         0.1   0.5  1 4 7 11 14
+i "evoke"  44.929   [ 97.100 -  44.929]   1.00     1.00       0.06         0.15  0.7   5 7 9 14
+i "evoke"  97.100   [123.308 -  97.100]   1.00     1.00       0.05         0.1   0.5   2 5 9 12 4
+; Three bell strikes.
+i "evoke" 123.308   [125.140 - 123.308]   0.05     0.05       0.05         0.4   0.5   7 10 13 15
+i "evoke" 125.140   [126.922 - 125.140]   0.05     0.05       0.07         0.5   0.5   3 6 10 13 15
+i "evoke" 126.922   [149.000 - 126.922]   0.05    10.00       0.12         0.2   0.5   0 4 7 11 14
 ; Voices and cars return.
-i "evoke" 149.000   [243.000 - 149.000]  10.00     1.00       0.02         0.1  0.6   10 12 14 17
+i "evoke" 149.000   [243.000 - 149.000]  10.00     1.00       0.02         0.1   0.6   10 12 14 17
 ; Three more bell strikes.
-i "evoke" 243.000   [245.000 - 243.000]   1.00     1.00       1.00         0.15  0.5   9  12 14 15
-i "evoke" 245.000   [247.000 - 245.000]   1.00     1.00       1.00         0.15  0.5   8  11 13 14
-i "evoke" 247.000   [260.000 - 247.000]   1.00     1.00       1.00         0.15  0.5   7  9 11 13
+i "evoke" 243.000   [245.000 - 243.000]   1.00     1.00       0.12         0.1   0.5    7 11 14 17 21
+i "evoke" 245.000   [247.000 - 245.000]   1.00     1.00       0.16         0.11  0.5   4 11 7  10 14
+i "evoke" 247.000   [260.000 - 247.000]   1.00     1.00       0.20         0.12  0.5   5  9 0 4 6
 ; Other sounds again.
 i "evoke" 260.000   [306.000 - 260.000]   1.00     1.00       0.03         0.2   0.7   0 4 7 11 14
 ; A woman.
-i "evoke" 306.00    [320.781 - 306.000]   0.50     0.50       0.08        0.5   0.7   7 10 11 14
+i "evoke" 306.00    [320.781 - 306.000]   0.50    10.00       0.12         0.5   0.4   7 10 11 14
 ; Other sounds.
-i "evoke" 320.781   [431.000 - 320.781]   0.50     1.00       0.25         0.2   0.5   0 4 7 11
-</CsScore>
+i "evoke" 320.781   [431.000 - 320.781]  10.00     1.00       0.01         0.4   0.7   0 4 7 11
+i "evoke" 431.000   [536.740 - 431.000]   1.00     1.00       0.70         0.8   0.2   2 5 9 0
+i "evoke" 536.740   [575.000 - 536.740]   1.00     1.00       2.00         0.2   0.2   0 4 7 11 
+ </CsScore>
 </CsoundSynthesizer>
