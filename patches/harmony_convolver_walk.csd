@@ -1,20 +1,32 @@
 <CsoundSynthesizer>
 <CsOptions>
--m0 -RWdo "harmony_convolver_walk.wav"  
+-m32 -RWdo "harmony_convolver_walk.wav"  
 </CsOptions>
 <CsInstruments>
 
 sr      = 48000
 ksmps   = 32
 nchnls  = 2
-0dbfs   = 1000
+0dbfs   = 20
 
 #include "harmony_convolver.inc"
 
 instr source_sound
   a_input_left, a_input_right soundin "/Users/michaelgogins/Dropbox/imparting_harmonies/source_soundfiles/TASCAM_0101.normalized.wav"
-  outleta "leftout", a_input_left
-  outleta "rightout", a_input_right
+  ; Bells are too loud, compress.
+  k_thresh     init 30      ; ≈ -60 dBFS floor
+  k_lo_knee    init 60      ; knee start  ≈ -30 dBFS
+  k_hi_knee    init 75      ; knee end    ≈ -15 dBFS
+  k_ratio      init 6       ; 6:1 compression above knee
+  k_attack     init 0.01    ; 10 ms attack
+  k_release    init 0.20    ; 200 ms release
+  i_lookahead = 0.05        ; 50 ms lookahead
+  a_compressed_left  compress a_input_left,  a_input_left,  k_thresh, k_lo_knee, k_hi_knee, \
+                                       k_ratio, k_attack, k_release, i_lookahead
+  a_compressed_right compress a_input_right, a_input_right, k_thresh, k_lo_knee, k_hi_knee, \
+                                       k_ratio, k_attack, k_release, i_lookahead
+  outleta "leftout", a_compressed_left
+  outleta "rightout", a_compressed_right
 endin
 
 /*
@@ -84,9 +96,9 @@ i "evoke"  29.266   [ 44.929 -  29.266]   1.00     1.00       0.04         0.1  
 i "evoke"  44.929   [ 97.100 -  44.929]   1.00     1.00       0.06         0.15  0.7   5 7 9 14
 i "evoke"  97.100   [123.308 -  97.100]   1.00     1.00       0.05         0.1   0.5   2 5 9 12 4
 ; Three bell strikes.
-i "evoke" 123.308   [125.140 - 123.308]   0.05     0.05       0.05         0.4   0.5   7 10 13 15
-i "evoke" 125.140   [126.922 - 125.140]   0.05     0.05       0.07         0.5   0.5   3 6 10 13 15
-i "evoke" 126.922   [149.000 - 126.922]   0.05    10.00       0.12         0.2   0.5   0 4 7 11 14
+i "evoke" 123.308   [125.140 - 123.308]   0.05     0.05       0.05         0.1   0.9   7 10 13 15
+i "evoke" 125.140   [126.922 - 125.140]   0.05     0.05       0.05         0.2   0.9   3 6 10 13 15
+i "evoke" 126.922   [149.000 - 126.922]   0.05    10.00       0.02         0.1   0.8   0 4 7 11 14
 ; Voices and cars return.
 i "evoke" 149.000   [243.000 - 149.000]  10.00     1.00       0.02         0.1   0.6   10 12 14 17
 ; Three more bell strikes.
@@ -94,12 +106,15 @@ i "evoke" 243.000   [245.000 - 243.000]   1.00     1.00       0.12         0.1  
 i "evoke" 245.000   [247.000 - 245.000]   1.00     1.00       0.16         0.11  0.5   4 11 7  10 14
 i "evoke" 247.000   [260.000 - 247.000]   1.00     1.00       0.20         0.12  0.5   5  9 0 4 6
 ; Other sounds again.
-i "evoke" 260.000   [306.000 - 260.000]   1.00     1.00       0.03         0.2   0.7   0 4 7 11 14
+i "evoke" 260.000   [306.750 - 260.000]   1.00     0.25      0.03         0.1   0.7   0 4 7 11 14
 ; A woman.
-i "evoke" 306.00    [320.781 - 306.000]   0.50    10.00       0.12         0.5   0.4   7 10 11 14
+i "evoke" 306.750   [320.781 - 306.750]   0.25    10.00       0.12         0.5   0.4   7 10 11 14
 ; Other sounds.
 i "evoke" 320.781   [431.000 - 320.781]  10.00     1.00       0.01         0.4   0.7   0 4 7 11
-i "evoke" 431.000   [536.740 - 431.000]   1.00     1.00       0.70         0.8   0.2   2 5 9 0
-i "evoke" 536.740   [575.000 - 536.740]   1.00     1.00       2.00         0.2   0.2   0 4 7 11 
+i "evoke" 431.000   [536.740 - 431.000]   1.00     1.00       0.06         0.6   0.7   2 6 9 1
+; Walking through fallen leaves.
+i "evoke" 536.740   [544.000 - 536.740]   1.00     0.50       0.01         0.2   0.9   4 7 11 2
+i "evoke" 544.500   [558.000 - 544.500]   0.50     1.00       0.20         0.2   0.9   7 11 2 5
+i "evoke" 558.000   [576.000 - 558.000]   0.50     1.00       0.02         0.2   0.9   0 4 7 11 
  </CsScore>
 </CsoundSynthesizer>
