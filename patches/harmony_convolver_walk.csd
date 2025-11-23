@@ -11,15 +11,53 @@ nchnls  = 2
 
 #include "harmony_convolver.inc"
 
+opcode splice_crossfade_stereo, aa, Siii
+  S_filename, i_start_skip, i_end_skip, i_fade_dur xin
+  ; basic sanity checks
+  if (i_end_skip <= i_start_skip) then
+    prints "splice_crossfade_stereo: i_end_skip must be > i_start_skip.\n"
+  endif
+  if (i_fade_dur >= i_start_skip) then
+    prints "splice_crossfade_stereo: i_fade_dur must be < i_start_skip.\n"
+  endif
+  ; two playheads on the same file (stereo)
+  a_pre_left,  a_pre_right  diskin2 S_filename, 1, 0
+  a_post_left, a_post_right diskin2 S_filename, 1, i_end_skip - i_start_skip
+  k_time timeinsts
+  i_crossfade_start = i_start_skip - i_fade_dur
+  i_pi init 3.14159265358979
+  a_out_left  init 0
+  a_out_right init 0
+  if (k_time < i_crossfade_start) then
+    ; before crossfade: original section
+    a_out_left  = a_pre_left
+    a_out_right = a_pre_right
+  elseif (k_time < i_start_skip) then
+    ; crossfade region: raised cosine
+    k_phase    = (k_time - i_crossfade_start) / i_fade_dur
+    k_fade_in  = 0.5 - 0.5 * cos(i_pi * k_phase)
+    k_fade_out = 1.0 - k_fade_in
+    a_out_left  = a_pre_left  * k_fade_out + a_post_left  * k_fade_in
+    a_out_right = a_pre_right * k_fade_out + a_post_right * k_fade_in
+  else
+    ; after crossfade: only later section
+    a_out_left  = a_post_left
+    a_out_right = a_post_right
+  endif
+  xout a_out_left, a_out_right
+endop
+
 instr source_sound
-  a_input_left, a_input_right soundin "/Users/michaelgogins/Dropbox/imparting_harmonies/source_soundfiles/TASCAM_0101.normalized.wav"
+  a_input_left, a_input_right splice_crossfade_stereo \
+    "/Users/michaelgogins/Dropbox/imparting_harmonies/source_soundfiles/TASCAM_0101.normalized.wav", 420, 480, .2
   ; Bells are too loud, compress.
-  k_thresh     init 30      ; ≈ -60 dBFS floor
-  k_lo_knee    init 60      ; knee start  ≈ -30 dBFS
-  k_hi_knee    init 75      ; knee end    ≈ -15 dBFS
-  k_ratio      init 6       ; 6:1 compression above knee
-  k_attack     init 0.01    ; 10 ms attack
-  k_release    init 0.20    ; 200 ms release
+   ; k-rate parameters, initialized at i-time
+  k_thresh     init 30      ; noise floor / gate threshold
+  k_lo_knee    init 55      ; start knee a bit lower (was 60)
+  k_hi_knee    init 72      ; end knee a bit lower (was 75)
+  k_ratio      init 8       ; stronger compression (was 6)
+  k_attack     init 0.01    ; 10 ms attack – keep bell transients
+  k_release    init 0.30    ; longer release (was 0.20) for smoother leveling
   i_lookahead = 0.05        ; 50 ms lookahead
   a_compressed_left  compress a_input_left,  a_input_left,  k_thresh, k_lo_knee, k_hi_knee, \
                                        k_ratio, k_attack, k_release, i_lookahead
@@ -91,7 +129,7 @@ alwayson "master_output"
 <CsScore>
 ;           onset             duration  fadein  fadeout kernel_dur kernel_gain dirac pitch_classes
 ; Voices and cars
-i "evoke"   0.000   [ 29.266 -   0.000]   1.00     1.00       0.03         0.3   0.6   0 4 7 11 14 
+i "evoke"   0.000   [ 29.266 -   0.000]   8.00     1.00       0.03         0.3   0.6   0 4 7 11 14 
 i "evoke"  29.266   [ 44.929 -  29.266]   1.00     1.00       0.04         0.1   0.6   2 5 9 12 14
 i "evoke"  44.929   [ 97.100 -  44.929]   1.00     1.00       0.06         0.15  0.7   5 7 9 14
 i "evoke"  97.100   [123.308 -  97.100]   1.00     1.00       0.05         0.1   0.5   2 5 9 12 4
@@ -106,15 +144,19 @@ i "evoke" 243.000   [245.000 - 243.000]   1.00     1.00       0.12         0.1  
 i "evoke" 245.000   [247.000 - 245.000]   1.00     1.00       0.16         0.11  0.5   4 11 7  10 14
 i "evoke" 247.000   [260.000 - 247.000]   1.00     1.00       0.20         0.12  0.5   5  9 0 4 6
 ; Other sounds again.
-i "evoke" 260.000   [306.750 - 260.000]   1.00     0.25      0.03         0.1   0.7   0 4 7 11 14
+i "evoke" 260.000   [306.750 - 260.000]   1.00     0.25       0.03         0.1   0.7   0 4 7 11 14
 ; A woman.
 i "evoke" 306.750   [320.781 - 306.750]   0.25    10.00       0.12         0.5   0.4   7 10 11 14
 ; Other sounds.
 i "evoke" 320.781   [431.000 - 320.781]  10.00     1.00       0.01         0.4   0.7   0 4 7 11
-i "evoke" 431.000   [536.740 - 431.000]   1.00     1.00       0.06         0.6   0.7   2 6 9 1
+
+; 60 seconds cut from source recoring starting at 420 seconds.
+
+i "evoke" [431.000 - 60]   [(536.740 - 60) - (431.000 - 60)]   1.00     1.00       0.06         0.6   0.7   2 6 9 1
 ; Walking through fallen leaves.
-i "evoke" 536.740   [544.000 - 536.740]   1.00     0.50       0.01         0.2   0.9   4 7 11 2
-i "evoke" 544.500   [558.000 - 544.500]   0.50     1.00       0.20         0.2   0.9   7 11 2 5
-i "evoke" 558.000   [576.000 - 558.000]   0.50     1.00       0.02         0.2   0.9   0 4 7 11 
+i "evoke" [536.740 - 60]   [(544.000 - 60) - (536.740 - 60)]   1.00     0.50       0.01         0.2   0.9   4 7 11 2
+i "evoke" [544.500 - 60]   [(558.000 - 60) - (544.500 - 60)]   0.50     1.00       0.06         0.2   0.7   7 11 2 5
+i "evoke" [558.000 - 60]   [(576.000 - 60) - (558.000 - 60)]   0.50     1.00       0.02         0.2   0.9   0 4 7 11 
+
  </CsScore>
 </CsoundSynthesizer>
