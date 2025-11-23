@@ -51,7 +51,7 @@ instr source_sound
   a_input_left, a_input_right splice_crossfade_stereo \
     "/Users/michaelgogins/Dropbox/imparting_harmonies/source_soundfiles/TASCAM_0101.normalized.wav", 420, 480, .2
   ; Bells are too loud, compress.
-   ; k-rate parameters, initialized at i-time
+  ; k-rate parameters, initialized at i-time
   k_thresh     init 30      ; noise floor / gate threshold
   k_lo_knee    init 55      ; start knee a bit lower (was 60)
   k_hi_knee    init 72      ; end knee a bit lower (was 75)
@@ -127,30 +127,30 @@ alwayson "master_output"
 
 </CsInstruments>
 <CsScore>
-;           onset             duration  fadein  fadeout kernel_dur kernel_gain dirac pitch_classes
+;            onset                     duration              fadein  fadeout kernel_dur kernel_gain dirac pitch_classes
 ; Voices and cars
-i "evoke"   0.000   [ 29.266 -   0.000]   8.00     1.00       0.03         0.3   0.6   0 4 7 11 14 
-i "evoke"  29.266   [ 44.929 -  29.266]   1.00     1.00       0.04         0.1   0.6   2 5 9 12 14
-i "evoke"  44.929   [ 97.100 -  44.929]   1.00     1.00       0.06         0.15  0.7   5 7 9 14
-i "evoke"  97.100   [123.308 -  97.100]   1.00     1.00       0.05         0.1   0.5   2 5 9 12 4
+i "evoke"    0.000          [ 29.266 -   0.000]                8.00     1.00       0.03         0.3   0.6   0 4 7 11 14 
+i "evoke"   29.266          [ 44.929 -  29.266]                1.00     1.00       0.04         0.1   0.6   2 5 9 12 14
+i "evoke"   44.929          [ 97.100 -  44.929]                1.00     1.00       0.06         0.15  0.7   5 7 9 14
+i "evoke"   97.100          [123.308 -  97.100]                1.00     1.00       0.05         0.1   0.5   2 5 9 12 4
 ; Three bell strikes.
-i "evoke" 123.308   [125.140 - 123.308]   0.05     0.05       0.05         0.1   0.9   7 10 13 15
-i "evoke" 125.140   [126.922 - 125.140]   0.05     0.05       0.05         0.2   0.9   3 6 10 13 15
-i "evoke" 126.922   [149.000 - 126.922]   0.05    10.00       0.02         0.1   0.8   0 4 7 11 14
+i "evoke"  123.308          [125.140 - 123.308]                0.05     0.05       0.05         0.1   0.9   7 10 13 15
+i "evoke"  125.140          [126.922 - 125.140]                0.05     0.05       0.05         0.2   0.9   3 6 10 13 15
+i "evoke"  126.922          [149.000 - 126.922]                0.05    10.00       0.02         0.1   0.8   0 4 7 11 14
 ; Voices and cars return.
-i "evoke" 149.000   [243.000 - 149.000]  10.00     1.00       0.02         0.1   0.6   10 12 14 17
+i "evoke"  149.000          [243.000 - 149.000]               10.00     1.00       0.02         0.1   0.6   10 12 14 17
 ; Three more bell strikes.
-i "evoke" 243.000   [245.000 - 243.000]   1.00     1.00       0.12         0.1   0.5    7 11 14 17 21
-i "evoke" 245.000   [247.000 - 245.000]   1.00     1.00       0.16         0.11  0.5   4 11 7  10 14
-i "evoke" 247.000   [260.000 - 247.000]   1.00     1.00       0.20         0.12  0.5   5  9 0 4 6
+i "evoke"  243.000          [245.000 - 243.000]                1.00     1.00       0.12         0.1   0.5    7 11 14 17 21
+i "evoke"  245.000          [247.000 - 245.000]                1.00     1.00       0.16         0.11  0.5   4 11 7  10 14
+i "evoke"  247.000          [260.000 - 247.000]                1.00     1.00       0.20         0.12  0.5   5  9 0 4 6
 ; Other sounds again.
-i "evoke" 260.000   [306.750 - 260.000]   1.00     0.25       0.03         0.1   0.7   0 4 7 11 14
+i "evoke"  260.000          [306.750 - 260.000]                1.00     0.25       0.03         0.1   0.7   0 4 7 11 14
 ; A woman.
-i "evoke" 306.750   [320.781 - 306.750]   0.25    10.00       0.12         0.5   0.4   7 10 11 14
+i "evoke"  306.750          [320.781 - 306.750]                0.25    10.00       0.12         0.5   0.4   7 10 11 14
 ; Other sounds.
-i "evoke" 320.781   [431.000 - 320.781]  10.00     1.00       0.01         0.4   0.7   0 4 7 11
+i "evoke"  320.781          [431.000 - 320.781]               10.00     1.00       0.01         0.4   0.7   0 4 7 11
 
-; 60 seconds cut from source recoring starting at 420 seconds.
+; 60 seconds cut from source recording starting at 420 seconds.
 
 i "evoke" [431.000 - 60]   [(536.740 - 60) - (431.000 - 60)]   1.00     1.00       0.06         0.6   0.7   2 6 9 1
 ; Walking through fallen leaves.
