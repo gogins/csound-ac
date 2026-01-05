@@ -9,7 +9,7 @@ Copyright:  2025 Michael Gogins
 This is a short walk through the small village of Lagarde, Ariege, France, in 
 autumn, with sounds of voices, cars, jackdaws, and the church bell. The source 
 recording is convolved with various grains of sound built up from sinusoids on 
-each octave of a set of pitch-classes, this evoking or imparting different 
+each octave of a set of pitch-classes, thus evoking or imparting different 
 harmonic content on different segments of the recording. This convolution is 
 done using the `harmony_convolver` opcode defined by me.
 
