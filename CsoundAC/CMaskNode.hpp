@@ -1,5 +1,4 @@
-#ifndef CMASKNODE_HPP_INCLUDED
-#define CMASKNODE_HPP_INCLUDED
+#pragma once
 /*
  * C S O U N D
  *

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 '''
 P L A Y P E N   C O M M A N D S
+Version: 6 January 2026
 Author: Michael Gogins
 
 This Python 3 script provides help with using Csound and related programs, 
@@ -445,32 +446,68 @@ package_json_template = '''{
 }'''
         
 def html_nw():
-    print(f"html_nw on {platform_system}: {composition_filepath}...")
-    try:
-        package_json = package_json_template % (composition_filename, metadata_title, metadata_title)
-        print(f"NW.js package.json:\n{package_json}\n")
-        package_json_filepath = os.path.join(cloud5_web_root, 'package.json')
-        with open(package_json_filepath, 'w') as file:
-            file.write(package_json)
-        command = f'{nwjs_command} {cloud5_web_root}'
-        print(f"NW.js command: {command}")
-        subprocess.run(command, shell=True)
-    except:
-        traceback.print_exc()
-    finally:
-        print(f"html_nw: {composition_filepath}.")
-        return
+  print(f"html_nw on {platform_system}: {composition_filepath}...")
+  try:
+    # Copy the composition file into the NW.js web root before launching.
+    composition_destpath = os.path.join(cloud5_web_root, composition_filename)
+    print(f"Copying composition to web root: {composition_filepath} -> {composition_destpath}")
+    shutil.copy2(composition_filepath, composition_destpath)
+
+    # If this is an HTML composition, also copy the optional JSON state file.
+    if composition_filename.lower().endswith(".html"):
+      piece_basename, _ = os.path.splitext(composition_filename)
+      state_filename = f"{piece_basename}.state.json"
+      state_srcpath = os.path.join(os.path.dirname(composition_filepath), state_filename)
+      state_destpath = os.path.join(cloud5_web_root, state_filename)
+      if os.path.exists(state_srcpath):
+        print(f"Copying state file to web root: {state_srcpath} -> {state_destpath}")
+        shutil.copy2(state_srcpath, state_destpath)
+      else:
+        print(f"No state file found (skipping): {state_srcpath}")
+
+    package_json = package_json_template % (composition_filename, metadata_title, metadata_title)
+    print(f"NW.js package.json:\n{package_json}\n")
+    package_json_filepath = os.path.join(cloud5_web_root, "package.json")
+    with open(package_json_filepath, "w") as file:
+      file.write(package_json)
+
+    command = f"{nwjs_command} {cloud5_web_root}"
+    print(f"NW.js command: {command}")
+    subprocess.run(command, shell=True)
+  except:
+    traceback.print_exc()
+  finally:
+    print(f"html_nw: {composition_filepath}.")
+    return
         
 def html_localhost():
-    try:
-        print(f"html_localhost: {composition_filename}...")
-        command = f"{open_command} http://localhost:{port}/{composition_filename}"
-    except:
-        traceback.print_exc()
-    finally:
-        print(f"html_localhost: {composition_filename}.")
-        subprocess.run(command, shell=True)
-        return
+  try:
+    print(f"html_localhost: {composition_filename}...")
+
+    # Copy the composition file into the web root before opening the browser.
+    composition_destpath = os.path.join(cloud5_web_root, composition_filename)
+    print(f"Copying composition to web root: {composition_filepath} -> {composition_destpath}")
+    shutil.copy2(composition_filepath, composition_destpath)
+
+    # If this is an HTML composition, also copy the optional JSON state file.
+    if composition_filename.lower().endswith(".html"):
+      piece_basename, _ = os.path.splitext(composition_filename)
+      state_filename = f"{piece_basename}.state.json"
+      state_srcpath = os.path.join(os.path.dirname(composition_filepath), state_filename)
+      state_destpath = os.path.join(cloud5_web_root, state_filename)
+      if os.path.exists(state_srcpath):
+        print(f"Copying state file to web root: {state_srcpath} -> {state_destpath}")
+        shutil.copy2(state_srcpath, state_destpath)
+      else:
+        print(f"No state file found (skipping): {state_srcpath}")
+
+    command = f"{open_command} http://localhost:{port}/{composition_filename}"
+  except:
+    traceback.print_exc()
+  finally:
+    print(f"html_localhost: {composition_filename}.")
+    subprocess.run(command, shell=True)
+    return
         
 def cpp_app():
     try:
