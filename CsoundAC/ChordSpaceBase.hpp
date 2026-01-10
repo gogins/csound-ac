@@ -1771,7 +1771,7 @@ SILENCE_PUBLIC Chord voiceleadingSimpler(const Chord &source, const Chord &d1, c
 // ONLY DEFINITIONS BELOW HERE -- NO DECLARATIONS.
 //////////////////////////////////////////////////
 
-static std::mt19937 mersenne_twister;
+inline std::mt19937 mersenne_twister;
 
 inline SILENCE_PUBLIC std::string toString(const Matrix& mat){
     std::stringstream ss;
