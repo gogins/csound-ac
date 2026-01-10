@@ -283,7 +283,7 @@ P, L, and R have been extended as follows, see Fiore and Satyendra,
 */
 
 static SILENCE_PUBLIC std::string chord_space_version() {
-    return "ChordSpaceBase version 2.0.4.";
+    return "ChordSpaceBase version 2.1.0.";
 }
 
 /**

@@ -7,8 +7,7 @@
 
 // g++ -Dlinux -m32 --std=gnu++17 -lstdc++fs -Wno-write-strings -I. -I/usr/include -I/usr/include/eigen3 -O2 -g ChordSpaceTest.cpp -oChordSpaceTest 
 // c++ ChordSpaceTest.cpp -v --std=gnu++17 -lstdc++ -O3 -g -Wno-write-strings -I.  -I/Library/Frameworks/CsoundLib64.framework/Versions/6.0/Headers -I/usr/local/include -I/usr/local/include/csound -I/opt/homebrew/Cellar/eigen/3.4.0_1/include/eigen3 -I/opt/homebrew/Cellar/boost/1.78.0_1/include -I/opt/local/include /Library/Frameworks/CsoundLib64.framework/Versions/6.0/CsoundLib64 -lCsoundAC -L/opt/homebrew/lib -lsndfile -lgc -lpthread -ldl -lm -oChordSpaceTest
-
-#pragma GCC diagnostic ignored "-Wformat"
+// c++ ChordSpaceTest.cpp -v --std=gnu++17 -lstdc++ -O3 -g -Wno-write-strings -I.  -I/Library/Frameworks/CsoundLib64.framework/Versions/6.0/Headers -I/usr/local/include -I/usr/local/include/csound -I/opt/homebrew/Cellar/eigen/5.0.1/include/eigen3 -I/opt/homebrew/Cellar/boost/1.90.0/include -I/opt/local/include /Library/Frameworks/CsoundLib64.framework/Versions/6.0/CsoundLib64 -lCsoundAC -L/opt/homebrew/lib -lsndfile -lgc -lpthread -ldl -lm -oChordSpaceTest
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 typedef Eigen::Matrix<double, Eigen::Dynamic, 1> Vector;
