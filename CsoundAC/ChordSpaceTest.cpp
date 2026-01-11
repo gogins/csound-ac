@@ -432,9 +432,20 @@ static void test_eq_tolerance() {
     std::cerr << "csound::ge_tolerance(14.0, 12.0): " << csound::ge_tolerance(14.0, 12.0) << std::endl;
 }
 
+void print_build_timestamp() {
+  std::cout
+    << "Built on "
+    << __DATE__
+    << " at "
+    << __TIME__
+    << ".\n\n";
+}
+
+
 int main(int argc, char **argv) {
     csound::System::message("C H O R D S P A C E   U N I T   T E S T S\n\n");
     std::cerr << csound::chord_space_version() << std::endl;
+    print_build_timestamp();
     csound::Chord CM = csound::chordForName("C+");
     CM = CM.T(-4.);
     std::cerr << CM.information() << std::endl;

@@ -1,5 +1,4 @@
-#ifndef CHORDSPACEBASE_HPP_INCLUDED
-#define CHORDSPACEBASE_HPP_INCLUDED
+#pragma once
 /*
  * C S O U N D
  *
@@ -282,35 +281,35 @@ P, L, and R have been extended as follows, see Fiore and Satyendra,
                 
 */
 
-static SILENCE_PUBLIC std::string chord_space_version() {
+inline SILENCE_PUBLIC std::string chord_space_version() {
     return "ChordSpaceBase version 2.1.0.";
 }
 
+inline bool CHORD_SPACE_DEBUGGING_ = false;
 /**
  * Returns the current state of the chord space debugging flag as a 
  * reference, which can be an lvalue or an rvalue.
  */
-static SILENCE_PUBLIC bool &CHORD_SPACE_DEBUGGING() {
-    static bool CHORD_SPACE_DEBUGGING_ = false;
+inline SILENCE_PUBLIC bool &CHORD_SPACE_DEBUGGING() {
     return CHORD_SPACE_DEBUGGING_;
 }
 
-static SILENCE_PUBLIC bool SET_CHORD_SPACE_DEBUGGING(bool enabled) {
+inline SILENCE_PUBLIC bool SET_CHORD_SPACE_DEBUGGING(bool enabled) {
     bool prior_value = CHORD_SPACE_DEBUGGING();
     CHORD_SPACE_DEBUGGING() = enabled;
     return prior_value;
 }
 
+inline bool SCOPED_DEBUGGING_ = false;
 /**
  * Returns the current state of the chord space _scoped_ debugging flag as a 
  * reference, which can be an lvalue or an rvalue.
  */
-static SILENCE_PUBLIC bool &SCOPED_DEBUGGING_FLAG() {
-    static bool SCOPED_DEBUGGING_ = false;
-    return SCOPED_DEBUGGING_;
+inline SILENCE_PUBLIC bool &SCOPED_DEBUGGING_FLAG() {
+     return SCOPED_DEBUGGING_;
 }
 
-static SILENCE_PUBLIC bool SET_SCOPED_DEBUGGING(bool enabled) {
+inline SILENCE_PUBLIC bool SET_SCOPED_DEBUGGING(bool enabled) {
     bool prior_value = SCOPED_DEBUGGING_FLAG();
     SCOPED_DEBUGGING_FLAG() = enabled;
     return prior_value;
@@ -5481,5 +5480,3 @@ inline SILENCE_PUBLIC void Scale::from_scala(const std::string &name, const std:
 } // End of namespace csound.
 
 #pragma GCC diagnostic push
-  
-#endif
