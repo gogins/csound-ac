@@ -76,7 +76,8 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat"
 
-namespace csound {
+namespace csound 
+{
 /** \file ChordSpaceBase.hpp
 This library implements a geometric approach to some common operations on 
 chords in neo-Riemannian music theory for use in score generating procedures:
@@ -281,7 +282,8 @@ P, L, and R have been extended as follows, see Fiore and Satyendra,
                 
 */
 
-inline SILENCE_PUBLIC std::string chord_space_version() {
+    inline SILENCE_PUBLIC std::string chord_space_version()
+    {
     return "ChordSpaceBase version 2.1.1.";
 }
 
@@ -290,11 +292,13 @@ inline bool CHORD_SPACE_DEBUGGING_ = false;
  * Returns the current state of the chord space debugging flag as a 
  * reference, which can be an lvalue or an rvalue.
  */
-inline SILENCE_PUBLIC bool &CHORD_SPACE_DEBUGGING() {
+    inline SILENCE_PUBLIC bool &CHORD_SPACE_DEBUGGING()
+    {
     return CHORD_SPACE_DEBUGGING_;
 }
 
-inline SILENCE_PUBLIC bool SET_CHORD_SPACE_DEBUGGING(bool enabled) {
+    inline SILENCE_PUBLIC bool SET_CHORD_SPACE_DEBUGGING(bool enabled)
+    {
     bool prior_value = CHORD_SPACE_DEBUGGING();
     CHORD_SPACE_DEBUGGING() = enabled;
     return prior_value;
@@ -305,32 +309,41 @@ inline bool SCOPED_DEBUGGING_ = false;
  * Returns the current state of the chord space _scoped_ debugging flag as a 
  * reference, which can be an lvalue or an rvalue.
  */
-inline SILENCE_PUBLIC bool &SCOPED_DEBUGGING_FLAG() {
+    inline SILENCE_PUBLIC bool &SCOPED_DEBUGGING_FLAG()
+    {
      return SCOPED_DEBUGGING_;
 }
 
-inline SILENCE_PUBLIC bool SET_SCOPED_DEBUGGING(bool enabled) {
+    inline SILENCE_PUBLIC bool SET_SCOPED_DEBUGGING(bool enabled)
+    {
     bool prior_value = SCOPED_DEBUGGING_FLAG();
     SCOPED_DEBUGGING_FLAG() = enabled;
     return prior_value;
 }
 
-struct SILENCE_PUBLIC SCOPED_DEBUGGING {
+    struct SILENCE_PUBLIC SCOPED_DEBUGGING
+    {
     int prior_state = false;
-    SCOPED_DEBUGGING() {
-        if (SCOPED_DEBUGGING_FLAG()) {
+        SCOPED_DEBUGGING()
+        {
+            if (SCOPED_DEBUGGING_FLAG())
+            {
             prior_state = CHORD_SPACE_DEBUGGING();
             CHORD_SPACE_DEBUGGING() = true;
         }
     }
-    ~SCOPED_DEBUGGING() {
-        if (SCOPED_DEBUGGING_FLAG()) {
+        ~SCOPED_DEBUGGING()
+        {
+            if (SCOPED_DEBUGGING_FLAG())
+            {
             CHORD_SPACE_DEBUGGING() = prior_state;
         }
     }
 };
 
-#define CHORD_SPACE_DEBUG if (CHORD_SPACE_DEBUGGING() == true) csound::System::message
+#define CHORD_SPACE_DEBUG                \
+    if (CHORD_SPACE_DEBUGGING() == true) \
+    csound::System::message
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // ALL DECLARATIONS BELOW HERE MORE OR LESS IN ALPHABETICAL ORDER -- NO DEFINITIONS HERE.
@@ -344,7 +357,8 @@ typedef Eigen::Matrix<double, Eigen::Dynamic, 1> Vector;
 
 class SILENCE_PUBLIC Chord;
 
-struct SILENCE_PUBLIC HyperplaneEquation {
+    struct SILENCE_PUBLIC HyperplaneEquation
+    {
     Matrix unit_normal_vector;
     double constant_term;
 };
@@ -357,13 +371,13 @@ SILENCE_PUBLIC double distance_to_points(const Chord &chord, const std::vector<C
 
 SILENCE_PUBLIC double epc(double pitch);
 
-SILENCE_PUBLIC bool gt_tolerance(double a, double b, int epsilons=20, int ulps=200);
+    SILENCE_PUBLIC bool gt_tolerance(double a, double b, int epsilons = 20, int ulps = 200);
 
 SILENCE_PUBLIC HyperplaneEquation hyperplane_equation_from_singular_value_decomposition(const std::vector<Chord> &points_, bool make_eT);
 
-SILENCE_PUBLIC bool le_tolerance(double a, double b, int epsilons=20, int ulps=200);
+    SILENCE_PUBLIC bool le_tolerance(double a, double b, int epsilons = 20, int ulps = 200);
 
-SILENCE_PUBLIC bool lt_tolerance(double a, double b, int epsilons=20, int ulps=200);
+    SILENCE_PUBLIC bool lt_tolerance(double a, double b, int epsilons = 20, int ulps = 200);
 
 SILENCE_PUBLIC Chord midpoint(const Chord &a, const Chord &b);
 
@@ -389,7 +403,6 @@ SILENCE_PUBLIC std::map<Chord, Chord> &inverse_prime_forms_for_chords();
  */
 SILENCE_PUBLIC const char *print_chord(const Chord &chord);
 
-
 // End of forward declarations needed by other forward declarations!
 
 /**
@@ -398,17 +411,17 @@ SILENCE_PUBLIC const char *print_chord(const Chord &chord);
  */
 SILENCE_PUBLIC double OCTAVE();
 
-SILENCE_PUBLIC bool operator == (const Chord &a, const Chord &b);
+    SILENCE_PUBLIC bool operator==(const Chord &a, const Chord &b);
 
-SILENCE_PUBLIC bool operator < (const Chord &a, const Chord &b);
+    SILENCE_PUBLIC bool operator<(const Chord &a, const Chord &b);
 
-SILENCE_PUBLIC bool operator < (const Scale &a, const Scale &b);
+    SILENCE_PUBLIC bool operator<(const Scale &a, const Scale &b);
 
-SILENCE_PUBLIC bool operator <= (const Chord &a, const Chord &b);
+    SILENCE_PUBLIC bool operator<=(const Chord &a, const Chord &b);
 
-SILENCE_PUBLIC bool operator > (const Chord &a, const Chord &b);
+    SILENCE_PUBLIC bool operator>(const Chord &a, const Chord &b);
 
-SILENCE_PUBLIC bool operator >= (const Chord &a, const Chord &b);
+    SILENCE_PUBLIC bool operator>=(const Chord &a, const Chord &b);
 
 SILENCE_PUBLIC void add_chord(std::string, const Chord &chord);
 
@@ -435,9 +448,11 @@ SILENCE_PUBLIC Chord chord(const Chord &scale, int scale_degree, int chord_voice
  * Eigen matrices are accessed (row, column) and stored as column
  * vectors, so a Chord is accessed (voice (same as row), attribute).
  */
-class SILENCE_PUBLIC Chord : public Matrix  {
+    class SILENCE_PUBLIC Chord : public Matrix
+    {
 public:
-    enum {
+        enum
+        {
         PITCH = 0,
         DURATION = 1,
         LOUDNESS = 2,
@@ -452,13 +467,14 @@ public:
     virtual ~Chord();
     virtual Chord &operator = (const Chord &other);
 #if __cpplusplus >= 201103L
-    Chord &operator = (Chord &&other) = default;
+        Chord &operator=(Chord &&other) = default;
 #endif
-    virtual Chord clone() const {
+        virtual Chord clone() const
+        {
         Chord clone_ = *this;
         return clone_;
     }
-    virtual Chord &operator = (const std::vector<double> &other);
+        virtual Chord &operator=(const std::vector<double> &other);
     virtual operator std::vector<double>() const;
     /**
      * Returns the ith arpeggiation, current voice, and corresponding revoicing
@@ -478,7 +494,7 @@ public:
      * the generator of transposition. This is valid only if g goes evenly 
      * into 12 (the octave), i.e. in 12/g tone equal temperament.
      */
-    virtual void clamp(double g=1.);
+        virtual void clamp(double g = 1.);
     /**
      * Returns whether or not the chord contains the pitch.
      */
@@ -665,7 +681,7 @@ public:
     virtual Chord floor() const;
     virtual double getDuration(int voice = 0) const;
     virtual double getInstrument(int voice = 0) const;
-    virtual double getLoudness(int voice = 0) const ;
+        virtual double getLoudness(int voice = 0) const;
     virtual double getPan(int voice = 0) const;
     virtual double getPitch(int voice) const;
     virtual double &getPitchReference(int voice);
@@ -776,7 +792,7 @@ public:
      * In 0-based notation:
      * x[0] + 12 - x[N-1] <= x[i + 1] - x[i], 0 <= i < N - 2
      */
-    virtual bool is_compact(double range=12.) const;
+        virtual bool is_compact(double range = 12.) const;
     /**
      * Returns whether this chord is "minor" in the sense of having the 
      * smallest "wrapround interval" of all its voicings.
@@ -834,16 +850,19 @@ public:
      * permutational, transpositional, and inversional equivalence in the 
      * equal temperament generated by g.
      */
-    virtual bool iseOPTTI(double g  = 1., int opt_sector = 0) const;
+        virtual bool iseOPTTI(double g = 1., int opt_sector = 0) const;
     /**
      * Returns whether the chord is within the representative fundamental 
      * domain of octave and transpositional equivalence.
      */
-    virtual bool iseOT() const {
-        if (iseO() == false) {
+        virtual bool iseOT() const
+        {
+            if (iseO() == false)
+            {
             return false;
         }
-        if (iseT() == false) {
+            if (iseT() == false)
+            {
             return false;
         }
         return true;
@@ -853,11 +872,14 @@ public:
      * domain of octave and translational equivalence in the equal temperament 
      * generated by g.
      */
-    virtual bool iseOTT(double g = 1.) const {
-        if (iseO() == false) {
+        virtual bool iseOTT(double g = 1.) const
+        {
+            if (iseO() == false)
+            {
             return false;
         }
-        if (iseTT(g) == false) {
+            if (iseTT(g) == false)
+            {
             return false;
         }
         return true;
@@ -1282,7 +1304,7 @@ typedef enum {
 } EQUIVALENCE_RELATIONS;
 
 #if !defined(SWIG)
-static const char* namesForEquivalenceRelations[] = {
+    inline constexpr const char *namesForEquivalenceRelations[] = {
     "r",
     "R",
     "P",
