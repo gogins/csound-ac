@@ -282,7 +282,7 @@ P, L, and R have been extended as follows, see Fiore and Satyendra,
 */
 
 inline SILENCE_PUBLIC std::string chord_space_version() {
-    return "ChordSpaceBase version 2.1.0.";
+    return "ChordSpaceBase version 2.1.1.";
 }
 
 inline bool CHORD_SPACE_DEBUGGING_ = false;
@@ -2353,34 +2353,35 @@ inline SILENCE_PUBLIC std::string nameForPitchClass(double pitch) {
     return "";
 }
 
+inline std::multimap<Chord, std::string> namesForChords_storage;
+inline std::map<std::string, Chord> chordsForNames_storage;
+inline std::multimap<Scale, std::string> namesForScales_storage;
+inline std::map<std::string, Scale> scalesForNames_storage;
+inline std::set<Chord> unique_chords_storage;
+inline std::set<Scale> unique_scales_storage;
+
 inline SILENCE_PUBLIC std::multimap<Chord, std::string> &namesForChords() {
-    static std::multimap<Chord, std::string> namesForChords_;
-    return namesForChords_;
+    return namesForChords_storage;
 }
 
 inline SILENCE_PUBLIC std::map<std::string, Chord> &chordsForNames() {
-    static std::map<std::string, Chord> chordsForNames_;
-    return chordsForNames_;
+    return chordsForNames_storage;
 }
 
 inline SILENCE_PUBLIC std::multimap<Scale, std::string> &namesForScales() {
-    static std::multimap<Scale, std::string> namesForScales_;
-    return namesForScales_;
+    return namesForScales_storage;
 }
 
 inline SILENCE_PUBLIC std::map<std::string, Scale> &scalesForNames() {
-    static std::map<std::string, Scale> scalesForNames_;
-    return scalesForNames_;
+    return scalesForNames_storage;
 }
 
 inline SILENCE_PUBLIC std::set<Chord> &unique_chords() {
-    static std::set<Chord> unique_chords_;
-    return unique_chords_;
+    return unique_chords_storage;
 }
 
 inline SILENCE_PUBLIC std::set<Scale> &unique_scales() {
-    static std::set<Scale> unique_scales_;
-    return unique_scales_;
+    return unique_scales_storage;
 }
 
 inline SILENCE_PUBLIC void add_chord(std::string name, const Chord &chord) {

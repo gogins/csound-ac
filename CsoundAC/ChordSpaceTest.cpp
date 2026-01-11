@@ -441,7 +441,6 @@ void print_build_timestamp() {
     << ".\n\n";
 }
 
-
 int main(int argc, char **argv) {
     csound::System::message("C H O R D S P A C E   U N I T   T E S T S\n\n");
     std::cerr << csound::chord_space_version() << std::endl;

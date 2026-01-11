@@ -91,6 +91,33 @@ if(BUILD_CSOUND_AC)
         ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}")
 
     target_link_libraries(libCsoundAC PRIVATE ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY})
+
+    # Standalone test program (from: c++ ChordSpaceTest.cpp ... -o ChordSpaceTest)
+    # User requested target name: ChordSpaceTests; adjust OUTPUT_NAME if desired.
+    add_executable(ChordSpaceTests ChordSpaceTest.cpp)
+    target_include_directories(ChordSpaceTests PRIVATE .)
+    target_include_directories(ChordSpaceTests SYSTEM PRIVATE ${CSOUND_INCLUDE_DIRS})
+    target_include_directories(ChordSpaceTests PRIVATE ${EIGEN3_INCLUDE_DIRS})
+    target_include_directories(ChordSpaceTests PRIVATE ${Boost_INCLUDE_DIR})
+    if (MUSICXML_FOUND)
+        target_include_directories(ChordSpaceTests PRIVATE ${MUSICXML_INCLUDE_DIRS})
+    endif()
+
+    target_compile_options(ChordSpaceTests PRIVATE -O3 -g -Wno-write-strings)
+
+    find_package(Threads REQUIRED)
+    find_library(GC_LIBRARY gc)
+    if (GC_LIBRARY)
+        target_link_libraries(ChordSpaceTests PRIVATE ${GC_LIBRARY})
+    else()
+        target_link_libraries(ChordSpaceTests PRIVATE gc)
+    endif()
+
+    target_link_libraries(ChordSpaceTests PRIVATE libCsoundAC ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY} Threads::Threads)
+    if (NOT APPLE)
+        target_link_libraries(ChordSpaceTests PRIVATE dl m)
+    endif()
+
  
     if(WIN32) # for MSYS2/mingw64
         #  mingw64 needs this to create a valid .pyd.
