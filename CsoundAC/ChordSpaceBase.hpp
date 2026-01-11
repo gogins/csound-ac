@@ -2453,8 +2453,9 @@ inline void fill(std::string rootName, double rootPitch, std::string typeName, s
     }
 }
 
+inline bool initializeNamesInitialized = false;
+
 inline void initializeNames() {
-    static bool initializeNamesInitialized = false;
     if (!initializeNamesInitialized) {
         initializeNamesInitialized = true;
         CHORD_SPACE_DEBUG("Initializing chord names...\n");
@@ -2585,18 +2586,15 @@ inline SILENCE_PUBLIC std::string nameForChord(const Chord &chord) {
     }
 }
 
+inline Chord chord_fallback;
+
 inline SILENCE_PUBLIC const Chord &chordForName(std::string name) {
-    static bool initialized = false;
-    if (!initialized) {
-        initialized = true;
-        initializeNames();
-    }
+    initializeNames();
     const std::map<std::string, Chord> &chordsForNames_ = chordsForNames();
     std::map<std::string, Chord>::const_iterator it = chordsForNames_.find(name);
     if (it == chordsForNames_.end()) {
-        static Chord chord;
-        chord.resize(0);
-        return chord;
+        chord_fallback.resize(0);
+        return chord_fallback;
     } else {
         return it->second;
     }
@@ -2607,11 +2605,7 @@ inline SILENCE_PUBLIC const Chord &chordForName(std::string name) {
  * an empty result is returned.
  */
 inline SILENCE_PUBLIC std::vector<std::string> namesForScale(const Scale &scale) {
-    static bool initialized = false;
-    if (!initialized) {
-        initialized = true;
-        initializeNames();
-    }
+    initializeNames();
     std::multimap<Scale, std::string> &namesForScales_ = namesForScales();
     std::vector<std::string> result;
     auto matches = namesForScales_.equal_range(scale);
@@ -2633,18 +2627,16 @@ inline SILENCE_PUBLIC std::string nameForScale(const Scale &scale) {
     }
 }
 
+inline Scale scale_fallback;
+
 inline SILENCE_PUBLIC const Scale &scaleForName(std::string name) {
-    static bool initialized = false;
-    if (!initialized) {
-        initialized = true;
-        initializeNames();
-    }
+
+    initializeNames();
     const std::map<std::string, Scale> &scalesForNames_ = scalesForNames();
     std::map<std::string, Scale>::const_iterator it = scalesForNames_.find(name);
     if (it == scalesForNames_.end()) {
-        static Scale scale;
-        scale.resize(0);
-        return scale;
+        scale_fallback.resize(0);
+        return scale_fallback;
     } else {
         return it->second;
     }
@@ -2661,8 +2653,9 @@ static std::string print_opti_sectors(const Chord &chord) {
     return result;    
 }
 
+inline  char buffer[0x1000];
+
 inline const char *print_chord(const Chord &chord) {
-    static char buffer[0x1000];
     snprintf(buffer, sizeof(buffer), "%s   ", chord.toString().c_str());
     auto opti_sectors = chord.opti_domain_sectors();
     for (auto opti_sector : opti_sectors) {
@@ -4735,33 +4728,39 @@ inline SILENCE_PUBLIC double voiceleadingSmoothness(const Chord &a, const Chord 
     return L1;
 }
 
+inline std::map<int, std::vector<Chord>> cyclical_regions_for_dimensionalities_;
+
 inline std::map<int, std::vector<Chord>> &Chord::cyclical_regions_for_dimensionalities() {
-    static std::map<int, std::vector<Chord>> cyclical_regions_for_dimensionalities_;
     return cyclical_regions_for_dimensionalities_;
 }
 
+inline std::map<int, std::vector<std::vector<Chord>>> opt_sectors_for_dimensionalities_;
+
 inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opt_sectors_for_dimensionalities() {
-    static std::map<int, std::vector<std::vector<Chord>>> opt_sectors_for_dimensionalities_;
     return opt_sectors_for_dimensionalities_;
 }
 
+inline std::map<int, std::vector<std::vector<Chord>>> opti_sectors_for_dimensionalities_;
+
 inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opti_sectors_for_dimensionalities() {
-    static std::map<int, std::vector<std::vector<Chord>>> opti_sectors_for_dimensionalities_;
     return opti_sectors_for_dimensionalities_;
 }
 
+inline std::map<int, std::vector<std::vector<Chord>>> opt_simplexes_for_dimensionalities_;
+
 inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opt_simplexes_for_dimensionalities() {
-    static std::map<int, std::vector<std::vector<Chord>>> opt_simplexes_for_dimensionalities_;
-    return opt_simplexes_for_dimensionalities_;
+     return opt_simplexes_for_dimensionalities_;
 }
 
+inline std::map<int, std::vector<std::vector<Chord>>> opti_simplexes_for_dimensionalities_;
+
 inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opti_simplexes_for_dimensionalities() {
-    static std::map<int, std::vector<std::vector<Chord>>> opti_simplexes_for_dimensionalities_;
     return opti_simplexes_for_dimensionalities_;
 }
 
+inline std::map<int, std::vector<HyperplaneEquation>> hyperplane_equations_for_opt_sectors_;
+
 inline std::map<int, std::vector<HyperplaneEquation>> &Chord::hyperplane_equations_for_opt_sectors() {
-    static std::map<int, std::vector<HyperplaneEquation>> hyperplane_equations_for_opt_sectors_;
     return hyperplane_equations_for_opt_sectors_;
 }
 
@@ -4771,10 +4770,10 @@ inline HyperplaneEquation Chord::hyperplane_equation(int opt_sector) const {
     return hyperplane_equations[opt_sector];
 }
 
+inline bool sectors_initialized = false;
 inline void Chord::initialize_sectors() {
-    static bool initialized = false;
-    if (initialized == false) {
-        initialized = true;
+    if (sectors_initialized == false) {
+        sectors_initialized = true;
         //SCOPED_DEBUGGING scoped_debugging;
         auto cyclical_regions = cyclical_regions_for_dimensionalities();
         auto &opt_domains_for_dimensions = opt_sectors_for_dimensionalities();
