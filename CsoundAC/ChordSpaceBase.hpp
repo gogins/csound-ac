@@ -357,7 +357,11 @@ typedef Eigen::Matrix<double, Eigen::Dynamic, 1> Vector;
 
 class SILENCE_PUBLIC Chord;
 
-    struct SILENCE_PUBLIC HyperplaneEquation
+inline SILENCE_PUBLIC std::map<Chord, Chord> &normal_forms_for_chords();
+inline SILENCE_PUBLIC std::map<Chord, Chord> &prime_forms_for_chords();
+inline SILENCE_PUBLIC std::map<Chord, Chord> &inverse_prime_forms_for_chords();
+
+struct SILENCE_PUBLIC HyperplaneEquation
     {
     Matrix unit_normal_vector;
     double constant_term;
@@ -381,20 +385,9 @@ SILENCE_PUBLIC HyperplaneEquation hyperplane_equation_from_singular_value_decomp
 
 SILENCE_PUBLIC Chord midpoint(const Chord &a, const Chord &b);
 
-/**
- * Cache prime forms for chords for speed.
- */
-SILENCE_PUBLIC std::map<Chord, Chord> &normal_forms_for_chords();
-
-/**
- * Cache normal forms for chords for speed.
- */
-SILENCE_PUBLIC std::map<Chord, Chord> &prime_forms_for_chords();
-
-/**
- * Cache inverse prime forms for chords for speed.
- */
-SILENCE_PUBLIC std::map<Chord, Chord> &inverse_prime_forms_for_chords();
+inline std::map<Chord, Chord> *normal_forms_cache_ = nullptr;
+inline std::map<Chord, Chord> *prime_forms_cache_ = nullptr;
+inline std::map<Chord, Chord> *inverse_prime_forms_cache_ = nullptr;
 
 /**
  * Returns a string representation of the pitches in the chord, along with the 
@@ -2319,34 +2312,35 @@ inline Chord Chord::eRPTTI(double range, double g, int opt_sector) const {
     return csound::equate<EQUIVALENCE_RELATION_RPTgI>(*this, range, 1.0, opt_sector);
 }
 
-inline bool pitchClassesForNamesInitialized = false;
+inline std::map<std::string, double> *pitch_classes_for_names_ptr = nullptr;
+
 inline SILENCE_PUBLIC const std::map<std::string, double> &pitchClassesForNames() {
-    static std::map<std::string, double> pitchClassesForNames_;
-    if (!pitchClassesForNamesInitialized) {
-        pitchClassesForNamesInitialized = true;
-        pitchClassesForNames_["Ab"] =   8.;
-        pitchClassesForNames_["A" ] =   9.;
-        pitchClassesForNames_["A#"] =  10.;
-        pitchClassesForNames_["Bb"] =  10.;
-        pitchClassesForNames_["B" ] =  11.;
-        pitchClassesForNames_["B#"] =   0.;
-        pitchClassesForNames_["Cb"] =  11.;
-        pitchClassesForNames_["C" ] =   0.;
-        pitchClassesForNames_["C#"] =   1.;
-        pitchClassesForNames_["Db"] =   1.;
-        pitchClassesForNames_["D" ] =   2.;
-        pitchClassesForNames_["D#"] =   3.;
-        pitchClassesForNames_["Eb"] =   3.;
-        pitchClassesForNames_["E" ] =   4.;
-        pitchClassesForNames_["E#"] =   5.;
-        pitchClassesForNames_["Fb"] =   4.;
-        pitchClassesForNames_["F" ] =   5.;
-        pitchClassesForNames_["F#"] =   6.;
-        pitchClassesForNames_["Gb"] =   6.;
-        pitchClassesForNames_["G" ] =   7.;
-        pitchClassesForNames_["G#"] =   8.;
-    }
-    return const_cast<std::map<std::string, double> &>(pitchClassesForNames_);
+  if (pitch_classes_for_names_ptr == nullptr) {
+    pitch_classes_for_names_ptr = new std::map<std::string, double>();
+    auto &m = *pitch_classes_for_names_ptr;
+    m["Ab"] =  8.;
+    m["A"]  =  9.;
+    m["A#"] = 10.;
+    m["Bb"] = 10.;
+    m["B"]  = 11.;
+    m["B#"] =  0.;
+    m["Cb"] = 11.;
+    m["C"]  =  0.;
+    m["C#"] =  1.;
+    m["Db"] =  1.;
+    m["D"]  =  2.;
+    m["D#"] =  3.;
+    m["Eb"] =  3.;
+    m["E"]  =  4.;
+    m["E#"] =  5.;
+    m["Fb"] =  4.;
+    m["F"]  =  5.;
+    m["F#"] =  6.;
+    m["Gb"] =  6.;
+    m["G"]  =  7.;
+    m["G#"] =  8.;
+  }
+  return *pitch_classes_for_names_ptr;
 }
 
 inline SILENCE_PUBLIC double pitchClassForName(std::string name) {
@@ -2375,34 +2369,58 @@ inline SILENCE_PUBLIC std::string nameForPitchClass(double pitch) {
     return "";
 }
 
+inline std::multimap<Chord, std::string> *namesForChords_ = nullptr;
+
 inline SILENCE_PUBLIC std::multimap<Chord, std::string> &namesForChords() {
-    static std::multimap<Chord, std::string> namesForChords_;
-    return namesForChords_;
+  if (namesForChords_ == nullptr) {
+    namesForChords_ = new std::multimap<Chord, std::string>();
+  }
+  return *namesForChords_;
 }
+
+inline std::map<std::string, Chord> *chordsForNames_ = nullptr;
 
 inline SILENCE_PUBLIC std::map<std::string, Chord> &chordsForNames() {
-    static std::map<std::string, Chord> chordsForNames_;
-    return chordsForNames_;
+  if (chordsForNames_ == nullptr) {
+    chordsForNames_ = new std::map<std::string, Chord>();
+  }
+  return *chordsForNames_;
 }
+
+inline std::multimap<Scale, std::string> *namesForScales_ = nullptr;
 
 inline SILENCE_PUBLIC std::multimap<Scale, std::string> &namesForScales() {
-    static std::multimap<Scale, std::string> namesForScales_;
-    return namesForScales_;
+  if (namesForScales_ == nullptr) {
+    namesForScales_ = new std::multimap<Scale, std::string>();
+  }
+  return *namesForScales_;
 }
+
+inline std::map<std::string, Scale> *scalesForNames_ = nullptr;
 
 inline SILENCE_PUBLIC std::map<std::string, Scale> &scalesForNames() {
-    static std::map<std::string, Scale> scalesForNames_;
-    return scalesForNames_;
+  if (scalesForNames_ == nullptr) {
+    scalesForNames_ = new std::map<std::string, Scale>();
+  }
+  return *scalesForNames_;
 }
+
+inline std::set<Chord> *unique_chords_ = nullptr;
 
 inline SILENCE_PUBLIC std::set<Chord> &unique_chords() {
-    static std::set<Chord> unique_chords_;
-    return unique_chords_;
+  if (unique_chords_ == nullptr) {
+    unique_chords_ = new std::set<Chord>();
+  }
+  return *unique_chords_;
 }
 
+inline std::set<Scale> *unique_scales_ = nullptr;
+
 inline SILENCE_PUBLIC std::set<Scale> &unique_scales() {
-    static std::set<Scale> unique_scales_;
-    return unique_scales_;
+  if (unique_scales_ == nullptr) {
+    unique_scales_ = new std::set<Scale>();
+  }
+  return *unique_scales_;
 }
 
 inline SILENCE_PUBLIC void add_chord(std::string name, const Chord &chord) {
@@ -5428,18 +5446,24 @@ inline SILENCE_PUBLIC std::vector<Chord> PITV::toChord_vector(const Eigen::Vecto
 }
 
 inline SILENCE_PUBLIC std::map<Chord, Chord> &normal_forms_for_chords() {
-    static std::map<Chord, Chord> cache;
-    return cache;
+  if (normal_forms_cache_ == nullptr) {
+    normal_forms_cache_ = new std::map<Chord, Chord>();
+  }
+  return *normal_forms_cache_;
 }
 
 inline SILENCE_PUBLIC std::map<Chord, Chord> &prime_forms_for_chords() {
-    static std::map<Chord, Chord> cache;
-    return cache;
+  if (prime_forms_cache_ == nullptr) {
+    prime_forms_cache_ = new std::map<Chord, Chord>();
+  }
+  return *prime_forms_cache_;
 }
 
 inline SILENCE_PUBLIC std::map<Chord, Chord> &inverse_prime_forms_for_chords() {
-    static std::map<Chord, Chord> cache;
-    return cache;
+  if (inverse_prime_forms_cache_ == nullptr) {
+    inverse_prime_forms_cache_ = new std::map<Chord, Chord>();
+  }
+  return *inverse_prime_forms_cache_;
 }
 
 inline SILENCE_PUBLIC void Scale::set_ratio(const int voice, const double numerator, const double denominator) {
