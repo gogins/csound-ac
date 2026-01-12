@@ -284,7 +284,7 @@ P, L, and R have been extended as follows, see Fiore and Satyendra,
 
     inline SILENCE_PUBLIC std::string chord_space_version()
     {
-    return "ChordSpaceBase version 2.1.1.";
+    return "ChordSpaceBase version 2.1.3.";
 }
 
 inline bool CHORD_SPACE_DEBUGGING_ = false;
@@ -2319,8 +2319,8 @@ inline Chord Chord::eRPTTI(double range, double g, int opt_sector) const {
     return csound::equate<EQUIVALENCE_RELATION_RPTgI>(*this, range, 1.0, opt_sector);
 }
 
+inline bool pitchClassesForNamesInitialized = false;
 inline SILENCE_PUBLIC const std::map<std::string, double> &pitchClassesForNames() {
-    static bool pitchClassesForNamesInitialized = false;
     static std::map<std::string, double> pitchClassesForNames_;
     if (!pitchClassesForNamesInitialized) {
         pitchClassesForNamesInitialized = true;
@@ -2375,35 +2375,34 @@ inline SILENCE_PUBLIC std::string nameForPitchClass(double pitch) {
     return "";
 }
 
-inline std::multimap<Chord, std::string> namesForChords_storage;
-inline std::map<std::string, Chord> chordsForNames_storage;
-inline std::multimap<Scale, std::string> namesForScales_storage;
-inline std::map<std::string, Scale> scalesForNames_storage;
-inline std::set<Chord> unique_chords_storage;
-inline std::set<Scale> unique_scales_storage;
-
 inline SILENCE_PUBLIC std::multimap<Chord, std::string> &namesForChords() {
-    return namesForChords_storage;
+    static std::multimap<Chord, std::string> namesForChords_;
+    return namesForChords_;
 }
 
 inline SILENCE_PUBLIC std::map<std::string, Chord> &chordsForNames() {
-    return chordsForNames_storage;
+    static std::map<std::string, Chord> chordsForNames_;
+    return chordsForNames_;
 }
 
 inline SILENCE_PUBLIC std::multimap<Scale, std::string> &namesForScales() {
-    return namesForScales_storage;
+    static std::multimap<Scale, std::string> namesForScales_;
+    return namesForScales_;
 }
 
 inline SILENCE_PUBLIC std::map<std::string, Scale> &scalesForNames() {
-    return scalesForNames_storage;
+    static std::map<std::string, Scale> scalesForNames_;
+    return scalesForNames_;
 }
 
 inline SILENCE_PUBLIC std::set<Chord> &unique_chords() {
-    return unique_chords_storage;
+    static std::set<Chord> unique_chords_;
+    return unique_chords_;
 }
 
 inline SILENCE_PUBLIC std::set<Scale> &unique_scales() {
-    return unique_scales_storage;
+    static std::set<Scale> unique_scales_;
+    return unique_scales_;
 }
 
 inline SILENCE_PUBLIC void add_chord(std::string name, const Chord &chord) {
@@ -4728,39 +4727,33 @@ inline SILENCE_PUBLIC double voiceleadingSmoothness(const Chord &a, const Chord 
     return L1;
 }
 
-inline std::map<int, std::vector<Chord>> cyclical_regions_for_dimensionalities_;
-
 inline std::map<int, std::vector<Chord>> &Chord::cyclical_regions_for_dimensionalities() {
+    static std::map<int, std::vector<Chord>> cyclical_regions_for_dimensionalities_;
     return cyclical_regions_for_dimensionalities_;
 }
 
-inline std::map<int, std::vector<std::vector<Chord>>> opt_sectors_for_dimensionalities_;
-
 inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opt_sectors_for_dimensionalities() {
+    static std::map<int, std::vector<std::vector<Chord>>> opt_sectors_for_dimensionalities_;
     return opt_sectors_for_dimensionalities_;
 }
 
-inline std::map<int, std::vector<std::vector<Chord>>> opti_sectors_for_dimensionalities_;
-
 inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opti_sectors_for_dimensionalities() {
+    static std::map<int, std::vector<std::vector<Chord>>> opti_sectors_for_dimensionalities_;
     return opti_sectors_for_dimensionalities_;
 }
 
-inline std::map<int, std::vector<std::vector<Chord>>> opt_simplexes_for_dimensionalities_;
-
 inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opt_simplexes_for_dimensionalities() {
-     return opt_simplexes_for_dimensionalities_;
+    static std::map<int, std::vector<std::vector<Chord>>> opt_simplexes_for_dimensionalities_;
+    return opt_simplexes_for_dimensionalities_;
 }
 
-inline std::map<int, std::vector<std::vector<Chord>>> opti_simplexes_for_dimensionalities_;
-
 inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opti_simplexes_for_dimensionalities() {
+    static std::map<int, std::vector<std::vector<Chord>>> opti_simplexes_for_dimensionalities_;
     return opti_simplexes_for_dimensionalities_;
 }
 
-inline std::map<int, std::vector<HyperplaneEquation>> hyperplane_equations_for_opt_sectors_;
-
 inline std::map<int, std::vector<HyperplaneEquation>> &Chord::hyperplane_equations_for_opt_sectors() {
+    static std::map<int, std::vector<HyperplaneEquation>> hyperplane_equations_for_opt_sectors_;
     return hyperplane_equations_for_opt_sectors_;
 }
 
