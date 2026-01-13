@@ -514,7 +514,7 @@ public:
      * cyclical region consist of the n octavewise revoicings of the origin. 
      * This function returns a global collection of these cyclical regions.
      */
-    static std::map<int, std::vector<Chord>> &cyclical_regions_for_dimensionalities();
+    inline std::map<int, std::vector<Chord>> &cyclical_regions_for_dimensionalities();
     /**
      * Returns the Euclidean distance of this chord from its space's
      * origin.
@@ -705,7 +705,7 @@ public:
      * fundamental domains. This function returns a global collection of the hyperplane 
      * equations that define these inversion flats.
      */
-    static std::map<int, std::vector<HyperplaneEquation>> &hyperplane_equations_for_opt_sectors();
+    inline std::map<int, std::vector<HyperplaneEquation>> &hyperplane_equations_for_opt_sectors();
     /**
      * Inverts the chord by another chord that is on the unison diagonal, by
      * default the origin.
@@ -1113,23 +1113,23 @@ public:
      * fundamental domains (sectors) of OPT equivalence. This function returns a global 
      * collection of these sectors. 
      */
-    static std::map<int, std::vector<std::vector<Chord>>> &opt_sectors_for_dimensionalities();
+    inline std::map<int, std::vector<std::vector<Chord>>> &opt_sectors_for_dimensionalities();
     /**
      * Returns a collection of vertices for the OPT fundamental domains; each 
      * has an added vertex to make a simplex for chord location. 
      */
-    static std::map<int, std::vector<std::vector<Chord>>> &opt_simplexes_for_dimensionalities();
+    inline std::map<int, std::vector<std::vector<Chord>>> &opt_simplexes_for_dimensionalities();
     /**
      * For each chord space of dimensions 3 <= n <= 12, there are n 
      * fundamental domains (sectors) of OPTI equivalence. This function returns a global 
      * collection of these sectors. 
      */
-    static std::map<int, std::vector<std::vector<Chord>>> &opti_sectors_for_dimensionalities();
+    inline std::map<int, std::vector<std::vector<Chord>>> &opti_sectors_for_dimensionalities();
      /**
      * Returns a collection of vertices for the OPTI fundamental domains that 
      * have an added  vertex to make a simplex for chord location. 
      */
-    static std::map<int, std::vector<std::vector<Chord>>> &opti_simplexes_for_dimensionalities();
+    inline std::map<int, std::vector<std::vector<Chord>>> &opti_simplexes_for_dimensionalities();
     /**
      * Returns the origin of the chord's space.
      */
@@ -2576,11 +2576,7 @@ inline void initializeNames() {
  * an empty result is returned.
  */
 inline SILENCE_PUBLIC std::vector<std::string> namesForChord(const Chord &chord) {
-    static bool initialized = false;
-    if (!initialized) {
-        initialized = true;
-        initializeNames();
-    }
+    initializeNames();
     std::multimap<Chord, std::string> &namesForChords_ = namesForChords();
     std::vector<std::string> result;
     auto matches = namesForChords_.equal_range(chord);
@@ -2659,7 +2655,7 @@ inline SILENCE_PUBLIC const Scale &scaleForName(std::string name) {
     }
 }
 
-static std::string print_opti_sectors(const Chord &chord) {
+inline std::string print_opti_sectors(const Chord &chord) {
     std::string result;
     char buffer[0x1000];
     auto opti_sectors = chord.opti_domain_sectors();
@@ -4745,34 +4741,58 @@ inline SILENCE_PUBLIC double voiceleadingSmoothness(const Chord &a, const Chord 
     return L1;
 }
 
+inline std::map<int, std::vector<Chord>> *cyclical_regions_for_dimensionalities_ = nullptr;
+
 inline std::map<int, std::vector<Chord>> &Chord::cyclical_regions_for_dimensionalities() {
-    static std::map<int, std::vector<Chord>> cyclical_regions_for_dimensionalities_;
-    return cyclical_regions_for_dimensionalities_;
+    if (cyclical_regions_for_dimensionalities_ == nullptr) {
+        cyclical_regions_for_dimensionalities_ = new std::map<int, std::vector<Chord>>();
+    }
+    return *cyclical_regions_for_dimensionalities_;
 }
+
+inline std::map<int, std::vector<std::vector<Chord>>> *opt_sectors_for_dimensionalities_ = nullptr;
 
 inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opt_sectors_for_dimensionalities() {
-    static std::map<int, std::vector<std::vector<Chord>>> opt_sectors_for_dimensionalities_;
-    return opt_sectors_for_dimensionalities_;
+    if (opt_sectors_for_dimensionalities_ == nullptr) {
+        opt_sectors_for_dimensionalities_ = new std::map<int, std::vector<std::vector<Chord>>>();
+    }
+    return *opt_sectors_for_dimensionalities_;
 }
+
+inline std::map<int, std::vector<std::vector<Chord>>> *opti_sectors_for_dimensionalities_ = nullptr;
 
 inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opti_sectors_for_dimensionalities() {
-    static std::map<int, std::vector<std::vector<Chord>>> opti_sectors_for_dimensionalities_;
-    return opti_sectors_for_dimensionalities_;
+    if (opti_sectors_for_dimensionalities_ == nullptr) {
+        opti_sectors_for_dimensionalities_ = new std::map<int, std::vector<std::vector<Chord>>>();
+    }
+    return *opti_sectors_for_dimensionalities_;
 }
+
+inline std::map<int, std::vector<std::vector<Chord>>> *opt_simplexes_for_dimensionalities_ = nullptr;
 
 inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opt_simplexes_for_dimensionalities() {
-    static std::map<int, std::vector<std::vector<Chord>>> opt_simplexes_for_dimensionalities_;
-    return opt_simplexes_for_dimensionalities_;
+    if (opt_simplexes_for_dimensionalities_ == nullptr) {
+        opt_simplexes_for_dimensionalities_ = new std::map<int, std::vector<std::vector<Chord>>>();
+    }
+    return *opt_simplexes_for_dimensionalities_;
 }
+
+inline std::map<int, std::vector<std::vector<Chord>>> *opti_simplexes_for_dimensionalities_ = nullptr;
 
 inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opti_simplexes_for_dimensionalities() {
-    static std::map<int, std::vector<std::vector<Chord>>> opti_simplexes_for_dimensionalities_;
-    return opti_simplexes_for_dimensionalities_;
+    if (opti_simplexes_for_dimensionalities_ == nullptr) {
+        opti_simplexes_for_dimensionalities_ = new std::map<int, std::vector<std::vector<Chord>>>();
+    }
+    return *opti_simplexes_for_dimensionalities_;
 }
 
+inline std::map<int, std::vector<HyperplaneEquation>> *hyperplane_equations_for_opt_sectors_ = nullptr;
+
 inline std::map<int, std::vector<HyperplaneEquation>> &Chord::hyperplane_equations_for_opt_sectors() {
-    static std::map<int, std::vector<HyperplaneEquation>> hyperplane_equations_for_opt_sectors_;
-    return hyperplane_equations_for_opt_sectors_;
+    if (hyperplane_equations_for_opt_sectors_ == nullptr) {
+        hyperplane_equations_for_opt_sectors_ = new std::map<int, std::vector<HyperplaneEquation>>();
+    }
+    return *hyperplane_equations_for_opt_sectors_;
 }
 
 inline HyperplaneEquation Chord::hyperplane_equation(int opt_sector) const {
