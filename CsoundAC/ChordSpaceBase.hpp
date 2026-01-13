@@ -3730,10 +3730,10 @@ inline SILENCE_PUBLIC double epc(double pitch) {
 // If difference = fabs(a - b) is max, inf, or nan, the numbers are not equal; difference is subject to catastrophic cancellation near 0.
 // If a or b is near zero, the tolerance is multiples of machine epsilon, and the result is difference <= tolerance.
 // If a and b are not near zero, the tolerance is multiples of ulps, and the result is difference <= tolerance.
+inline constexpr double machine_epsilon = std::numeric_limits<double>::epsilon();
+inline constexpr double double_max_ = std::numeric_limits<double>::max();
 
 inline SILENCE_PUBLIC bool eq_tolerance(double a, double b, int epsilons, int ulps) {
-    static const double machine_epsilon = std::numeric_limits<double>::epsilon();
-    static const double double_max_ = std::numeric_limits<double>::max();
     if (a == b) {
         CHORD_SPACE_DEBUG("eq_tolerance: a and b are strictly equal:\n    => return true.\n");
         return true;
