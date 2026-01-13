@@ -514,7 +514,7 @@ public:
      * cyclical region consist of the n octavewise revoicings of the origin. 
      * This function returns a global collection of these cyclical regions.
      */
-    inline std::map<int, std::vector<Chord>> &cyclical_regions_for_dimensionalities();
+    static inline std::map<int, std::vector<Chord>> &cyclical_regions_for_dimensionalities();
     /**
      * Returns the Euclidean distance of this chord from its space's
      * origin.
@@ -705,7 +705,7 @@ public:
      * fundamental domains. This function returns a global collection of the hyperplane 
      * equations that define these inversion flats.
      */
-    inline std::map<int, std::vector<HyperplaneEquation>> &hyperplane_equations_for_opt_sectors();
+    static inline std::map<int, std::vector<HyperplaneEquation>> &hyperplane_equations_for_opt_sectors();
     /**
      * Inverts the chord by another chord that is on the unison diagonal, by
      * default the origin.
@@ -1113,23 +1113,23 @@ public:
      * fundamental domains (sectors) of OPT equivalence. This function returns a global 
      * collection of these sectors. 
      */
-    inline std::map<int, std::vector<std::vector<Chord>>> &opt_sectors_for_dimensionalities();
+    static inline std::map<int, std::vector<std::vector<Chord>>> &opt_sectors_for_dimensionalities();
     /**
      * Returns a collection of vertices for the OPT fundamental domains; each 
      * has an added vertex to make a simplex for chord location. 
      */
-    inline std::map<int, std::vector<std::vector<Chord>>> &opt_simplexes_for_dimensionalities();
+    static inline std::map<int, std::vector<std::vector<Chord>>> &opt_simplexes_for_dimensionalities();
     /**
      * For each chord space of dimensions 3 <= n <= 12, there are n 
      * fundamental domains (sectors) of OPTI equivalence. This function returns a global 
      * collection of these sectors. 
      */
-    inline std::map<int, std::vector<std::vector<Chord>>> &opti_sectors_for_dimensionalities();
+    static inline std::map<int, std::vector<std::vector<Chord>>> &opti_sectors_for_dimensionalities();
      /**
      * Returns a collection of vertices for the OPTI fundamental domains that 
      * have an added  vertex to make a simplex for chord location. 
      */
-    inline std::map<int, std::vector<std::vector<Chord>>> &opti_simplexes_for_dimensionalities();
+    static inline std::map<int, std::vector<std::vector<Chord>>> &opti_simplexes_for_dimensionalities();
     /**
      * Returns the origin of the chord's space.
      */
