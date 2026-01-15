@@ -284,7 +284,7 @@ P, L, and R have been extended as follows, see Fiore and Satyendra,
 
     inline SILENCE_PUBLIC std::string chord_space_version()
     {
-    return "ChordSpaceBase version 2.1.3.";
+    return "ChordSpaceBase version 2.1.4.";
 }
 
 inline bool CHORD_SPACE_DEBUGGING_ = false;
@@ -356,10 +356,6 @@ typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 typedef Eigen::Matrix<double, Eigen::Dynamic, 1> Vector;
 
 class SILENCE_PUBLIC Chord;
-inline SILENCE_PUBLIC bool chord_exact_less(const Chord &a, const Chord &b);
-
-class SILENCE_PUBLIC Scale;
-inline SILENCE_PUBLIC bool scale_exact_less(const Scale &a, const Scale &b);
 
 inline SILENCE_PUBLIC std::map<Chord, Chord> &normal_forms_for_chords();
 inline SILENCE_PUBLIC std::map<Chord, Chord> &prime_forms_for_chords();
@@ -2105,21 +2101,20 @@ inline bool Chord::iseRPT(double range, int opt_sector) const {
 
 template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPT>(const Chord &chord, double range, double g, int opt_sector) {
     auto rpts = chord.eRPTs();
-    bool found = false;
-    Chord best;
-
-    for (const auto &rpt : rpts) {
-        if (rpt.is_opt_sector(opt_sector)) {
-            if (!found || chord_exact_less(rpt, best)) {
-            best = rpt;
-            found = true;
-            }
+    for (auto rpt : rpts) {
+        if (rpt.is_opt_sector(opt_sector) == true) {
+            return rpt;
         }
     }
-    if (found) {
-        return best;
-    }
     System::error("Error: Chord equate<EQUIVALENCE_RELATION_RPT>: no RPT in sector %d.\n", opt_sector);
+    ///CHORD_SPACE_DEBUGGING() = true;
+    ///std::raise(SIGINT);
+    for (auto rpt : rpts) {
+        System::message("equate<EQUIVALENCE_RELATION_RPT>: chord %s rpt: %s opt_sector: %d\n", print_chord(chord), print_chord(rpt), opt_sector);
+        if (rpt.is_opt_sector(opt_sector) == true) {
+            return rpt;
+        }
+    }
     return rpts.front();
 }
 
@@ -2164,21 +2159,20 @@ inline bool Chord::iseRPTT(double range, double g, int opt_sector) const {
 
 template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTg>(const Chord &chord, double range, double g, int opt_sector) {
     auto rptts = chord.eRPTTs(range, g);
-    bool found = false;
-    Chord best;
-
-    for (const auto &rptt : rptts) {
-        if (rptt.is_opt_sector(opt_sector)) {
-            if (!found || chord_exact_less(rptt, best)) {
-            best = rptt;
-            found = true;
-            }
+    for (auto &rptt : rptts) {
+        if (rptt.is_opt_sector(opt_sector) == true) {
+            return rptt;
         }
     }
-    if (found) {
-        return best;
-    }
     System::error("Error: Chord equate<EQUIVALENCE_RELATION_RPTg>: no RPTg in sector %d.\n", opt_sector);
+    ///CHORD_SPACE_DEBUGGING() = true;
+    ///std::raise(SIGINT);
+    for (auto rptt : rptts) {
+        System::inform("equate<EQUIVALENCE_RELATION_RPTg: chord %s rptt: %s opt_sector: %d\n", print_chord(chord), print_chord(rptt), opt_sector);
+        if (rptt.is_opt_sector(opt_sector) == true) {
+            return rptt;
+        }
+    }
     return rptts.front();
 }
 
@@ -5540,41 +5534,6 @@ inline SILENCE_PUBLIC void Scale::from_scala(const std::string &name, const std:
         voice++;
     }
     add_scale(name, *this);
-}
-
-inline SILENCE_PUBLIC bool chord_exact_less(const Chord &a, const Chord &b) {
-  const size_t n = std::min(a.voices(), b.voices());
-  for (size_t i = 0; i < n; ++i) {
-    const double ap = a.getPitch(i);
-    const double bp = b.getPitch(i);
-    // Optional: totalize NaN ordering to avoid UB-like behavior in ordering.
-    const bool a_nan = std::isnan(ap);
-    const bool b_nan = std::isnan(bp);
-    if (a_nan || b_nan) {
-      if (a_nan != b_nan) return b_nan;  // NaN last
-      continue;
-    }
-    if (ap < bp) return true;
-    if (ap > bp) return false;
-  }
-  return a.voices() < b.voices();
-}
-
-inline SILENCE_PUBLIC bool scale_exact_less(const Scale &a, const Scale &b) {
-  const size_t n = std::min(a.voices(), b.voices());
-  for (size_t i = 0; i < n; ++i) {
-    const double ap = a.getPitch(i);
-    const double bp = b.getPitch(i);
-    const bool a_nan = std::isnan(ap);
-    const bool b_nan = std::isnan(bp);
-    if (a_nan || b_nan) {
-      if (a_nan != b_nan) return b_nan;
-      continue;
-    }
-    if (ap < bp) return true;
-    if (ap > bp) return false;
-  }
-  return a.voices() < b.voices();
 }
 
 } // End of namespace csound.
