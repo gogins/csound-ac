@@ -2251,17 +2251,15 @@ template<> inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTI>(const
 inline bool Chord::iseRPTI(double range, int opt_sector) const {
     return predicate<EQUIVALENCE_RELATION_RPTI>(*this, range, 1.0, opt_sector);
 }
-
-template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const Chord &chord, double range, double g, int opt_sector) {
-    auto rpt = equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, opt_sector);
-    if (predicate<EQUIVALENCE_RELATION_I>(rpt, range, g, opt_sector) == true) {
-        return rpt;
-    } else {
-        auto rpt_i = equate<EQUIVALENCE_RELATION_I>(rpt, range, g, opt_sector);
-        auto rpt_i_rpt = equate<EQUIVALENCE_RELATION_RPT>(rpt_i, range, g, opt_sector);
-        return rpt_i_rpt;
-    }
+template<> inline SILENCE_PUBLIC Chord
+equate<EQUIVALENCE_RELATION_RPTI>(const Chord &chord, double range, double g, int opt_sector) {
+    Chord x = equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, opt_sector);
+    x = equate<EQUIVALENCE_RELATION_I>(x, range, g, opt_sector);
+    x = equate<EQUIVALENCE_RELATION_RPT>(x, range, g, opt_sector);
+    x = equate<EQUIVALENCE_RELATION_I>(x, range, g, opt_sector);
+    return x;
 }
+
 
 inline Chord Chord::eRPTI(double range, int opt_sector) const {
     return csound::equate<EQUIVALENCE_RELATION_RPTI>(*this, range, 1.0, opt_sector);
@@ -2292,20 +2290,13 @@ inline bool Chord::iseRPTTI(double range, double g, int opt_sector) const {
     return predicate<EQUIVALENCE_RELATION_RPTgI>(*this, range, g, opt_sector);
 }
 
-template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord, double range, double g, int opt_sector) {
-    Chord self = chord;
-    if (predicate<EQUIVALENCE_RELATION_RPTgI>(self, range, g, opt_sector) == true) {
-        return self;
-    } else {
-        auto rptt = equate<EQUIVALENCE_RELATION_RPTg>(self, range, g, opt_sector);
-        if (predicate<EQUIVALENCE_RELATION_I>(rptt, range, g, opt_sector) == true) {
-            return rptt;
-        } else {
-            auto rptt_i = equate<EQUIVALENCE_RELATION_I>(rptt, range, g, opt_sector);
-            auto rptt_i_rptt = equate<EQUIVALENCE_RELATION_RPTg>(rptt_i, range, g, opt_sector);
-            return rptt_i_rptt;
-        }
-    }
+template<> inline SILENCE_PUBLIC Chord
+equate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord, double range, double g, int opt_sector) {
+    Chord x = equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, opt_sector);
+    x = equate<EQUIVALENCE_RELATION_I>(x, range, g, opt_sector);
+    x = equate<EQUIVALENCE_RELATION_RPTg>(x, range, g, opt_sector);
+    x = equate<EQUIVALENCE_RELATION_I>(x, range, g, opt_sector);
+    return x;
 }
 
 inline Chord Chord::eRPTTI(double range, double g, int opt_sector) const {
