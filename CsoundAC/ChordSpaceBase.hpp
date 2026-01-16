@@ -3081,8 +3081,38 @@ inline bool Chord::test(const char *label) const {
     }
     auto optti_chord = eOPTTI(1., opt_sector);
     if (optti_chord.iseOPTTI(1., opt_sector) == false) {
-        passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTTI is not consistent with Chord::iseOPTTI  (%s => %s).\n", toString().c_str(), optti_chord.toString().c_str());
+        auto in_opt_sectors = opt_domain_sectors();
+
+        if (in_opt_sectors.size() > 1) {
+            // Boundary degeneracy: sector choice is not mathematically unique.
+            std::fprintf(stderr,
+                "Boundary degeneracy: eOPTTI landed outside requested OPT sector %d "
+                "(in OPT domain size=%zu) (%s => %s).\n",
+                opt_sector,
+                in_opt_sectors.size(),
+                toString().c_str(),
+                optti_chord.toString().c_str());
+
+            // Optional: verify the result is consistent with *some* sector in the input OPT domain.
+            bool ok_somewhere = false;
+            for (int s : in_opt_sectors) {
+                if (optti_chord.iseOPTTI(1., s)) {
+                    ok_somewhere = true;
+                    break;
+                }
+            }
+            if (!ok_somewhere) {
+                passed = false;
+                std::fprintf(stderr,
+                    "Failed: eOPTTI result is not iseOPTTI for any sector in input OPT domain.\n");
+            }
+        } else {
+            passed = false;
+            std::fprintf(stderr,
+                "Failed: Chord::eOPTTI is not consistent with Chord::iseOPTTI  (%s => %s).\n",
+                toString().c_str(),
+                optti_chord.toString().c_str());
+        }
     } else {
         std::fprintf(stderr, "        Chord::eOPTTI is consistent with Chord::iseOPTTI.\n");
     }
