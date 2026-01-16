@@ -356,11 +356,14 @@ typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 typedef Eigen::Matrix<double, Eigen::Dynamic, 1> Vector;
 
 class SILENCE_PUBLIC Chord;
+inline SILENCE_PUBLIC bool chord_exact_less(const Chord &a, const Chord &b);
+
+class SILENCE_PUBLIC Scale;
+inline SILENCE_PUBLIC bool scale_exact_less(const Scale &a, const Scale &b);
 
 inline SILENCE_PUBLIC std::map<Chord, Chord> &normal_forms_for_chords();
 inline SILENCE_PUBLIC std::map<Chord, Chord> &prime_forms_for_chords();
 inline SILENCE_PUBLIC std::map<Chord, Chord> &inverse_prime_forms_for_chords();
-
 struct SILENCE_PUBLIC HyperplaneEquation
     {
     Matrix unit_normal_vector;
@@ -1717,6 +1720,10 @@ class SILENCE_PUBLIC Scale : public Chord {
         std::string type_name;
 };
 
+inline bool is_degenerate_inversion_case(const Chord &chord,
+                                    double /*range*/,
+                                    int opt_sector);
+
 SILENCE_PUBLIC const Scale &scaleForName(std::string name);
 
 SILENCE_PUBLIC std::map<std::string, Scale> &scalesForNames();
@@ -1827,6 +1834,12 @@ inline bool Chord::self_inverse(int opt_sector) const {
     } else {
         return false;
     }
+}
+
+inline bool is_degenerate_inversion_case(const Chord &chord,
+                                        double /*range*/,
+                                        int opt_sector) {
+  return chord.self_inverse(opt_sector);
 }
 
 inline bool Chord::is_opt_sector(int index) const {
@@ -2252,15 +2265,46 @@ inline bool Chord::iseRPTI(double range, int opt_sector) const {
     return predicate<EQUIVALENCE_RELATION_RPTI>(*this, range, 1.0, opt_sector);
 }
 
-template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const Chord &chord, double range, double g, int opt_sector) {
-    auto rpt = equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, opt_sector);
-    if (predicate<EQUIVALENCE_RELATION_I>(rpt, range, g, opt_sector) == true) {
-        return rpt;
-    } else {
-        auto rpt_i = equate<EQUIVALENCE_RELATION_I>(rpt, range, g, opt_sector);
-        auto rpt_i_rpt = equate<EQUIVALENCE_RELATION_RPT>(rpt_i, range, g, opt_sector);
-        return rpt_i_rpt;
+template<>
+inline SILENCE_PUBLIC Chord
+equate<EQUIVALENCE_RELATION_RPTI>(const Chord &chord,
+                                 double range,
+                                 double g,
+                                 int opt_sector) {
+  auto rpts = chord.eRPTs(range);
+
+  bool found = false;
+  Chord best;
+
+  for (const auto &rpt0 : rpts) {
+    auto rpt = equate<EQUIVALENCE_RELATION_RPT>(rpt0, range, g, opt_sector);
+
+    if (predicate<EQUIVALENCE_RELATION_RPTI>(rpt, range, g, opt_sector)) {
+      if (!found || chord_exact_less(rpt, best)) {
+        best = rpt;
+        found = true;
+      }
     }
+
+    if (!is_degenerate_inversion_case(rpt, range, opt_sector)) {
+      auto rpt_i = equate<EQUIVALENCE_RELATION_I>(rpt, range, g, opt_sector);
+
+      if (predicate<EQUIVALENCE_RELATION_RPTI>(rpt_i, range, g, opt_sector)) {
+        if (!found || chord_exact_less(rpt_i, best)) {
+          best = rpt_i;
+          found = true;
+        }
+      }
+    }
+  }
+
+  if (found) {
+    return best;
+  }
+
+  System::error("Error: equate<RPTI>: no representative in sector %d\n",
+                opt_sector);
+  return equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, opt_sector);
 }
 
 inline Chord Chord::eRPTI(double range, int opt_sector) const {
@@ -2292,20 +2336,46 @@ inline bool Chord::iseRPTTI(double range, double g, int opt_sector) const {
     return predicate<EQUIVALENCE_RELATION_RPTgI>(*this, range, g, opt_sector);
 }
 
-template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord, double range, double g, int opt_sector) {
-    Chord self = chord;
-    if (predicate<EQUIVALENCE_RELATION_RPTgI>(self, range, g, opt_sector) == true) {
-        return self;
-    } else {
-        auto rptt = equate<EQUIVALENCE_RELATION_RPTg>(self, range, g, opt_sector);
-        if (predicate<EQUIVALENCE_RELATION_I>(rptt, range, g, opt_sector) == true) {
-            return rptt;
-        } else {
-            auto rptt_i = equate<EQUIVALENCE_RELATION_I>(rptt, range, g, opt_sector);
-            auto rptt_i_rptt = equate<EQUIVALENCE_RELATION_RPTg>(rptt_i, range, g, opt_sector);
-            return rptt_i_rptt;
-        }
+template<>
+inline SILENCE_PUBLIC Chord
+equate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord,
+                                  double range,
+                                  double g,
+                                  int opt_sector) {
+  auto rpts = chord.eRPTTs(range, g);
+
+  bool found = false;
+  Chord best;
+
+  for (const auto &rpt0 : rpts) {
+    auto rpt = equate<EQUIVALENCE_RELATION_RPTg>(rpt0, range, g, opt_sector);
+
+    if (predicate<EQUIVALENCE_RELATION_RPTgI>(rpt, range, g, opt_sector)) {
+      if (!found || chord_exact_less(rpt, best)) {
+        best = rpt;
+        found = true;
+      }
     }
+
+    if (!is_degenerate_inversion_case(rpt, range, opt_sector)) {
+      auto rpt_i = equate<EQUIVALENCE_RELATION_I>(rpt, range, g, opt_sector);
+
+      if (predicate<EQUIVALENCE_RELATION_RPTgI>(rpt_i, range, g, opt_sector)) {
+        if (!found || chord_exact_less(rpt_i, best)) {
+          best = rpt_i;
+          found = true;
+        }
+      }
+    }
+  }
+
+  if (found) {
+    return best;
+  }
+
+  System::error("Error: equate<RPTgI>: no representative in sector %d\n",
+                opt_sector);
+  return equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, opt_sector);
 }
 
 inline Chord Chord::eRPTTI(double range, double g, int opt_sector) const {
@@ -5534,6 +5604,42 @@ inline SILENCE_PUBLIC void Scale::from_scala(const std::string &name, const std:
         voice++;
     }
     add_scale(name, *this);
+}
+
+
+inline SILENCE_PUBLIC bool chord_exact_less(const Chord &a, const Chord &b) {
+  const size_t n = std::min(a.voices(), b.voices());
+  for (size_t i = 0; i < n; ++i) {
+    const double ap = a.getPitch(i);
+    const double bp = b.getPitch(i);
+    // Optional: totalize NaN ordering to avoid UB-like behavior in ordering.
+    const bool a_nan = std::isnan(ap);
+    const bool b_nan = std::isnan(bp);
+    if (a_nan || b_nan) {
+      if (a_nan != b_nan) return b_nan;  // NaN last
+      continue;
+    }
+    if (ap < bp) return true;
+    if (ap > bp) return false;
+  }
+  return a.voices() < b.voices();
+}
+
+inline SILENCE_PUBLIC bool scale_exact_less(const Scale &a, const Scale &b) {
+  const size_t n = std::min(a.voices(), b.voices());
+  for (size_t i = 0; i < n; ++i) {
+    const double ap = a.getPitch(i);
+    const double bp = b.getPitch(i);
+    const bool a_nan = std::isnan(ap);
+    const bool b_nan = std::isnan(bp);
+    if (a_nan || b_nan) {
+      if (a_nan != b_nan) return b_nan;
+      continue;
+    }
+    if (ap < bp) return true;
+    if (ap > bp) return false;
+  }
+  return a.voices() < b.voices();
 }
 
 } // End of namespace csound.
