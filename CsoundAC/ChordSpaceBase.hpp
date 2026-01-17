@@ -1781,6 +1781,17 @@ SILENCE_PUBLIC Chord voiceleadingSmoother(const Chord &source, const Chord &d1, 
  */
 SILENCE_PUBLIC Chord voiceleadingSimpler(const Chord &source, const Chord &d1, const Chord &d2, bool avoidParallels = false);
 
+template<int ER> inline SILENCE_PUBLIC Chord equate(const Chord &, double, double, int);
+
+template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_T>(const Chord &, double, double, int);
+template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_Tg>(const Chord &, double, double, int);
+template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPT>(const Chord &, double, double, int);
+template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTg>(const Chord &, double, double, int);
+template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const Chord &, double, double, int);
+template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const Chord &, double, double, int);
+template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPI>(const Chord &, double, double, int);
+template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RTI>(const Chord &, double, double, int);
+
 //////////////////////////////////////////////////
 // ONLY DEFINITIONS BELOW HERE -- NO DECLARATIONS.
 //////////////////////////////////////////////////
@@ -1969,18 +1980,15 @@ inline Chord Chord::eT() const {
 //	EQUIVALENCE_RELATION_Tg
 
 template<> inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int opt_sector) {
-    auto sum = chord.layer();
-    auto t = chord.eT();
-    auto t_ceiling = t.ceiling();
-    while (lt_tolerance(t_ceiling.layer(), 0.) == true) {
-        t_ceiling = t_ceiling.T(g);
+  // Tg-normal means "already equal to its Tg canonical representative".
+  const Chord tt = equate<EQUIVALENCE_RELATION_Tg>(chord, range, g, opt_sector);
+  // Compare chord to tt component-wise with tolerance.
+  for (size_t v = 0; v < chord.voices(); ++v) {
+    if (!eq_tolerance(chord.getPitch(v), tt.getPitch(v))) {
+      return false;
     }
-    auto tt_sum = t_ceiling.sum();
-    if (eq_tolerance(sum, tt_sum) == true) {
-        return true;
-    } else {
-        return false;
-    }
+  }
+  return true;
 }
 
 template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int opt_sector) {
@@ -2439,6 +2447,7 @@ inline bool Chord::iseRPTTI(double range, double g, int opt_sector) const {
     return predicate<EQUIVALENCE_RELATION_RPTgI>(*this, range, g, opt_sector);
 }
 
+/**
 template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord, double range, double g, int opt_sector) {
   bool found = false;
   Chord best;
@@ -2494,6 +2503,83 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const 
     return best;
   }
 
+  System::error("Error: equate<RPTgI>: no representative in sector %d\n", opt_sector);
+  return equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, opt_sector);
+}
+*/
+
+template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord, double range, double g, int opt_sector) {
+  const auto domain_sectors = chord.opt_domain_sectors();
+  const bool boundary = (domain_sectors.size() > 1);
+
+  auto satisfies_in_requested = [&](const Chord &c) -> bool {
+    return predicate<EQUIVALENCE_RELATION_RPTgI>(c, range, g, opt_sector);
+  };
+
+  auto satisfies_in_domain = [&](const Chord &c) -> bool {
+    if (!boundary) {
+      return satisfies_in_requested(c);
+    }
+    for (int s : domain_sectors) {
+      if (predicate<EQUIVALENCE_RELATION_RPTgI>(c, range, g, s)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  bool found = false;
+  Chord best;
+
+  auto prefer = [&](const Chord &a, const Chord &b) -> bool {
+    // Option B: prefer satisfying the requested sector when possible.
+    const bool a_req = satisfies_in_requested(a);
+    const bool b_req = satisfies_in_requested(b);
+    if (a_req != b_req) {
+      return a_req;
+    }
+    // If boundary, both may only satisfy "some domain sector"; tie-break deterministically.
+    return a < b;
+  };
+
+  auto consider = [&](const Chord &c) {
+    if (!satisfies_in_domain(c)) {
+      return;
+    }
+    if (!found || prefer(c, best)) {
+      best = c;
+      found = true;
+    }
+  };
+
+  // Seed
+  consider(chord);
+
+  // Same candidate generation as before (your two paths plus repair)
+  Chord a0 = equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, opt_sector);
+  consider(a0);
+  Chord a1 = equate<EQUIVALENCE_RELATION_I>(a0, range, g, opt_sector);
+  consider(a1);
+  Chord a2 = equate<EQUIVALENCE_RELATION_RPTg>(a1, range, g, opt_sector);
+  consider(a2);
+  Chord a3 = equate<EQUIVALENCE_RELATION_I>(a2, range, g, opt_sector);
+  consider(a3);
+
+  Chord b0 = equate<EQUIVALENCE_RELATION_I>(chord, range, g, opt_sector);
+  consider(b0);
+  Chord b1 = equate<EQUIVALENCE_RELATION_RPTg>(b0, range, g, opt_sector);
+  consider(b1);
+  Chord b2 = equate<EQUIVALENCE_RELATION_I>(b1, range, g, opt_sector);
+  consider(b2);
+  Chord b3 = equate<EQUIVALENCE_RELATION_RPTg>(b2, range, g, opt_sector);
+  consider(b3);
+
+  if (found) {
+    return best;
+  }
+
+  // Non-boundary: this is a real error.
+  // Boundary: still an error, but now much rarer; keep diagnostic.
   System::error("Error: equate<RPTgI>: no representative in sector %d\n", opt_sector);
   return equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, opt_sector);
 }
