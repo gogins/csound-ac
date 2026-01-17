@@ -2255,7 +2255,6 @@ inline bool Chord::iseRPTI(double range, int opt_sector) const {
 template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const Chord &chord, double range, double g, int opt_sector) {
   bool found = false;
   Chord best;
-
   auto prefer = [&](const Chord &a, const Chord &b) -> bool {
     const bool a_in = a.is_opt_sector(opt_sector);
     const bool b_in = b.is_opt_sector(opt_sector);
@@ -2304,7 +2303,7 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const C
   if (found) {
     return best;
   }
-
+ 
   System::error("Error: equate<RPTI>: no representative in sector %d\n", opt_sector);
   return equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, opt_sector);
 }
@@ -2751,6 +2750,14 @@ inline std::string print_opti_sectors(const Chord &chord) {
         result.append(buffer);
     }
     return result;    
+}
+
+inline void print_sectors(const char *label, const std::vector<int> &sectors) {
+  std::fprintf(stderr, "%s{", label);
+  for (size_t i = 0; i < sectors.size(); ++i) {
+    std::fprintf(stderr, "%s%d", (i ? "," : ""), sectors[i]);
+  }
+  std::fprintf(stderr, "}");
 }
 
 inline  char buffer[0x1000];
