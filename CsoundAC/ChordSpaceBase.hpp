@@ -2256,12 +2256,22 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const C
   bool found = false;
   Chord best;
 
+  auto prefer = [&](const Chord &a, const Chord &b) -> bool {
+    const bool a_in = a.is_opt_sector(opt_sector);
+    const bool b_in = b.is_opt_sector(opt_sector);
+    if (a_in != b_in) {
+      return a_in;  // prefer candidates in requested OPT sector
+    }
+    return a < b;   // deterministic tie-break
+  };
+
   auto consider = [&](const Chord &c) {
-    if (predicate<EQUIVALENCE_RELATION_RPTI>(c, range, g, opt_sector)) {
-      if (!found || c < best) {
-        best = c;
-        found = true;
-      }
+    if (!predicate<EQUIVALENCE_RELATION_RPTI>(c, range, g, opt_sector)) {
+      return;
+    }
+    if (!found || prefer(c, best)) {
+      best = c;
+      found = true;
     }
   };
 
@@ -2299,7 +2309,6 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const C
   return equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, opt_sector);
 }
 
-
 inline Chord Chord::eRPTI(double range, int opt_sector) const {
     return csound::equate<EQUIVALENCE_RELATION_RPTI>(*this, range, 1.0, opt_sector);
 }
@@ -2333,12 +2342,22 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const 
   bool found = false;
   Chord best;
 
+  auto prefer = [&](const Chord &a, const Chord &b) -> bool {
+    const bool a_in = a.is_opt_sector(opt_sector);
+    const bool b_in = b.is_opt_sector(opt_sector);
+    if (a_in != b_in) {
+      return a_in;  // prefer candidates in requested OPT sector
+    }
+    return a < b;   // deterministic tie-break
+  };
+
   auto consider = [&](const Chord &c) {
-    if (predicate<EQUIVALENCE_RELATION_RPTgI>(c, range, g, opt_sector)) {
-      if (!found || c < best) {
-        best = c;
-        found = true;
-      }
+    if (!predicate<EQUIVALENCE_RELATION_RPTgI>(c, range, g, opt_sector)) {
+      return;
+    }
+    if (!found || prefer(c, best)) {
+      best = c;
+      found = true;
     }
   };
 

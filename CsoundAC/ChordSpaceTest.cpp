@@ -97,6 +97,14 @@ static bool equals(const csound::HyperplaneEquation &a, const csound::Hyperplane
     return true;
 }
 
+static void print_sectors(const char *label, const std::vector<int> &sectors) {
+  std::fprintf(stderr, "%s{", label);
+  for (size_t i = 0; i < sectors.size(); ++i) {
+    std::fprintf(stderr, "%s%d", (i ? "," : ""), sectors[i]);
+  }
+  std::fprintf(stderr, "}");
+}
+
 static void Hyperplane_Equation_for_Test_Points() {
     std::vector<csound::Chord> points;
     points.push_back(csound::Chord(std::vector<double>({ 4.,  0., -1.,  0.})));
