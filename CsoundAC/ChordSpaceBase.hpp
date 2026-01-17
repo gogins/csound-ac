@@ -2100,22 +2100,51 @@ inline bool Chord::iseRPT(double range, int opt_sector) const {
 }
 
 template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPT>(const Chord &chord, double range, double g, int opt_sector) {
-    auto rpts = chord.eRPTs();
-    for (auto rpt : rpts) {
-        if (rpt.is_opt_sector(opt_sector) == true) {
-            return rpt;
-        }
+  bool found = false;
+  Chord best;
+
+  auto prefer = [&](const Chord &a, const Chord &b) -> bool {
+    const bool a_in = a.is_opt_sector(opt_sector);
+    const bool b_in = b.is_opt_sector(opt_sector);
+    if (a_in != b_in) {
+      return a_in;
     }
-    System::error("Error: Chord equate<EQUIVALENCE_RELATION_RPT>: no RPT in sector %d.\n", opt_sector);
-    ///CHORD_SPACE_DEBUGGING() = true;
-    ///std::raise(SIGINT);
-    for (auto rpt : rpts) {
-        System::message("equate<EQUIVALENCE_RELATION_RPT>: chord %s rpt: %s opt_sector: %d\n", print_chord(chord), print_chord(rpt), opt_sector);
-        if (rpt.is_opt_sector(opt_sector) == true) {
-            return rpt;
-        }
+    return a < b;
+  };
+
+  auto consider = [&](const Chord &c) {
+    if (!predicate<EQUIVALENCE_RELATION_RPT>(c, range, g, opt_sector)) {
+      return;
     }
+    if (!found || prefer(c, best)) {
+      best = c;
+      found = true;
+    }
+  };
+
+  consider(chord);
+
+  // Enumerate RPT candidates.
+  auto rpts = chord.eRPTs();
+  for (const auto &rpt : rpts) {
+    consider(rpt);
+  }
+
+  if (found) {
+    return best;
+  }
+
+  System::error("Error: equate<RPT>: no representative in sector %d\n", opt_sector);
+  // Fallback: preserve prior behavior as much as possible.
+  for (const auto &rpt : rpts) {
+    if (rpt.is_opt_sector(opt_sector)) {
+      return rpt;
+    }
+  }
+  if (!rpts.empty()) {
     return rpts.front();
+  }
+  return chord;
 }
 
 inline Chord Chord::eRPT(double range, int opt_sector) const {
@@ -2155,25 +2184,50 @@ template<> inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTg>(const
 inline bool Chord::iseRPTT(double range, double g, int opt_sector) const {
     return predicate<EQUIVALENCE_RELATION_RPTg>(*this, range, g, opt_sector);
 }
-// TODO: Fix this with eRPTs instead of eRPTTs?
-
 template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTg>(const Chord &chord, double range, double g, int opt_sector) {
-    auto rptts = chord.eRPTTs(range, g);
-    for (auto &rptt : rptts) {
-        if (rptt.is_opt_sector(opt_sector) == true) {
-            return rptt;
-        }
+  bool found = false;
+  Chord best;
+
+  auto prefer = [&](const Chord &a, const Chord &b) -> bool {
+    const bool a_in = a.is_opt_sector(opt_sector);
+    const bool b_in = b.is_opt_sector(opt_sector);
+    if (a_in != b_in) {
+      return a_in;
     }
-    System::error("Error: Chord equate<EQUIVALENCE_RELATION_RPTg>: no RPTg in sector %d.\n", opt_sector);
-    ///CHORD_SPACE_DEBUGGING() = true;
-    ///std::raise(SIGINT);
-    for (auto rptt : rptts) {
-        System::inform("equate<EQUIVALENCE_RELATION_RPTg: chord %s rptt: %s opt_sector: %d\n", print_chord(chord), print_chord(rptt), opt_sector);
-        if (rptt.is_opt_sector(opt_sector) == true) {
-            return rptt;
-        }
+    return a < b;
+  };
+
+  auto consider = [&](const Chord &c) {
+    if (!predicate<EQUIVALENCE_RELATION_RPTg>(c, range, g, opt_sector)) {
+      return;
     }
-    return rptts.front();
+    if (!found || prefer(c, best)) {
+      best = c;
+      found = true;
+    }
+  };
+
+  consider(chord);
+
+  auto rpts = chord.eRPTTs(range, g);
+  for (const auto &rpt : rpts) {
+    consider(rpt);
+  }
+
+  if (found) {
+    return best;
+  }
+
+  System::error("Error: equate<RPTg>: no representative in sector %d\n", opt_sector);
+  for (const auto &rpt : rpts) {
+    if (rpt.is_opt_sector(opt_sector)) {
+      return rpt;
+    }
+  }
+  if (!rpts.empty()) {
+    return rpts.front();
+  }
+  return chord;
 }
 
 inline Chord Chord::eRPTT(double range, double g, int opt_sector) const {
@@ -2210,13 +2264,58 @@ inline bool Chord::iseRPI(double range, int opt_sector) const {
     return predicate<EQUIVALENCE_RELATION_RPI>(*this, range, 1.0, opt_sector);
 }
 
-// TODO: Verify.
-
 template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPI>(const Chord &chord, double range, double g, int opt_sector) {
-    if (predicate<EQUIVALENCE_RELATION_RPI>(chord, range, g, opt_sector) == true) {
-        return chord;
+  bool found = false;
+  Chord best;
+
+  auto prefer = [&](const Chord &a, const Chord &b) -> bool {
+    return a < b;
+  };
+
+  auto consider = [&](const Chord &c) {
+    if (!predicate<EQUIVALENCE_RELATION_RPI>(c, range, g, opt_sector)) {
+      return;
     }
-    return chord.eI(opt_sector).eRP(range);
+    if (!found || prefer(c, best)) {
+      best = c;
+      found = true;
+    }
+  };
+
+  consider(chord);
+
+  // Path A: RP then I (plus one repair cycle).
+  Chord a0 = equate<EQUIVALENCE_RELATION_RP>(chord, range, g, opt_sector);
+  consider(a0);
+
+  Chord a1 = equate<EQUIVALENCE_RELATION_I>(a0, range, g, opt_sector);
+  consider(a1);
+
+  Chord a2 = equate<EQUIVALENCE_RELATION_RP>(a1, range, g, opt_sector);
+  consider(a2);
+
+  Chord a3 = equate<EQUIVALENCE_RELATION_I>(a2, range, g, opt_sector);
+  consider(a3);
+
+  // Path B: I then RP (plus one repair cycle).
+  Chord b0 = equate<EQUIVALENCE_RELATION_I>(chord, range, g, opt_sector);
+  consider(b0);
+
+  Chord b1 = equate<EQUIVALENCE_RELATION_RP>(b0, range, g, opt_sector);
+  consider(b1);
+
+  Chord b2 = equate<EQUIVALENCE_RELATION_I>(b1, range, g, opt_sector);
+  consider(b2);
+
+  Chord b3 = equate<EQUIVALENCE_RELATION_RP>(b2, range, g, opt_sector);
+  consider(b3);
+
+  if (found) {
+    return best;
+  }
+
+  System::error("Error: equate<RPI>: no representative (opt_sector %d)\n", opt_sector);
+  return equate<EQUIVALENCE_RELATION_RP>(chord, range, g, opt_sector);
 }
 
 inline Chord Chord::eRPI(double range, int opt_sector) const {
@@ -2255,6 +2354,7 @@ inline bool Chord::iseRPTI(double range, int opt_sector) const {
 template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const Chord &chord, double range, double g, int opt_sector) {
   bool found = false;
   Chord best;
+
   auto prefer = [&](const Chord &a, const Chord &b) -> bool {
     const bool a_in = a.is_opt_sector(opt_sector);
     const bool b_in = b.is_opt_sector(opt_sector);
@@ -2273,6 +2373,8 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const C
       found = true;
     }
   };
+
+  consider(chord);
 
   // Path A: RPT then I (plus one repair cycle).
   Chord a0 = equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, opt_sector);
@@ -2303,7 +2405,7 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const C
   if (found) {
     return best;
   }
- 
+
   System::error("Error: equate<RPTI>: no representative in sector %d\n", opt_sector);
   return equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, opt_sector);
 }
@@ -2359,6 +2461,8 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const 
       found = true;
     }
   };
+  
+  consider(chord);
 
   // Path A: RPTg then I (plus one repair cycle).
   Chord a0 = equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, opt_sector);
