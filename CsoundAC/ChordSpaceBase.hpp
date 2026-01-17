@@ -2360,20 +2360,39 @@ inline bool Chord::iseRPTI(double range, int opt_sector) const {
 }
 
 template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const Chord &chord, double range, double g, int opt_sector) {
+  const auto domain_sectors = chord.opt_domain_sectors();
+  const bool boundary = (domain_sectors.size() > 1);
+
+  auto satisfies_in_requested = [&](const Chord &c) -> bool {
+    return predicate<EQUIVALENCE_RELATION_RPTI>(c, range, g, opt_sector);
+  };
+
+  auto satisfies_in_domain = [&](const Chord &c) -> bool {
+    if (!boundary) {
+      return satisfies_in_requested(c);
+    }
+    for (int s : domain_sectors) {
+      if (predicate<EQUIVALENCE_RELATION_RPTI>(c, range, g, s)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   bool found = false;
   Chord best;
 
   auto prefer = [&](const Chord &a, const Chord &b) -> bool {
-    const bool a_in = a.is_opt_sector(opt_sector);
-    const bool b_in = b.is_opt_sector(opt_sector);
-    if (a_in != b_in) {
-      return a_in;  // prefer candidates in requested OPT sector
+    const bool a_req = satisfies_in_requested(a);
+    const bool b_req = satisfies_in_requested(b);
+    if (a_req != b_req) {
+      return a_req;
     }
-    return a < b;   // deterministic tie-break
+    return a < b;
   };
 
   auto consider = [&](const Chord &c) {
-    if (!predicate<EQUIVALENCE_RELATION_RPTI>(c, range, g, opt_sector)) {
+    if (!satisfies_in_domain(c)) {
       return;
     }
     if (!found || prefer(c, best)) {
@@ -2384,31 +2403,41 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const C
 
   consider(chord);
 
-  // Path A: RPT then I (plus one repair cycle).
-  Chord a0 = equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, opt_sector);
-  consider(a0);
+  auto run_paths_for_sector = [&](int s) {
+    // Path A: RPT then I (plus one repair cycle).
+    Chord a0 = equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, s);
+    consider(a0);
 
-  Chord a1 = equate<EQUIVALENCE_RELATION_I>(a0, range, g, opt_sector);
-  consider(a1);
+    Chord a1 = equate<EQUIVALENCE_RELATION_I>(a0, range, g, s);
+    consider(a1);
 
-  Chord a2 = equate<EQUIVALENCE_RELATION_RPT>(a1, range, g, opt_sector);
-  consider(a2);
+    Chord a2 = equate<EQUIVALENCE_RELATION_RPT>(a1, range, g, s);
+    consider(a2);
 
-  Chord a3 = equate<EQUIVALENCE_RELATION_I>(a2, range, g, opt_sector);
-  consider(a3);
+    Chord a3 = equate<EQUIVALENCE_RELATION_I>(a2, range, g, s);
+    consider(a3);
 
-  // Path B: I then RPT (plus one repair cycle).
-  Chord b0 = equate<EQUIVALENCE_RELATION_I>(chord, range, g, opt_sector);
-  consider(b0);
+    // Path B: I then RPT (plus one repair cycle).
+    Chord b0 = equate<EQUIVALENCE_RELATION_I>(chord, range, g, s);
+    consider(b0);
 
-  Chord b1 = equate<EQUIVALENCE_RELATION_RPT>(b0, range, g, opt_sector);
-  consider(b1);
+    Chord b1 = equate<EQUIVALENCE_RELATION_RPT>(b0, range, g, s);
+    consider(b1);
 
-  Chord b2 = equate<EQUIVALENCE_RELATION_I>(b1, range, g, opt_sector);
-  consider(b2);
+    Chord b2 = equate<EQUIVALENCE_RELATION_I>(b1, range, g, s);
+    consider(b2);
 
-  Chord b3 = equate<EQUIVALENCE_RELATION_RPT>(b2, range, g, opt_sector);
-  consider(b3);
+    Chord b3 = equate<EQUIVALENCE_RELATION_RPT>(b2, range, g, s);
+    consider(b3);
+  };
+
+  if (!boundary) {
+    run_paths_for_sector(opt_sector);
+  } else {
+    for (int s : domain_sectors) {
+      run_paths_for_sector(s);
+    }
+  }
 
   if (found) {
     return best;
@@ -2532,14 +2561,12 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const 
   Chord best;
 
   auto prefer = [&](const Chord &a, const Chord &b) -> bool {
-    // Option B: prefer satisfying the requested sector when possible.
     const bool a_req = satisfies_in_requested(a);
     const bool b_req = satisfies_in_requested(b);
     if (a_req != b_req) {
-      return a_req;
+      return a_req;   // Option B: prefer requested sector
     }
-    // If boundary, both may only satisfy "some domain sector"; tie-break deterministically.
-    return a < b;
+    return a < b;     // deterministic tie-break
   };
 
   auto consider = [&](const Chord &c) {
@@ -2552,34 +2579,50 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const 
     }
   };
 
-  // Seed
   consider(chord);
 
-  // Same candidate generation as before (your two paths plus repair)
-  Chord a0 = equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, opt_sector);
-  consider(a0);
-  Chord a1 = equate<EQUIVALENCE_RELATION_I>(a0, range, g, opt_sector);
-  consider(a1);
-  Chord a2 = equate<EQUIVALENCE_RELATION_RPTg>(a1, range, g, opt_sector);
-  consider(a2);
-  Chord a3 = equate<EQUIVALENCE_RELATION_I>(a2, range, g, opt_sector);
-  consider(a3);
+  auto run_paths_for_sector = [&](int s) {
+    // Path A: RPTg then I (plus one repair cycle).
+    Chord a0 = equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, s);
+    consider(a0);
 
-  Chord b0 = equate<EQUIVALENCE_RELATION_I>(chord, range, g, opt_sector);
-  consider(b0);
-  Chord b1 = equate<EQUIVALENCE_RELATION_RPTg>(b0, range, g, opt_sector);
-  consider(b1);
-  Chord b2 = equate<EQUIVALENCE_RELATION_I>(b1, range, g, opt_sector);
-  consider(b2);
-  Chord b3 = equate<EQUIVALENCE_RELATION_RPTg>(b2, range, g, opt_sector);
-  consider(b3);
+    Chord a1 = equate<EQUIVALENCE_RELATION_I>(a0, range, g, s);
+    consider(a1);
+
+    Chord a2 = equate<EQUIVALENCE_RELATION_RPTg>(a1, range, g, s);
+    consider(a2);
+
+    Chord a3 = equate<EQUIVALENCE_RELATION_I>(a2, range, g, s);
+    consider(a3);
+
+    // Path B: I then RPTg (plus one repair cycle).
+    Chord b0 = equate<EQUIVALENCE_RELATION_I>(chord, range, g, s);
+    consider(b0);
+
+    Chord b1 = equate<EQUIVALENCE_RELATION_RPTg>(b0, range, g, s);
+    consider(b1);
+
+    Chord b2 = equate<EQUIVALENCE_RELATION_I>(b1, range, g, s);
+    consider(b2);
+
+    Chord b3 = equate<EQUIVALENCE_RELATION_RPTg>(b2, range, g, s);
+    consider(b3);
+  };
+
+  // Non-boundary: only requested sector matters.
+  if (!boundary) {
+    run_paths_for_sector(opt_sector);
+  } else {
+    // Boundary: explore all domain sectors (this is the missing closure).
+    for (int s : domain_sectors) {
+      run_paths_for_sector(s);
+    }
+  }
 
   if (found) {
     return best;
   }
 
-  // Non-boundary: this is a real error.
-  // Boundary: still an error, but now much rarer; keep diagnostic.
   System::error("Error: equate<RPTgI>: no representative in sector %d\n", opt_sector);
   return equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, opt_sector);
 }
