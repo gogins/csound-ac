@@ -2142,7 +2142,7 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPT>(const Ch
     return best;
   }
 
-  System::error("Error: equate<RPT>: no representative in sector %d\n", opt_sector);
+  System::error("Error:   equate<RPT>: no representative in sector %d\n", opt_sector);
   // Fallback: preserve prior behavior as much as possible.
   for (const auto &rpt : rpts) {
     if (rpt.is_opt_sector(opt_sector)) {
@@ -2152,6 +2152,7 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPT>(const Ch
   if (!rpts.empty()) {
     return rpts.front();
   }
+  System::error("Error:   equate<RPT>: no representative in ANY candidate.\n");
   return chord;
 }
 
@@ -2226,7 +2227,7 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTg>(const C
     return best;
   }
 
-  System::error("Error: equate<RPTg>: no representative in sector %d\n", opt_sector);
+  System::error("Warning: equate<RPTg>: no representative in sector %d.\n", opt_sector);
   for (const auto &rpt : rpts) {
     if (rpt.is_opt_sector(opt_sector)) {
       return rpt;
@@ -2235,6 +2236,7 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTg>(const C
   if (!rpts.empty()) {
     return rpts.front();
   }
+ System::error("Error:    equate<RPTg>: no representative in ANY sector.\n");
   return chord;
 }
 
@@ -2322,7 +2324,7 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPI>(const Ch
     return best;
   }
 
-  System::error("Error: equate<RPI>: no representative (opt_sector %d)\n", opt_sector);
+  System::error("Error:   equate<RPI>: no representative (opt_sector %d)\n", opt_sector);
   return equate<EQUIVALENCE_RELATION_RP>(chord, range, g, opt_sector);
 }
 
@@ -2443,7 +2445,7 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const C
     return best;
   }
 
-  System::error("Error: equate<RPTI>: no representative in sector %d\n", opt_sector);
+  System::error("Error:   equate<RPTI>: no representative in ANY sector.\n");
   return equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, opt_sector);
 }
 
@@ -2623,7 +2625,7 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const 
     return best;
   }
 
-  System::error("Error: equate<RPTgI>: no representative in sector %d\n", opt_sector);
+  System::error("Error:   equate<RPTgI>: no representative in ANY sector.\n");
   return equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, opt_sector);
 }
 
@@ -3348,6 +3350,10 @@ inline bool Chord::test(const char *label) const {
         }
     }
     // Test the consistency of the transformations.
+    // Note that boundary degeneracies may cause ambiguities here.
+    // The policy of these tests is to not fail if the transformed chord is of 
+    // the right equivalence class, even if it is not exactly equal to the 
+    // original chord.
     if (eO().iseO() == false) {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eO is not consistent with Chord::iseO.\n");
@@ -3424,6 +3430,8 @@ inline bool Chord::test(const char *label) const {
             bool ok_somewhere = false;
             for (int s : in_opt_sectors) {
                 if (optti_chord.iseOPTTI(1., s)) {
+                    std::fprintf(stderr,
+                        "Partial success: eOPTTI result is iseOPTTI in sector %d of input OPT domain.\n", s);
                     ok_somewhere = true;
                     break;
                 }
@@ -3431,7 +3439,7 @@ inline bool Chord::test(const char *label) const {
             if (!ok_somewhere) {
                 passed = false;
                 std::fprintf(stderr,
-                    "Failed: eOPTTI result is not iseOPTTI for any sector in input OPT domain.\n");
+                    "Failed: eOPTTI result is not iseOPTTI for ANY sector in input OPT domain.\n");
             }
         } else {
             passed = false;
