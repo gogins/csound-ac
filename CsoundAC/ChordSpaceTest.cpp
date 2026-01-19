@@ -287,13 +287,13 @@ static bool testNormalsAndEquivalents(std::string equivalence,
     bool passes1 = true;
     int count = 1;
     for (auto made_equivalent = made_equivalents.begin(); made_equivalent != made_equivalents.end(); ++made_equivalent) {
-        std::snprintf(buffer, sizeof(buffer), "MADE EQUIVALENT %d\n", count);
+        std::snprintf(buffer, sizeof(buffer), "\n\nTESTING MADE EQUIVALENT %d: %s\n", count, made_equivalent->toString().c_str());
         test(made_equivalent->test(), std::string(buffer));
         count = count + 1;
     }
     count = 1;
     for (auto found_equivalent = found_equivalents.begin(); found_equivalent != found_equivalents.end(); ++found_equivalent) {
-        std::snprintf(buffer, sizeof(buffer), "FOUND EQUIVALENT %d\n", count);
+        std::snprintf(buffer, sizeof(buffer), "\n\nTESTING FOUND EQUIVALENT %d: %s\n", count, found_equivalent->toString().c_str());
         test(found_equivalent->test(), std::string(buffer));
         count = count + 1;
     }
