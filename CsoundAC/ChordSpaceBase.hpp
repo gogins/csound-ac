@@ -2623,11 +2623,16 @@ namespace csound
             return predicate<EQUIVALENCE_RELATION_RPTI>(c, range, g, opt_sector);
         };
 
+        // Boundary admissibility must include the requested sector as well as the chord's domain sectors.
         auto satisfies_in_domain = [&](const Chord &c) -> bool
         {
+            if (satisfies_in_requested(c))
+            {
+                return true;
+            }
             if (!boundary)
             {
-                return satisfies_in_requested(c);
+                return false;
             }
             for (int s : domain_sectors)
             {
@@ -2703,9 +2708,18 @@ namespace csound
         }
         else
         {
+            bool have_requested = false;
             for (int s : domain_sectors)
             {
+                if (s == opt_sector)
+                {
+                    have_requested = true;
+                }
                 run_paths_for_sector(s);
+            }
+            if (!have_requested)
+            {
+                run_paths_for_sector(opt_sector);
             }
         }
 
@@ -2756,67 +2770,6 @@ namespace csound
         return predicate<EQUIVALENCE_RELATION_RPTgI>(*this, range, g, opt_sector);
     }
 
-    /**
-    template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord, double range, double g, int opt_sector) {
-      bool found = false;
-      Chord best;
-
-      auto prefer = [&](const Chord &a, const Chord &b) -> bool {
-        const bool a_in = a.is_opt_sector(opt_sector);
-        const bool b_in = b.is_opt_sector(opt_sector);
-        if (a_in != b_in) {
-          return a_in;  // prefer candidates in requested OPT sector
-        }
-        return a < b;   // deterministic tie-break
-      };
-
-      auto consider = [&](const Chord &c) {
-        if (!predicate<EQUIVALENCE_RELATION_RPTgI>(c, range, g, opt_sector)) {
-          return;
-        }
-        if (!found || prefer(c, best)) {
-          best = c;
-          found = true;
-        }
-      };
-
-      consider(chord);
-
-      // Path A: RPTg then I (plus one repair cycle).
-      Chord a0 = equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, opt_sector);
-      consider(a0);
-
-      Chord a1 = equate<EQUIVALENCE_RELATION_I>(a0, range, g, opt_sector);
-      consider(a1);
-
-      Chord a2 = equate<EQUIVALENCE_RELATION_RPTg>(a1, range, g, opt_sector);
-      consider(a2);
-
-      Chord a3 = equate<EQUIVALENCE_RELATION_I>(a2, range, g, opt_sector);
-      consider(a3);
-
-      // Path B: I then RPTg (plus one repair cycle).
-      Chord b0 = equate<EQUIVALENCE_RELATION_I>(chord, range, g, opt_sector);
-      consider(b0);
-
-      Chord b1 = equate<EQUIVALENCE_RELATION_RPTg>(b0, range, g, opt_sector);
-      consider(b1);
-
-      Chord b2 = equate<EQUIVALENCE_RELATION_I>(b1, range, g, opt_sector);
-      consider(b2);
-
-      Chord b3 = equate<EQUIVALENCE_RELATION_RPTg>(b2, range, g, opt_sector);
-      consider(b3);
-
-      if (found) {
-        return best;
-      }
-
-      System::error("Error: equate<RPTgI>: no representative in sector %d\n", opt_sector);
-      return equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, opt_sector);
-    }
-    */
-
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord, double range, double g, int opt_sector)
     {
@@ -2828,11 +2781,16 @@ namespace csound
             return predicate<EQUIVALENCE_RELATION_RPTgI>(c, range, g, opt_sector);
         };
 
+        // Boundary admissibility must include the requested sector as well as the chord's domain sectors.
         auto satisfies_in_domain = [&](const Chord &c) -> bool
         {
+            if (satisfies_in_requested(c))
+            {
+                return true;
+            }
             if (!boundary)
             {
-                return satisfies_in_requested(c);
+                return false;
             }
             for (int s : domain_sectors)
             {
@@ -2853,7 +2811,7 @@ namespace csound
             const bool b_req = satisfies_in_requested(b);
             if (a_req != b_req)
             {
-                return a_req; // Option B: prefer requested sector
+                return a_req; // prefer requested sector when possible
             }
             return a < b; // deterministic tie-break
         };
@@ -2902,17 +2860,24 @@ namespace csound
             consider(b3);
         };
 
-        // Non-boundary: only requested sector matters.
         if (!boundary)
         {
             run_paths_for_sector(opt_sector);
         }
         else
         {
-            // Boundary: explore all domain sectors (this is the missing closure).
+            bool have_requested = false;
             for (int s : domain_sectors)
             {
+                if (s == opt_sector)
+                {
+                    have_requested = true;
+                }
                 run_paths_for_sector(s);
+            }
+            if (!have_requested)
+            {
+                run_paths_for_sector(opt_sector);
             }
         }
 
