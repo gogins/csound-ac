@@ -665,7 +665,11 @@ int main(int argc, char **argv) {
     CM9.setPitch(2, 7.);
     CM9.setPitch(3,-1.);
     CM9.setPitch(4, 2.);
-    std::cerr << "Should be CM9:" << std::endl << CM9.information().c_str() << std::endl;
+    try {
+        std::cerr << "Should be CM9:" << std::endl << CM9.information().c_str() << std::endl;
+    } catch (const std::exception &e) {
+        std::cerr << "Exception caught: " << e.what() << std::endl;
+    }
     csound::Chord Dm9 = csound::chordForName("Dm9");
     std::cerr << "Should be Dm9:" << std::endl << Dm9.information().c_str() << std::endl;
     Dm9.setPitch(0, 2.);
@@ -673,7 +677,11 @@ int main(int argc, char **argv) {
     Dm9.setPitch(2, 9.);
     Dm9.setPitch(3, 0.);
     Dm9.setPitch(4, 4.);
-    std::cerr << "Should be Dm9:" << std::endl << Dm9.information().c_str() << std::endl;
+    try {
+        std::cerr << "Should be Dm9:" << std::endl << Dm9.information().c_str() << std::endl;
+    } catch (const std::exception &e) {
+        std::cerr << "Exception caught: " << e.what() << std::endl;
+    }
     csound::Chord chordForName_ = csound::chordForName("CM9");
     csound::System::message("chordForName(%s): %s\n", "CM9", chordForName_.information().c_str());
 

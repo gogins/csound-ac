@@ -341,35 +341,35 @@ namespace csound
         }
     };
 
-    #define CHORDSPACE_TEST_STRICT
+#define CHORDSPACE_TEST_STRICT
 
-    #ifdef CHORDSPACE_TEST_STRICT
+#ifdef CHORDSPACE_TEST_STRICT
 
-    #define CHORDSPACE_EQUATE_FAIL(rel_name, chord, opt_sector)                     \
-    throw equate_failure(                                                         \
-        std::string("equate<") + (rel_name) +                                       \
-        ">: no representative found; chord=" + (chord).toString() +                \
+#define CHORDSPACE_EQUATE_FAIL(rel_name, chord, opt_sector)         \
+    throw equate_failure(                                           \
+        std::string("equate<") + (rel_name) +                       \
+        ">: no representative found; chord=" + (chord).toString() + \
         " opt_sector=" + std::to_string(opt_sector))
 
-    #else
+#else
 
-    #define CHORDSPACE_EQUATE_FAIL(rel_name, chord, opt_sector)                     \
+#define CHORDSPACE_EQUATE_FAIL(rel_name, chord, opt_sector)                       \
     System::error(                                                                \
-        "Warning: equate<%s>: no representative found; chord=%s opt_sector=%d\n",   \
-        (rel_name),                                                                 \
-        (chord).toString().c_str(),                                                 \
+        "Warning: equate<%s>: no representative found; chord=%s opt_sector=%d\n", \
+        (rel_name),                                                               \
+        (chord).toString().c_str(),                                               \
         (opt_sector))
 
-    #endif
-
+#endif
 
 #define CHORD_SPACE_DEBUG                \
     if (CHORD_SPACE_DEBUGGING() == true) \
     csound::System::message
 
-    struct equate_failure : public std::logic_error {
-    explicit equate_failure(const std::string &msg)
-        : std::logic_error(msg) {}
+    struct equate_failure : public std::logic_error
+    {
+        explicit equate_failure(const std::string &msg)
+            : std::logic_error(msg) {}
     };
 
     /////////////////////////////////////////////////////////////////////////////////////////
@@ -2040,7 +2040,7 @@ namespace csound
     inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_T>(const Chord &chord, double range, double g, int opt_sector)
     {
         auto layer_ = chord.layer();
-        CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_T>: chord: %s sector: %s layer: %12.7f\n", chord.toString().c_str(), opt_sector, layer_);
+        CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_T>: chord: %s sector: %d layer: %12.7f\n", chord.toString().c_str(), opt_sector, layer_);
         if (eq_tolerance(layer_, 0.) == false)
         {
             return false;
@@ -2452,13 +2452,13 @@ namespace csound
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPI>(const Chord &chord, double range, double g, int opt_sector)
     {
+        if (predicate<EQUIVALENCE_RELATION_RPI>(chord, range, g, opt_sector))
+        {
+            return chord;
+        }
+
         bool found = false;
         Chord best;
-
-        auto prefer = [&](const Chord &a, const Chord &b) -> bool
-        {
-            return a < b;
-        };
 
         auto consider = [&](const Chord &c)
         {
@@ -2466,7 +2466,7 @@ namespace csound
             {
                 return;
             }
-            if (!found || prefer(c, best))
+            if (!found || c < best)
             {
                 best = c;
                 found = true;
@@ -2507,7 +2507,6 @@ namespace csound
         }
 
         CHORDSPACE_EQUATE_FAIL("RPI", chord, opt_sector);
-        System::error("Error:   Chord::equate<RPI>: no representative (opt_sector %d)\n", opt_sector);
         return equate<EQUIVALENCE_RELATION_RP>(chord, range, g, opt_sector);
     }
 
@@ -3780,55 +3779,73 @@ namespace csound
             std::fprintf(stderr, "        Chord::eOP is consistent with Chord::iseOP.\n");
         }
 
-        try {
+        try
+        {
             auto opt_chord = eOPT(opt_sector);
-            if (!opt_chord.iseOPT(opt_sector)) {
+            if (!opt_chord.iseOPT(opt_sector))
+            {
                 passed = false;
                 std::fprintf(stderr,
-                "Failed: eOPT is not consistent with iseOPT (%s => %s).\n",
-                toString().c_str(), opt_chord.toString().c_str());
-            } else {
-                std::fprintf(stderr,
-                "        eOPT is consistent with iseOPT.\n");
+                             "Failed: eOPT is not consistent with iseOPT (%s => %s).\n",
+                             toString().c_str(), opt_chord.toString().c_str());
             }
-        } catch (const equate_failure &e) {
+            else
+            {
+                std::fprintf(stderr,
+                             "        eOPT is consistent with iseOPT.\n");
+            }
+        }
+        catch (const equate_failure &e)
+        {
             passed = false;
             std::fprintf(stderr,
-                "Failed: %s\n", e.what());
+                         "Failed: %s\n", e.what());
         }
 
-        try {
+        try
+        {
             auto opti_chord = eOPTI(opt_sector);
-            if (!opti_chord.iseOPTI(opt_sector)) {
+            if (!opti_chord.iseOPTI(opt_sector))
+            {
                 passed = false;
                 std::fprintf(stderr,
-                "Failed: eOPTI is not consistent with iseOPTI (%s => %s).\n",
-                toString().c_str(), opti_chord.toString().c_str());
-            } else {
-                std::fprintf(stderr,
-                "        eOPTI is consistent with iseOPTI.\n");
+                             "Failed: eOPTI is not consistent with iseOPTI (%s => %s).\n",
+                             toString().c_str(), opti_chord.toString().c_str());
             }
-        } catch (const equate_failure &e) {
+            else
+            {
+                std::fprintf(stderr,
+                             "        eOPTI is consistent with iseOPTI.\n");
+            }
+        }
+        catch (const equate_failure &e)
+        {
             passed = false;
             std::fprintf(stderr,
-                "Failed: %s\n", e.what());
+                         "Failed: %s\n", e.what());
         }
 
-        try {
+        try
+        {
             auto optti_chord = eOPTTI(1., opt_sector);
-            if (!optti_chord.iseOPTTI(1., opt_sector)) {
+            if (!optti_chord.iseOPTTI(1., opt_sector))
+            {
                 passed = false;
                 std::fprintf(stderr,
-                "Failed: eOPTTI is not consistent with iseOPTTI (%s => %s).\n",
-                toString().c_str(), optti_chord.toString().c_str());
-            } else {
-                std::fprintf(stderr,
-                "        eOPTTI is consistent with iseOPTTI.\n");
+                             "Failed: eOPTTI is not consistent with iseOPTTI (%s => %s).\n",
+                             toString().c_str(), optti_chord.toString().c_str());
             }
-        } catch (const equate_failure &e) {
+            else
+            {
+                std::fprintf(stderr,
+                             "        eOPTTI is consistent with iseOPTTI.\n");
+            }
+        }
+        catch (const equate_failure &e)
+        {
             passed = false;
             std::fprintf(stderr,
-                "Failed: %s\n", e.what());
+                         "Failed: %s\n", e.what());
         }
 
         /*
@@ -3880,11 +3897,11 @@ namespace csound
         {
             std::fprintf(stderr, "        Chord::eOPTTI is consistent with Chord::iseOPTTI.\n");
         }
+        */
         std::fprintf(stderr, "\n");
         std::fprintf(stderr, "%s", information().c_str());
-        */
         return passed;
-    }      
+    }
 
     /**
      * Returns a string representation of the chord's pitches (only).
