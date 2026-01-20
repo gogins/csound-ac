@@ -2330,7 +2330,7 @@ namespace csound
         consider(chord);
 
         // Enumerate RPT candidates.
-        auto rpts = chord.eRPTs();
+        auto rpts = chord.eRPTs(range);
         for (const auto &rpt : rpts)
         {
             consider(rpt);
