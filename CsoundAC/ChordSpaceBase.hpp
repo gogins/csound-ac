@@ -2449,7 +2449,7 @@ namespace csound
             return best;
         }
 
-        System::error("Warning: Chord::equate<RPTg>: no representative in sector %d.\n", opt_sector);
+        System::error("Error: Chord::equate<RPTg>: no representative in sector %d.\n", opt_sector);
         for (const auto &rpt : rpts)
         {
             if (rpt.is_opt_sector(opt_sector))
@@ -2462,7 +2462,7 @@ namespace csound
             return rpts.front();
         }
         CHORDSPACE_EQUATE_FAIL("RPTg", chord, opt_sector);
-        System::error("Error:   Chord::equate<RPTg>: no representative in ANY sector.\n");
+        System::error("Error:   Chord::equate<RPTg>: no representative in ANY candidate.\n");
         return chord;
     }
 
@@ -3873,56 +3873,6 @@ namespace csound
                          "Failed: %s\n", e.what());
         }
 
-        /*
-        auto optti_chord = eOPTTI(1., opt_sector);
-        if (optti_chord.iseOPTTI(1., opt_sector) == false)
-        {
-            auto in_opt_sectors = opt_domain_sectors();
-
-            if (in_opt_sectors.size() > 1)
-            {
-                // Boundary degeneracy: sector choice is not mathematically unique.
-                std::fprintf(stderr,
-                             "Boundary degeneracy: eOPTTI landed outside requested OPT sector %d "
-                             "(in OPT domain size=%zu) (%s => %s).\n",
-                             opt_sector,
-                             in_opt_sectors.size(),
-                             toString().c_str(),
-                             optti_chord.toString().c_str());
-
-                // Optional: verify the result is consistent with *some* sector in the input OPT domain.
-                bool ok_somewhere = false;
-                for (int s : in_opt_sectors)
-                {
-                    if (optti_chord.iseOPTTI(1., s))
-                    {
-                        std::fprintf(stderr,
-                                     "Partial success: eOPTTI result is iseOPTTI in sector %d of input OPT domain.\n", s);
-                        ok_somewhere = true;
-                        break;
-                    }
-                }
-                if (!ok_somewhere)
-                {
-                    passed = false;
-                    std::fprintf(stderr,
-                                 "Failed: eOPTTI result is not iseOPTTI for ANY sector in input OPT domain.\n");
-                }
-            }
-            else
-            {
-                passed = false;
-                std::fprintf(stderr,
-                             "Failed: Chord::eOPTTI is not consistent with Chord::iseOPTTI  (%s => %s).\n",
-                             toString().c_str(),
-                             optti_chord.toString().c_str());
-            }
-        }
-        else
-        {
-            std::fprintf(stderr, "        Chord::eOPTTI is consistent with Chord::iseOPTTI.\n");
-        }
-        */
         std::fprintf(stderr, "\n");
         std::fprintf(stderr, "%s", information().c_str());
         return passed;
@@ -4946,24 +4896,28 @@ namespace csound
             CHORD_SPACE_DEBUG("fundamentalDomainByTransformation: %6d %s\n", chords, iterator_.toString().c_str());
             bool iterator_is_normal = predicate<EQUIVALENCE_RELATION>(iterator_, range, g, sector);
             CHORD_SPACE_DEBUG("fundamentalDomainByTransformation: %6d is_normal: %d\n", chords, iterator_is_normal);
-            Chord normalized = equate<EQUIVALENCE_RELATION>(iterator_, range, g, sector);
-            CHORD_SPACE_DEBUG("fundamentalDomainByTransformation: %6d normalized: %s\n", chords, normalized.toString().c_str());
-            bool normalized_is_normal = predicate<EQUIVALENCE_RELATION>(normalized, range, g, sector);
-            CHORD_SPACE_DEBUG("fundamentalDomainByTransformation: %6d normalized_is_normal: %d\n", chords, normalized_is_normal);
-            auto result = fundamentalDomain.insert(normalized);
-            if (CHORD_SPACE_DEBUGGING() && result.second == true)
-            {
-                CHORD_SPACE_DEBUG("%s By equate %-8s: chord: %6d  domain: %6d  range: %7.2f  g: %7.2f  iterator: %s  predicate: %d  normalized: %s  predicate: %d\n",
-                                  (normalized_is_normal ? "      " : "WRONG "),
-                                  namesForEquivalenceRelations[EQUIVALENCE_RELATION],
-                                  chords,
-                                  fundamentalDomain.size(),
-                                  range,
-                                  g,
-                                  iterator_.toString().c_str(),
-                                  iterator_is_normal,
-                                  normalized.toString().c_str(),
-                                  normalized_is_normal);
+            try {
+                Chord normalized = equate<EQUIVALENCE_RELATION>(iterator_, range, g, sector);
+                CHORD_SPACE_DEBUG("fundamentalDomainByTransformation: %6d normalized: %s\n", chords, normalized.toString().c_str());
+                bool normalized_is_normal = predicate<EQUIVALENCE_RELATION>(normalized, range, g, sector);
+                CHORD_SPACE_DEBUG("fundamentalDomainByTransformation: %6d normalized_is_normal: %d\n", chords, normalized_is_normal);
+                auto result = fundamentalDomain.insert(normalized);
+                if (CHORD_SPACE_DEBUGGING() && result.second == true)
+                {
+                    CHORD_SPACE_DEBUG("%s By equate %-8s: chord: %6d  domain: %6d  range: %7.2f  g: %7.2f  iterator: %s  predicate: %d  normalized: %s  predicate: %d\n",
+                                    (normalized_is_normal ? "      " : "WRONG "),
+                                    namesForEquivalenceRelations[EQUIVALENCE_RELATION],
+                                    chords,
+                                    fundamentalDomain.size(),
+                                    range,
+                                    g,
+                                    iterator_.toString().c_str(),
+                                    iterator_is_normal,
+                                    normalized.toString().c_str(),
+                                    normalized_is_normal);
+                }
+            } catch (const std::exception &e) {
+                System::message("fundamentalDomainByTransformation: Exception caught: %s\n", e.what());
             }
         }
         std::vector<Chord> result(fundamentalDomain.begin(), fundamentalDomain.end());
