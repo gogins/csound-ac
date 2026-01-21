@@ -2139,31 +2139,42 @@ namespace csound
 
     //	EQUIVALENCE_RELATION_I
 
-    template <>
-    inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int opt_sector)
-    {
-        // Chords that are inversionally equivalent automatically are normal.
-        CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_I>: %s opt_sector: %d\n", chord.toString().c_str(), opt_sector);
-        if (chord.self_inverse(opt_sector) == true)
-        {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_I>: %s returning self_inverse: %d\n", chord.toString().c_str(), true);
-            return true;
-        }
-        // Otherwise, if the chord is in a "minor" OPTI sector in the current OPT sector,
-        // the chord is normal.
-        int minor_opti_sector = opt_sector * 2;
-        CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_I>: %s minor_opti_sector: %d\n", chord.toString().c_str(), minor_opti_sector);
-        if (chord.is_opti_sector(minor_opti_sector) == true)
-        {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_I>: %s is in minor opti sector: %d\n", chord.toString().c_str(), true);
-            return true;
-        }
-        else
-        {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_I>: %s is in major opti sector: %d\n", chord.toString().c_str(), false);
-            return false;
-        }
+template <>
+inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int opt_sector)
+{
+  // Chords that are inversionally equivalent automatically are normal (sector-relative).
+  if (chord.self_inverse(opt_sector)) {
+    return true;
+  }
+
+  // Otherwise, decide "minor vs major" using OPTI sector membership.
+  // On OPT boundaries, allow minor-ness in any OPT sector the chord belongs to (including the requested one).
+  const auto opt_sectors = chord.opt_domain_sectors();
+
+  auto is_minor_in_opt_sector = [&](int s) -> bool {
+    const int minor_opti_sector = s * 2;
+    return chord.is_opti_sector(minor_opti_sector);
+  };
+
+  // First: honor the requested sector if possible.
+  if (is_minor_in_opt_sector(opt_sector)) {
+    return true;
+  }
+
+  // If the chord is on an OPT boundary, accept if it is minor in any of its OPT sectors.
+  if (opt_sectors.size() > 1) {
+    for (const int s : opt_sectors) {
+      if (s == opt_sector) {
+        continue;
+      }
+      if (is_minor_in_opt_sector(s)) {
+        return true;
+      }
     }
+  }
+
+  return false;
+}
 
     inline bool Chord::iseI_chord(Chord *inverse, int opt_sector) const
     {
