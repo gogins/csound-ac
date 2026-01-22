@@ -2139,42 +2139,49 @@ namespace csound
 
     //	EQUIVALENCE_RELATION_I
 
-template <>
-inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int opt_sector)
-{
-  // Chords that are inversionally equivalent automatically are normal (sector-relative).
-  if (chord.self_inverse(opt_sector)) {
-    return true;
-  }
+    template <>
+    inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int opt_sector)
+    {
+        // Chords that are inversionally equivalent automatically are normal (sector-relative).
+        if (chord.self_inverse(opt_sector))
+        {
+            return true;
+        }
 
-  // Otherwise, decide "minor vs major" using OPTI sector membership.
-  // On OPT boundaries, allow minor-ness in any OPT sector the chord belongs to (including the requested one).
-  const auto opt_sectors = chord.opt_domain_sectors();
+        // Otherwise, decide "minor vs major" using OPTI sector membership.
+        // On OPT boundaries, allow minor-ness in any OPT sector the chord belongs to (including the requested one).
+        const auto opt_sectors = chord.opt_domain_sectors();
 
-  auto is_minor_in_opt_sector = [&](int s) -> bool {
-    const int minor_opti_sector = s * 2;
-    return chord.is_opti_sector(minor_opti_sector);
-  };
+        auto is_minor_in_opt_sector = [&](int s) -> bool
+        {
+            const int minor_opti_sector = s * 2;
+            return chord.is_opti_sector(minor_opti_sector);
+        };
 
-  // First: honor the requested sector if possible.
-  if (is_minor_in_opt_sector(opt_sector)) {
-    return true;
-  }
+        // First: honor the requested sector if possible.
+        if (is_minor_in_opt_sector(opt_sector))
+        {
+            return true;
+        }
 
-  // If the chord is on an OPT boundary, accept if it is minor in any of its OPT sectors.
-  if (opt_sectors.size() > 1) {
-    for (const int s : opt_sectors) {
-      if (s == opt_sector) {
-        continue;
-      }
-      if (is_minor_in_opt_sector(s)) {
-        return true;
-      }
+        // If the chord is on an OPT boundary, accept if it is minor in any of its OPT sectors.
+        if (opt_sectors.size() > 1)
+        {
+            for (const int s : opt_sectors)
+            {
+                if (s == opt_sector)
+                {
+                    continue;
+                }
+                if (is_minor_in_opt_sector(s))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
-  }
-
-  return false;
-}
 
     inline bool Chord::iseI_chord(Chord *inverse, int opt_sector) const
     {
@@ -4829,67 +4836,78 @@ inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_I>(const Chord &chord,
     template <int EQUIVALENCE_RELATION>
     inline SILENCE_PUBLIC std::vector<csound::Chord> fundamentalDomainByPredicate(int voiceN, double range, double g, int sector, bool printme)
     {
-        /// SCOPED_DEBUGGING debugging;
         auto name_ = namesForEquivalenceRelations[EQUIVALENCE_RELATION];
         System::message("fundamentalDomainByPredicate<%s>: voiceN: %d range: %f g: %f: sector: %d\n", name_, voiceN, range, g, sector);
-        std::set<Chord, compare_by_normal_order> fundamentalDomainSet;
-        std::vector<Chord> fundamentalDomainVector;
+
+        // For each equivalence-class representative, record whether we encountered
+        // any member of its orbit satisfying the predicate.
+        std::map<Chord, bool, compare_by_normal_order> rep_has_normal_member;
+
         int upperI = 3 * (range + 1);
         int lowerI = -(1 * (range + 1));
         Chord iterator_ = iterator(voiceN, lowerI);
         Chord origin = iterator_;
+
         int chords = 0;
         int normals = 0;
-        //~ static auto target = csound::Chord({-3.0000000,   -1.0000000,    2.0000000,    5.0000000});
-        //~ static bool target_found = false;
+
         while (next(iterator_, origin, upperI, g) == true)
         {
             chords++;
-            bool iterator_is_normal = predicate<EQUIVALENCE_RELATION>(iterator_, range, g, sector);
-            //~ if (target_found == false) {
-            //~ if (target.toString() == iterator_.toString()) {
-            //~ target_found = true;
-            //~ System::message("fundamentalDomainByPredicate<%s>: iterator_is_normal: %d\n    found:  %s\n    target: %s\n\n", name_, iterator_is_normal, print_chord(target), print_chord(iterator_));
-            //~ ///std::raise(SIGINT);
-            //~ }
-            //~ }
-            if (iterator_is_normal == true)
+
+            // Representative for this orbit (used for dedup).
+            const Chord rep = equate<EQUIVALENCE_RELATION>(iterator_, range, g, sector);
+
+            // Ensure entry exists; default false means "not yet seen normal member".
+            auto it = rep_has_normal_member.find(rep);
+            if (it == rep_has_normal_member.end())
+            {
+                it = rep_has_normal_member.insert({rep, false}).first;
+            }
+
+            const bool iterator_is_normal = predicate<EQUIVALENCE_RELATION>(iterator_, range, g, sector);
+            if (iterator_is_normal)
             {
                 normals++;
-                fundamentalDomainVector.push_back(iterator_);
-                auto result = fundamentalDomainSet.insert(iterator_);
-                if (CHORD_SPACE_DEBUGGING() && result.second == true)
-                {
-                    Chord normalized = equate<EQUIVALENCE_RELATION>(iterator_, range, g, sector);
-                    bool normalized_is_normal = predicate<EQUIVALENCE_RELATION>(normalized, range, g, 0);
-                    CHORD_SPACE_DEBUG("%s By predicate  %-8s: chord: %6d  domain: %6d  range: %7.2f  g: %7.2f  iterator: %s  predicate: %d  normalized: %s  predicate: %d\n",
-                                      (normalized_is_normal ? "      " : "WRONG "),
-                                      name_,
-                                      chords,
-                                      fundamentalDomainSet.size(),
-                                      range,
-                                      g,
-                                      iterator_.toString().c_str(),
-                                      iterator_is_normal,
-                                      normalized.toString().c_str(),
-                                      normalized_is_normal);
-                }
+                it->second = true;
             }
-            if (printme == true)
+
+            if (printme)
             {
-                System::message("fundamentalDomainByPredicate<%s>: %s normal: %6d set: %6d iterator: %12d %s\n",
+                System::message("fundamentalDomainByPredicate<%s>: %s normals: %6d reps: %6d chords: %12d %s\n",
                                 name_,
                                 (iterator_is_normal ? "NORMAL " : "       "),
                                 normals,
-                                fundamentalDomainSet.size(),
+                                (int)rep_has_normal_member.size(),
                                 chords,
                                 print_chord(iterator_));
             }
         }
-        std::sort(fundamentalDomainVector.begin(), fundamentalDomainVector.end());
-        System::message("fundamentalDomainByPredicate<%s>: count: %d unique: %d\n", namesForEquivalenceRelations[EQUIVALENCE_RELATION], fundamentalDomainVector.size(), fundamentalDomainSet.size());
-        //~ return std::vector<Chord>(fundamentalDomainSet.begin(), fundamentalDomainSet.end());
-        return fundamentalDomainVector;
+
+        // Collect only those reps whose orbit intersected the predicate-defined region.
+        std::vector<Chord> fundamental_domain_vector;
+        fundamental_domain_vector.reserve(rep_has_normal_member.size());
+
+        int reps_with_normal_member = 0;
+        for (const auto &kv : rep_has_normal_member)
+        {
+            if (kv.second)
+            {
+                reps_with_normal_member++;
+                fundamental_domain_vector.push_back(kv.first);
+            }
+        }
+
+        std::sort(fundamental_domain_vector.begin(), fundamental_domain_vector.end());
+
+        System::message("fundamentalDomainByPredicate<%s>: chords_seen: %d normals_seen: %d reps_seen: %d reps_with_normal_member: %d\n",
+                        namesForEquivalenceRelations[EQUIVALENCE_RELATION],
+                        chords,
+                        normals,
+                        (int)rep_has_normal_member.size(),
+                        reps_with_normal_member);
+
+        return fundamental_domain_vector;
     }
 
     template <int EQUIVALENCE_RELATION>
@@ -4907,7 +4925,8 @@ inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_I>(const Chord &chord,
             CHORD_SPACE_DEBUG("fundamentalDomainByTransformation: %6d %s\n", chords, iterator_.toString().c_str());
             bool iterator_is_normal = predicate<EQUIVALENCE_RELATION>(iterator_, range, g, sector);
             CHORD_SPACE_DEBUG("fundamentalDomainByTransformation: %6d is_normal: %d\n", chords, iterator_is_normal);
-            try {
+            try
+            {
                 Chord normalized = equate<EQUIVALENCE_RELATION>(iterator_, range, g, sector);
                 CHORD_SPACE_DEBUG("fundamentalDomainByTransformation: %6d normalized: %s\n", chords, normalized.toString().c_str());
                 bool normalized_is_normal = predicate<EQUIVALENCE_RELATION>(normalized, range, g, sector);
@@ -4916,18 +4935,20 @@ inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_I>(const Chord &chord,
                 if (CHORD_SPACE_DEBUGGING() && result.second == true)
                 {
                     CHORD_SPACE_DEBUG("%s By equate %-8s: chord: %6d  domain: %6d  range: %7.2f  g: %7.2f  iterator: %s  predicate: %d  normalized: %s  predicate: %d\n",
-                                    (normalized_is_normal ? "      " : "WRONG "),
-                                    namesForEquivalenceRelations[EQUIVALENCE_RELATION],
-                                    chords,
-                                    fundamentalDomain.size(),
-                                    range,
-                                    g,
-                                    iterator_.toString().c_str(),
-                                    iterator_is_normal,
-                                    normalized.toString().c_str(),
-                                    normalized_is_normal);
+                                      (normalized_is_normal ? "      " : "WRONG "),
+                                      namesForEquivalenceRelations[EQUIVALENCE_RELATION],
+                                      chords,
+                                      fundamentalDomain.size(),
+                                      range,
+                                      g,
+                                      iterator_.toString().c_str(),
+                                      iterator_is_normal,
+                                      normalized.toString().c_str(),
+                                      normalized_is_normal);
                 }
-            } catch (const std::exception &e) {
+            }
+            catch (const std::exception &e)
+            {
                 System::message("fundamentalDomainByTransformation: Exception caught: %s\n", e.what());
             }
         }
