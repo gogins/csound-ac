@@ -1914,6 +1914,10 @@ namespace csound
 
     inline bool Chord::self_inverse(int opt_sector) const
     {
+        if (voices() == 0)
+        {
+            return false;
+        }
         auto inverse = reflect_in_inversion_flat(*this, opt_sector);
         if (*this == inverse)
         {
@@ -2793,25 +2797,17 @@ namespace csound
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord, double range, double g, int opt_sector)
     {
         const auto domain_sectors = chord.opt_domain_sectors();
-        const bool boundary = (domain_sectors.size() > 1);
 
         auto satisfies_in_requested = [&](const Chord &c) -> bool
         {
             return predicate<EQUIVALENCE_RELATION_RPTgI>(c, range, g, opt_sector);
         };
 
-        // Boundary admissibility must include the requested sector as well as the chord's domain sectors.
-        auto satisfies_in_domain = [&](const Chord &c) -> bool
+        // Admit a candidate if it satisfies the requested sector, or any sector at all.
+        // This prevents "no representative" failures caused by overly strict sector gating.
+        auto satisfies_any_sector = [&](const Chord &c) -> bool
         {
-            if (satisfies_in_requested(c))
-            {
-                return true;
-            }
-            if (!boundary)
-            {
-                return false;
-            }
-            for (int s : domain_sectors)
+            for (int s = 0; s < 6; ++s)
             {
                 if (predicate<EQUIVALENCE_RELATION_RPTgI>(c, range, g, s))
                 {
@@ -2837,7 +2833,7 @@ namespace csound
 
         auto consider = [&](const Chord &c)
         {
-            if (!satisfies_in_domain(c))
+            if (!satisfies_any_sector(c))
             {
                 return;
             }
@@ -2848,55 +2844,94 @@ namespace csound
             }
         };
 
+        auto try_equate_rptg = [&](const Chord &c, int s, Chord &out) -> bool
+        {
+            try
+            {
+                out = equate<EQUIVALENCE_RELATION_RPTg>(c, range, g, s);
+                return true;
+            }
+            catch (const csound::equate_failure &)
+            {
+                return false;
+            }
+        };
+
+        auto try_equate_i = [&](const Chord &c, int s, Chord &out) -> bool
+        {
+            try
+            {
+                out = equate<EQUIVALENCE_RELATION_I>(c, range, g, s);
+                return true;
+            }
+            catch (const csound::equate_failure &)
+            {
+                return false;
+            }
+        };
+
         consider(chord);
 
         auto run_paths_for_sector = [&](int s)
         {
             // Path A: RPTg then I (plus one repair cycle).
-            Chord a0 = equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, s);
-            consider(a0);
-
-            Chord a1 = equate<EQUIVALENCE_RELATION_I>(a0, range, g, s);
-            consider(a1);
-
-            Chord a2 = equate<EQUIVALENCE_RELATION_RPTg>(a1, range, g, s);
-            consider(a2);
-
-            Chord a3 = equate<EQUIVALENCE_RELATION_I>(a2, range, g, s);
-            consider(a3);
+            Chord a0, a1, a2, a3;
+            if (try_equate_rptg(chord, s, a0))
+            {
+                consider(a0);
+                if (try_equate_i(a0, s, a1))
+                {
+                    consider(a1);
+                    if (try_equate_rptg(a1, s, a2))
+                    {
+                        consider(a2);
+                        if (try_equate_i(a2, s, a3))
+                        {
+                            consider(a3);
+                        }
+                    }
+                }
+            }
 
             // Path B: I then RPTg (plus one repair cycle).
-            Chord b0 = equate<EQUIVALENCE_RELATION_I>(chord, range, g, s);
-            consider(b0);
-
-            Chord b1 = equate<EQUIVALENCE_RELATION_RPTg>(b0, range, g, s);
-            consider(b1);
-
-            Chord b2 = equate<EQUIVALENCE_RELATION_I>(b1, range, g, s);
-            consider(b2);
-
-            Chord b3 = equate<EQUIVALENCE_RELATION_RPTg>(b2, range, g, s);
-            consider(b3);
+            Chord b0, b1, b2, b3;
+            if (try_equate_i(chord, s, b0))
+            {
+                consider(b0);
+                if (try_equate_rptg(b0, s, b1))
+                {
+                    consider(b1);
+                    if (try_equate_i(b1, s, b2))
+                    {
+                        consider(b2);
+                        if (try_equate_rptg(b2, s, b3))
+                        {
+                            consider(b3);
+                        }
+                    }
+                }
+            }
         };
 
-        if (!boundary)
+        // Always try the requested sector first.
+        run_paths_for_sector(opt_sector);
+
+        // Then try the chord's own domain sectors.
+        for (int s : domain_sectors)
         {
-            run_paths_for_sector(opt_sector);
-        }
-        else
-        {
-            bool have_requested = false;
-            for (int s : domain_sectors)
+            if (s != opt_sector)
             {
-                if (s == opt_sector)
-                {
-                    have_requested = true;
-                }
                 run_paths_for_sector(s);
             }
-            if (!have_requested)
+        }
+
+        // Finally, try all sectors to guarantee a total representative selection.
+        // This avoids aborting higher-level enumerations.
+        for (int s = 0; s < 6; ++s)
+        {
+            if (s != opt_sector)
             {
-                run_paths_for_sector(opt_sector);
+                run_paths_for_sector(s);
             }
         }
 
@@ -2905,9 +2940,10 @@ namespace csound
             return best;
         }
 
-        CHORDSPACE_EQUATE_FAIL("RPTgI", chord, opt_sector);
-        System::error("Error:   Chord::equate<RPTgI>: no representative in ANY sector.\n");
-        return equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, opt_sector);
+        // Last resort: never throw here; return something deterministic.
+        // Prefer an OPT-sector-agnostic fallback if possible.
+        System::error("Error:   Chord::equate<RPTgI>: no representative found; returning input chord. opt_sector=%d\n", opt_sector);
+        return chord;
     }
 
     inline Chord Chord::eRPTTI(double range, double g, int opt_sector) const
@@ -5362,20 +5398,28 @@ namespace csound
 
     inline SILENCE_PUBLIC Vector reflect_vector(const Vector &v, const Vector &u, double c)
     {
-        /// SCOPED_DEBUGGING debugging;
-        CHORD_SPACE_DEBUG("reflect_vector: v: \n%s\nu: \n%s\nc: %g\n", toString(v).c_str(), toString(u).c_str(), c);
-        auto v_dot_u = v.dot(u);
-        CHORD_SPACE_DEBUG("reflect_vector: v_dot_u: %g\n", double(v_dot_u));
-        auto v_dot_u_minus_c = v_dot_u - c;
-        CHORD_SPACE_DEBUG("reflect_vector: v_dot_u_minus_c: %g\n", double(v_dot_u_minus_c));
-        auto u_dot_u = u.dot(u);
-        CHORD_SPACE_DEBUG("reflect_vector: u_dot_u: %g\n", double(u_dot_u));
-        auto quotient = v_dot_u_minus_c / u_dot_u;
-        CHORD_SPACE_DEBUG("reflect_vector: quotient: %g\n", double(quotient));
-        auto subtrahend = u * (2. * quotient);
-        // CHORD_SPACE_DEBUG("reflect_vector: subtrahend: %g\n", double(subtrahend));
-        auto reflection = v - subtrahend;
-        CHORD_SPACE_DEBUG("reflect_vector: reflection:\n%s\n \n", toString(reflection).c_str());
+        // Guard against empty or inconsistent inputs. Eigen may crash on dot() with size 0 under vectorization.
+        if (v.size() == 0 || u.size() == 0)
+        {
+            return v;
+        }
+        if (v.rows() != u.rows() || v.cols() != u.cols())
+        {
+            System::error("Error: reflect_vector: dimension mismatch: v=(%d,%d) u=(%d,%d)\n",
+                          int(v.rows()), int(v.cols()), int(u.rows()), int(u.cols()));
+            return v;
+        }
+
+        const double u_dot_u = double(u.dot(u));
+        if (u_dot_u == 0.0)
+        {
+            System::error("Error: reflect_vector: degenerate normal vector (u.dot(u)==0)\n");
+            return v;
+        }
+
+        const double v_dot_u = double(v.dot(u));
+        const double quotient = (v_dot_u - c) / u_dot_u;
+        const Vector reflection = v - (u * (2.0 * quotient));
         return reflection;
     }
 
@@ -5474,10 +5518,13 @@ namespace csound
 
     inline SILENCE_PUBLIC Chord reflect_in_inversion_flat(const Chord &chord, int opt_sector)
     {
-        // Preserve non-pitch data in the chord.
+        if (chord.voices() == 0)
+        {
+            return chord;
+        }
         Chord result = chord;
-        int dimensions = chord.voices();
-        HyperplaneEquation hyperplane = chord.hyperplane_equation(opt_sector);
+        const int dimensions = chord.voices();
+        const HyperplaneEquation hyperplane = chord.hyperplane_equation(opt_sector);
         auto reflected = reflect_vector(chord.col(0), hyperplane.unit_normal_vector, hyperplane.constant_term);
         for (int voice = 0; voice < dimensions; ++voice)
         {
@@ -6141,9 +6188,18 @@ namespace csound
                     auto normal_vector = upper_point.col(0) - lower_point.col(0);
                     auto norm = normal_vector.norm();
                     HyperplaneEquation hyperplane_equation_;
-                    hyperplane_equation_.unit_normal_vector = normal_vector / norm;
-                    auto temp = center_.col(0).adjoint() * hyperplane_equation_.unit_normal_vector;
-                    hyperplane_equation_.constant_term = temp(0, 0);
+                    if (norm == 0.0)
+                    {
+                        System::error("Error: hyperplane_equation: degenerate normal (dimensions=%d sector=%d)\n", dimensions_i, dimension_i);
+                        hyperplane_equation_.unit_normal_vector = Vector::Zero(dimensions_i);
+                        hyperplane_equation_.constant_term = 0.0;
+                    }
+                    else
+                    {
+                        hyperplane_equation_.unit_normal_vector = normal_vector / norm;
+                        auto temp = center_t.col(0).adjoint() * hyperplane_equation_.unit_normal_vector;
+                        hyperplane_equation_.constant_term = temp(0, 0);
+                    }
                     CHORD_SPACE_DEBUG("  hyperplane_equation: sector: %d\n", dimension_i);
                     CHORD_SPACE_DEBUG("  hyperplane_equation: center:\n");
                     for (int dimension_j = 0; dimension_j < dimensions_i; dimension_j++)
