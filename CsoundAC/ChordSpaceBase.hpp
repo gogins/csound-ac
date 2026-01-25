@@ -2085,6 +2085,9 @@ namespace csound
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPI>(const Chord &, double, double, int);
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RTI>(const Chord &, double, double, int);
+    template <>
+    inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RTgI>(const Chord &, double, double, int);
+
 
     //////////////////////////////////////////////////
     // ONLY DEFINITIONS BELOW HERE -- NO DECLARATIONS.
@@ -2097,6 +2100,330 @@ namespace csound
         std::stringstream ss;
         ss << mat;
         return ss.str();
+    }
+
+
+template <>
+inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RTI>(const Chord &chord, double range, double g, int opt_sector)
+{
+    const Chord rep = equate<EQUIVALENCE_RELATION_RTI>(chord, range, g, opt_sector);
+    if (rep.voices() != chord.voices())
+    {
+        return false;
+    }
+    for (int v = 0; v < chord.voices(); ++v)
+    {
+        if (!eq_tolerance(chord.getPitch(v), rep.getPitch(v)))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+    template <>
+    inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RTI>(const Chord &chord, double range, double g, int opt_sector)
+    {
+        (void)g;
+        (void)opt_sector;
+        if (!(std::isfinite(range) && range > 0.0))
+        {
+            return chord;
+        }
+        if (chord.voices() < 3 || chord.voices() > 12)
+        {
+            return chord;
+        }
+        if (!chord_has_finite_pitches(chord))
+        {
+            return chord;
+        }
+
+        int range_lift_bound = 0;
+        const int voices_i = chord.voices();
+        if (voices_i <= 4)
+        {
+            range_lift_bound = 2;
+        }
+        else if (voices_i <= 7)
+        {
+            range_lift_bound = 1;
+        }
+        else
+        {
+            range_lift_bound = 0;
+        }
+
+        auto score = [&](const Chord &c) -> double
+        {
+            const auto v = c.col(0).eval();
+            return static_cast<double>(v.squaredNorm());
+        };
+
+        auto lex_less = [&](const Chord &a, const Chord &b) -> bool
+        {
+            const int n = std::min(a.voices(), b.voices());
+            for (int i = 0; i < n; ++i)
+            {
+                const double diff = a.getPitch(i) - b.getPitch(i);
+                if (std::fabs(diff) <= 1.0e-12)
+                {
+                    continue;
+                }
+                return diff < 0.0;
+            }
+            return a.voices() < b.voices();
+        };
+
+        auto approx_equal = [&](double a, double b) -> bool
+        {
+            const double rel_eps = 1.0e-12;
+            const double scale = std::max(1.0, std::max(std::fabs(a), std::fabs(b)));
+            return std::fabs(a - b) <= rel_eps * scale;
+        };
+
+        auto better = [&](const Chord &a, const Chord &b) -> bool
+        {
+            const double sa = score(a);
+            const double sb = score(b);
+            if (!approx_equal(sa, sb))
+            {
+                return sa < sb;
+            }
+            return lex_less(a, b);
+        };
+
+        auto canonical_no_i = [&](const Chord &x) -> Chord
+        {
+            bool found = false;
+            Chord best;
+
+            auto consider = [&](const Chord &cand)
+            {
+                if (!found)
+                {
+                    best = cand;
+                    found = true;
+                    return;
+                }
+                if (better(cand, best))
+                {
+                    best = cand;
+                }
+            };
+
+            enumerate_k(x.voices(), range_lift_bound, [&](const Eigen::VectorXi &k)
+            {
+                const Chord lifted = apply_range_lift_to_chord(x, k, range);
+                const Chord gauged = equate<EQUIVALENCE_RELATION_T>(lifted, range, 1.0, 0);
+                const Chord canonical = gauged;
+                consider(canonical);
+            });
+
+            if (found)
+            {
+                return best;
+            }
+
+            const Chord gauged = equate<EQUIVALENCE_RELATION_T>(x, range, 1.0, 0);
+            return gauged;
+        };
+
+        bool found_all = false;
+        Chord best_all;
+
+        auto consider_all = [&](const Chord &cand)
+        {
+            if (!found_all)
+            {
+                best_all = cand;
+                found_all = true;
+                return;
+            }
+            if (better(cand, best_all))
+            {
+                best_all = cand;
+            }
+        };
+
+        consider_all(canonical_no_i(chord));
+
+        // Do not use opt_sector: try reflections across all inversion flats.
+        for (int s = 0; s < chord.voices(); ++s)
+        {
+            const Chord reflected = reflect_in_inversion_flat(chord, s);
+            consider_all(canonical_no_i(reflected));
+        }
+
+        if (found_all)
+        {
+            return best_all;
+        }
+
+        return canonical_no_i(chord);
+    }
+
+template <>
+inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RTgI>(const Chord &chord, double range, double g, int opt_sector)
+{
+    const Chord rep = equate<EQUIVALENCE_RELATION_RTgI>(chord, range, g, opt_sector);
+    if (rep.voices() != chord.voices())
+    {
+        return false;
+    }
+    for (int v = 0; v < chord.voices(); ++v)
+    {
+        if (!eq_tolerance(chord.getPitch(v), rep.getPitch(v)))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+    template <>
+    inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RTgI>(const Chord &chord, double range, double g, int opt_sector)
+    {
+        (void)opt_sector;
+        if (!(std::isfinite(range) && range > 0.0))
+        {
+            return chord;
+        }
+        if (chord.voices() < 3 || chord.voices() > 12)
+        {
+            return chord;
+        }
+        if (!chord_has_finite_pitches(chord))
+        {
+            return chord;
+        }
+        if (!(g > 0.0))
+        {
+            g = 1.0;
+        }
+
+        int range_lift_bound = 0;
+        const int voices_i = chord.voices();
+        if (voices_i <= 4)
+        {
+            range_lift_bound = 2;
+        }
+        else if (voices_i <= 7)
+        {
+            range_lift_bound = 1;
+        }
+        else
+        {
+            range_lift_bound = 0;
+        }
+
+        auto score = [&](const Chord &c) -> double
+        {
+            const auto v = c.col(0).eval();
+            return static_cast<double>(v.squaredNorm());
+        };
+
+        auto lex_less = [&](const Chord &a, const Chord &b) -> bool
+        {
+            const int n = std::min(a.voices(), b.voices());
+            for (int i = 0; i < n; ++i)
+            {
+                const double diff = a.getPitch(i) - b.getPitch(i);
+                if (std::fabs(diff) <= 1.0e-12)
+                {
+                    continue;
+                }
+                return diff < 0.0;
+            }
+            return a.voices() < b.voices();
+        };
+
+        auto approx_equal = [&](double a, double b) -> bool
+        {
+            const double rel_eps = 1.0e-12;
+            const double scale = std::max(1.0, std::max(std::fabs(a), std::fabs(b)));
+            return std::fabs(a - b) <= rel_eps * scale;
+        };
+
+        auto better = [&](const Chord &a, const Chord &b) -> bool
+        {
+            const double sa = score(a);
+            const double sb = score(b);
+            if (!approx_equal(sa, sb))
+            {
+                return sa < sb;
+            }
+            return lex_less(a, b);
+        };
+
+        auto canonical_no_i = [&](const Chord &x) -> Chord
+        {
+            bool found = false;
+            Chord best;
+
+            auto consider = [&](const Chord &cand)
+            {
+                if (!found)
+                {
+                    best = cand;
+                    found = true;
+                    return;
+                }
+                if (better(cand, best))
+                {
+                    best = cand;
+                }
+            };
+
+            enumerate_k(x.voices(), range_lift_bound, [&](const Eigen::VectorXi &k)
+            {
+                const Chord lifted = apply_range_lift_to_chord(x, k, range);
+                const Chord gauged = equate<EQUIVALENCE_RELATION_Tg>(lifted, range, g, 0);
+                const Chord canonical = gauged;
+                consider(canonical);
+            });
+
+            if (found)
+            {
+                return best;
+            }
+
+            const Chord gauged = equate<EQUIVALENCE_RELATION_Tg>(x, range, g, 0);
+            return gauged;
+        };
+
+        bool found_all = false;
+        Chord best_all;
+
+        auto consider_all = [&](const Chord &cand)
+        {
+            if (!found_all)
+            {
+                best_all = cand;
+                found_all = true;
+                return;
+            }
+            if (better(cand, best_all))
+            {
+                best_all = cand;
+            }
+        };
+
+        consider_all(canonical_no_i(chord));
+
+        // Do not use opt_sector: try reflections across all inversion flats.
+        for (int s = 0; s < chord.voices(); ++s)
+        {
+            const Chord reflected = reflect_in_inversion_flat(chord, s);
+            consider_all(canonical_no_i(reflected));
+        }
+
+        if (found_all)
+        {
+            return best_all;
+        }
+
+        return canonical_no_i(chord);
     }
 
     template <>
@@ -2602,94 +2929,133 @@ namespace csound
     //	EQUIVALENCE_RELATION_RPT
 
     template <>
-    inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPT>(const Chord &chord, double range, double g, int opt_sector)
+inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPT>(const Chord &chord, double range, double g, int opt_sector)
+{
+    const Chord rep = equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, opt_sector);
+    if (rep.voices() != chord.voices())
     {
-        if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        if (predicate<EQUIVALENCE_RELATION_P>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        if (chord.is_opt_sector(opt_sector) == false)
-        {
-            return false;
-        }
-        if (predicate<EQUIVALENCE_RELATION_T>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        return true;
+        return false;
     }
-
+    for (int v = 0; v < chord.voices(); ++v)
+    {
+        if (!eq_tolerance(chord.getPitch(v), rep.getPitch(v)))
+        {
+            return false;
+        }
+    }
+    return true;
+}
     inline bool Chord::iseRPT(double range, int opt_sector) const
     {
         return predicate<EQUIVALENCE_RELATION_RPT>(*this, range, 1.0, opt_sector);
     }
 
-    template <>
+        template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPT>(const Chord &chord, double range, double g, int opt_sector)
     {
+        (void)g;
+        (void)opt_sector;
+
+        if (!(std::isfinite(range) && range > 0.0))
+        {
+            return chord;
+        }
+        if (chord.voices() < 3 || chord.voices() > 12)
+        {
+            return chord;
+        }
+        if (!chord_has_finite_pitches(chord))
+        {
+            return chord;
+        }
+
+        int range_lift_bound = 0;
+        const int voices_i = chord.voices();
+        if (voices_i <= 4)
+        {
+            range_lift_bound = 2;
+        }
+        else if (voices_i <= 7)
+        {
+            range_lift_bound = 1;
+        }
+        else
+        {
+            range_lift_bound = 0;
+        }
+
+        auto score = [&](const Chord &c) -> double
+        {
+            const auto v = c.col(0).eval();
+            return static_cast<double>(v.squaredNorm());
+        };
+
+        auto lex_less = [&](const Chord &a, const Chord &b) -> bool
+        {
+            const int n = std::min(a.voices(), b.voices());
+            for (int i = 0; i < n; ++i)
+            {
+                const double diff = a.getPitch(i) - b.getPitch(i);
+                if (std::fabs(diff) <= 1.0e-12)
+                {
+                    continue;
+                }
+                return diff < 0.0;
+            }
+            return a.voices() < b.voices();
+        };
+
+        auto approx_equal = [&](double a, double b) -> bool
+        {
+            const double rel_eps = 1.0e-12;
+            const double scale = std::max(1.0, std::max(std::fabs(a), std::fabs(b)));
+            return std::fabs(a - b) <= rel_eps * scale;
+        };
+
+        auto better = [&](const Chord &a, const Chord &b) -> bool
+        {
+            const double sa = score(a);
+            const double sb = score(b);
+            if (!approx_equal(sa, sb))
+            {
+                return sa < sb;
+            }
+            return lex_less(a, b);
+        };
+
         bool found = false;
         Chord best;
 
-        auto prefer = [&](const Chord &a, const Chord &b) -> bool
+        auto consider = [&](const Chord &cand)
         {
-            const bool a_in = a.is_opt_sector(opt_sector);
-            const bool b_in = b.is_opt_sector(opt_sector);
-            if (a_in != b_in)
+            if (!found)
             {
-                return a_in;
-            }
-            return a < b;
-        };
-
-        auto consider = [&](const Chord &c)
-        {
-            if (!predicate<EQUIVALENCE_RELATION_RPT>(c, range, g, opt_sector))
-            {
+                best = cand;
+                found = true;
                 return;
             }
-            if (!found || prefer(c, best))
+            if (better(cand, best))
             {
-                best = c;
-                found = true;
+                best = cand;
             }
         };
 
-        consider(chord);
-
-        // Enumerate RPT candidates.
-        auto rpts = chord.eRPTs(range);
-        for (const auto &rpt : rpts)
+        enumerate_k(chord.voices(), range_lift_bound, [&](const Eigen::VectorXi &k)
         {
-            consider(rpt);
-        }
+            const Chord lifted = apply_range_lift_to_chord(chord, k, range);
+            const Chord t = equate<EQUIVALENCE_RELATION_T>(lifted, range, 1.0, 0);
+            const Chord p = sort_chord_ascending(t);
+            consider(p);
+        });
 
         if (found)
         {
             return best;
         }
 
-        System::error("Error:   Chord::equate<RPT>: no representative in sector %d\n", opt_sector);
-        // Fallback: preserve prior behavior as much as possible.
-        for (const auto &rpt : rpts)
-        {
-            if (rpt.is_opt_sector(opt_sector))
-            {
-                return rpt;
-            }
-        }
-        if (!rpts.empty())
-        {
-            return rpts.front();
-        }
-        CHORDSPACE_EQUATE_FAIL("RPT", chord, opt_sector);
-        System::error("Error:   Chord::equate<RPT>: no representative in ANY candidate.\n");
-        return chord;
+        const Chord t = equate<EQUIVALENCE_RELATION_T>(chord, range, 1.0, 0);
+        return sort_chord_ascending(t);
     }
-
     inline Chord Chord::eRPT(double range, int opt_sector) const
     {
         return csound::equate<EQUIVALENCE_RELATION_RPT>(*this, range, 1.0, opt_sector);
@@ -2711,92 +3077,135 @@ namespace csound
     //	EQUIVALENCE_RELATION_RPTg
 
     template <>
-    inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTg>(const Chord &chord, double range, double g, int opt_sector)
+inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTg>(const Chord &chord, double range, double g, int opt_sector)
+{
+    const Chord rep = equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, opt_sector);
+    if (rep.voices() != chord.voices())
     {
-        if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        if (predicate<EQUIVALENCE_RELATION_P>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        if (chord.is_opt_sector(opt_sector) == false)
-        {
-            //~ if (chord.iseRPT(range, opt_sector) == false) {
-            return false;
-        }
-        if (predicate<EQUIVALENCE_RELATION_Tg>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        return true;
+        return false;
     }
-
+    for (int v = 0; v < chord.voices(); ++v)
+    {
+        if (!eq_tolerance(chord.getPitch(v), rep.getPitch(v)))
+        {
+            return false;
+        }
+    }
+    return true;
+}
     inline bool Chord::iseRPTT(double range, double g, int opt_sector) const
     {
         return predicate<EQUIVALENCE_RELATION_RPTg>(*this, range, g, opt_sector);
     }
-    template <>
+        template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTg>(const Chord &chord, double range, double g, int opt_sector)
     {
+        (void)opt_sector;
+
+        if (!(std::isfinite(range) && range > 0.0))
+        {
+            return chord;
+        }
+        if (chord.voices() < 3 || chord.voices() > 12)
+        {
+            return chord;
+        }
+        if (!chord_has_finite_pitches(chord))
+        {
+            return chord;
+        }
+        if (!(g > 0.0))
+        {
+            g = 1.0;
+        }
+
+        int range_lift_bound = 0;
+        const int voices_i = chord.voices();
+        if (voices_i <= 4)
+        {
+            range_lift_bound = 2;
+        }
+        else if (voices_i <= 7)
+        {
+            range_lift_bound = 1;
+        }
+        else
+        {
+            range_lift_bound = 0;
+        }
+
+        auto score = [&](const Chord &c) -> double
+        {
+            const auto v = c.col(0).eval();
+            return static_cast<double>(v.squaredNorm());
+        };
+
+        auto lex_less = [&](const Chord &a, const Chord &b) -> bool
+        {
+            const int n = std::min(a.voices(), b.voices());
+            for (int i = 0; i < n; ++i)
+            {
+                const double diff = a.getPitch(i) - b.getPitch(i);
+                if (std::fabs(diff) <= 1.0e-12)
+                {
+                    continue;
+                }
+                return diff < 0.0;
+            }
+            return a.voices() < b.voices();
+        };
+
+        auto approx_equal = [&](double a, double b) -> bool
+        {
+            const double rel_eps = 1.0e-12;
+            const double scale = std::max(1.0, std::max(std::fabs(a), std::fabs(b)));
+            return std::fabs(a - b) <= rel_eps * scale;
+        };
+
+        auto better = [&](const Chord &a, const Chord &b) -> bool
+        {
+            const double sa = score(a);
+            const double sb = score(b);
+            if (!approx_equal(sa, sb))
+            {
+                return sa < sb;
+            }
+            return lex_less(a, b);
+        };
+
         bool found = false;
         Chord best;
 
-        auto prefer = [&](const Chord &a, const Chord &b) -> bool
+        auto consider = [&](const Chord &cand)
         {
-            const bool a_in = a.is_opt_sector(opt_sector);
-            const bool b_in = b.is_opt_sector(opt_sector);
-            if (a_in != b_in)
+            if (!found)
             {
-                return a_in;
-            }
-            return a < b;
-        };
-
-        auto consider = [&](const Chord &c)
-        {
-            if (!predicate<EQUIVALENCE_RELATION_RPTg>(c, range, g, opt_sector))
-            {
+                best = cand;
+                found = true;
                 return;
             }
-            if (!found || prefer(c, best))
+            if (better(cand, best))
             {
-                best = c;
-                found = true;
+                best = cand;
             }
         };
 
-        consider(chord);
-
-        auto rpts = chord.eRPTTs(range, g);
-        for (const auto &rpt : rpts)
+        enumerate_k(chord.voices(), range_lift_bound, [&](const Eigen::VectorXi &k)
         {
-            consider(rpt);
-        }
+            const Chord lifted = apply_range_lift_to_chord(chord, k, range);
+            const Chord tg = equate<EQUIVALENCE_RELATION_Tg>(lifted, range, g, 0);
+            const Chord p = sort_chord_ascending(tg);
+            consider(p);
+        });
 
         if (found)
         {
             return best;
         }
 
-        System::error("Error: Chord::equate<RPTg>: no representative in sector %d.\n", opt_sector);
-        for (const auto &rpt : rpts)
-        {
-            if (rpt.is_opt_sector(opt_sector))
-            {
-                return rpt;
-            }
-        }
-        if (!rpts.empty())
-        {
-            return rpts.front();
-        }
-        CHORDSPACE_EQUATE_FAIL("RPTg", chord, opt_sector);
-        System::error("Error:   Chord::equate<RPTg>: no representative in ANY candidate.\n");
-        return chord;
+        const Chord tg = equate<EQUIVALENCE_RELATION_Tg>(chord, range, g, 0);
+        return sort_chord_ascending(tg);
     }
-
     inline Chord Chord::eRPTT(double range, double g, int opt_sector) const
     {
         return csound::equate<EQUIVALENCE_RELATION_RPTg>(*this, range, g, opt_sector);
@@ -2818,89 +3227,168 @@ namespace csound
     //	EQUIVALENCE_RELATION_RPI
 
     template <>
-    inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPI>(const Chord &chord, double range, double g, int opt_sector)
+inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPI>(const Chord &chord, double range, double g, int opt_sector)
+{
+    const Chord rep = equate<EQUIVALENCE_RELATION_RPI>(chord, range, g, opt_sector);
+    if (rep.voices() != chord.voices())
     {
-        if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        if (predicate<EQUIVALENCE_RELATION_P>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        if (predicate<EQUIVALENCE_RELATION_I>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        return true;
+        return false;
     }
-
+    for (int v = 0; v < chord.voices(); ++v)
+    {
+        if (!eq_tolerance(chord.getPitch(v), rep.getPitch(v)))
+        {
+            return false;
+        }
+    }
+    return true;
+}
     inline bool Chord::iseRPI(double range, int opt_sector) const
     {
         return predicate<EQUIVALENCE_RELATION_RPI>(*this, range, 1.0, opt_sector);
     }
 
-    template <>
+        template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPI>(const Chord &chord, double range, double g, int opt_sector)
     {
-        if (predicate<EQUIVALENCE_RELATION_RPI>(chord, range, g, opt_sector))
+        (void)g;
+        (void)opt_sector;
+        if (!(std::isfinite(range) && range > 0.0))
+        {
+            return chord;
+        }
+        if (chord.voices() < 3 || chord.voices() > 12)
+        {
+            return chord;
+        }
+        if (!chord_has_finite_pitches(chord))
         {
             return chord;
         }
 
-        bool found = false;
-        Chord best;
-
-        auto consider = [&](const Chord &c)
+        int range_lift_bound = 0;
+        const int voices_i = chord.voices();
+        if (voices_i <= 4)
         {
-            if (!predicate<EQUIVALENCE_RELATION_RPI>(c, range, g, opt_sector))
+            range_lift_bound = 2;
+        }
+        else if (voices_i <= 7)
+        {
+            range_lift_bound = 1;
+        }
+        else
+        {
+            range_lift_bound = 0;
+        }
+
+        auto score = [&](const Chord &c) -> double
+        {
+            const auto v = c.col(0).eval();
+            return static_cast<double>(v.squaredNorm());
+        };
+
+        auto lex_less = [&](const Chord &a, const Chord &b) -> bool
+        {
+            const int n = std::min(a.voices(), b.voices());
+            for (int i = 0; i < n; ++i)
             {
+                const double diff = a.getPitch(i) - b.getPitch(i);
+                if (std::fabs(diff) <= 1.0e-12)
+                {
+                    continue;
+                }
+                return diff < 0.0;
+            }
+            return a.voices() < b.voices();
+        };
+
+        auto approx_equal = [&](double a, double b) -> bool
+        {
+            const double rel_eps = 1.0e-12;
+            const double scale = std::max(1.0, std::max(std::fabs(a), std::fabs(b)));
+            return std::fabs(a - b) <= rel_eps * scale;
+        };
+
+        auto better = [&](const Chord &a, const Chord &b) -> bool
+        {
+            const double sa = score(a);
+            const double sb = score(b);
+            if (!approx_equal(sa, sb))
+            {
+                return sa < sb;
+            }
+            return lex_less(a, b);
+        };
+
+        auto canonical_no_i = [&](const Chord &x) -> Chord
+        {
+            bool found = false;
+            Chord best;
+
+            auto consider = [&](const Chord &cand)
+            {
+                if (!found)
+                {
+                    best = cand;
+                    found = true;
+                    return;
+                }
+                if (better(cand, best))
+                {
+                    best = cand;
+                }
+            };
+
+            enumerate_k(x.voices(), range_lift_bound, [&](const Eigen::VectorXi &k)
+            {
+                const Chord lifted = apply_range_lift_to_chord(x, k, range);
+                const Chord gauged = equate<EQUIVALENCE_RELATION_T>(lifted, range, 1.0, 0);
+                const Chord canonical = sort_chord_ascending(gauged);
+                consider(canonical);
+            });
+
+            if (found)
+            {
+                return best;
+            }
+
+            const Chord gauged = equate<EQUIVALENCE_RELATION_T>(x, range, 1.0, 0);
+            return sort_chord_ascending(gauged);
+        };
+
+        bool found_all = false;
+        Chord best_all;
+
+        auto consider_all = [&](const Chord &cand)
+        {
+            if (!found_all)
+            {
+                best_all = cand;
+                found_all = true;
                 return;
             }
-            if (!found || c < best)
+            if (better(cand, best_all))
             {
-                best = c;
-                found = true;
+                best_all = cand;
             }
         };
 
-        consider(chord);
+        consider_all(canonical_no_i(chord));
 
-        // Path A: RP then I (plus one repair cycle).
-        Chord a0 = equate<EQUIVALENCE_RELATION_RP>(chord, range, g, opt_sector);
-        consider(a0);
-
-        Chord a1 = equate<EQUIVALENCE_RELATION_I>(a0, range, g, opt_sector);
-        consider(a1);
-
-        Chord a2 = equate<EQUIVALENCE_RELATION_RP>(a1, range, g, opt_sector);
-        consider(a2);
-
-        Chord a3 = equate<EQUIVALENCE_RELATION_I>(a2, range, g, opt_sector);
-        consider(a3);
-
-        // Path B: I then RP (plus one repair cycle).
-        Chord b0 = equate<EQUIVALENCE_RELATION_I>(chord, range, g, opt_sector);
-        consider(b0);
-
-        Chord b1 = equate<EQUIVALENCE_RELATION_RP>(b0, range, g, opt_sector);
-        consider(b1);
-
-        Chord b2 = equate<EQUIVALENCE_RELATION_I>(b1, range, g, opt_sector);
-        consider(b2);
-
-        Chord b3 = equate<EQUIVALENCE_RELATION_RP>(b2, range, g, opt_sector);
-        consider(b3);
-
-        if (found)
+        // Do not use opt_sector: try reflections across all inversion flats.
+        for (int s = 0; s < chord.voices(); ++s)
         {
-            return best;
+            const Chord reflected = reflect_in_inversion_flat(chord, s);
+            consider_all(canonical_no_i(reflected));
         }
 
-        CHORDSPACE_EQUATE_FAIL("RPI", chord, opt_sector);
-        return equate<EQUIVALENCE_RELATION_RP>(chord, range, g, opt_sector);
-    }
+        if (found_all)
+        {
+            return best_all;
+        }
 
+        return canonical_no_i(chord);
+    }
     inline Chord Chord::eRPI(double range, int opt_sector) const
     {
         return csound::equate<EQUIVALENCE_RELATION_RPI>(*this, range, 1.0, opt_sector);
@@ -2913,156 +3401,168 @@ namespace csound
     //	EQUIVALENCE_RELATION_RPTI
 
     template <>
-    inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTI>(const Chord &chord, double range, double g, int opt_sector)
+inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTI>(const Chord &chord, double range, double g, int opt_sector)
+{
+    const Chord rep = equate<EQUIVALENCE_RELATION_RPTI>(chord, range, g, opt_sector);
+    if (rep.voices() != chord.voices())
     {
-        if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        if (predicate<EQUIVALENCE_RELATION_P>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        if (chord.is_opt_sector(opt_sector) == false)
-        {
-            return false;
-        }
-        if (predicate<EQUIVALENCE_RELATION_T>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        if (predicate<EQUIVALENCE_RELATION_I>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        return true;
+        return false;
     }
-
+    for (int v = 0; v < chord.voices(); ++v)
+    {
+        if (!eq_tolerance(chord.getPitch(v), rep.getPitch(v)))
+        {
+            return false;
+        }
+    }
+    return true;
+}
     inline bool Chord::iseRPTI(double range, int opt_sector) const
     {
         return predicate<EQUIVALENCE_RELATION_RPTI>(*this, range, 1.0, opt_sector);
     }
 
-    template <>
+        template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const Chord &chord, double range, double g, int opt_sector)
     {
-        const auto domain_sectors = chord.opt_domain_sectors();
-        const bool boundary = (domain_sectors.size() > 1);
-
-        auto satisfies_in_requested = [&](const Chord &c) -> bool
+        (void)g;
+        (void)opt_sector;
+        if (!(std::isfinite(range) && range > 0.0))
         {
-            return predicate<EQUIVALENCE_RELATION_RPTI>(c, range, g, opt_sector);
-        };
-
-        // Boundary admissibility must include the requested sector as well as the chord's domain sectors.
-        auto satisfies_in_domain = [&](const Chord &c) -> bool
+            return chord;
+        }
+        if (chord.voices() < 3 || chord.voices() > 12)
         {
-            if (satisfies_in_requested(c))
-            {
-                return true;
-            }
-            if (!boundary)
-            {
-                return false;
-            }
-            for (int s : domain_sectors)
-            {
-                if (predicate<EQUIVALENCE_RELATION_RPTI>(c, range, g, s))
-                {
-                    return true;
-                }
-            }
-            return false;
-        };
-
-        bool found = false;
-        Chord best;
-
-        auto prefer = [&](const Chord &a, const Chord &b) -> bool
+            return chord;
+        }
+        if (!chord_has_finite_pitches(chord))
         {
-            const bool a_req = satisfies_in_requested(a);
-            const bool b_req = satisfies_in_requested(b);
-            if (a_req != b_req)
-            {
-                return a_req;
-            }
-            return a < b;
-        };
+            return chord;
+        }
 
-        auto consider = [&](const Chord &c)
+        int range_lift_bound = 0;
+        const int voices_i = chord.voices();
+        if (voices_i <= 4)
         {
-            if (!satisfies_in_domain(c))
-            {
-                return;
-            }
-            if (!found || prefer(c, best))
-            {
-                best = c;
-                found = true;
-            }
-        };
-
-        consider(chord);
-
-        auto run_paths_for_sector = [&](int s)
+            range_lift_bound = 2;
+        }
+        else if (voices_i <= 7)
         {
-            // Path A: RPT then I (plus one repair cycle).
-            Chord a0 = equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, s);
-            consider(a0);
-
-            Chord a1 = equate<EQUIVALENCE_RELATION_I>(a0, range, g, s);
-            consider(a1);
-
-            Chord a2 = equate<EQUIVALENCE_RELATION_RPT>(a1, range, g, s);
-            consider(a2);
-
-            Chord a3 = equate<EQUIVALENCE_RELATION_I>(a2, range, g, s);
-            consider(a3);
-
-            // Path B: I then RPT (plus one repair cycle).
-            Chord b0 = equate<EQUIVALENCE_RELATION_I>(chord, range, g, s);
-            consider(b0);
-
-            Chord b1 = equate<EQUIVALENCE_RELATION_RPT>(b0, range, g, s);
-            consider(b1);
-
-            Chord b2 = equate<EQUIVALENCE_RELATION_I>(b1, range, g, s);
-            consider(b2);
-
-            Chord b3 = equate<EQUIVALENCE_RELATION_RPT>(b2, range, g, s);
-            consider(b3);
-        };
-
-        if (!boundary)
-        {
-            run_paths_for_sector(opt_sector);
+            range_lift_bound = 1;
         }
         else
         {
-            bool have_requested = false;
-            for (int s : domain_sectors)
-            {
-                if (s == opt_sector)
-                {
-                    have_requested = true;
-                }
-                run_paths_for_sector(s);
-            }
-            if (!have_requested)
-            {
-                run_paths_for_sector(opt_sector);
-            }
+            range_lift_bound = 0;
         }
 
-        if (found)
+        auto score = [&](const Chord &c) -> double
         {
-            return best;
+            const auto v = c.col(0).eval();
+            return static_cast<double>(v.squaredNorm());
+        };
+
+        auto lex_less = [&](const Chord &a, const Chord &b) -> bool
+        {
+            const int n = std::min(a.voices(), b.voices());
+            for (int i = 0; i < n; ++i)
+            {
+                const double diff = a.getPitch(i) - b.getPitch(i);
+                if (std::fabs(diff) <= 1.0e-12)
+                {
+                    continue;
+                }
+                return diff < 0.0;
+            }
+            return a.voices() < b.voices();
+        };
+
+        auto approx_equal = [&](double a, double b) -> bool
+        {
+            const double rel_eps = 1.0e-12;
+            const double scale = std::max(1.0, std::max(std::fabs(a), std::fabs(b)));
+            return std::fabs(a - b) <= rel_eps * scale;
+        };
+
+        auto better = [&](const Chord &a, const Chord &b) -> bool
+        {
+            const double sa = score(a);
+            const double sb = score(b);
+            if (!approx_equal(sa, sb))
+            {
+                return sa < sb;
+            }
+            return lex_less(a, b);
+        };
+
+        auto canonical_no_i = [&](const Chord &x) -> Chord
+        {
+            bool found = false;
+            Chord best;
+
+            auto consider = [&](const Chord &cand)
+            {
+                if (!found)
+                {
+                    best = cand;
+                    found = true;
+                    return;
+                }
+                if (better(cand, best))
+                {
+                    best = cand;
+                }
+            };
+
+            enumerate_k(x.voices(), range_lift_bound, [&](const Eigen::VectorXi &k)
+            {
+                const Chord lifted = apply_range_lift_to_chord(x, k, range);
+                const Chord gauged = equate<EQUIVALENCE_RELATION_T>(lifted, range, 1.0, 0);
+                const Chord canonical = sort_chord_ascending(gauged);
+                consider(canonical);
+            });
+
+            if (found)
+            {
+                return best;
+            }
+
+            const Chord gauged = equate<EQUIVALENCE_RELATION_T>(x, range, 1.0, 0);
+            return sort_chord_ascending(gauged);
+        };
+
+        bool found_all = false;
+        Chord best_all;
+
+        auto consider_all = [&](const Chord &cand)
+        {
+            if (!found_all)
+            {
+                best_all = cand;
+                found_all = true;
+                return;
+            }
+            if (better(cand, best_all))
+            {
+                best_all = cand;
+            }
+        };
+
+        consider_all(canonical_no_i(chord));
+
+        // Do not use opt_sector: try reflections across all inversion flats.
+        for (int s = 0; s < chord.voices(); ++s)
+        {
+            const Chord reflected = reflect_in_inversion_flat(chord, s);
+            consider_all(canonical_no_i(reflected));
         }
 
-        CHORDSPACE_EQUATE_FAIL("RPTI", chord, opt_sector);
-        return equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, opt_sector);
-    }
+        if (found_all)
+        {
+            return best_all;
+        }
 
+        return canonical_no_i(chord);
+    }
     inline Chord Chord::eRPTI(double range, int opt_sector) const
     {
         return csound::equate<EQUIVALENCE_RELATION_RPTI>(*this, range, 1.0, opt_sector);
@@ -3071,189 +3571,171 @@ namespace csound
     //	EQUIVALENCE_RELATION_RPTgI
 
     template <>
-    inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord, double range, double g, int opt_sector)
+inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord, double range, double g, int opt_sector)
+{
+    const Chord rep = equate<EQUIVALENCE_RELATION_RPTgI>(chord, range, g, opt_sector);
+    if (rep.voices() != chord.voices())
     {
-        if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        if (predicate<EQUIVALENCE_RELATION_P>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        if (chord.is_opt_sector(opt_sector) == false)
-        {
-            return false;
-        }
-        if (predicate<EQUIVALENCE_RELATION_Tg>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        if (predicate<EQUIVALENCE_RELATION_I>(chord, range, g, opt_sector) == false)
-        {
-            return false;
-        }
-        return true;
+        return false;
     }
-
+    for (int v = 0; v < chord.voices(); ++v)
+    {
+        if (!eq_tolerance(chord.getPitch(v), rep.getPitch(v)))
+        {
+            return false;
+        }
+    }
+    return true;
+}
     inline bool Chord::iseRPTTI(double range, double g, int opt_sector) const
     {
         return predicate<EQUIVALENCE_RELATION_RPTgI>(*this, range, g, opt_sector);
     }
 
-    template <>
+        template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord, double range, double g, int opt_sector)
     {
-        const auto domain_sectors = chord.opt_domain_sectors();
-
-        auto satisfies_in_requested = [&](const Chord &c) -> bool
+        (void)opt_sector;
+        if (!(std::isfinite(range) && range > 0.0))
         {
-            return predicate<EQUIVALENCE_RELATION_RPTgI>(c, range, g, opt_sector);
+            return chord;
+        }
+        if (chord.voices() < 3 || chord.voices() > 12)
+        {
+            return chord;
+        }
+        if (!chord_has_finite_pitches(chord))
+        {
+            return chord;
+        }
+        if (!(g > 0.0))
+        {
+            g = 1.0;
+        }
+
+        int range_lift_bound = 0;
+        const int voices_i = chord.voices();
+        if (voices_i <= 4)
+        {
+            range_lift_bound = 2;
+        }
+        else if (voices_i <= 7)
+        {
+            range_lift_bound = 1;
+        }
+        else
+        {
+            range_lift_bound = 0;
+        }
+
+        auto score = [&](const Chord &c) -> double
+        {
+            const auto v = c.col(0).eval();
+            return static_cast<double>(v.squaredNorm());
         };
 
-        // Admit a candidate if it satisfies the requested sector, or any sector at all.
-        // This prevents "no representative" failures caused by overly strict sector gating.
-        auto satisfies_any_sector = [&](const Chord &c) -> bool
+        auto lex_less = [&](const Chord &a, const Chord &b) -> bool
         {
-            for (int s = 0; s < 6; ++s)
+            const int n = std::min(a.voices(), b.voices());
+            for (int i = 0; i < n; ++i)
             {
-                if (predicate<EQUIVALENCE_RELATION_RPTgI>(c, range, g, s))
+                const double diff = a.getPitch(i) - b.getPitch(i);
+                if (std::fabs(diff) <= 1.0e-12)
                 {
-                    return true;
+                    continue;
                 }
+                return diff < 0.0;
             }
-            return false;
+            return a.voices() < b.voices();
         };
 
-        bool found = false;
-        Chord best;
-
-        auto prefer = [&](const Chord &a, const Chord &b) -> bool
+        auto approx_equal = [&](double a, double b) -> bool
         {
-            const bool a_req = satisfies_in_requested(a);
-            const bool b_req = satisfies_in_requested(b);
-            if (a_req != b_req)
-            {
-                return a_req; // prefer requested sector when possible
-            }
-            return a < b; // deterministic tie-break
+            const double rel_eps = 1.0e-12;
+            const double scale = std::max(1.0, std::max(std::fabs(a), std::fabs(b)));
+            return std::fabs(a - b) <= rel_eps * scale;
         };
 
-        auto consider = [&](const Chord &c)
+        auto better = [&](const Chord &a, const Chord &b) -> bool
         {
-            if (!satisfies_any_sector(c))
+            const double sa = score(a);
+            const double sb = score(b);
+            if (!approx_equal(sa, sb))
             {
+                return sa < sb;
+            }
+            return lex_less(a, b);
+        };
+
+        auto canonical_no_i = [&](const Chord &x) -> Chord
+        {
+            bool found = false;
+            Chord best;
+
+            auto consider = [&](const Chord &cand)
+            {
+                if (!found)
+                {
+                    best = cand;
+                    found = true;
+                    return;
+                }
+                if (better(cand, best))
+                {
+                    best = cand;
+                }
+            };
+
+            enumerate_k(x.voices(), range_lift_bound, [&](const Eigen::VectorXi &k)
+            {
+                const Chord lifted = apply_range_lift_to_chord(x, k, range);
+                const Chord gauged = equate<EQUIVALENCE_RELATION_Tg>(lifted, range, g, 0);
+                const Chord canonical = sort_chord_ascending(gauged);
+                consider(canonical);
+            });
+
+            if (found)
+            {
+                return best;
+            }
+
+            const Chord gauged = equate<EQUIVALENCE_RELATION_Tg>(x, range, g, 0);
+            return sort_chord_ascending(gauged);
+        };
+
+        bool found_all = false;
+        Chord best_all;
+
+        auto consider_all = [&](const Chord &cand)
+        {
+            if (!found_all)
+            {
+                best_all = cand;
+                found_all = true;
                 return;
             }
-            if (!found || prefer(c, best))
+            if (better(cand, best_all))
             {
-                best = c;
-                found = true;
+                best_all = cand;
             }
         };
 
-        auto try_equate_rptg = [&](const Chord &c, int s, Chord &out) -> bool
+        consider_all(canonical_no_i(chord));
+
+        // Do not use opt_sector: try reflections across all inversion flats.
+        for (int s = 0; s < chord.voices(); ++s)
         {
-            try
-            {
-                out = equate<EQUIVALENCE_RELATION_RPTg>(c, range, g, s);
-                return true;
-            }
-            catch (const csound::equate_failure &)
-            {
-                return false;
-            }
-        };
-
-        auto try_equate_i = [&](const Chord &c, int s, Chord &out) -> bool
-        {
-            try
-            {
-                out = equate<EQUIVALENCE_RELATION_I>(c, range, g, s);
-                return true;
-            }
-            catch (const csound::equate_failure &)
-            {
-                return false;
-            }
-        };
-
-        consider(chord);
-
-        auto run_paths_for_sector = [&](int s)
-        {
-            // Path A: RPTg then I (plus one repair cycle).
-            Chord a0, a1, a2, a3;
-            if (try_equate_rptg(chord, s, a0))
-            {
-                consider(a0);
-                if (try_equate_i(a0, s, a1))
-                {
-                    consider(a1);
-                    if (try_equate_rptg(a1, s, a2))
-                    {
-                        consider(a2);
-                        if (try_equate_i(a2, s, a3))
-                        {
-                            consider(a3);
-                        }
-                    }
-                }
-            }
-
-            // Path B: I then RPTg (plus one repair cycle).
-            Chord b0, b1, b2, b3;
-            if (try_equate_i(chord, s, b0))
-            {
-                consider(b0);
-                if (try_equate_rptg(b0, s, b1))
-                {
-                    consider(b1);
-                    if (try_equate_i(b1, s, b2))
-                    {
-                        consider(b2);
-                        if (try_equate_rptg(b2, s, b3))
-                        {
-                            consider(b3);
-                        }
-                    }
-                }
-            }
-        };
-
-        // Always try the requested sector first.
-        run_paths_for_sector(opt_sector);
-
-        // Then try the chord's own domain sectors.
-        for (int s : domain_sectors)
-        {
-            if (s != opt_sector)
-            {
-                run_paths_for_sector(s);
-            }
+            const Chord reflected = reflect_in_inversion_flat(chord, s);
+            consider_all(canonical_no_i(reflected));
         }
 
-        // Finally, try all sectors to guarantee a total representative selection.
-        // This avoids aborting higher-level enumerations.
-        for (int s = 0; s < 6; ++s)
+        if (found_all)
         {
-            if (s != opt_sector)
-            {
-                run_paths_for_sector(s);
-            }
+            return best_all;
         }
 
-        if (found)
-        {
-            return best;
-        }
-
-        // Last resort: never throw here; return something deterministic.
-        // Prefer an OPT-sector-agnostic fallback if possible.
-        System::error("Error:   Chord::equate<RPTgI>: no representative found; returning input chord. opt_sector=%d\n", opt_sector);
-        return chord;
+        return canonical_no_i(chord);
     }
-
     inline Chord Chord::eRPTTI(double range, double g, int opt_sector) const
     {
         return csound::equate<EQUIVALENCE_RELATION_RPTgI>(*this, range, g, opt_sector);
