@@ -1318,6 +1318,223 @@ namespace csound
      */
     SILENCE_PUBLIC double euclidean(const csound::Chord &a, const csound::Chord &b);
 
+    struct Canonicalize_result_chord
+    {
+        Chord canonical;
+        Eigen::VectorXi best_k;
+        double score = 0.0;
+        bool found = false;
+    };
+
+    inline SILENCE_PUBLIC bool chord_has_valid_dimensions(const Chord &chord)
+    {
+        const int n = static_cast<int>(chord.voices());
+        return (n >= 3 && n <= 12);
+    }
+
+    inline SILENCE_PUBLIC bool chord_has_finite_pitches(const Chord &chord)
+    {
+        for (size_t v = 0; v < chord.voices(); ++v)
+        {
+            if (!std::isfinite(chord.getPitch(v)))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    inline SILENCE_PUBLIC Chord sort_chord_ascending(const Chord &chord)
+    {
+        Chord out = chord;
+
+        std::vector<double> tmp;
+        tmp.reserve(chord.voices());
+        for (size_t v = 0; v < chord.voices(); ++v)
+        {
+            tmp.push_back(chord.getPitch(v));
+        }
+
+        std::sort(tmp.begin(), tmp.end());
+
+        for (size_t v = 0; v < chord.voices(); ++v)
+        {
+            out.setPitch(v, tmp[v]);
+        }
+
+        return out;
+    }
+
+    inline SILENCE_PUBLIC double chord_squared_norm_col0(const Chord &chord)
+    {
+        // Force evaluation to avoid Eigen expression/lifetime surprises.
+        const auto v = chord.col(0).eval();
+        return static_cast<double>(v.squaredNorm());
+    }
+
+    inline SILENCE_PUBLIC bool lex_less_chord(const Chord &a, const Chord &b, double eps)
+    {
+        const size_t n = std::min(a.voices(), b.voices());
+        for (size_t i = 0; i < n; ++i)
+        {
+            const double da = a.getPitch(i);
+            const double db = b.getPitch(i);
+            const double diff = da - db;
+            if (std::fabs(diff) <= eps)
+            {
+                continue;
+            }
+            return diff < 0.0;
+        }
+        return a.voices() < b.voices();
+    }
+
+    inline SILENCE_PUBLIC bool lex_less_k(const Eigen::VectorXi &a, const Eigen::VectorXi &b)
+    {
+        const int n = std::min(a.size(), b.size());
+        for (int i = 0; i < n; ++i)
+        {
+            if (a(i) != b(i))
+            {
+                return a(i) < b(i);
+            }
+        }
+        return a.size() < b.size();
+    }
+
+    inline SILENCE_PUBLIC bool approx_equal(double a, double b, double rel_eps)
+    {
+        const double scale = std::max(1.0, std::max(std::fabs(a), std::fabs(b)));
+        return std::fabs(a - b) <= rel_eps * scale;
+    }
+
+    template <typename Fn>
+    inline SILENCE_PUBLIC void enumerate_k(int n, int bound, Fn fn)
+    {
+        Eigen::VectorXi k = Eigen::VectorXi::Zero(n);
+        if (n <= 1)
+        {
+            fn(k);
+            return;
+        }
+
+        std::function<void(int)> rec = [&](int idx)
+        {
+            if (idx >= n)
+            {
+                fn(k);
+                return;
+            }
+            for (int v = -bound; v <= bound; ++v)
+            {
+                k(idx) = v;
+                rec(idx + 1);
+            }
+        };
+
+        k(0) = 0;
+        rec(1);
+    }
+
+    inline SILENCE_PUBLIC Chord apply_range_lift_to_chord(
+        const Chord &chord,
+        const Eigen::VectorXi &k,
+        double range)
+    {
+        Chord out = chord;
+        const int n = static_cast<int>(chord.voices());
+        for (int i = 0; i < n; ++i)
+        {
+            const double p = out.getPitch(static_cast<size_t>(i));
+            out.setPitch(static_cast<size_t>(i), p + static_cast<double>(k(i)) * range);
+        }
+        return out;
+    }
+
+    inline SILENCE_PUBLIC Canonicalize_result_chord canonicalize_rtp_chord(
+        const Chord &chord,
+        double range,
+        int range_lift_bound,
+        double rel_eps = 1.0e-12,
+        double lex_eps = 1.0e-12)
+    {
+        Canonicalize_result_chord res;
+
+        if (!chord_has_valid_dimensions(chord))
+        {
+            return res;
+        }
+        if (!chord_has_finite_pitches(chord))
+        {
+            return res;
+        }
+        if (!(std::isfinite(range) && range > 0.0))
+        {
+            return res;
+        }
+        if (range_lift_bound < 0)
+        {
+            range_lift_bound = 0;
+        }
+
+        auto consider = [&](const Chord &cand, const Eigen::VectorXi &k)
+        {
+            const double cand_score = chord_squared_norm_col0(cand);
+
+            if (!res.found)
+            {
+                res.canonical = cand;
+                res.best_k = k;
+                res.score = cand_score;
+                res.found = true;
+                return;
+            }
+
+            if (!approx_equal(cand_score, res.score, rel_eps))
+            {
+                if (cand_score < res.score)
+                {
+                    res.canonical = cand;
+                    res.best_k = k;
+                    res.score = cand_score;
+                }
+                return;
+            }
+
+            if (lex_less_chord(cand, res.canonical, lex_eps))
+            {
+                res.canonical = cand;
+                res.best_k = k;
+                res.score = cand_score;
+                return;
+            }
+
+            if (!lex_less_chord(res.canonical, cand, lex_eps) && lex_less_k(k, res.best_k))
+            {
+                res.canonical = cand;
+                res.best_k = k;
+                res.score = cand_score;
+                return;
+            }
+        };
+
+        const int n = static_cast<int>(chord.voices());
+        enumerate_k(n, range_lift_bound, [&](const Eigen::VectorXi &k)
+        {
+            const Chord lifted = apply_range_lift_to_chord(chord, k, range);
+
+            // Your T canonicalization: mean removal via layer()==0.
+            const Chord t_gauged = lifted.eT();
+
+            // Permutation canonicalization: sort pitches.
+            const Chord sorted = sort_chord_ascending(t_gauged);
+
+            consider(sorted, k);
+        });
+
+        return res;
+    }
+
     /**
      * Enums for all defined equivalence relations, used to specialize template
      * functions. If relation R takes no range argument, it defaults to a range of
@@ -1446,6 +1663,8 @@ namespace csound
     template <int EQUIVALENCE_RELATION>
     SILENCE_PUBLIC bool predicate(const Chord &chord,
                                   double range, double g, int opt_sector);
+    template <>
+    SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_r>(const Chord &chord, double range, double g, int opt_sector);
 
     /**
      * Returns a chord with the specified number of voices all set to a first
@@ -1499,6 +1718,9 @@ namespace csound
     SILENCE_PUBLIC Chord equate(const Chord &chord,
                                 double range, double g, int opt_sector);
 
+    template <>
+    SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_r>(const Chord &chord, double range, double g, int opt_sector);
+    
     /**
      * Returns the nth octavewise revoicing of the chord that is generated by iterating
      * revoicings within the indicated range.
@@ -1878,37 +2100,69 @@ namespace csound
     }
 
     template <>
-    inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_r>(const Chord &chord, double range, double g, int opt_sector)
+    inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_r>(const Chord &chord, double range, double g, int opt_sector)
     {
-        Chord normal = chord;
+        (void)g;
+        (void)opt_sector;
+
+        if (!(std::isfinite(range) && range > 0.0))
+        {
+            return false;
+        }
+
         for (int voice = 0; voice < chord.voices(); ++voice)
         {
-            double pitch = chord.getPitch(voice);
-            pitch = modulo(pitch, range);
-            normal.setPitch(voice, pitch);
+            const double p = chord.getPitch(voice);
+            if (!std::isfinite(p))
+            {
+                return false;
+            }
+            if (!le_tolerance(0.0, p))
+            {
+                return false;
+            }
+            if (!lt_tolerance(p, range))
+            {
+                return false;
+            }
         }
-        return normal;
+
+        return true;
     }
 
     template <>
     inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_R>(const Chord &chord, double range, double g, int opt_sector)
     {
-        double max = chord.max()[0];
-        double min = chord.min()[0];
-        double min_plus_range = min + range;
-        if (le_tolerance(max, min_plus_range) == false)
+        (void)g;
+        (void)opt_sector;
+
+        if (!(std::isfinite(range) && range > 0.0))
         {
             return false;
         }
-        double sum_ = chord.layer();
-        if (le_tolerance(0., sum_) == false)
+        if (!chord_has_finite_pitches(chord))
         {
             return false;
         }
-        if (le_tolerance(sum_, range) == false)
+
+        const double max_p = chord.max()[0];
+        const double min_p = chord.min()[0];
+
+        if (!le_tolerance(max_p, min_p + range))
         {
             return false;
         }
+
+        const double layer = chord.layer();
+        if (!le_tolerance(0.0, layer))
+        {
+            return false;
+        }
+        if (!le_tolerance(layer, range))
+        {
+            return false;
+        }
+
         return true;
     }
 
@@ -1985,28 +2239,61 @@ namespace csound
     return most_compact_er;
     */
     template <>
-    inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_R>(const Chord &chord, double range_, double g, int opt_sector)
+    inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_R>(const Chord &chord, double range, double g, int opt_sector)
     {
-        CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_R>: chord: %s normal: %d\n", chord.toString().c_str(), chord.iseR(range_));
-        if (predicate<EQUIVALENCE_RELATION_R>(chord, range_, g, opt_sector) == true)
+        (void)g;
+        (void)opt_sector;
+
+        if (!(std::isfinite(range) && range > 0.0))
         {
-            Chord copy = chord;
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_R>: returning copy: %s normal: %d\n", copy.toString().c_str(), copy.iseR(range_));
-            return copy;
+            return chord;
         }
-        Chord er = equate<EQUIVALENCE_RELATION_r>(chord, range_, g, opt_sector);
-        CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_R>: starting with er: %s normal: %d\n", er.toString().c_str(), er.iseR(range_));
-        while (le_tolerance(er.layer(), range_) == false)
+        if (!chord_has_finite_pitches(chord))
         {
-            std::vector<double> maximum = er.max();
-            double maximum_pitch = maximum[0];
-            double new_pitch = maximum_pitch - range_;
-            double maximum_voice = maximum[1];
-            er.setPitch(maximum_voice, new_pitch);
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_R>: revoiced er: %s normal: %d\n", er.toString().c_str(), er.iseR(range_));
+            return chord;
         }
-        CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_R>: returning er: %s normal: %d\n", er.toString().c_str(), er.iseR(range_));
-        return er;
+
+        if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, opt_sector))
+        {
+            return chord;
+        }
+
+        Chord out = equate<EQUIVALENCE_RELATION_r>(chord, range, g, opt_sector);
+
+        // Bounded “revoice down” until layer <= range.
+        // In practice this should converge quickly; bound defensively.
+        const int max_steps = 8 * static_cast<int>(std::max<size_t>(1, out.voices()));
+        int steps = 0;
+
+        while (!le_tolerance(out.layer(), range) && steps < max_steps)
+        {
+            const std::vector<double> mx = out.max();
+            const double max_pitch = mx[0];
+            const int max_voice = static_cast<int>(mx[1]);
+
+            out.setPitch(max_voice, max_pitch - range);
+            ++steps;
+        }
+
+        // Final numeric repair (keep the intended half-closed band).
+        const double layer = out.layer();
+        if (lt_tolerance(layer, 0.0))
+        {
+            // Shift the whole chord up just enough to bring layer to >= 0.
+            // This does NOT change span; it only changes the transposition gauge.
+            const double n = static_cast<double>(out.voices());
+            const double delta = (-layer) / n;
+            out = out.T(delta);
+        }
+        else if (!le_tolerance(layer, range))
+        {
+            // Rare FP drift or failure to converge: do a single corrective gauge.
+            const double n = static_cast<double>(out.voices());
+            const double delta = (range - layer) / n;
+            out = out.T(delta);
+        }
+
+        return out;
     }
 
     inline Chord Chord::eR(double range) const
@@ -2017,11 +2304,15 @@ namespace csound
     template <>
     inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_P>(const Chord &chord, double range, double g, int opt_sector)
     {
-        for (size_t voice = 1; voice < chord.voices(); voice++)
+        (void)range;
+        (void)g;
+        (void)opt_sector;
+
+        for (size_t voice = 1; voice < chord.voices(); ++voice)
         {
-            double a = chord.getPitch(voice - 1);
-            double b = chord.getPitch(voice);
-            if (le_tolerance(a, b) == false)
+            const double a = chord.getPitch(voice - 1);
+            const double b = chord.getPitch(voice);
+            if (!le_tolerance(a, b))
             {
                 return false;
             }
@@ -2037,22 +2328,11 @@ namespace csound
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_P>(const Chord &chord, double range, double g, int opt_sector)
     {
-        Chord normal = chord;
-        bool sorted = false;
-        // A bubble sort is adequate for small numbers of elements.
-        while (!sorted)
-        {
-            sorted = true;
-            for (int voice = 1; voice < normal.voices(); voice++)
-            {
-                if (gt_tolerance(normal.getPitch(voice - 1), normal.getPitch(voice)))
-                {
-                    sorted = false;
-                    normal.row(voice - 1).swap(normal.row(voice));
-                }
-            }
-        }
-        return normal;
+        (void)range;
+        (void)g;
+        (void)opt_sector;
+
+        return sort_chord_ascending(chord);
     }
 
     inline Chord Chord::eP() const
@@ -2085,11 +2365,20 @@ namespace csound
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_T>(const Chord &chord, double range, double g, int opt_sector)
     {
-        Chord result = chord;
-        double sum = chord.layer();
-        double sum_per_voice = sum / chord.voices();
-        result = result.T(-sum_per_voice);
-        return result;
+        (void)range;
+        (void)g;
+        (void)opt_sector;
+
+        if (chord.voices() == 0)
+        {
+            return chord;
+        }
+
+        const double layer = chord.layer();
+        const double n = static_cast<double>(chord.voices());
+        const double shift = -layer / n;
+
+        return chord.T(shift);
     }
 
     inline Chord Chord::eT() const
@@ -2102,12 +2391,11 @@ namespace csound
     template <>
     inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int opt_sector)
     {
-        // Tg-normal means "already equal to its Tg canonical representative".
-        const Chord tt = equate<EQUIVALENCE_RELATION_Tg>(chord, range, g, opt_sector);
-        // Compare chord to tt component-wise with tolerance.
+        const Chord rep = equate<EQUIVALENCE_RELATION_Tg>(chord, range, g, opt_sector);
+
         for (size_t v = 0; v < chord.voices(); ++v)
         {
-            if (!eq_tolerance(chord.getPitch(v), tt.getPitch(v)))
+            if (!eq_tolerance(chord.getPitch(v), rep.getPitch(v)))
             {
                 return false;
             }
@@ -2121,42 +2409,51 @@ namespace csound
         (void)range;
         (void)opt_sector;
 
-        // Defensive: a non-positive grid does not define a meaningful quantizer.
         if (!(g > 0.0))
         {
             g = 1.0;
         }
 
-        // 1) Send to the T-hyperplane (layer == 0).
-        Chord result = chord.eT();
+        if (chord.voices() == 0)
+        {
+            return chord;
+        }
+
+        // 1) Fix transposition gauge.
+        Chord out = equate<EQUIVALENCE_RELATION_T>(chord, OCTAVE(), 1.0, 0);
 
         // 2) Quantize each pitch upward to the g-grid.
-        for (size_t v = 0; v < result.voices(); ++v)
+        for (size_t v = 0; v < out.voices(); ++v)
         {
-            const double p = result.getPitch(v);
+            const double p = out.getPitch(v);
             const double q = std::ceil(p / g) * g;
-            result.setPitch(v, q);
+            out.setPitch(v, q);
         }
 
-        // 3) Numerics-only repair: in exact arithmetic, layer is in [0, voices*g).
-        // Allow for small FP drift around 0.
-        const double n = static_cast<double>(result.voices());
-        if (lt_tolerance(result.layer(), 0.0))
+        // 3) Repair gauge deterministically so layer is in [0, n*g).
+        const double n = static_cast<double>(out.voices());
+        double layer = out.layer();
+
+        // Bring layer into [0, n*g) by whole-chord shifts of size g.
+        // Note: shifting all voices by +/-g changes layer by +/-n*g.
+        if (lt_tolerance(layer, 0.0))
         {
-            result = result.T(g);
+            const double steps = std::ceil((-layer) / (n * g));
+            out = out.T(steps * g);
+            layer = out.layer();
         }
-        else if (!lt_tolerance(result.layer(), n * g))
+        if (!lt_tolerance(layer, n * g))
         {
-            // Very unlikely unless extreme FP drift; bring back into the half-open interval.
-            const double steps = std::floor(result.layer() / (n * g));
-            result = result.T(-steps * g);
-            if (!lt_tolerance(result.layer(), n * g))
+            const double steps = std::floor(layer / (n * g));
+            out = out.T(-steps * g);
+            layer = out.layer();
+            if (!lt_tolerance(layer, n * g))
             {
-                result = result.T(-g);
+                out = out.T(-g);
             }
         }
 
-        return result;
+        return out;
     }
 
     inline Chord Chord::eTT(double g) const
@@ -2177,13 +2474,25 @@ namespace csound
         (void)range;
         (void)g;
 
-        // Inversion-flat points are representatives in every relevant sector.
-        if (chord.self_inverse(opt_sector))
+        if (chord.voices() == 0)
+        {
+            return false;
+        }
+        if (!chord_has_finite_pitches(chord))
+        {
+            return false;
+        }
+
+        // On the inversion flat => representative for both halves.
+        const HyperplaneEquation hp = chord.hyperplane_equation(opt_sector);
+        const auto v = chord.col(0).eval();
+        const double side = static_cast<double>((v.adjoint() * hp.unit_normal_vector)(0, 0)) - hp.constant_term;
+        if (eq_tolerance(side, 0.0))
         {
             return true;
         }
 
-        // Otherwise: OPTI representative is the "minor" half of the requested OPT sector.
+        // Otherwise choose the "minor half" of the OPT sector.
         const int minor_opti_sector = opt_sector * 2;
         return chord.is_opti_sector(minor_opti_sector);
     }
@@ -2196,14 +2505,15 @@ namespace csound
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int opt_sector)
     {
-        if (predicate<EQUIVALENCE_RELATION_I>(chord, range, g, opt_sector) == true)
+        (void)range;
+        (void)g;
+
+        if (predicate<EQUIVALENCE_RELATION_I>(chord, OCTAVE(), 1.0, opt_sector))
         {
             return chord;
         }
-        else
-        {
-            return reflect_in_inversion_flat(chord, opt_sector);
-        }
+
+        return reflect_in_inversion_flat(chord, opt_sector);
     }
 
     inline Chord Chord::eI(int opt_sector) const
@@ -2235,9 +2545,9 @@ namespace csound
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, double range, double g, int opt_sector)
     {
-        Chord normal = equate<EQUIVALENCE_RELATION_R>(chord, range, g, opt_sector);
-        normal = equate<EQUIVALENCE_RELATION_P>(normal, range, g, opt_sector);
-        return normal;
+        Chord out = equate<EQUIVALENCE_RELATION_R>(chord, range, g, opt_sector);
+        out = equate<EQUIVALENCE_RELATION_P>(out, range, g, opt_sector);
+        return out;
     }
 
     inline Chord Chord::eRP(double range) const
@@ -2247,16 +2557,14 @@ namespace csound
 
     //  EQUIVALENCE_RELATION_RT
 
-    //  EQUIVALENCE_RELATION_RT
-
     template <>
     inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RT>(const Chord &chord, double range, double g, int opt_sector)
     {
-        if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, opt_sector) == false)
+        if (!predicate<EQUIVALENCE_RELATION_R>(chord, range, g, opt_sector))
         {
             return false;
         }
-        if (predicate<EQUIVALENCE_RELATION_T>(chord, range, g, opt_sector) == false)
+        if (!predicate<EQUIVALENCE_RELATION_T>(chord, range, g, opt_sector))
         {
             return false;
         }
@@ -2271,9 +2579,9 @@ namespace csound
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RT>(const Chord &chord, double range, double g, int opt_sector)
     {
-        Chord normal = equate<EQUIVALENCE_RELATION_R>(chord, range, g, opt_sector);
-        normal = equate<EQUIVALENCE_RELATION_T>(normal, range, g, opt_sector);
-        return normal;
+        Chord out = equate<EQUIVALENCE_RELATION_R>(chord, range, g, opt_sector);
+        out = equate<EQUIVALENCE_RELATION_T>(out, range, g, opt_sector);
+        return out;
     }
 
     inline Chord Chord::eRT(double range) const
@@ -5185,21 +5493,46 @@ namespace csound
     }
 
     template <>
-    inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_r>(const Chord &chord, double range, double g, int opt_sector)
+    inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_r>(const Chord &chord, double range, double g, int opt_sector)
     {
+        (void)g;
+        (void)opt_sector;
+
+        if (!(std::isfinite(range) && range > 0.0))
+        {
+            return chord;
+        }
+
+        Chord out = chord;
+
         for (int voice = 0; voice < chord.voices(); ++voice)
         {
-            double pitch = chord.getPitch(voice);
-            if (le_tolerance(0., pitch) == false)
+            const double p = chord.getPitch(voice);
+            if (!std::isfinite(p))
             {
-                return false;
+                out.setPitch(voice, 0.0);
+                continue;
             }
-            if (lt_tolerance(pitch, range) == false)
+            double m = modulo(p, range);
+
+            // Enforce half-open interval [0, range).
+            if (eq_tolerance(m, range))
             {
-                return false;
+                m = 0.0;
             }
+            if (lt_tolerance(m, 0.0))
+            {
+                m = 0.0;
+            }
+            if (!lt_tolerance(m, range))
+            {
+                m = 0.0;
+            }
+
+            out.setPitch(voice, m);
         }
-        return true;
+
+        return out;
     }
 
     inline SILENCE_PUBLIC Chord iterator(int voiceN, double first)
