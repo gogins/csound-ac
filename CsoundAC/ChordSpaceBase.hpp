@@ -5398,7 +5398,6 @@ namespace csound
 
     inline SILENCE_PUBLIC Vector reflect_vector(const Vector &v, const Vector &u, double c)
     {
-        // Guard against empty or inconsistent inputs. Eigen may crash on dot() with size 0 under vectorization.
         if (v.size() == 0 || u.size() == 0)
         {
             return v;
@@ -5413,13 +5412,13 @@ namespace csound
         const double u_dot_u = double(u.dot(u));
         if (u_dot_u == 0.0)
         {
-            System::error("Error: reflect_vector: degenerate normal vector (u.dot(u)==0)\n");
+            System::error("Error: reflect_vector: degenerate normal vector\n");
             return v;
         }
 
         const double v_dot_u = double(v.dot(u));
         const double quotient = (v_dot_u - c) / u_dot_u;
-        const Vector reflection = v - (u * (2.0 * quotient));
+        Vector reflection = v - (u * (2.0 * quotient));
         return reflection;
     }
 
@@ -5525,7 +5524,9 @@ namespace csound
         Chord result = chord;
         const int dimensions = chord.voices();
         const HyperplaneEquation hyperplane = chord.hyperplane_equation(opt_sector);
-        auto reflected = reflect_vector(chord.col(0), hyperplane.unit_normal_vector, hyperplane.constant_term);
+        const Vector v = chord.col(0).eval();
+        const Vector u = hyperplane.unit_normal_vector.eval();
+        const auto reflected = reflect_vector(v, u, hyperplane.constant_term);
         for (int voice = 0; voice < dimensions; ++voice)
         {
             result.setPitch(voice, reflected(voice, 0));
@@ -6076,11 +6077,24 @@ namespace csound
 
     inline HyperplaneEquation Chord::hyperplane_equation(int opt_sector) const
     {
-        auto hyperplane_equations_for_dimensions = hyperplane_equations_for_opt_sectors();
-        auto hyperplane_equations = hyperplane_equations_for_dimensions[voices()];
+        if (voices() < 3 || voices() >= 12)
+        {
+            HyperplaneEquation h;
+            h.unit_normal_vector = Vector::Zero(int(voices()));
+            h.constant_term = 0.0;
+            return h;
+        }
+        auto &hyperplane_equations_for_dimensions = hyperplane_equations_for_opt_sectors();
+        auto &hyperplane_equations = hyperplane_equations_for_dimensions[voices()];
+        if (opt_sector < 0 || opt_sector >= int(hyperplane_equations.size()))
+        {
+            HyperplaneEquation h;
+            h.unit_normal_vector = Vector::Zero(int(voices()));
+            h.constant_term = 0.0;
+            return h;
+        }
         return hyperplane_equations[opt_sector];
     }
-
     inline bool sectors_initialized = false;
     inline void Chord::initialize_sectors()
     {
