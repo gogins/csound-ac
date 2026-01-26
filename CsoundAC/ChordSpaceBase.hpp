@@ -376,6 +376,13 @@ namespace csound
             : std::logic_error(msg) {}
     };
 
+    /**
+     * Value of sector argument for predicate<> and equate<> functions
+     * to indicate canonical mode, i.e., no sector preference. This is 
+     * the default value of the sector argument.
+     */
+    constexpr int CANONICAL_MODE = -1;
+
     /////////////////////////////////////////////////////////////////////////////////////////
     // ALL DECLARATIONS BELOW HERE MORE OR LESS IN ALPHABETICAL ORDER -- NO DEFINITIONS HERE.
     /////////////////////////////////////////////////////////////////////////////////////////
