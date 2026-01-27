@@ -5,73 +5,88 @@
 #include <cstdio>
 #include <string>
 
-// g++ -Dlinux -m32 --std=gnu++17 -lstdc++fs -Wno-write-strings -I. -I/usr/include -I/usr/include/eigen3 -O2 -g ChordSpaceTest.cpp -oChordSpaceTest 
+// g++ -Dlinux -m32 --std=gnu++17 -lstdc++fs -Wno-write-strings -I. -I/usr/include -I/usr/include/eigen3 -O2 -g ChordSpaceTest.cpp -oChordSpaceTest
 // c++ ChordSpaceTest.cpp -v --std=gnu++17 -lstdc++ -O3 -g -Wno-write-strings -I.  -I/Library/Frameworks/CsoundLib64.framework/Versions/6.0/Headers -I/usr/local/include -I/usr/local/include/csound -I/opt/homebrew/Cellar/eigen/3.4.0_1/include/eigen3 -I/opt/homebrew/Cellar/boost/1.78.0_1/include -I/opt/local/include /Library/Frameworks/CsoundLib64.framework/Versions/6.0/CsoundLib64 -lCsoundAC -L/opt/homebrew/lib -lsndfile -lgc -lpthread -ldl -lm -oChordSpaceTest
 // c++ ChordSpaceTest.cpp -v --std=gnu++17 -lstdc++ -O3 -g -Wno-write-strings -I.  -I/Library/Frameworks/CsoundLib64.framework/Versions/6.0/Headers -I/usr/local/include -I/usr/local/include/csound -I/opt/homebrew/Cellar/eigen/5.0.1/include/eigen3 -I/opt/homebrew/Cellar/boost/1.90.0/include -I/opt/local/include /Library/Frameworks/CsoundLib64.framework/Versions/6.0/CsoundLib64 -lCsoundAC -L/opt/homebrew/lib -lsndfile -lgc -lpthread -ldl -lm -oChordSpaceTest
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 typedef Eigen::Matrix<double, Eigen::Dynamic, 1> Vector;
 
+static bool CANONICAL_ONLY = true;
+
 static bool printPass = true;
 static bool printPitv = true;
-static bool failureExits = false ;
+static bool failureExits = false;
 static int passCount = 0;
 static int failureCount = 0;
 static int testCount = 0;
 static int exitAfterFailureCount = 5;
 static int testSector = 0;
 
-static bool pass(std::string message) {
+static bool pass(std::string message)
+{
     passCount = passCount + 1;
     testCount = passCount + failureCount;
-    if (printPass) {
+    if (printPass)
+    {
         csound::System::message("\nPASSED (passed: %-9d failed: %-9d of %9d): %s\n", passCount, failureCount, testCount, message.c_str());
     }
     return true;
 }
 
-static bool fail(std::string message) {
+static bool fail(std::string message)
+{
     failureCount = failureCount + 1;
     testCount = passCount + failureCount;
     csound::System::message("================================================================================================================\n");
     csound::System::message("FAILED (passed: %-9d failed: %-9d of %d): %s\n", passCount, failureCount, testCount, message.c_str());
     csound::System::message("================================================================================================================\n");
-    if (failureExits && (failureCount >= exitAfterFailureCount)) {
+    if (failureExits && (failureCount >= exitAfterFailureCount))
+    {
         std::exit(-1);
     }
     return false;
 }
 
-static void summary() {
+static void summary()
+{
     testCount = passCount + failureCount;
     std::time_t time_ = std::time(nullptr);
     auto datetime = std::asctime(std::localtime(&time_));
     csound::System::message("\n================================================================================================================\n");
-    csound::System::message("SUMMARY  Passed: %-9d  Failed: %-9d  Total: %d  Completed: %s", passCount, failureCount, testCount, datetime); 
+    csound::System::message("SUMMARY  Passed: %-9d  Failed: %-9d  Total: %d  Completed: %s", passCount, failureCount, testCount, datetime);
     csound::System::message("================================================================================================================\n");
 }
 
-static bool test(bool passes, std::string message) {
-    if (passes) {
+static bool test(bool passes, std::string message)
+{
+    if (passes)
+    {
         pass(message);
-    } else {
+    }
+    else
+    {
         fail(message);
     }
     return passes;
 }
 
-static void printSet(std::string name, const std::vector<csound::Chord> &chords) {
+static void printSet(std::string name, const std::vector<csound::Chord> &chords)
+{
     csound::System::message("%s\n", name.c_str());
     std::multimap<csound::Chord, csound::Chord> sorted;
-    for (auto &e : chords) {
-        sorted.insert({e.normal_form(), e}); 
+    for (auto &e : chords)
+    {
+        sorted.insert({e.normal_form(), e});
     }
     int i = 1;
-    for (auto &value : sorted) {
+    for (auto &value : sorted)
+    {
         auto &c = value.second;
         csound::System::message("normal: %s  chord[%04d]: %s  OPTT: %s  OPTTI: %s opti_sector: ", c.normal_form().toString().c_str(), i, c.toString().c_str(), c.eOPTT().toString().c_str(), c.eOPTTI().toString().c_str());
         auto opti_sectors_ = c.opti_domain_sectors();
-        for (auto opti_sector : opti_sectors_) {
+        for (auto opti_sector : opti_sectors_)
+        {
             csound::System::message("%2d (%4.1f)", opti_sector, opti_sector / 2.);
         }
         csound::System::message("\n");
@@ -79,38 +94,46 @@ static void printSet(std::string name, const std::vector<csound::Chord> &chords)
     }
 }
 
-static bool equals(const csound::HyperplaneEquation &a, const csound::HyperplaneEquation &b) {
-    if (a.unit_normal_vector.rows() == b.unit_normal_vector.rows() == false) {
+static bool equals(const csound::HyperplaneEquation &a, const csound::HyperplaneEquation &b)
+{
+    if (a.unit_normal_vector.rows() == b.unit_normal_vector.rows() == false)
+    {
         csound::System::error("equals: size mismatch: %d %d\n", a.unit_normal_vector.rows(), b.unit_normal_vector.rows());
         return false;
     }
-    for (int row = 0; row < a.unit_normal_vector.rows(); ++row) {
-        if (csound::eq_tolerance(a.unit_normal_vector(row, 0), b.unit_normal_vector(row, 0)) == false) {
+    for (int row = 0; row < a.unit_normal_vector.rows(); ++row)
+    {
+        if (csound::eq_tolerance(a.unit_normal_vector(row, 0), b.unit_normal_vector(row, 0)) == false)
+        {
             csound::System::error("equals: unit normal vector element mismatch: %.17g %.17g\n", a.unit_normal_vector(row, 0), b.unit_normal_vector(row, 0));
             return false;
         }
     }
-    if (csound::eq_tolerance(a.constant_term, b.constant_term) == false) {
+    if (csound::eq_tolerance(a.constant_term, b.constant_term) == false)
+    {
         csound::System::error("equals: constant term mismatch: %.17g %,17g\n", a.constant_term, b.constant_term);
         return false;
     }
     return true;
 }
 
-static void print_sectors(const char *label, const std::vector<int> &sectors) {
-  std::fprintf(stderr, "%s{", label);
-  for (size_t i = 0; i < sectors.size(); ++i) {
-    std::fprintf(stderr, "%s%d", (i ? "," : ""), sectors[i]);
-  }
-  std::fprintf(stderr, "}");
+static void print_sectors(const char *label, const std::vector<int> &sectors)
+{
+    std::fprintf(stderr, "%s{", label);
+    for (size_t i = 0; i < sectors.size(); ++i)
+    {
+        std::fprintf(stderr, "%s%d", (i ? "," : ""), sectors[i]);
+    }
+    std::fprintf(stderr, "}");
 }
 
-static void Hyperplane_Equation_for_Test_Points() {
+static void Hyperplane_Equation_for_Test_Points()
+{
     std::vector<csound::Chord> points;
-    points.push_back(csound::Chord(std::vector<double>({ 4.,  0., -1.,  0.})));
-    points.push_back(csound::Chord(std::vector<double>({ 1.,  2.,  3., -1.})));
-    points.push_back(csound::Chord(std::vector<double>({ 0., -1.,  2.,  0.})));
-    points.push_back(csound::Chord(std::vector<double>({-1.,  1., -1.,  1.})));
+    points.push_back(csound::Chord(std::vector<double>({4., 0., -1., 0.})));
+    points.push_back(csound::Chord(std::vector<double>({1., 2., 3., -1.})));
+    points.push_back(csound::Chord(std::vector<double>({0., -1., 2., 0.})));
+    points.push_back(csound::Chord(std::vector<double>({-1., 1., -1., 1.})));
     // From inversion_flats.py for these points by SVD from vectors:
     csound::HyperplaneEquation expected;
     expected.unit_normal_vector.resize(4, 1);
@@ -118,10 +141,11 @@ static void Hyperplane_Equation_for_Test_Points() {
     expected.constant_term = 0.5135966860280752;
     csound::HyperplaneEquation actual = hyperplane_equation_from_singular_value_decomposition(points, false);
     bool passes = equals(expected, actual);
-    test(passes, __func__);    
+    test(passes, __func__);
 }
 
-static void test_pitv(const csound::PITV &pitv_, std::string chordName) {
+static void test_pitv(const csound::PITV &pitv_, std::string chordName)
+{
     csound::System::message("BEGAN test PITV for %s...\n", chordName.c_str());
     csound::Chord originalChord = csound::chordForName(chordName);
     csound::Chord optti = originalChord.eOPTTI();
@@ -131,8 +155,8 @@ static void test_pitv(const csound::PITV &pitv_, std::string chordName) {
     csound::System::message("Reconstituted chord:\n%s\n", reconstitutedChord.information().c_str());
     test(originalChord == reconstitutedChord, "Reconstituted chord must be the same as the original chord.");
     csound::Chord revoicedOriginalChord = originalChord;
-    revoicedOriginalChord.setPitch(1,  revoicedOriginalChord.getPitch(1) + 12.);
-    revoicedOriginalChord.setPitch(2,  revoicedOriginalChord.getPitch(2) + 24.);
+    revoicedOriginalChord.setPitch(1, revoicedOriginalChord.getPitch(1) + 12.);
+    revoicedOriginalChord.setPitch(2, revoicedOriginalChord.getPitch(2) + 24.);
     csound::System::message("Revoiced original chord:\n%s\n", revoicedOriginalChord.information().c_str());
     pitv = pitv_.fromChord(revoicedOriginalChord, printPitv);
     csound::Chord reconstitutedRevoicedChord = pitv_.toChord_vector(pitv, printPitv)[0];
@@ -143,38 +167,49 @@ static void test_pitv(const csound::PITV &pitv_, std::string chordName) {
     pitv = pitv_.fromChord(invertedChord, printPitv);
     csound::Chord reconstitutedInvertedChord = pitv_.toChord_vector(pitv, true)[0];
     csound::System::message("Reconstituted inverted chord:\n%s\n", reconstitutedInvertedChord.information().c_str());
-    test(invertedChord == reconstitutedInvertedChord,"Reconstituted inverted chord must be the same as the original inverted chord.");
+    test(invertedChord == reconstitutedInvertedChord, "Reconstituted inverted chord must be the same as the original inverted chord.");
     csound::System::message("ENDED test PITV for %s.\n", chordName.c_str());
     csound::System::message("\n");
 }
 
-static void test_pitv(int initialVoiceCount, int finalVoiceCount) {
+static void test_pitv(int initialVoiceCount, int finalVoiceCount)
+{
     double range = 60.0;
-    for (int voiceCount = initialVoiceCount; voiceCount <= finalVoiceCount; ++voiceCount) {
+    for (int voiceCount = initialVoiceCount; voiceCount <= finalVoiceCount; ++voiceCount)
+    {
         bool passes = true;
         csound::PITV pitv;
         csound::System::message("Testing all of PITV: voices: %d  range: %f\n", voiceCount, range);
         csound::System::message("Testing PITV to chord and back...\n");
         pitv.initialize(voiceCount, range, 1., true);
         pitv.list(true, true, true);
-        for (int P = 0; P < pitv.countP; ++P) {
-            for (int T = 0; T < pitv.countT; ++T) {
-                for (int V = 0; V < pitv.countV; ++V) {
-                    for (int I = 0; I < pitv.countI; ++I) {
-                        if (printPass) csound::System::message("PITV => chord from PITV\n");
+        for (int P = 0; P < pitv.countP; ++P)
+        {
+            for (int T = 0; T < pitv.countT; ++T)
+            {
+                for (int V = 0; V < pitv.countV; ++V)
+                {
+                    for (int I = 0; I < pitv.countI; ++I)
+                    {
+                        if (printPass)
+                            csound::System::message("PITV => chord from PITV\n");
                         csound::Chord chord_from_pitv = pitv.toChord(P, I, T, V, printPitv)[0];
-                        if (printPass) csound::System::message("chord from PITV => PITV from chord\n");
+                        if (printPass)
+                            csound::System::message("chord from PITV => PITV from chord\n");
                         Eigen::VectorXi pitv_from_chord = pitv.fromChord(chord_from_pitv, printPitv);
-                        if (printPass) csound::System::message("PITV from chord => chord from PITV from chord\n");
+                        if (printPass)
+                            csound::System::message("PITV from chord => chord from PITV from chord\n");
                         csound::Chord chord_from_pitv_from_chord = pitv.toChord(pitv_from_chord(0), pitv_from_chord(1), pitv_from_chord(2), pitv_from_chord(3), printPitv)[0];
                         bool equals_ = (chord_from_pitv.equals(chord_from_pitv_from_chord));
-                        if (!equals_) {
+                        if (!equals_)
+                        {
                             csound::System::message("chord_from_pitv (toChord):\n%s\n", chord_from_pitv.information().c_str());
                             csound::System::message("chord_from_pitv_from_chord (fromChord):\n%s\n", chord_from_pitv_from_chord.information().c_str());
                             passes = false;
                         }
                         test(equals_, "chord_from_pitv must match chord_from_pitv_from_chord.");
-                        if (printPass) csound::System::message("\n\n");
+                        if (printPass)
+                            csound::System::message("\n\n");
                     }
                 }
             }
@@ -183,38 +218,40 @@ static void test_pitv(int initialVoiceCount, int finalVoiceCount) {
         //~ bool passes2 = true;
         //~ auto eops = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RP>(voiceCount, csound::OCTAVE(), 1., testSector);
         //~ for(auto it = eops.begin(); it != eops.end(); ++it) {
-            //~ auto chord = it->T(24.);
-            //~ auto origin = chord;
-            //~ for(;;) {
-                //~ Eigen::VectorXi pitv_from_chord = pitv.fromChord(chord, printPitv);
-                //~ if (printPass) csound::System::message("pitv_from_chord:            %8d     %8d     %8d     %8d <= %s\n", pitv_from_chord(0), pitv_from_chord(1), pitv_from_chord(2), pitv_from_chord(3), chord.toString().c_str());
-                //~ csound::Chord chord_from_pitv_from_chord = pitv.toChord(pitv_from_chord(0), pitv_from_chord(1), pitv_from_chord(2), pitv_from_chord(3), printPitv)[0];
-                //~ if (printPass) csound::System::message("chord_from_pitv_from_chord: %8d     %8d     %8d     %8d => %s\n", pitv_from_chord(0), pitv_from_chord(1), pitv_from_chord(2), pitv_from_chord(3), chord_from_pitv_from_chord.toString().c_str());
-                //~ bool equals = (chord_from_pitv_from_chord == chord);
-                //~ if (!equals) {
-                    //~ csound::System::message("Original chord (fromChord):\n%s\n", chord.information().c_str());
-                    //~ csound::System::message("New chord (toChord):\n%s\n", chord_from_pitv_from_chord.information().c_str());
-                //~ }
-                //~ if (pitv_from_chord(3) == -1) {
-                    //~ csound::System::message("Chord is out of PITV range...\n");
-                //~ } else {
-                    //~ test(equals, "Original chord must match chord from original chord's PITV.");
-                    //~ passes2 = false;
-                //~ }
-                //~ if (printPass) csound::System::message("\n");
-                //~ // This was going too far... cut off sooner and all seems well.
-                //~ if (csound::next(chord, origin, range - 1.0, csound::OCTAVE()) == false) {
-                    //~ break;
-                //~ }
-            //~ }
+        //~ auto chord = it->T(24.);
+        //~ auto origin = chord;
+        //~ for(;;) {
+        //~ Eigen::VectorXi pitv_from_chord = pitv.fromChord(chord, printPitv);
+        //~ if (printPass) csound::System::message("pitv_from_chord:            %8d     %8d     %8d     %8d <= %s\n", pitv_from_chord(0), pitv_from_chord(1), pitv_from_chord(2), pitv_from_chord(3), chord.toString().c_str());
+        //~ csound::Chord chord_from_pitv_from_chord = pitv.toChord(pitv_from_chord(0), pitv_from_chord(1), pitv_from_chord(2), pitv_from_chord(3), printPitv)[0];
+        //~ if (printPass) csound::System::message("chord_from_pitv_from_chord: %8d     %8d     %8d     %8d => %s\n", pitv_from_chord(0), pitv_from_chord(1), pitv_from_chord(2), pitv_from_chord(3), chord_from_pitv_from_chord.toString().c_str());
+        //~ bool equals = (chord_from_pitv_from_chord == chord);
+        //~ if (!equals) {
+        //~ csound::System::message("Original chord (fromChord):\n%s\n", chord.information().c_str());
+        //~ csound::System::message("New chord (toChord):\n%s\n", chord_from_pitv_from_chord.information().c_str());
+        //~ }
+        //~ if (pitv_from_chord(3) == -1) {
+        //~ csound::System::message("Chord is out of PITV range...\n");
+        //~ } else {
+        //~ test(equals, "Original chord must match chord from original chord's PITV.");
+        //~ passes2 = false;
+        //~ }
+        //~ if (printPass) csound::System::message("\n");
+        //~ // This was going too far... cut off sooner and all seems well.
+        //~ if (csound::next(chord, origin, range - 1.0, csound::OCTAVE()) == false) {
+        //~ break;
+        //~ }
+        //~ }
         //~ }
     }
 }
 
-static void test_nrR() {
+static void test_nrR()
+{
     auto C = csound::chordForName("CM");
     auto a = csound::chordForName("Am");
-    for (double t = 0.; t < 12.; ++t) {
+    for (double t = 0.; t < 12.; ++t)
+    {
         auto I = C.T(t);
         csound::System::message("test_nrR: I:       %s I.eOP():      %s normal form: %s\n", I.toString().c_str(), I.eOP().toString().c_str(), I.normal_form().toString().c_str());
         auto vi = a.T(t);
@@ -222,19 +259,21 @@ static void test_nrR() {
         auto I_nrR = I.nrR();
         csound::System::message("test_nrR: I_nrR:   %s I_nrR.eOP():  %s normal form: %s\n", I_nrR.toString().c_str(), I_nrR.eOP().toString().c_str(), I_nrR.normal_form().toString().c_str());
         test(I_nrR.eOP().equals(vi.eOP()), "I.nrR() should be vi.\n");
-        auto vi_nrR =vi.nrR();
+        auto vi_nrR = vi.nrR();
         csound::System::message("test_nrR: vi_nrR:  %s vi_nrR.eOP(): %s normal form: %s\n", vi_nrR.toString().c_str(), vi_nrR.eOP().toString().c_str(), vi_nrR.normal_form().toString().c_str());
         test(vi_nrR.eOP().equals(I.eOP()), "vi.nrR() should be I.\n\n");
     }
 }
 
-static void test_nrP() {
+static void test_nrP()
+{
     auto C = csound::chordForName("CM");
     auto c = csound::chordForName("Cm");
-    for (double t = 0.; t < 12.; ++t) {
+    for (double t = 0.; t < 12.; ++t)
+    {
         auto I = C.T(t);
         csound::System::message("test_nrP: I:       %s I.eOP():     %s normal form: %s\n", I.toString().c_str(), I.eOP().toString().c_str(), I.normal_form().toString().c_str());
-        auto i = c.T(t);   
+        auto i = c.T(t);
         csound::System::message("test_nrP: i:       %s i.eOP():     %s normal form: %s\n", i.toString().c_str(), i.eOP().toString().c_str(), i.normal_form().toString().c_str());
         auto I_nrP = I.nrP();
         csound::System::message("test_nrP: I_nrP:   %s I_nrP.eOP(): %s normal form: %s\n", I_nrP.toString().c_str(), I_nrP.eOP().toString().c_str(), I_nrP.normal_form().toString().c_str());
@@ -245,10 +284,12 @@ static void test_nrP() {
     }
 }
 
-static void test_nrL() {
+static void test_nrL()
+{
     auto C = csound::chordForName("CM");
     auto e = csound::chordForName("Em");
-    for (double t = 0.; t < 12.; ++t) {
+    for (double t = 0.; t < 12.; ++t)
+    {
         auto I = C.T(t);
         csound::System::message("test_nrL: I:       %s I.eOP():       %s normal form: %s\n", I.toString().c_str(), I.eOP().toString().c_str(), I.normal_form().toString().c_str());
         auto iii = e.T(t);
@@ -259,19 +300,19 @@ static void test_nrL() {
         auto iii_nrL = iii.nrL();
         csound::System::message("test_nrL: iii_nrL: %s iii_nrL.eOP(): %s normal form: %s\n", iii_nrL.toString().c_str(), iii_nrL.eOP().toString().c_str(), iii_nrL.normal_form().toString().c_str());
         char buffer[0x500];
-        std::snprintf(buffer,sizeof(buffer), "iii.nrL() %s should be I %s.\n\n", iii_nrL.toString().c_str(), I.toString().c_str());
+        std::snprintf(buffer, sizeof(buffer), "iii.nrL() %s should be I %s.\n\n", iii_nrL.toString().c_str(), I.toString().c_str());
         test(iii_nrL.eOP().equals(I.eOP()), buffer);
     }
 }
 
 std::vector<std::string> equivalenceRelationsToTest = {"RP", "RPT", "RPTg", "RPTI", "RPTgI"};
-typedef csound::Chord(*equate_t)(const csound::Chord &, double, double, int);
+typedef csound::Chord (*equate_t)(const csound::Chord &, double, double, int);
 typedef bool (*predicate_t)(const csound::Chord &, double, double, int);
 typedef std::vector<csound::Chord> (*fundamentalDomainByEquate_t)(int, double, double, int);
 typedef std::vector<csound::Chord> (*fundamentalDomainByPredicate_t)(int, double, double, int, bool);
 std::map<std::string, equate_t> equatesForEquivalenceRelations;
 std::map<std::string, predicate_t> predicatesForEquivalenceRelations;
-std::map<std::string, std::set<std::string> > equivalenceRelationsForCompoundEquivalenceRelations;
+std::map<std::string, std::set<std::string>> equivalenceRelationsForCompoundEquivalenceRelations;
 std::map<std::string, fundamentalDomainByEquate_t> fundamentalDomainByEquateForEquivalenceRelations;
 std::map<std::string, fundamentalDomainByPredicate_t> fundamentalDomainByPredicateForEquivalenceRelations;
 
@@ -279,36 +320,46 @@ static bool testNormalsAndEquivalents(std::string equivalence,
                                       std::vector<csound::Chord> &made_equivalents,
                                       std::vector<csound::Chord> &found_equivalents,
                                       double range,
-                                      double g) {
+                                      double g)
+{
     char buffer[0x200];
     auto is_equivalent = predicatesForEquivalenceRelations[equivalence];
     csound::System::message("\nequivalence: %s  normalized: %ld  is_normal: %ld  range: %f  g: %f\n", equivalence.c_str(), made_equivalents.size(), found_equivalents.size(), range, g);
     auto make_equivalent = equatesForEquivalenceRelations[equivalence];
     bool passes1 = true;
     int count = 1;
-    for (auto made_equivalent = made_equivalents.begin(); made_equivalent != made_equivalents.end(); ++made_equivalent) {
+    for (auto made_equivalent = made_equivalents.begin(); made_equivalent != made_equivalents.end(); ++made_equivalent)
+    {
         std::snprintf(buffer, sizeof(buffer), "\n\nTESTING MADE EQUIVALENT %d: %s\n", count, made_equivalent->toString().c_str());
-        try {
+        try
+        {
             test(made_equivalent->test(), std::string(buffer));
-        } catch (const std::exception &e) {
+        }
+        catch (const std::exception &e)
+        {
             csound::System::message("Exception caught: %s\n", e.what());
         }
         count = count + 1;
     }
     count = 1;
-    for (auto found_equivalent = found_equivalents.begin(); found_equivalent != found_equivalents.end(); ++found_equivalent) {
+    for (auto found_equivalent = found_equivalents.begin(); found_equivalent != found_equivalents.end(); ++found_equivalent)
+    {
         std::snprintf(buffer, sizeof(buffer), "\n\nTESTING FOUND EQUIVALENT %d: %s\n", count, found_equivalent->toString().c_str());
-        try {
+        try
+        {
             test(found_equivalent->test(), std::string(buffer));
-        } catch (const std::exception &e) {
+        }
+        catch (const std::exception &e)
+        {
             csound::System::message("Exception caught: %s\n", e.what());
         }
         count = count + 1;
     }
     return count;
- }
+}
 
-static bool testEquivalenceRelation(std::string equivalenceRelation, int voiceCount, double range, double g) {
+static bool testEquivalenceRelation(std::string equivalenceRelation, int voiceCount, double range, double g)
+{
     bool passes = true;
     char buffer[0x200];
     auto normalsForEquivalenceRelation = fundamentalDomainByEquateForEquivalenceRelations[equivalenceRelation](voiceCount, range, g, testSector);
@@ -317,25 +368,35 @@ static bool testEquivalenceRelation(std::string equivalenceRelation, int voiceCo
                                    normalsForEquivalenceRelation,
                                    equivalentsForEquivalenceRelation,
                                    range,
-                                   g)) {
+                                   g))
+    {
         passes = false;
     }
-    if (equivalenceRelation == "RPTgI") {
-        if (voiceCount == 3) {
-            if (equivalentsForEquivalenceRelation.size() != 19) {
+    if (equivalenceRelation == "RPTgI")
+    {
+        if (voiceCount == 3)
+        {
+            if (equivalentsForEquivalenceRelation.size() != 19)
+            {
                 csound::System::message("%-8s 'found_equivalents' size should be 19 but is %ld.\n", equivalenceRelation.c_str(), equivalentsForEquivalenceRelation.size());
                 passes = false;
                 test(passes, "Size of found equivalents not correct for 3 voices.");
-            } else {
+            }
+            else
+            {
                 test(true, "Size of found equivalents is correct for 3 voices.");
             }
-         }
-        if (voiceCount == 4) {
-            if (equivalentsForEquivalenceRelation.size() != 83) {
+        }
+        if (voiceCount == 4)
+        {
+            if (equivalentsForEquivalenceRelation.size() != 83)
+            {
                 csound::System::message("%-8s 'found_equivalents' size should be 83 but is %ld.\n", equivalenceRelation.c_str(), equivalentsForEquivalenceRelation.size());
-                passes = false;    
+                passes = false;
                 test(passes, "Size of found equivalents not correct for 4 voices.");
-            } else {
+            }
+            else
+            {
                 test(true, "Size of found equivalents is correct for 4 voices.");
             }
         }
@@ -343,13 +404,16 @@ static bool testEquivalenceRelation(std::string equivalenceRelation, int voiceCo
     return passes;
 }
 
-static bool testEquivalenceRelations(int voiceCount, double range, double g) {
+static bool testEquivalenceRelations(int voiceCount, double range, double g)
+{
     bool passes = true;
     csound::System::message("\nTesting equivalence relations for %d voices over range %f with g %f...\n\n", voiceCount, range, g);
     for (auto equivalenceRelationI = equivalenceRelationsToTest.begin();
-            equivalenceRelationI != equivalenceRelationsToTest.end();
-            ++equivalenceRelationI) {
-        if (!testEquivalenceRelation(*equivalenceRelationI, voiceCount, range, g)) {
+         equivalenceRelationI != equivalenceRelationsToTest.end();
+         ++equivalenceRelationI)
+    {
+        if (!testEquivalenceRelation(*equivalenceRelationI, voiceCount, range, g))
+        {
             passes = false;
         }
     }
@@ -359,40 +423,49 @@ static bool testEquivalenceRelations(int voiceCount, double range, double g) {
 /**
  * Puts the set difference of A \ B, if any, into difference.
  */
-static void setDifference(const std::string &a_name, std::vector<csound::Chord> &A, const std::string &b_name,std::vector<csound::Chord> &B, std::vector<csound::Chord> &difference) {
-    auto comparator = [](auto &a, auto &b) {
+static void setDifference(const std::string &a_name, std::vector<csound::Chord> &A, const std::string &b_name, std::vector<csound::Chord> &B, std::vector<csound::Chord> &difference)
+{
+    auto comparator = [](auto &a, auto &b)
+    {
         auto an = a.eOPTT(0);
         an.clamp();
         auto bn = b.eOPTT(0);
         bn.clamp();
-        if ((an < bn) == true) {
-            ///std::cerr << "less" << std::endl;
+        if ((an < bn) == true)
+        {
+            /// std::cerr << "less" << std::endl;
             return true;
-        } else {
-            ///std::cerr << "not less" << std::endl;
+        }
+        else
+        {
+            /// std::cerr << "not less" << std::endl;
             return false;
         }
     };
     std::sort(A.begin(), A.end(), comparator);
     std::sort(B.begin(), B.end(), comparator);
     std::multimap<std::string, csound::Chord> map_a;
-    for (csound::Chord &chord : A) {
+    for (csound::Chord &chord : A)
+    {
         std::string key = chord.eOPTT().normal_form().toString();
         map_a.insert({key, chord});
     }
     std::multimap<std::string, csound::Chord> map_b;
-    for (csound::Chord chord : B) {
+    for (csound::Chord chord : B)
+    {
         std::string key = chord.eOPTT().normal_form().toString();
         map_b.insert({key, chord});
     }
     difference.clear();
     int a_i = 0;
     int b_i = 0;
-    for (auto a_it = map_a.begin(); a_it != map_a.end(); ++a_it) {
+    for (auto a_it = map_a.begin(); a_it != map_a.end(); ++a_it)
+    {
         auto b_it = map_b.find(a_it->first);
         auto const &a = a_it->second;
-        if (b_it == map_b.end()) {
-            std::fprintf(stderr, "%s[%d]:\n",  a_name.c_str(), a_i);
+        if (b_it == map_b.end())
+        {
+            std::fprintf(stderr, "%s[%d]:\n", a_name.c_str(), a_i);
             std::fprintf(stderr, "    normal_form:        %s\n", a.normal_form().toString().c_str());
             std::fprintf(stderr, "    prime_form:         %s\n", a.prime_form().toString().c_str());
             std::fprintf(stderr, "    inverse_prime_form: %s\n", a.inverse_prime_form().toString().c_str());
@@ -402,9 +475,11 @@ static void setDifference(const std::string &a_name, std::vector<csound::Chord> 
             std::fprintf(stderr, "    OPTTI:              %s\n\n\n\n\n\n\n", print_chord(a.eOPTTI()));
             difference.push_back(a_it->second);
             ++a_i;
-        } else {
+        }
+        else
+        {
             auto const &b = b_it->second;
-            std::fprintf(stderr, "%s[%d]:\n",  a_name.c_str(), a_i);
+            std::fprintf(stderr, "%s[%d]:\n", a_name.c_str(), a_i);
             std::fprintf(stderr, "    normal_form:        %s\n", a.normal_form().toString().c_str());
             std::fprintf(stderr, "    prime_form:         %s\n", a.prime_form().toString().c_str());
             std::fprintf(stderr, "    inverse_prime_form: %s\n", a.inverse_prime_form().toString().c_str());
@@ -412,7 +487,7 @@ static void setDifference(const std::string &a_name, std::vector<csound::Chord> 
             std::fprintf(stderr, "    chord:              %s\n", print_chord(a));
             std::fprintf(stderr, "    OPTT:               %s\n", print_chord(a.eOPTT()));
             std::fprintf(stderr, "    OPTTI:              %s\n", print_chord(a.eOPTTI()));
-            std::fprintf(stderr, "  %s[%d]:\n",  b_name.c_str(), b_i);
+            std::fprintf(stderr, "  %s[%d]:\n", b_name.c_str(), b_i);
             std::fprintf(stderr, "    normal_form:        %s\n", b.normal_form().toString().c_str());
             std::fprintf(stderr, "    prime_form:         %s\n", b.prime_form().toString().c_str());
             std::fprintf(stderr, "    inverse_prime_form: %s\n", b.inverse_prime_form().toString().c_str());
@@ -425,19 +500,20 @@ static void setDifference(const std::string &a_name, std::vector<csound::Chord> 
         }
     }
     std::sort(difference.begin(), difference.end(), comparator);
- }
- 
-static void test_eq_tolerance() {
+}
+
+static void test_eq_tolerance()
+{
     double mp_double_small = .00000000000000000001;
     double mp_double_large = 1e40;
     double test_a = 1.;
     double test_b = 0.;
-    for (int i = 1; i <= 100; ++i) 
+    for (int i = 1; i <= 100; ++i)
     {
         std::fprintf(stderr, "step %d:\n", i);
         csound::numerics_information(test_a, test_b, 100, 10000);
         test_a /= 2.;
-       //test_b *= 2.;
+        // test_b *= 2.;
     }
     std::cerr << "ulp(mp_double_small): " << boost::math::ulp(mp_double_small) << std::endl;
     std::cerr << "ulp(mp_double_large): " << boost::math::ulp(mp_double_large) << std::endl;
@@ -448,16 +524,18 @@ static void test_eq_tolerance() {
     std::cerr << "csound::ge_tolerance(14.0, 12.0): " << csound::ge_tolerance(14.0, 12.0) << std::endl;
 }
 
-void print_build_timestamp() {
-  std::cout
-    << "Built on "
-    << __DATE__
-    << " at "
-    << __TIME__
-    << ".\n\n";
+void print_build_timestamp()
+{
+    std::cout
+        << "Built on "
+        << __DATE__
+        << " at "
+        << __TIME__
+        << ".\n\n";
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
     csound::System::message("C H O R D S P A C E   U N I T   T E S T S\n\n");
     std::cerr << csound::chord_space_version() << std::endl;
     print_build_timestamp();
@@ -465,9 +543,9 @@ int main(int argc, char **argv) {
     CM = CM.T(-4.);
     std::cerr << CM.information() << std::endl;
     std::cerr << CM.information_debug(-1) << std::endl;
-    ///return 0;
+    /// return 0;
     test_eq_tolerance();
-    ///return 0;
+    /// return 0;
     //~ csound::Chord BM = csound::chordForName("BM");
     //~ std::cerr << BM.information_sector(0) << std::endl;
     //~ std::cerr << "Starting diagnostics..." << std::endl << std::endl << std::endl << std::endl << std::endl << std::endl;
@@ -475,18 +553,21 @@ int main(int argc, char **argv) {
     test_nrR();
     test_nrP();
     test_nrL();
-    ///return 0;
-    CM.reflect(0);
-    auto domain = csound::allOfEquivalenceClass(3, "RPTg", 12., 1., 0, true);
-    ///return 0;
-    // SILENCE_PUBLIC std::vector<Chord> allOfEquivalenceClass(int voice_count, std::string equivalence_class, double range, double g, int sector, bool printme) {
-    auto ops = csound::allOfEquivalenceClass(3, "RP", 12., 1., 0, false);
-    printSet("OPs", ops);
-    auto optts = csound::allOfEquivalenceClass(3, "RPTg", 12., 1., 0, false);
-    printSet("OPTTs", optts);
-    auto opttis = csound::allOfEquivalenceClass(3, "RPTgI", 12., 1., 0, false);
-    printSet("OPTTIs", opttis);
-    //return 0;
+    /// return 0;
+    if (CANONICAL_ONLY == false)
+    {
+        CM.reflect(0);
+        auto domain = csound::allOfEquivalenceClass(3, "RPTg", 12., 1., 0, true);
+        /// return 0;
+        // SILENCE_PUBLIC std::vector<Chord> allOfEquivalenceClass(int voice_count, std::string equivalence_class, double range, double g, int sector, bool printme) {
+        auto ops = csound::allOfEquivalenceClass(3, "RP", 12., 1., 0, false);
+        printSet("OPs", ops);
+        auto optts = csound::allOfEquivalenceClass(3, "RPTg", 12., 1., 0, false);
+        printSet("OPTTs", optts);
+        auto opttis = csound::allOfEquivalenceClass(3, "RPTgI", 12., 1., 0, false);
+        printSet("OPTTIs", opttis);
+        // return 0;
+    }
     Hyperplane_Equation_for_Test_Points();
 
     auto chordx = csound::chordForName("CM7");
@@ -494,70 +575,78 @@ int main(int argc, char **argv) {
     csound::System::message("CM7:\n%s\n", chordx.information().c_str());
     csound::System::message("G7:\n%s\n", dominantx.information().c_str());
 
-    equatesForEquivalenceRelations["R"] =        csound::equate<csound::EQUIVALENCE_RELATION_R>;
-    equatesForEquivalenceRelations["P"] =        csound::equate<csound::EQUIVALENCE_RELATION_P>;
-    equatesForEquivalenceRelations["T"] =        csound::equate<csound::EQUIVALENCE_RELATION_T>;
-    equatesForEquivalenceRelations["Tg"] =       csound::equate<csound::EQUIVALENCE_RELATION_Tg>;
-    equatesForEquivalenceRelations["I"] =        csound::equate<csound::EQUIVALENCE_RELATION_I>;
-    equatesForEquivalenceRelations["RP"] =       csound::equate<csound::EQUIVALENCE_RELATION_RP>;
-    equatesForEquivalenceRelations["RPT"] =      csound::equate<csound::EQUIVALENCE_RELATION_RPT>;
-    equatesForEquivalenceRelations["RPTg"] =     csound::equate<csound::EQUIVALENCE_RELATION_RPTg>;
-    equatesForEquivalenceRelations["RPI"] =      csound::equate<csound::EQUIVALENCE_RELATION_RPI>;
-    equatesForEquivalenceRelations["RPTI"] =     csound::equate<csound::EQUIVALENCE_RELATION_RPTI>;
-    equatesForEquivalenceRelations["RPTgI"] =    csound::equate<csound::EQUIVALENCE_RELATION_RPTgI>;
-    predicatesForEquivalenceRelations["R"] =         csound::predicate<csound::EQUIVALENCE_RELATION_R>;
-    predicatesForEquivalenceRelations["P"] =         csound::predicate<csound::EQUIVALENCE_RELATION_P>;
-    predicatesForEquivalenceRelations["T"] =         csound::predicate<csound::EQUIVALENCE_RELATION_T>;
-    predicatesForEquivalenceRelations["Tg"] =        csound::predicate<csound::EQUIVALENCE_RELATION_Tg>;
-    predicatesForEquivalenceRelations["I"] =         csound::predicate<csound::EQUIVALENCE_RELATION_I>;
-    predicatesForEquivalenceRelations["RP"] =        csound::predicate<csound::EQUIVALENCE_RELATION_RP>;
-    predicatesForEquivalenceRelations["RPT"] =       csound::predicate<csound::EQUIVALENCE_RELATION_RPT>;
-    predicatesForEquivalenceRelations["RPTg"] =      csound::predicate<csound::EQUIVALENCE_RELATION_RPTg>;
-    predicatesForEquivalenceRelations["RPI"] =       csound::predicate<csound::EQUIVALENCE_RELATION_RPI>;
-    predicatesForEquivalenceRelations["RPTI"] =      csound::predicate<csound::EQUIVALENCE_RELATION_RPTI>;
-    predicatesForEquivalenceRelations["RPTgI"] =     csound::predicate<csound::EQUIVALENCE_RELATION_RPTgI>;
-    equivalenceRelationsForCompoundEquivalenceRelations["RP"] =      {"R", "P"};
-    equivalenceRelationsForCompoundEquivalenceRelations["RPT"] =     {"R", "P", "T"}; // V?
-    equivalenceRelationsForCompoundEquivalenceRelations["RPTg"] =    {"R", "P", "Tg"}; // V?
-    equivalenceRelationsForCompoundEquivalenceRelations["RPI"] =     {"R", "P"};
-    equivalenceRelationsForCompoundEquivalenceRelations["RPTgI"] =   {"RPTg", "RP", "R", "P", "Tg"}; // V?
-    fundamentalDomainByEquateForEquivalenceRelations["R"] =        csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_R>;
-    fundamentalDomainByEquateForEquivalenceRelations["P"] =        csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_P>;
-    fundamentalDomainByEquateForEquivalenceRelations["T"] =        csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_T>;
-    fundamentalDomainByEquateForEquivalenceRelations["Tg"] =       csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_Tg>;
-    fundamentalDomainByEquateForEquivalenceRelations["I"] =        csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_I>;
-    fundamentalDomainByEquateForEquivalenceRelations["RP"] =       csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RP>;
-    fundamentalDomainByEquateForEquivalenceRelations["RPT"] =      csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RPT>;
-    fundamentalDomainByEquateForEquivalenceRelations["RPTg"] =     csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RPTg>;
-    fundamentalDomainByEquateForEquivalenceRelations["RPI"] =      csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RPI>;
-    fundamentalDomainByEquateForEquivalenceRelations["RPTI"] =     csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RPTI>;
-    fundamentalDomainByEquateForEquivalenceRelations["RPTgI"] =    csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RPTgI>;
-    fundamentalDomainByPredicateForEquivalenceRelations["R"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_R>;
-    fundamentalDomainByPredicateForEquivalenceRelations["P"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_P>;
-    fundamentalDomainByPredicateForEquivalenceRelations["T"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_T>;
-    fundamentalDomainByPredicateForEquivalenceRelations["Tg"] =          csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_Tg>;
-    fundamentalDomainByPredicateForEquivalenceRelations["I"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_I>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RP"] =          csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RP>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPT"] =         csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPT>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPTg"] =        csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTg>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPI"] =         csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPI>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPTI"] =        csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTI>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPTgI"] =       csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTgI>;
-        
-    auto chordspace_optts_3 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTg>(3, 12., 1., testSector);
-    printSet("My OPTTs", chordspace_optts_3);
- 
-    auto chordspace_opttis_3 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTgI>(3, 12., 1., testSector);
-    printSet("My OPTTIs", chordspace_opttis_3);
-    
-    auto chordspace_optts_4 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTg>(4, csound::OCTAVE(), 1., testSector);
-    printSet("My OPTTs", chordspace_optts_4);
+    equatesForEquivalenceRelations["R"] = csound::equate<csound::EQUIVALENCE_RELATION_R>;
+    equatesForEquivalenceRelations["P"] = csound::equate<csound::EQUIVALENCE_RELATION_P>;
+    equatesForEquivalenceRelations["T"] = csound::equate<csound::EQUIVALENCE_RELATION_T>;
+    equatesForEquivalenceRelations["Tg"] = csound::equate<csound::EQUIVALENCE_RELATION_Tg>;
+    equatesForEquivalenceRelations["I"] = csound::equate<csound::EQUIVALENCE_RELATION_I>;
+    equatesForEquivalenceRelations["RP"] = csound::equate<csound::EQUIVALENCE_RELATION_RP>;
+    equatesForEquivalenceRelations["RPT"] = csound::equate<csound::EQUIVALENCE_RELATION_RPT>;
+    equatesForEquivalenceRelations["RPTg"] = csound::equate<csound::EQUIVALENCE_RELATION_RPTg>;
+    equatesForEquivalenceRelations["RPI"] = csound::equate<csound::EQUIVALENCE_RELATION_RPI>;
+    equatesForEquivalenceRelations["RPTI"] = csound::equate<csound::EQUIVALENCE_RELATION_RPTI>;
+    equatesForEquivalenceRelations["RPTgI"] = csound::equate<csound::EQUIVALENCE_RELATION_RPTgI>;
+    predicatesForEquivalenceRelations["R"] = csound::predicate<csound::EQUIVALENCE_RELATION_R>;
+    predicatesForEquivalenceRelations["P"] = csound::predicate<csound::EQUIVALENCE_RELATION_P>;
+    predicatesForEquivalenceRelations["T"] = csound::predicate<csound::EQUIVALENCE_RELATION_T>;
+    predicatesForEquivalenceRelations["Tg"] = csound::predicate<csound::EQUIVALENCE_RELATION_Tg>;
+    predicatesForEquivalenceRelations["I"] = csound::predicate<csound::EQUIVALENCE_RELATION_I>;
+    predicatesForEquivalenceRelations["RP"] = csound::predicate<csound::EQUIVALENCE_RELATION_RP>;
+    predicatesForEquivalenceRelations["RPT"] = csound::predicate<csound::EQUIVALENCE_RELATION_RPT>;
+    predicatesForEquivalenceRelations["RPTg"] = csound::predicate<csound::EQUIVALENCE_RELATION_RPTg>;
+    predicatesForEquivalenceRelations["RPI"] = csound::predicate<csound::EQUIVALENCE_RELATION_RPI>;
+    predicatesForEquivalenceRelations["RPTI"] = csound::predicate<csound::EQUIVALENCE_RELATION_RPTI>;
+    predicatesForEquivalenceRelations["RPTgI"] = csound::predicate<csound::EQUIVALENCE_RELATION_RPTgI>;
+    equivalenceRelationsForCompoundEquivalenceRelations["RP"] = {"R", "P"};
+    equivalenceRelationsForCompoundEquivalenceRelations["RPT"] = {"R", "P", "T"};   // V?
+    equivalenceRelationsForCompoundEquivalenceRelations["RPTg"] = {"R", "P", "Tg"}; // V?
+    equivalenceRelationsForCompoundEquivalenceRelations["RPI"] = {"R", "P"};
+    equivalenceRelationsForCompoundEquivalenceRelations["RPTgI"] = {"RPTg", "RP", "R", "P", "Tg"}; // V?
+    fundamentalDomainByEquateForEquivalenceRelations["R"] = csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_R>;
+    fundamentalDomainByEquateForEquivalenceRelations["P"] = csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_P>;
+    fundamentalDomainByEquateForEquivalenceRelations["T"] = csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_T>;
+    fundamentalDomainByEquateForEquivalenceRelations["Tg"] = csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_Tg>;
+    fundamentalDomainByEquateForEquivalenceRelations["I"] = csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_I>;
+    fundamentalDomainByEquateForEquivalenceRelations["RP"] = csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RP>;
+    fundamentalDomainByEquateForEquivalenceRelations["RPT"] = csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RPT>;
+    fundamentalDomainByEquateForEquivalenceRelations["RPTg"] = csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RPTg>;
+    fundamentalDomainByEquateForEquivalenceRelations["RPI"] = csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RPI>;
+    fundamentalDomainByEquateForEquivalenceRelations["RPTI"] = csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RPTI>;
+    fundamentalDomainByEquateForEquivalenceRelations["RPTgI"] = csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RPTgI>;
+    fundamentalDomainByPredicateForEquivalenceRelations["R"] = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_R>;
+    fundamentalDomainByPredicateForEquivalenceRelations["P"] = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_P>;
+    fundamentalDomainByPredicateForEquivalenceRelations["T"] = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_T>;
+    fundamentalDomainByPredicateForEquivalenceRelations["Tg"] = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_Tg>;
+    fundamentalDomainByPredicateForEquivalenceRelations["I"] = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_I>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RP"] = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RP>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPT"] = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPT>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPTg"] = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTg>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPI"] = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPI>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPTI"] = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTI>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPTgI"] = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTgI>;
 
-    auto chordspace_opttis_4 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTgI>(4, csound::OCTAVE(), 1., testSector);
-    printSet("My OPTTIs", chordspace_opttis_4);
+    std::vector<csound::Chord> chordspace_optts_3;
+    std::vector<csound::Chord> chordspace_opttis_3;
+    std::vector<csound::Chord> chordspace_optts_4;
+    std::vector<csound::Chord> chordspace_opttis_4;
     
+    if (CANONICAL_ONLY == false)
+    {
+        chordspace_optts_3 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTg>(3, 12., 1., testSector);
+        printSet("My OPTTs", chordspace_optts_3);
+
+        chordspace_opttis_3 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTgI>(3, 12., 1., testSector);
+        printSet("My OPTTIs", chordspace_opttis_3);
+
+        chordspace_optts_4 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTg>(4, csound::OCTAVE(), 1., testSector);
+        printSet("My OPTTs", chordspace_optts_4);
+
+        chordspace_opttis_4 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTgI>(4, csound::OCTAVE(), 1., testSector);
+        printSet("My OPTTIs", chordspace_opttis_4);
+    }
     csound::System::message("\nBehavior of std::fmod and std::remainder:\n\n");
-    for (double pitch = -24.0; pitch < 24.0; pitch += 1.0) {
+    for (double pitch = -24.0; pitch < 24.0; pitch += 1.0)
+    {
         double modulusFmod = std::fmod(pitch, csound::OCTAVE());
         double modulusRemainder = std::remainder(pitch, csound::OCTAVE());
         double pc = csound::epc(pitch);
@@ -568,13 +657,14 @@ int main(int argc, char **argv) {
     csound::System::message("Should be C major triad:\n%s\n", cmt.information().c_str());
     csound::Chord pcs = csound::chordForName("C major").epcs();
     csound::System::message("Should be C major scale:\n%s\n", pcs.information().c_str());
-    for (double pitch = 36.0; pitch < 96.0; pitch += 1.0) {
+    for (double pitch = 36.0; pitch < 96.0; pitch += 1.0)
+    {
         double conformed = csound::conformToPitchClassSet(pitch, pcs);
         csound::System::message("pitch: %9.4f  conformed: %9.4f\n", pitch, conformed);
     }
     {
-        ///csound::SCOPED_DEBUGGING scoped_debugging;
-        csound::Chord chord({-4.,8.,8.});
+        /// csound::SCOPED_DEBUGGING scoped_debugging;
+        csound::Chord chord({-4., 8., 8.});
         std::cerr << chord.information() << std::endl;
     }
     csound::Chord chord;
@@ -630,10 +720,10 @@ int main(int argc, char **argv) {
     csound::Chord eP = eO.eP();
     std::cerr << "eP = eO.eP(): " << eP.toString() << std::endl;
     std::cerr << "eP.iseT(): " << eP.iseT() << std::endl;
-    csound::Chord eT= eP.eT();
+    csound::Chord eT = eP.eT();
     std::cerr << "eT = eP.eT(): " << eT.toString() << std::endl;
     std::cerr << "eT.iseT(): " << eT.iseT() << std::endl;
-    csound::Chord eTT= eP.eTT();
+    csound::Chord eTT = eP.eTT();
     std::cerr << "eTT = eP.eTT(): " << eTT.toString() << std::endl;
     std::cerr << "eTT.iseT(): " << eTT.iseTT() << std::endl;
     std::cerr << "eT.iseTT(): " << eT.iseTT() << std::endl;
@@ -657,37 +747,49 @@ int main(int argc, char **argv) {
     std::cerr << "eI.cycle(-1): " << eI.cycle(-1).toString() << std::endl;
     std::vector<csound::Chord> permutations = chord.permutations();
     std::string tosplit = "C     D     E        G           B";
-    //auto prior_level = csound::setMessageLevel(15);
-    // Must be 'false' because this is a chord not a scale, and if it were a 
-    // scale, infinite looping because tosplit is not in order.
+    // auto prior_level = csound::setMessageLevel(15);
+    //  Must be 'false' because this is a chord not a scale, and if it were a
+    //  scale, infinite looping because tosplit is not in order.
     csound::fill("C", 0., "M9", tosplit, false);
-    //csound::setMessageLevel(prior_level);
+    // csound::setMessageLevel(prior_level);
     csound::Chord C7 = csound::chordForName("C7");
-    std::cerr << "Should be C7:" << std::endl << C7.information().c_str() << std::endl;
+    std::cerr << "Should be C7:" << std::endl
+              << C7.information().c_str() << std::endl;
     csound::Chord G7 = csound::chordForName("G7");
-    std::cerr << "Should be G7:" << std::endl << G7.information().c_str() << std::endl;
+    std::cerr << "Should be G7:" << std::endl
+              << G7.information().c_str() << std::endl;
     csound::Chord CM9 = csound::chordForName("CM9");
-    std::cerr << "Should be CM9:" << std::endl << CM9.information().c_str() << std::endl;
+    std::cerr << "Should be CM9:" << std::endl
+              << CM9.information().c_str() << std::endl;
     CM9.setPitch(0, 0.);
     CM9.setPitch(1, 4.);
     CM9.setPitch(2, 7.);
-    CM9.setPitch(3,-1.);
+    CM9.setPitch(3, -1.);
     CM9.setPitch(4, 2.);
-    try {
-        std::cerr << "Should be CM9:" << std::endl << CM9.information().c_str() << std::endl;
-    } catch (const std::exception &e) {
+    try
+    {
+        std::cerr << "Should be CM9:" << std::endl
+                  << CM9.information().c_str() << std::endl;
+    }
+    catch (const std::exception &e)
+    {
         std::cerr << "Exception caught: " << e.what() << std::endl;
     }
     csound::Chord Dm9 = csound::chordForName("Dm9");
-    std::cerr << "Should be Dm9:" << std::endl << Dm9.information().c_str() << std::endl;
+    std::cerr << "Should be Dm9:" << std::endl
+              << Dm9.information().c_str() << std::endl;
     Dm9.setPitch(0, 2.);
     Dm9.setPitch(1, 5.);
     Dm9.setPitch(2, 9.);
     Dm9.setPitch(3, 0.);
     Dm9.setPitch(4, 4.);
-    try {
-        std::cerr << "Should be Dm9:" << std::endl << Dm9.information().c_str() << std::endl;
-    } catch (const std::exception &e) {
+    try
+    {
+        std::cerr << "Should be Dm9:" << std::endl
+                  << Dm9.information().c_str() << std::endl;
+    }
+    catch (const std::exception &e)
+    {
         std::cerr << "Exception caught: " << e.what() << std::endl;
     }
     csound::Chord chordForName_ = csound::chordForName("CM9");
@@ -726,7 +828,7 @@ int main(int argc, char **argv) {
     science_optts_3.push_back(csound::Chord({0., 4., 7.}));
     science_optts_3.push_back(csound::Chord({0., 4., 8.}));
     //~ printSet("Science OPTTIs", science_optts_3);
-    
+
     std::vector<csound::Chord> science_opttis_4;
     science_opttis_4.push_back(csound::Chord({0., 0., 0., 0.}));
     science_opttis_4.push_back(csound::Chord({0., 0., 0., 1.}));
@@ -813,49 +915,51 @@ int main(int argc, char **argv) {
     science_opttis_4.push_back(csound::Chord({0., 2., 6., 8.}));
     science_opttis_4.push_back(csound::Chord({0., 3., 6., 9.}));
     //~ printSet("Science OPTTIs", science_opttis_4);
-    
-    std::vector<csound::Chord> difference;
-    setDifference("ScienceOPTTS", science_optts_3, "ChordSpaceOPTTs", chordspace_optts_3, difference);
-    //~ for (const auto &chord : difference) {
+
+    if (CANONICAL_ONLY == false)
+    {
+        std::vector<csound::Chord> difference;
+        setDifference("ScienceOPTTS", science_optts_3, "ChordSpaceOPTTs", chordspace_optts_3, difference);
+        //~ for (const auto &chord : difference) {
         //~ std::cerr << "Chords in Science not in ChordSpace:" << std::endl << std::endl;
         //~ std::cerr << chord.information() << std::endl << std::endl;
-    //~ }
-    setDifference("ChordSpaceOPTTS", chordspace_optts_3, "ScienceOPTTs", science_optts_3, difference);
-    //~ for (const auto &chord : difference) {
+        //~ }
+        setDifference("ChordSpaceOPTTS", chordspace_optts_3, "ScienceOPTTs", science_optts_3, difference);
+        //~ for (const auto &chord : difference) {
         //~ std::cerr << "Chords in ChordSpace not in Science:" << std::endl << std::endl;
         //~ std::cerr << chord.information() << std::endl << std::endl;
-    //~ }
-    setDifference("ScienceOPTTIs", science_opttis_4, "ChordSpaceOPTTIs", chordspace_opttis_4, difference);
-    //~ for (const auto &chord : difference) {
+        //~ }
+        setDifference("ScienceOPTTIs", science_opttis_4, "ChordSpaceOPTTIs", chordspace_opttis_4, difference);
+        //~ for (const auto &chord : difference) {
         //~ std::cerr << "Chords in Science not in ChordSpace:" << std::endl << std::endl;
         //~ std::cerr << chord.information() << std::endl << std::endl;
-    //~ }
-    setDifference("ChordSpaceOPTTIs", chordspace_opttis_4, "ScienceOPTTIs", science_opttis_4, difference);
-    //~ for (const auto &chord : difference) {
+        //~ }
+        setDifference("ChordSpaceOPTTIs", chordspace_opttis_4, "ScienceOPTTIs", science_opttis_4, difference);
+        //~ for (const auto &chord : difference) {
         //~ std::cerr << "Chords in ChordSpace not in Science:" << std::endl << std::endl;
         //~ std::cerr << chord.information() << std::endl << std::endl;
-    //~ }
-    
+        //~ }
+    }
     auto test_chord1 = csound::Chord({0., 1., 2., 6.}).eT();
     std::cerr << test_chord1.information() << std::endl;
     auto test_chord2 = csound::Chord({0., 1., 2., 8.}).eT();
     std::cerr << test_chord2.information() << std::endl;
 
-#if 1    
+#if 1
     csound::Chord c1({-7, 2, 5});
     std::cerr << c1.information() << std::endl;
     csound::Chord c2({-5, -2, 7});
     std::cerr << c2.information() << std::endl;
-    
+
     auto prior_level = csound::System::setMessageLevel(15);
-    
+
     auto original = csound::Chord({0, 3, 7}).eOPT();
     std::cerr << "original:" << std::endl;
     std::cerr << original.information() << std::endl;
     auto reflected = csound::reflect_by_householder(original);
     std::cerr << "reflect_by_householder:" << std::endl;
     std::cerr << reflected.information() << std::endl;
-    reflected =  (original);
+    reflected = (original);
     std::cerr << "reflect_in_inversion_flat:" << std::endl;
     std::cerr << reflected.information() << std::endl;
     auto spun_back = reflected.eOPT();
@@ -870,25 +974,25 @@ int main(int argc, char **argv) {
     std::cerr << reflected.information() << std::endl;
     spun_back = reflected.eOPTT();
     std::cerr << "spun_back:" << std::endl;
-    std::cerr << spun_back.information() << std::endl;    
-#endif    
+    std::cerr << spun_back.information() << std::endl;
+#endif
     csound::System::message("\nTesting equivalence relations...\n\n");
-    for (int voiceCount = 3; voiceCount <= 4; ++voiceCount) {
+    for (int voiceCount = 3; voiceCount <= 4; ++voiceCount)
+    {
         testEquivalenceRelations(voiceCount, csound::OCTAVE(), 1.0);
     }
-    
+
     csound::PITV pitv_3;
     pitv_3.initialize(3, 60., 1., true);
     pitv_3.list(true, true);
-    
+
     csound::PITV pitv_4;
     pitv_4.initialize(4, 60., 1., true);
     pitv_4.list(true, true);
-    
+
     test_pitv(pitv_4, "D#7b5");
     test_pitv(3, 4);
 
     summary();
     return 0;
 }
- 
