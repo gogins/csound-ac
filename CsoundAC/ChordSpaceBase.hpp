@@ -161,10 +161,10 @@ namespace csound
     And this in turn may require accounting for duplicate elements of the
     representative fundamental domain caused by reflections or singularities in
     the orbifold (e.g. on vertices, edges, or facets shared by fundamental domains
-    with a cyclical structure), or by doubled pitches in a chord. I cannot 
-    guarantee that all such singularities have been accounted for here; functions 
-    that send a chord to an equivalence class may at times send that chord to that 
-    equivalence class, but in a different fundamental domain than the 
+    with a cyclical structure), or by doubled pitches in a chord. I cannot
+    guarantee that all such singularities have been accounted for here; functions
+    that send a chord to an equivalence class may at times send that chord to that
+    equivalence class, but in a different fundamental domain than the
     representative fundamental domain.
 
     <dl>
@@ -349,7 +349,7 @@ namespace csound
 
 #ifdef CHORDSPACE_TEST_STRICT
 
-#define CHORDSPACE_EQUATE_FAIL(rel_name, chord, sector)         \
+#define CHORDSPACE_EQUATE_FAIL(rel_name, chord, sector)             \
     throw equate_failure(                                           \
         std::string("equate<") + (rel_name) +                       \
         ">: no representative found; chord=" + (chord).toString() + \
@@ -358,10 +358,10 @@ namespace csound
 #else
 
 #define CHORDSPACE_EQUATE_FAIL(rel_name, chord, sector)                       \
-    System::error(                                                                \
+    System::error(                                                            \
         "Warning: equate<%s>: no representative found; chord=%s sector=%d\n", \
-        (rel_name),                                                               \
-        (chord).toString().c_str(),                                               \
+        (rel_name),                                                           \
+        (chord).toString().c_str(),                                           \
         (sector))
 
 #endif
@@ -378,7 +378,7 @@ namespace csound
 
     /**
      * Value of sector argument for predicate<> and equate<> functions
-     * to indicate canonical mode, i.e., no sector preference. This is 
+     * to indicate canonical mode, i.e., no sector preference. This is
      * the default value of the sector argument.
      */
     constexpr int CANONICAL_MODE = -1;
@@ -478,22 +478,22 @@ namespace csound
      * Each voice also has a duration, velocity, channel, and pan.
      * Eigen matrices are accessed (row, column) and stored as column
      * vectors, so a Chord is accessed (voice (same as row), attribute).
-     * 
+     *
      * Equivalence relations and operations on chords are provided as member
-     * functions of this class. Such functions take a `sector` argument, 
-     * defaulting to `CANONICAL_MODE`, to indicate a preference for which 
-     * sector of the cyclical region to use when there is more than one choice. 
+     * functions of this class. Such functions take a `sector` argument,
+     * defaulting to `CANONICAL_MODE`, to indicate a preference for which
+     * sector of the cyclical region to use when there is more than one choice.
      * Equivalence relations that must observe `sector` include R (and thus O),
-     * and T (and thus Tg and TT). Compounds including these equivalence 
-     * relations also observe `sector`: RP, RPT, RPTg, RPTT, RI, RPTI, RPTgI, 
+     * and T (and thus Tg and TT). Compounds including these equivalence
+     * relations also observe `sector`: RP, RPT, RPTg, RPTT, RI, RPTI, RPTgI,
      * and RPTTI; OP, OPT, OPTg, OPTT, OI, OPTI, and OPTgI.
-     * 
+     *
      * If the `sector` argument is left at its default value of `CANONICAL_MODE`,
-     * the function will choose a sector according to a canonical heuristic. If 
-     * the `sector` argument is equal to or greater than 0, the function will 
-     * attempt to return an equivalent chord in that sector, folding back over 
-     * into the fundamental domain of that sector; but if no such equivalent 
-     * exists, an equivalent chord from another sector will be returned 
+     * the function will choose a sector according to a canonical heuristic. If
+     * the `sector` argument is equal to or greater than 0, the function will
+     * attempt to return an equivalent chord in that sector, folding back over
+     * into the fundamental domain of that sector; but if no such equivalent
+     * exists, an equivalent chord from another sector will be returned
      * instead.
      */
     class SILENCE_PUBLIC Chord : public Matrix
@@ -597,15 +597,15 @@ namespace csound
         virtual Chord eOP(int sector = CANONICAL_MODE) const;
         /**
          * Returns the equivalent of the chord within a fundamental domain of
-         * octave, permutational, and inversional equivalence. If the 
-         * equivalent is not found in the indicated sector, an equivalent 
+         * octave, permutational, and inversional equivalence. If the
+         * equivalent is not found in the indicated sector, an equivalent
          * from another sector is returned.
          */
         virtual Chord eOPI(int sector = CANONICAL_MODE) const;
         /**
          * Returns the equivalent of the chord within a fundamental
-         * domain of octave, permutational, and transpositional equivalence. If 
-         * the equivalent is not found in the indicated sector, an equivalent 
+         * domain of octave, permutational, and transpositional equivalence. If
+         * the equivalent is not found in the indicated sector, an equivalent
          * from another sector is returned.
          */
         virtual Chord eOPT(int sector = CANONICAL_MODE) const;
@@ -613,7 +613,7 @@ namespace csound
          * Returns the equivalent of the chord within a fundamental
          * domain of octave, permutational, and transpositional equivalence but
          * in the equal temperament generated by g. If the equivalent is not found
-         * in the indicated sector, an equivalent from another sector is 
+         * in the indicated sector, an equivalent from another sector is
          * returned.
          */
         virtual Chord eOPTT(double g = 1., int sector = CANONICAL_MODE) const;
@@ -642,7 +642,7 @@ namespace csound
         /**
          * Returns the equivalent of the chord within a fundamental domain of
          * octave and transpositional equivalence but in the equal temperament
-         * generated by g. 
+         * generated by g.
          */
         virtual Chord eOTT(double g = 1., int sector = CANONICAL_MODE) const;
         /**
@@ -688,7 +688,7 @@ namespace csound
         virtual Chord eRPI(double range, int sector = CANONICAL_MODE) const;
         /**
          * Returns the equivalent of the chord within a fundamental
-         * domain of range, permutational, and transpositional equivalence. 
+         * domain of range, permutational, and transpositional equivalence.
          * If the equivalent is not found in the indicated sector, an equivalent
          * from another sector is returned.
          */
@@ -719,7 +719,7 @@ namespace csound
          * Returns the equivalent of the chord within the representative fundamental
          * domain of range, permutational, transpositional, and inversional
          * equivalence. If the equivalent is not found in the indicated sector, an equivalent
-         * from another sector is returned. 
+         * from another sector is returned.
          */
         virtual Chord eRPTI(double range, int sector = CANONICAL_MODE) const;
         /**
@@ -1251,7 +1251,7 @@ namespace csound
         /**
          * Tests the internal consistency of the predicates ("iseX") and
          * transformations ("eX") of this chord, and prints a report. If the
-         * equivalent chord is found in a different sector than that of the 
+         * equivalent chord is found in a different sector than that of the
          * chord, the test is passed anyway.
          */
         virtual bool test(const char *caption = "") const;
@@ -1409,7 +1409,7 @@ namespace csound
      * Returns a set of chords in sector 0 of the cyclical region, sorted by
      * normal order, for the indicated equivalence relation. If there are
      * duplicate chords for the same equivalence, only the one closest to the
-     * origin is returned. Thus, this function is more strict than the 
+     * origin is returned. Thus, this function is more strict than the
      * functions that send a chord to its equivalent under the equivalence relation.
      */
     template <int EQUIVALENCE_RELATION>
@@ -2229,10 +2229,53 @@ namespace csound
     template <>
     inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int sector)
     {
+
         if (sector < 0)
         {
             CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_I>: sector %d not supported—using canonical mode\n", sector);
+
+            // Canonical mode: evaluate using valid OPT sector indices only.
+            const int canonical_sector = 0;
+
+            // Chords that are inversionally equivalent automatically are normal (sector-relative).
+            if (chord.self_inverse(canonical_sector))
+            {
+                return true;
+            }
+
+            const auto opt_sectors = chord.opt_domain_sectors();
+
+            auto is_minor_in_opt_sector = [&](int s) -> bool
+            {
+                const int minor_opti_sector = s * 2;
+                return chord.is_opti_sector(minor_opti_sector);
+            };
+
+            // First: honor the canonical default sector (historical behavior).
+            if (is_minor_in_opt_sector(canonical_sector))
+            {
+                return true;
+            }
+
+            // On OPT boundaries, accept if minor in any OPT sector the chord belongs to.
+            if (opt_sectors.size() > 1)
+            {
+                for (const int s : opt_sectors)
+                {
+                    if (s == canonical_sector)
+                    {
+                        continue;
+                    }
+                    if (is_minor_in_opt_sector(s))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
+
         // Chords that are inversionally equivalent automatically are normal (sector-relative).
         if (chord.self_inverse(sector))
         {
@@ -2282,10 +2325,32 @@ namespace csound
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int sector)
     {
+
         if (sector < 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_I>: sector %d not supported—using canonical mode\n", sector);
+            // Canonical mode: do NOT use a negative sector for geometric operations.
+            // Select a deterministic OPT sector to parameterize the inversion flat.
+            int canonical_sector = 0;
+            const auto opt_sectors = chord.opt_domain_sectors();
+            if (opt_sectors.empty() == false)
+            {
+                canonical_sector = *std::min_element(opt_sectors.begin(), opt_sectors.end());
+            }
+
+            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_I>: sector %d not supported—using canonical mode (sector %d)\n",
+                              sector, canonical_sector);
+
+            // Evaluate canonical predicate using a valid sector parameter.
+            if (predicate<EQUIVALENCE_RELATION_I>(chord, range, g, canonical_sector) == true)
+            {
+                return chord;
+            }
+            else
+            {
+                return reflect_in_inversion_flat(chord, canonical_sector);
+            }
         }
+
         if (predicate<EQUIVALENCE_RELATION_I>(chord, range, g, sector) == true)
         {
             return chord;
