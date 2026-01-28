@@ -2727,22 +2727,18 @@ namespace csound
             // Geometric mode: membership in the OPT simplex for this sector.
             return chordspace_geometry::predicate_rpt_geom(chord, range, g, sector);
         }
-        if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, sector) == false)
+
+        // Canonical mode: fixed-point predicate.
+        const Chord rep = equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, CANONICAL_MODE);
+
+        for (size_t v = 0; v < chord.voices(); ++v)
         {
-            return false;
+            if (!eq_tolerance(chord.getPitch(v), rep.getPitch(v)))
+            {
+                return false;
+            }
         }
-        if (predicate<EQUIVALENCE_RELATION_P>(chord, range, g, sector) == false)
-        {
-            return false;
-        }
-        if (chord.is_opt_sector(sector) == false)
-        {
-            return false;
-        }
-        if (predicate<EQUIVALENCE_RELATION_T>(chord, range, g, sector) == false)
-        {
-            return false;
-        }
+
         return true;
     }
 
@@ -2759,27 +2755,35 @@ namespace csound
             // Geometric mode: fold into the OPT simplex for this sector.
             return chordspace_geometry::equate_rpt_geom(chord, range, g, sector);
         }
+
+        // Canonical mode: choose a representative without using sector membership.
         bool found = false;
         Chord best;
 
-        auto prefer = [&](const Chord &a, const Chord &b) -> bool
+        auto is_candidate = [&](const Chord &c) -> bool
         {
-            const bool a_in = a.is_opt_sector(sector);
-            const bool b_in = b.is_opt_sector(sector);
-            if (a_in != b_in)
+            if (!predicate<EQUIVALENCE_RELATION_R>(c, range, g, CANONICAL_MODE))
             {
-                return a_in;
+                return false;
             }
-            return a < b;
+            if (!predicate<EQUIVALENCE_RELATION_P>(c, range, g, CANONICAL_MODE))
+            {
+                return false;
+            }
+            if (!predicate<EQUIVALENCE_RELATION_T>(c, range, g, CANONICAL_MODE))
+            {
+                return false;
+            }
+            return true;
         };
 
         auto consider = [&](const Chord &c)
         {
-            if (!predicate<EQUIVALENCE_RELATION_RPT>(c, range, g, sector))
+            if (!is_candidate(c))
             {
                 return;
             }
-            if (!found || prefer(c, best))
+            if (!found || (c < best))
             {
                 best = c;
                 found = true;
@@ -2800,15 +2804,7 @@ namespace csound
             return best;
         }
 
-        System::error("Error:   Chord::equate<RPT>: no representative in sector %d\n", sector);
-        // Fallback: preserve prior behavior as much as possible.
-        for (const auto &rpt : rpts)
-        {
-            if (rpt.is_opt_sector(sector))
-            {
-                return rpt;
-            }
-        }
+        System::error("Error:   Chord::equate<RPT>: no representative in canonical mode.\n");
         if (!rpts.empty())
         {
             return rpts.front();
@@ -2846,23 +2842,18 @@ namespace csound
             // Geometric mode: membership in the OPT(g) simplex for this sector.
             return chordspace_geometry::predicate_rptg_geom(chord, range, g, sector);
         }
-        if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, sector) == false)
+
+        // Canonical mode: fixed-point predicate.
+        const Chord rep = equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, CANONICAL_MODE);
+
+        for (size_t v = 0; v < chord.voices(); ++v)
         {
-            return false;
+            if (!eq_tolerance(chord.getPitch(v), rep.getPitch(v)))
+            {
+                return false;
+            }
         }
-        if (predicate<EQUIVALENCE_RELATION_P>(chord, range, g, sector) == false)
-        {
-            return false;
-        }
-        if (chord.is_opt_sector(sector) == false)
-        {
-            //~ if (chord.iseRPT(range, sector) == false) {
-            return false;
-        }
-        if (predicate<EQUIVALENCE_RELATION_Tg>(chord, range, g, sector) == false)
-        {
-            return false;
-        }
+
         return true;
     }
 
@@ -2870,7 +2861,7 @@ namespace csound
     {
         return predicate<EQUIVALENCE_RELATION_RPTg>(*this, range, g, sector);
     }
-    
+
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTg>(const Chord &chord, double range, double g, int sector)
     {
@@ -2880,27 +2871,34 @@ namespace csound
             return chordspace_geometry::equate_rptg_geom(chord, range, g, sector);
         }
 
+        // Canonical mode: choose a representative without using sector membership.
         bool found = false;
         Chord best;
 
-        auto prefer = [&](const Chord &a, const Chord &b) -> bool
+        auto is_candidate = [&](const Chord &c) -> bool
         {
-            const bool a_in = a.is_opt_sector(sector);
-            const bool b_in = b.is_opt_sector(sector);
-            if (a_in != b_in)
+            if (!predicate<EQUIVALENCE_RELATION_R>(c, range, g, CANONICAL_MODE))
             {
-                return a_in;
+                return false;
             }
-            return a < b;
+            if (!predicate<EQUIVALENCE_RELATION_P>(c, range, g, CANONICAL_MODE))
+            {
+                return false;
+            }
+            if (!predicate<EQUIVALENCE_RELATION_Tg>(c, range, g, CANONICAL_MODE))
+            {
+                return false;
+            }
+            return true;
         };
 
         auto consider = [&](const Chord &c)
         {
-            if (!predicate<EQUIVALENCE_RELATION_RPTg>(c, range, g, sector))
+            if (!is_candidate(c))
             {
                 return;
             }
-            if (!found || prefer(c, best))
+            if (!found || (c < best))
             {
                 best = c;
                 found = true;
@@ -2920,14 +2918,7 @@ namespace csound
             return best;
         }
 
-        System::error("Error: Chord::equate<RPTg>: no representative in sector %d.\n", sector);
-        for (const auto &rpt : rpts)
-        {
-            if (rpt.is_opt_sector(sector))
-            {
-                return rpt;
-            }
-        }
+        System::error("Error: Chord::equate<RPTg>: no representative in canonical mode.\n");
         if (!rpts.empty())
         {
             return rpts.front();
