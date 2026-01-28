@@ -1901,32 +1901,32 @@ namespace csound
         return ss.str();
     }
 
-// Forward declarations for specializations used by geometric folding helpers.
-template <>
-inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_R>(const Chord &chord, double range, double g, int sector);
-template <>
-inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_P>(const Chord &chord, double range, double g, int sector);
-template <>
-inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_T>(const Chord &chord, double range, double g, int sector);
-template <>
-inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int sector);
-template <>
-inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int sector);
-template <>
-inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RP>(const Chord &chord, double range, double g, int sector);
+    // Forward declarations for specializations used by geometric folding helpers.
+    template <>
+    inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_R>(const Chord &chord, double range, double g, int sector);
+    template <>
+    inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_P>(const Chord &chord, double range, double g, int sector);
+    template <>
+    inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_T>(const Chord &chord, double range, double g, int sector);
+    template <>
+    inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int sector);
+    template <>
+    inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int sector);
+    template <>
+    inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RP>(const Chord &chord, double range, double g, int sector);
 
-template <>
-inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_R>(const Chord &chord, double range, double g, int sector);
-template <>
-inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_P>(const Chord &chord, double range, double g, int sector);
-template <>
-inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_T>(const Chord &chord, double range, double g, int sector);
-template <>
-inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int sector);
-template <>
-inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int sector);
-template <>
-inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, double range, double g, int sector);
+    template <>
+    inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_R>(const Chord &chord, double range, double g, int sector);
+    template <>
+    inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_P>(const Chord &chord, double range, double g, int sector);
+    template <>
+    inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_T>(const Chord &chord, double range, double g, int sector);
+    template <>
+    inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int sector);
+    template <>
+    inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int sector);
+    template <>
+    inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, double range, double g, int sector);
 
     namespace chordspace_geometry
     {
@@ -2140,7 +2140,6 @@ inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, 
             return x;
         }
     } // namespace chordspace_geometry
-
 
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_r>(const Chord &chord, double range, double g, int sector)
@@ -2871,6 +2870,7 @@ inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, 
     {
         return predicate<EQUIVALENCE_RELATION_RPTg>(*this, range, g, sector);
     }
+    
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTg>(const Chord &chord, double range, double g, int sector)
     {
@@ -4166,13 +4166,19 @@ inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, 
     inline bool Chord::test(const char *label) const
     {
         std::fprintf(stderr, "TESTING %s %s\n\n", toString().c_str(), label);
-        bool passed = true;
-        const int canonical_sector = CANONICAL_MODE;
-        // For some of these we need to know the OPT sector, and if the chord
-        // belongs to more than one sector, we choose the first.
-        const int geometric_sector = opt_domain_sectors().front();
 
-        // Test the consistency of the predicates.
+        bool passed = true;
+
+        const int canonical_sector = CANONICAL_MODE;
+
+        // For geometric-mode tests (added later): if the chord belongs to more than one OPT sector,
+        // choose the first.
+        const int geometric_sector = opt_domain_sectors().front();
+        (void)geometric_sector;
+
+        // -------------------------------------------------------------------------
+        // Test the consistency of the predicates (CANONICAL MODE ONLY).
+        // -------------------------------------------------------------------------
         if (iseOP() == true)
         {
             if (iseO() == false ||
@@ -4186,7 +4192,8 @@ inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, 
                 std::fprintf(stderr, "        Chord::iseOP is consistent.\n");
             }
         }
-        if (iseOPT(sector) == true)
+
+        if (iseOPT(canonical_sector) == true)
         {
             if (iseO() == false ||
                 iseP() == false ||
@@ -4200,9 +4207,10 @@ inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, 
                 std::fprintf(stderr, "        Chord::iseOPT is consistent.\n");
             }
         }
+
         // If it is transformed to T, is it OPT?
         // After that, is it Tg?
-        if (iseOPTT(1., sector) == true)
+        if (iseOPTT(1.0, canonical_sector) == true)
         {
             if (iseO() == false ||
                 iseP() == false ||
@@ -4216,12 +4224,13 @@ inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, 
                 std::fprintf(stderr, "        Chord::iseOPTT is consistent.\n");
             }
         }
-        if (iseOPTI(sector) == true)
+
+        if (iseOPTI(canonical_sector) == true)
         {
             if (iseO() == false ||
                 iseP() == false ||
                 iseT() == false ||
-                iseI(sector) == false)
+                iseI(canonical_sector) == false)
             {
                 passed = false;
                 std::fprintf(stderr, "Failed: Chord::iseOPTI is not consistent.\n");
@@ -4231,12 +4240,13 @@ inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, 
                 std::fprintf(stderr, "        Chord::iseOPTI is consistent.\n");
             }
         }
-        if (iseOPTTI(1., sector) == true)
+
+        if (iseOPTTI(1.0, canonical_sector) == true)
         {
             if (iseO() == false ||
                 iseP() == false ||
                 iseTT() == false ||
-                iseI(sector) == false)
+                iseI(canonical_sector) == false)
             {
                 passed = false;
                 std::fprintf(stderr, "Failed: Chord::iseOPTTI is not consistent.\n");
@@ -4246,11 +4256,14 @@ inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, 
                 std::fprintf(stderr, "        Chord::iseOPTTI is consistent.\n");
             }
         }
-        // Test the consistency of the transformations.
+
+        // -------------------------------------------------------------------------
+        // Test the consistency of the transformations (CANONICAL MODE ONLY).
         // Note that boundary degeneracies may cause ambiguities here.
         // The policy of these tests is to not fail if the transformed chord is of
         // the right equivalence class, even if it is not exactly equal to the
         // original chord.
+        // -------------------------------------------------------------------------
         if (eO().iseO() == false)
         {
             passed = false;
@@ -4260,6 +4273,7 @@ inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, 
         {
             std::fprintf(stderr, "        Chord::eO is consistent with Chord::iseO.\n");
         }
+
         if (eP().iseP() == false)
         {
             passed = false;
@@ -4269,6 +4283,7 @@ inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, 
         {
             std::fprintf(stderr, "        Chord::eP is consistent with Chord::iseP.\n");
         }
+
         if (eT().iseT() == false)
         {
             passed = false;
@@ -4278,6 +4293,7 @@ inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, 
         {
             std::fprintf(stderr, "        Chord::eT is consistent with Chord::iseT.\n");
         }
+
         if (eTT().iseTT() == false)
         {
             passed = false;
@@ -4287,16 +4303,20 @@ inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, 
         {
             std::fprintf(stderr, "        Chord::eTT is consistent with Chord::iseTT.\n");
         }
-        auto ei = eI(sector);
-        if (ei.iseI(sector) == false)
+
         {
-            passed = false;
-            std::fprintf(stderr, "Failed: Chord::eI is not consistent with eI::iseI.\n");
+            auto ei = eI(canonical_sector);
+            if (ei.iseI(canonical_sector) == false)
+            {
+                passed = false;
+                std::fprintf(stderr, "Failed: Chord::eI is not consistent with eI::iseI.\n");
+            }
+            else
+            {
+                std::fprintf(stderr, "        Chord::eI is consistent with eI::iseI.\n");
+            }
         }
-        else
-        {
-            std::fprintf(stderr, "        Chord::eI is consistent with eI::iseI.\n");
-        }
+
         if (eOP().iseOP() == false)
         {
             passed = false;
@@ -4309,8 +4329,8 @@ inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, 
 
         try
         {
-            auto opt_chord = eOPT(sector);
-            if (!opt_chord.iseOPT(sector))
+            auto opt_chord = eOPT(canonical_sector);
+            if (!opt_chord.iseOPT(canonical_sector))
             {
                 passed = false;
                 std::fprintf(stderr,
@@ -4326,14 +4346,13 @@ inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, 
         catch (const equate_failure &e)
         {
             passed = false;
-            std::fprintf(stderr,
-                         "Failed: %s\n", e.what());
+            std::fprintf(stderr, "Failed: %s\n", e.what());
         }
 
         try
         {
-            auto opti_chord = eOPTI(sector);
-            if (!opti_chord.iseOPTI(sector))
+            auto opti_chord = eOPTI(canonical_sector);
+            if (!opti_chord.iseOPTI(canonical_sector))
             {
                 passed = false;
                 std::fprintf(stderr,
@@ -4349,14 +4368,13 @@ inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, 
         catch (const equate_failure &e)
         {
             passed = false;
-            std::fprintf(stderr,
-                         "Failed: %s\n", e.what());
+            std::fprintf(stderr, "Failed: %s\n", e.what());
         }
 
         try
         {
-            auto optti_chord = eOPTTI(1., sector);
-            if (!optti_chord.iseOPTTI(1., sector))
+            auto optti_chord = eOPTTI(1.0, canonical_sector);
+            if (!optti_chord.iseOPTTI(1.0, canonical_sector))
             {
                 passed = false;
                 std::fprintf(stderr,
@@ -4372,12 +4390,12 @@ inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, 
         catch (const equate_failure &e)
         {
             passed = false;
-            std::fprintf(stderr,
-                         "Failed: %s\n", e.what());
+            std::fprintf(stderr, "Failed: %s\n", e.what());
         }
 
         std::fprintf(stderr, "\n");
         std::fprintf(stderr, "%s", information().c_str());
+
         return passed;
     }
 
