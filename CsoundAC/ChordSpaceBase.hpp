@@ -1901,12 +1901,253 @@ namespace csound
         return ss.str();
     }
 
+// Forward declarations for specializations used by geometric folding helpers.
+template <>
+inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_R>(const Chord &chord, double range, double g, int sector);
+template <>
+inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_P>(const Chord &chord, double range, double g, int sector);
+template <>
+inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_T>(const Chord &chord, double range, double g, int sector);
+template <>
+inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int sector);
+template <>
+inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int sector);
+template <>
+inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RP>(const Chord &chord, double range, double g, int sector);
+
+template <>
+inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_R>(const Chord &chord, double range, double g, int sector);
+template <>
+inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_P>(const Chord &chord, double range, double g, int sector);
+template <>
+inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_T>(const Chord &chord, double range, double g, int sector);
+template <>
+inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int sector);
+template <>
+inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int sector);
+template <>
+inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &chord, double range, double g, int sector);
+
+    namespace chordspace_geometry
+    {
+        inline Chord rotate_voicing(const Chord &chord, double range, int direction)
+        {
+            Chord out = chord;
+            const int n = out.voices();
+            if (n <= 0)
+            {
+                return out;
+            }
+            if (direction > 0)
+            {
+                out = out.cycle(1);
+                out.setPitch(n - 1, out.getPitch(n - 1) + range);
+            }
+            else if (direction < 0)
+            {
+                out = out.cycle(-1);
+                out.setPitch(0, out.getPitch(0) + range);
+            }
+            return out;
+        }
+
+        inline bool predicate_rpt_geom(const Chord &chord, double range, double g, int sector)
+        {
+            if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, sector) == false)
+            {
+                return false;
+            }
+            if (predicate<EQUIVALENCE_RELATION_P>(chord, range, g, sector) == false)
+            {
+                return false;
+            }
+            if (predicate<EQUIVALENCE_RELATION_T>(chord, range, g, sector) == false)
+            {
+                return false;
+            }
+            if (chord.is_opt_sector(sector) == false)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        inline Chord equate_rpt_geom(const Chord &chord, double range, double g, int sector)
+        {
+            Chord x = chord;
+            const int n = chord.voices();
+            const int max_iters = 8 * std::max(1, n);
+
+            for (int iter = 0; iter < max_iters; ++iter)
+            {
+                x = equate<EQUIVALENCE_RELATION_R>(x, range, g, sector);
+                x = equate<EQUIVALENCE_RELATION_P>(x, range, g, sector);
+                x = equate<EQUIVALENCE_RELATION_T>(x, range, g, sector);
+
+                if (x.is_opt_sector(sector))
+                {
+                    return x;
+                }
+
+                x = rotate_voicing(x, range, 1);
+            }
+
+            // Fallback: try all cyclic voicings of the RP-folded chord, then T.
+            Chord rp = equate<EQUIVALENCE_RELATION_RP>(chord, range, g, sector);
+            auto vs = rp.voicings();
+            for (const auto &v : vs)
+            {
+                Chord y = equate<EQUIVALENCE_RELATION_R>(v, range, g, sector);
+                y = equate<EQUIVALENCE_RELATION_P>(y, range, g, sector);
+                y = equate<EQUIVALENCE_RELATION_T>(y, range, g, sector);
+                if (y.is_opt_sector(sector))
+                {
+                    return y;
+                }
+            }
+
+            // Last resort: return a deterministic fold (may be on a boundary).
+            Chord y = equate<EQUIVALENCE_RELATION_R>(chord, range, g, sector);
+            y = equate<EQUIVALENCE_RELATION_P>(y, range, g, sector);
+            y = equate<EQUIVALENCE_RELATION_T>(y, range, g, sector);
+            return y;
+        }
+
+        inline bool predicate_rptg_geom(const Chord &chord, double range, double g, int sector)
+        {
+            if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, sector) == false)
+            {
+                return false;
+            }
+            if (predicate<EQUIVALENCE_RELATION_P>(chord, range, g, sector) == false)
+            {
+                return false;
+            }
+            if (predicate<EQUIVALENCE_RELATION_Tg>(chord, range, g, sector) == false)
+            {
+                return false;
+            }
+            if (chord.is_opt_sector(sector) == false)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        inline Chord equate_rptg_geom(const Chord &chord, double range, double g, int sector)
+        {
+            Chord x = chord;
+            const int n = chord.voices();
+            const int max_iters = 8 * std::max(1, n);
+
+            for (int iter = 0; iter < max_iters; ++iter)
+            {
+                x = equate<EQUIVALENCE_RELATION_R>(x, range, g, sector);
+                x = equate<EQUIVALENCE_RELATION_P>(x, range, g, sector);
+                x = equate<EQUIVALENCE_RELATION_Tg>(x, range, g, sector);
+
+                if (x.is_opt_sector(sector))
+                {
+                    return x;
+                }
+
+                x = rotate_voicing(x, range, 1);
+            }
+
+            Chord rp = equate<EQUIVALENCE_RELATION_RP>(chord, range, g, sector);
+            auto vs = rp.voicings();
+            for (const auto &v : vs)
+            {
+                Chord y = equate<EQUIVALENCE_RELATION_R>(v, range, g, sector);
+                y = equate<EQUIVALENCE_RELATION_P>(y, range, g, sector);
+                y = equate<EQUIVALENCE_RELATION_Tg>(y, range, g, sector);
+                if (y.is_opt_sector(sector))
+                {
+                    return y;
+                }
+            }
+
+            Chord y = equate<EQUIVALENCE_RELATION_R>(chord, range, g, sector);
+            y = equate<EQUIVALENCE_RELATION_P>(y, range, g, sector);
+            y = equate<EQUIVALENCE_RELATION_Tg>(y, range, g, sector);
+            return y;
+        }
+
+        inline bool predicate_rpi_geom(const Chord &chord, double range, double g, int sector)
+        {
+            if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, sector) == false)
+            {
+                return false;
+            }
+            if (predicate<EQUIVALENCE_RELATION_P>(chord, range, g, sector) == false)
+            {
+                return false;
+            }
+            if (predicate<EQUIVALENCE_RELATION_I>(chord, range, g, sector) == false)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        inline Chord equate_rpi_geom(const Chord &chord, double range, double g, int sector)
+        {
+            Chord x = equate<EQUIVALENCE_RELATION_RP>(chord, range, g, sector);
+            x = equate<EQUIVALENCE_RELATION_I>(x, range, g, sector);
+            x = equate<EQUIVALENCE_RELATION_RP>(x, range, g, sector);
+            return x;
+        }
+
+        inline bool predicate_rpti_geom(const Chord &chord, double range, double g, int sector)
+        {
+            if (predicate_rpt_geom(chord, range, g, sector) == false)
+            {
+                return false;
+            }
+            if (predicate<EQUIVALENCE_RELATION_I>(chord, range, g, sector) == false)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        inline Chord equate_rpti_geom(const Chord &chord, double range, double g, int sector)
+        {
+            Chord x = equate_rpt_geom(chord, range, g, sector);
+            x = equate<EQUIVALENCE_RELATION_I>(x, range, g, sector);
+            x = equate_rpt_geom(x, range, g, sector);
+            return x;
+        }
+
+        inline bool predicate_rptgi_geom(const Chord &chord, double range, double g, int sector)
+        {
+            if (predicate_rptg_geom(chord, range, g, sector) == false)
+            {
+                return false;
+            }
+            if (predicate<EQUIVALENCE_RELATION_I>(chord, range, g, sector) == false)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        inline Chord equate_rptgi_geom(const Chord &chord, double range, double g, int sector)
+        {
+            Chord x = equate_rptg_geom(chord, range, g, sector);
+            x = equate<EQUIVALENCE_RELATION_I>(x, range, g, sector);
+            x = equate_rptg_geom(x, range, g, sector);
+            return x;
+        }
+    } // namespace chordspace_geometry
+
+
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_r>(const Chord &chord, double range, double g, int sector)
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_r>: sector %d not supported—using canonical mode\n", sector);
+            (void)sector;
         }
         Chord normal = chord;
         for (int voice = 0; voice < chord.voices(); ++voice)
@@ -1923,7 +2164,7 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_R>: sector %d not supported—using canonical mode\n", sector);
+            (void)sector;
         }
         double max = chord.max()[0];
         double min = chord.min()[0];
@@ -2017,7 +2258,17 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_R>: sector %d not supported—using canonical mode\n", sector);
+            // Geometric mode: fold into the range-reduced region (sector-independent).
+            Chord er = equate<EQUIVALENCE_RELATION_r>(chord, range_, g, sector);
+            while (le_tolerance(er.layer(), range_) == false)
+            {
+                std::vector<double> maximum = er.max();
+                double maximum_pitch = maximum[0];
+                double new_pitch = maximum_pitch - range_;
+                double maximum_voice = maximum[1];
+                er.setPitch(maximum_voice, new_pitch);
+            }
+            return er;
         }
         CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_R>: chord: %s normal: %d\n", chord.toString().c_str(), chord.iseR(range_));
         if (predicate<EQUIVALENCE_RELATION_R>(chord, range_, g, sector) == true)
@@ -2051,7 +2302,7 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_P>: sector %d not supported—using canonical mode\n", sector);
+            (void)sector;
         }
         for (size_t voice = 1; voice < chord.voices(); voice++)
         {
@@ -2075,7 +2326,7 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_P>: sector %d not supported—using canonical mode\n", sector);
+            (void)sector;
         }
         Chord normal = chord;
         bool sorted = false;
@@ -2107,7 +2358,7 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_T>: sector %d not supported—using canonical mode\n", sector);
+            (void)sector;
         }
         auto layer_ = chord.layer();
         CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_T>: chord: %s sector: %d layer: %12.7f\n", chord.toString().c_str(), sector, layer_);
@@ -2131,7 +2382,7 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_T>: sector %d not supported—using canonical mode\n", sector);
+            (void)sector;
         }
         Chord result = chord;
         double sum = chord.layer();
@@ -2152,7 +2403,7 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_Tg>: sector %d not supported—using canonical mode\n", sector);
+            (void)sector;
         }
         // Tg-normal means "already equal to its Tg canonical representative".
         const Chord tt = equate<EQUIVALENCE_RELATION_Tg>(chord, range, g, sector);
@@ -2173,7 +2424,7 @@ namespace csound
         (void)range;
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_Tg>: sector %d not supported—using canonical mode\n", sector);
+            (void)sector;
         }
 
         // Defensive: a non-positive grid does not define a meaningful quantizer.
@@ -2373,7 +2624,7 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_RP>: sector %d not supported—using canonical mode\n", sector);
+            (void)sector;
         }
         if (predicate<EQUIVALENCE_RELATION_P>(chord, range, g, sector) == false)
         {
@@ -2396,7 +2647,10 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_RP>: sector %d not supported—using canonical mode\n", sector);
+            // Geometric mode: R then P.
+            Chord normal = equate<EQUIVALENCE_RELATION_R>(chord, range, g, sector);
+            normal = equate<EQUIVALENCE_RELATION_P>(normal, range, g, sector);
+            return normal;
         }
         Chord normal = equate<EQUIVALENCE_RELATION_R>(chord, range, g, sector);
         normal = equate<EQUIVALENCE_RELATION_P>(normal, range, g, sector);
@@ -2417,7 +2671,7 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_RT>: sector %d not supported—using canonical mode\n", sector);
+            (void)sector;
         }
         if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, sector) == false)
         {
@@ -2440,7 +2694,9 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_RT>: sector %d not supported—using canonical mode\n", sector);
+            Chord normal = equate<EQUIVALENCE_RELATION_R>(chord, range, g, sector);
+            normal = equate<EQUIVALENCE_RELATION_T>(normal, range, g, sector);
+            return normal;
         }
         Chord normal = equate<EQUIVALENCE_RELATION_R>(chord, range, g, sector);
         normal = equate<EQUIVALENCE_RELATION_T>(normal, range, g, sector);
@@ -2469,7 +2725,8 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_RPT>: sector %d not supported—using canonical mode\n", sector);
+            // Geometric mode: membership in the OPT simplex for this sector.
+            return chordspace_geometry::predicate_rpt_geom(chord, range, g, sector);
         }
         if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, sector) == false)
         {
@@ -2500,7 +2757,8 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_RPT>: sector %d not supported—using canonical mode\n", sector);
+            // Geometric mode: fold into the OPT simplex for this sector.
+            return chordspace_geometry::equate_rpt_geom(chord, range, g, sector);
         }
         bool found = false;
         Chord best;
@@ -2586,7 +2844,8 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_RPTg>: sector %d not supported—using canonical mode\n", sector);
+            // Geometric mode: membership in the OPT(g) simplex for this sector.
+            return chordspace_geometry::predicate_rptg_geom(chord, range, g, sector);
         }
         if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, sector) == false)
         {
@@ -2617,7 +2876,8 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_RPTg>: sector %d not supported—using canonical mode\n", sector);
+            // Geometric mode: fold into the OPT(g) simplex for this sector.
+            return chordspace_geometry::equate_rptg_geom(chord, range, g, sector);
         }
 
         bool found = false;
@@ -2702,7 +2962,8 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_RPI>: sector %d not supported—using canonical mode\n", sector);
+            // Geometric mode: RP polytope plus inversion half-selection.
+            return chordspace_geometry::predicate_rpi_geom(chord, range, g, sector);
         }
         if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, sector) == false)
         {
@@ -2729,7 +2990,8 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_RPI>: sector %d not supported—using canonical mode\n", sector);
+            // Geometric mode: fold by RP, then inversion, then RP.
+            return chordspace_geometry::equate_rpi_geom(chord, range, g, sector);
         }
         if (predicate<EQUIVALENCE_RELATION_RPI>(chord, range, g, sector))
         {
@@ -2805,7 +3067,8 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_RPTI>: sector %d not supported—using canonical mode\n", sector);
+            // Geometric mode: OPT sector plus inversion half-selection.
+            return chordspace_geometry::predicate_rpti_geom(chord, range, g, sector);
         }
         if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, sector) == false)
         {
@@ -2840,7 +3103,8 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_RPTI>: sector %d not supported—using canonical mode\n", sector);
+            // Geometric mode: fold by RPT, then inversion, then RPT.
+            return chordspace_geometry::equate_rpti_geom(chord, range, g, sector);
         }
         const auto domain_sectors = chord.opt_domain_sectors();
         const bool boundary = (domain_sectors.size() > 1);
@@ -2971,7 +3235,8 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_RPTgI>: sector %d not supported—using canonical mode\n", sector);
+            // Geometric mode: OPT(g) sector plus inversion half-selection.
+            return chordspace_geometry::predicate_rptgi_geom(chord, range, g, sector);
         }
         if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, sector) == false)
         {
@@ -3006,7 +3271,8 @@ namespace csound
     {
         if (sector >= 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_RPTgI>: sector %d not supported—using canonical mode\n", sector);
+            // Geometric mode: fold by RPTg, then inversion, then RPTg.
+            return chordspace_geometry::equate_rptgi_geom(chord, range, g, sector);
         }
         const auto domain_sectors = chord.opt_domain_sectors();
         const bool boundary = (domain_sectors.size() > 1);
@@ -3901,9 +4167,11 @@ namespace csound
     {
         std::fprintf(stderr, "TESTING %s %s\n\n", toString().c_str(), label);
         bool passed = true;
+        const int canonical_sector = CANONICAL_MODE;
         // For some of these we need to know the OPT sector, and if the chord
         // belongs to more than one sector, we choose the first.
-        auto sector = opt_domain_sectors().front();
+        const int geometric_sector = opt_domain_sectors().front();
+
         // Test the consistency of the predicates.
         if (iseOP() == true)
         {
