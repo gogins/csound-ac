@@ -2227,56 +2227,32 @@ namespace csound
     //	EQUIVALENCE_RELATION_I
 
     template <>
+    inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int sector);
+  
+    template <>
     inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int sector)
     {
+        (void)range;
+        (void)g;
 
         if (sector < 0)
         {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_I>: sector %d not supported—using canonical mode\n", sector);
+            // Canonical mode: fixed-point predicate.
+            const Chord rep = equate<EQUIVALENCE_RELATION_I>(chord, OCTAVE(), 1.0, CANONICAL_MODE);
 
-            // Canonical mode: evaluate using valid OPT sector indices only.
-            const int canonical_sector = 0;
-
-            // Chords that are inversionally equivalent automatically are normal (sector-relative).
-            if (chord.self_inverse(canonical_sector))
+            for (size_t v = 0; v < chord.voices(); ++v)
             {
-                return true;
-            }
-
-            const auto opt_sectors = chord.opt_domain_sectors();
-
-            auto is_minor_in_opt_sector = [&](int s) -> bool
-            {
-                const int minor_opti_sector = s * 2;
-                return chord.is_opti_sector(minor_opti_sector);
-            };
-
-            // First: honor the canonical default sector (historical behavior).
-            if (is_minor_in_opt_sector(canonical_sector))
-            {
-                return true;
-            }
-
-            // On OPT boundaries, accept if minor in any OPT sector the chord belongs to.
-            if (opt_sectors.size() > 1)
-            {
-                for (const int s : opt_sectors)
+                if (!eq_tolerance(chord.getPitch(v), rep.getPitch(v)))
                 {
-                    if (s == canonical_sector)
-                    {
-                        continue;
-                    }
-                    if (is_minor_in_opt_sector(s))
-                    {
-                        return true;
-                    }
+                    return false;
                 }
             }
 
-            return false;
+            return true;
         }
 
-        // Chords that are inversionally equivalent automatically are normal (sector-relative).
+        // Geometric mode: "minor half" selection within the OPT simplex for this sector.
+        // If the chord is exactly on the inversion flat (self-inverse), it is admissible.
         if (chord.self_inverse(sector))
         {
             return true;
@@ -2319,46 +2295,53 @@ namespace csound
 
     inline bool Chord::iseI_chord(Chord *inverse, int sector) const
     {
+        (void)inverse;
         return predicate<EQUIVALENCE_RELATION_I>(*this, OCTAVE(), 1.0, sector);
     }
 
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int sector)
     {
+        (void)range;
+        (void)g;
 
         if (sector < 0)
         {
-            // Canonical mode: do NOT use a negative sector for geometric operations.
-            // Select a deterministic OPT sector to parameterize the inversion flat.
-            int canonical_sector = 0;
-            const auto opt_sectors = chord.opt_domain_sectors();
-            if (opt_sectors.empty() == false)
+            // Canonical mode:
+            // Choose a deterministic representative of the inversion orbit that does not depend on
+            // geometric sector membership. We consider reflecting across each OPT sector's inversion flat
+            // and select the minimal chord under operator<.
+            bool found = false;
+            Chord best;
+
+            auto consider = [&](const Chord &c)
             {
-                canonical_sector = *std::min_element(opt_sectors.begin(), opt_sectors.end());
+                if (!found || (c < best))
+                {
+                    best = c;
+                    found = true;
+                }
+            };
+
+            consider(chord);
+
+            const int n = static_cast<int>(chord.voices());
+            for (int s = 0; s < n; ++s)
+            {
+                consider(reflect_in_inversion_flat(chord, s));
             }
 
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_I>: sector %d not supported—using canonical mode (sector %d)\n",
-                              sector, canonical_sector);
-
-            // Evaluate canonical predicate using a valid sector parameter.
-            if (predicate<EQUIVALENCE_RELATION_I>(chord, range, g, canonical_sector) == true)
-            {
-                return chord;
-            }
-            else
-            {
-                return reflect_in_inversion_flat(chord, canonical_sector);
-            }
+            return best;
         }
 
-        if (predicate<EQUIVALENCE_RELATION_I>(chord, range, g, sector) == true)
+        // Geometric mode: reflect across the inversion flat for the chosen OPT sector
+        // if the chord is not already in the minor half for that sector.
+        if (predicate<EQUIVALENCE_RELATION_I>(chord, OCTAVE(), 1.0, sector))
         {
             return chord;
         }
-        else
-        {
-            return reflect_in_inversion_flat(chord, sector);
-        }
+
+        return reflect_in_inversion_flat(chord, sector);
     }
 
     inline Chord Chord::eI(int sector) const
@@ -3901,8 +3884,6 @@ namespace csound
     {
         std::fprintf(stderr, "TESTING %s %s\n\n", toString().c_str(), label);
         bool passed = true;
-        // For some of these we need to know the OPT sector, and if the chord
-        // belongs to more than one sector, we choose the first.
         auto sector = opt_domain_sectors().front();
         // Test the consistency of the predicates.
         if (iseOP() == true)
