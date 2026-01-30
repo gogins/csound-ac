@@ -2299,7 +2299,7 @@ namespace csound
         return predicate<EQUIVALENCE_RELATION_I>(*this, OCTAVE(), 1.0, sector);
     }
 
-    @ @ template <>
+    template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_I>(const Chord &chord, double range, double g, int sector)
     {
         (void)range;
