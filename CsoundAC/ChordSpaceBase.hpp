@@ -2829,13 +2829,77 @@ namespace csound
         return predicate<EQUIVALENCE_RELATION_RPTI>(*this, range, 1.0, sector);
     }
 
-    template <>
+       template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const Chord &chord, double range, double g, int sector)
     {
-        if (sector >= 0)
+         if (sector < 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_RPTI>: sector %d not supported—using canonical mode\n", sector);
+            // Canonical mode: do NOT call equate<RPT>(..., s) for any concrete s.
+            // Some sectors legitimately have no representative for a given chord, and equate<RPT>
+            // may throw in geometric mode. Canonical mode must be total.
+
+            auto satisfies = [&](const Chord &c) -> bool
+            {
+                return predicate<EQUIVALENCE_RELATION_RPTI>(c, range, g, CANONICAL_MODE);
+            };
+
+            bool found = false;
+            Chord best;
+
+            auto consider = [&](const Chord &c)
+            {
+                if (!satisfies(c))
+                {
+                    return;
+                }
+                if (!found || c < best)
+                {
+                    best = c;
+                    found = true;
+                }
+            };
+
+            // Consider the original chord if it already satisfies the canonical predicate.
+            consider(chord);
+
+            // Path A: RPT then I (plus one repair cycle), all in canonical mode.
+            Chord a0 = equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, CANONICAL_MODE);
+            consider(a0);
+
+            Chord a1 = equate<EQUIVALENCE_RELATION_I>(a0, range, g, CANONICAL_MODE);
+            consider(a1);
+
+            Chord a2 = equate<EQUIVALENCE_RELATION_RPT>(a1, range, g, CANONICAL_MODE);
+            consider(a2);
+
+            Chord a3 = equate<EQUIVALENCE_RELATION_I>(a2, range, g, CANONICAL_MODE);
+            consider(a3);
+
+            // Path B: I then RPT (plus one repair cycle), all in canonical mode.
+            Chord b0 = equate<EQUIVALENCE_RELATION_I>(chord, range, g, CANONICAL_MODE);
+            consider(b0);
+
+            Chord b1 = equate<EQUIVALENCE_RELATION_RPT>(b0, range, g, CANONICAL_MODE);
+            consider(b1);
+
+            Chord b2 = equate<EQUIVALENCE_RELATION_I>(b1, range, g, CANONICAL_MODE);
+            consider(b2);
+
+            Chord b3 = equate<EQUIVALENCE_RELATION_RPT>(b2, range, g, CANONICAL_MODE);
+            consider(b3);
+
+            if (found)
+            {
+                return best;
+            }
+
+            CHORDSPACE_EQUATE_FAIL("RPTI", chord, sector);
+            return equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, CANONICAL_MODE);
         }
+
+        // -------------------------
+        // Geometric mode: sector >= 0
+        // -------------------------
         const auto domain_sectors = chord.opt_domain_sectors();
         const bool boundary = (domain_sectors.size() > 1);
 
@@ -2851,7 +2915,7 @@ namespace csound
             {
                 return true;
             }
-            if (!boundary)
+            if (boundary == false)
             {
                 return false;
             }
@@ -2881,11 +2945,11 @@ namespace csound
 
         auto consider = [&](const Chord &c)
         {
-            if (!satisfies_in_domain(c))
+            if (satisfies_in_domain(c) == false)
             {
                 return;
             }
-            if (!found || prefer(c, best))
+            if (found == false || prefer(c, best))
             {
                 best = c;
                 found = true;
@@ -2923,7 +2987,7 @@ namespace csound
             consider(b3);
         };
 
-        if (!boundary)
+        if (boundary == false)
         {
             run_paths_for_sector(sector);
         }
@@ -2938,7 +3002,7 @@ namespace csound
                 }
                 run_paths_for_sector(s);
             }
-            if (!have_requested)
+            if (have_requested == false)
             {
                 run_paths_for_sector(sector);
             }
@@ -2998,10 +3062,74 @@ namespace csound
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord, double range, double g, int sector)
     {
-        if (sector >= 0)
+         if (sector < 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_RPTgI>: sector %d not supported—using canonical mode\n", sector);
+            // Canonical mode: do NOT call equate<RPTg>(..., s) for any concrete s.
+            // Some sectors legitimately have no representative for a given chord, and equate<RPTg>
+            // may throw in geometric mode. Canonical mode must be total.
+
+            auto satisfies = [&](const Chord &c) -> bool
+            {
+                return predicate<EQUIVALENCE_RELATION_RPTgI>(c, range, g, CANONICAL_MODE);
+            };
+
+            bool found = false;
+            Chord best;
+
+            auto consider = [&](const Chord &c)
+            {
+                if (!satisfies(c))
+                {
+                    return;
+                }
+                if (!found || c < best)
+                {
+                    best = c;
+                    found = true;
+                }
+            };
+
+            // Consider the original chord if it already satisfies the canonical predicate.
+            consider(chord);
+
+            // Path A: RPTg then I (plus one repair cycle), all in canonical mode.
+            Chord a0 = equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, CANONICAL_MODE);
+            consider(a0);
+
+            Chord a1 = equate<EQUIVALENCE_RELATION_I>(a0, range, g, CANONICAL_MODE);
+            consider(a1);
+
+            Chord a2 = equate<EQUIVALENCE_RELATION_RPTg>(a1, range, g, CANONICAL_MODE);
+            consider(a2);
+
+            Chord a3 = equate<EQUIVALENCE_RELATION_I>(a2, range, g, CANONICAL_MODE);
+            consider(a3);
+
+            // Path B: I then RPTg (plus one repair cycle), all in canonical mode.
+            Chord b0 = equate<EQUIVALENCE_RELATION_I>(chord, range, g, CANONICAL_MODE);
+            consider(b0);
+
+            Chord b1 = equate<EQUIVALENCE_RELATION_RPTg>(b0, range, g, CANONICAL_MODE);
+            consider(b1);
+
+            Chord b2 = equate<EQUIVALENCE_RELATION_I>(b1, range, g, CANONICAL_MODE);
+            consider(b2);
+
+            Chord b3 = equate<EQUIVALENCE_RELATION_RPTg>(b2, range, g, CANONICAL_MODE);
+            consider(b3);
+
+            if (found)
+            {
+                return best;
+            }
+
+            CHORDSPACE_EQUATE_FAIL("RPTgI", chord, sector);
+            return equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, CANONICAL_MODE);
         }
+
+        // -------------------------
+        // Geometric mode: sector >= 0
+        // -------------------------
         const auto domain_sectors = chord.opt_domain_sectors();
         const bool boundary = (domain_sectors.size() > 1);
 
@@ -3017,7 +3145,7 @@ namespace csound
             {
                 return true;
             }
-            if (!boundary)
+            if (boundary == false)
             {
                 return false;
             }
@@ -3040,18 +3168,18 @@ namespace csound
             const bool b_req = satisfies_in_requested(b);
             if (a_req != b_req)
             {
-                return a_req; // prefer requested sector when possible
+                return a_req;
             }
-            return a < b; // deterministic tie-break
+            return a < b;
         };
 
         auto consider = [&](const Chord &c)
         {
-            if (!satisfies_in_domain(c))
+            if (satisfies_in_domain(c) == false)
             {
                 return;
             }
-            if (!found || prefer(c, best))
+            if (found == false || prefer(c, best))
             {
                 best = c;
                 found = true;
@@ -3089,7 +3217,7 @@ namespace csound
             consider(b3);
         };
 
-        if (!boundary)
+        if (boundary == false)
         {
             run_paths_for_sector(sector);
         }
@@ -3104,7 +3232,7 @@ namespace csound
                 }
                 run_paths_for_sector(s);
             }
-            if (!have_requested)
+            if (have_requested == false)
             {
                 run_paths_for_sector(sector);
             }
