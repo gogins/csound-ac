@@ -2456,15 +2456,45 @@ namespace csound
 
     //	EQUIVALENCE_RELATION_TI
 
-    //	EQUIVALENCE_RELATION_RPT
+    //  EQUIVALENCE_RELATION_RPT
+
+    inline std::vector<Chord> Chord::eRPTs(double range) const
+    {
+        std::vector<Chord> rpts;
+        auto rp = eRP(range);
+        auto rp_vs = rp.voicings();
+        for (auto rp_v : rp_vs)
+        {
+            auto rp_v_t = rp_v.eT();
+            rpts.push_back(rp_v_t);
+        }
+        return rpts;
+    }
+
+    inline std::vector<Chord> Chord::eRPTTs(double range, double g) const
+    {
+        auto rp = eRP(range);
+        std::vector<Chord> rptts;
+        auto rp_vs = rp.voicings();
+        for (auto rp_v : rp_vs)
+        {
+            auto rp_v_tt = rp_v.eTT(g);
+            rptts.push_back(rp_v_tt);
+        }
+        return rptts;
+    }
 
     template <>
     inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPT>(const Chord &chord, double range, double g, int sector)
     {
-        if (sector >= 0)
+        if (sector < 0)
         {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_RPT>: sector %d not supported—using canonical mode\n", sector);
+            // Canonical mode:
+            // A chord is in the canonical fundamental domain iff it is already the chosen representative.
+            return chord == equate<EQUIVALENCE_RELATION_RPT>(chord, range, g, sector);
         }
+
+        // Geometric mode (sector-fixed).
         if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, sector) == false)
         {
             return false;
@@ -2492,23 +2522,107 @@ namespace csound
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPT>(const Chord &chord, double range, double g, int sector)
     {
-        if (sector >= 0)
+        if (sector < 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_RPT>: sector %d not supported—using canonical mode\n", sector);
+            // Canonical mode:
+            // Choose a deterministic representative over the entire RPT orbit, irrespective of OPT sector.
+            // Admissibility is: candidate satisfies the geometric predicate for at least one OPT domain sector
+            // of the candidate (including boundary sectors).
+            bool found = false;
+            Chord best;
+
+            auto satisfies_geometric_in_sector = [&](const Chord &c, int s) -> bool
+            {
+                if (predicate<EQUIVALENCE_RELATION_R>(c, range, g, s) == false)
+                {
+                    return false;
+                }
+                if (predicate<EQUIVALENCE_RELATION_P>(c, range, g, s) == false)
+                {
+                    return false;
+                }
+                if (c.is_opt_sector(s) == false)
+                {
+                    return false;
+                }
+                if (predicate<EQUIVALENCE_RELATION_T>(c, range, g, s) == false)
+                {
+                    return false;
+                }
+                return true;
+            };
+
+            auto satisfies_geometric_some_sector = [&](const Chord &c) -> bool
+            {
+                auto sectors = c.opt_domain_sectors();
+                if (!sectors.empty())
+                {
+                    for (int s : sectors)
+                    {
+                        if (satisfies_geometric_in_sector(c, s))
+                        {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+
+                const int n = static_cast<int>(c.voices());
+                for (int s = 0; s < n; ++s)
+                {
+                    if (satisfies_geometric_in_sector(c, s))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            auto consider = [&](const Chord &c)
+            {
+                if (!satisfies_geometric_some_sector(c))
+                {
+                    return;
+                }
+                if (!found || (c < best))
+                {
+                    best = c;
+                    found = true;
+                }
+            };
+
+            consider(chord);
+
+            auto rpts = chord.eRPTs(range);
+            for (const auto &c : rpts)
+            {
+                consider(c);
+            }
+
+            if (found)
+            {
+                return best;
+            }
+
+            // Canonical fallback: return a deterministic element from the orbit if possible.
+            if (!rpts.empty())
+            {
+                Chord fallback = rpts.front();
+                for (const auto &c : rpts)
+                {
+                    if (c < fallback)
+                    {
+                        fallback = c;
+                    }
+                }
+                return fallback;
+            }
+            return chord;
         }
+
+        // Geometric mode (sector-fixed).
         bool found = false;
         Chord best;
-
-        auto prefer = [&](const Chord &a, const Chord &b) -> bool
-        {
-            const bool a_in = a.is_opt_sector(sector);
-            const bool b_in = b.is_opt_sector(sector);
-            if (a_in != b_in)
-            {
-                return a_in;
-            }
-            return a < b;
-        };
 
         auto consider = [&](const Chord &c)
         {
@@ -2516,7 +2630,7 @@ namespace csound
             {
                 return;
             }
-            if (!found || prefer(c, best))
+            if (!found || (c < best))
             {
                 best = c;
                 found = true;
@@ -2525,11 +2639,10 @@ namespace csound
 
         consider(chord);
 
-        // Enumerate RPT candidates.
         auto rpts = chord.eRPTs(range);
-        for (const auto &rpt : rpts)
+        for (const auto &c : rpts)
         {
-            consider(rpt);
+            consider(c);
         }
 
         if (found)
@@ -2537,21 +2650,20 @@ namespace csound
             return best;
         }
 
-        System::error("Error:   Chord::equate<RPT>: no representative in sector %d\n", sector);
-        // Fallback: preserve prior behavior as much as possible.
-        for (const auto &rpt : rpts)
+        // Geometric fallback (avoid throwing if possible): return any orbit element that lands in this OPT sector.
+        for (const auto &c : rpts)
         {
-            if (rpt.is_opt_sector(sector))
+            if (c.is_opt_sector(sector))
             {
-                return rpt;
+                return c;
             }
         }
         if (!rpts.empty())
         {
             return rpts.front();
         }
+
         CHORDSPACE_EQUATE_FAIL("RPT", chord, sector);
-        System::error("Error:   Chord::equate<RPT>: no representative in ANY candidate.\n");
         return chord;
     }
 
@@ -2560,28 +2672,19 @@ namespace csound
         return csound::equate<EQUIVALENCE_RELATION_RPT>(*this, range, 1.0, sector);
     }
 
-    inline std::vector<Chord> Chord::eRPTs(double range) const
-    {
-        std::vector<Chord> rpts;
-        auto rp = eRP(range);
-        auto rp_vs = rp.voicings();
-        for (auto rp_v : rp_vs)
-        {
-            auto rp_v_t = rp_v.eT();
-            rpts.push_back(rp_v_t);
-        }
-        return rpts;
-    }
-
-    //	EQUIVALENCE_RELATION_RPTg
+    //  EQUIVALENCE_RELATION_RPTg
 
     template <>
     inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTg>(const Chord &chord, double range, double g, int sector)
     {
-        if (sector >= 0)
+        if (sector < 0)
         {
-            CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_RPTg>: sector %d not supported—using canonical mode\n", sector);
+            // Canonical mode:
+            // A chord is in the canonical fundamental domain iff it is already the chosen representative.
+            return chord == equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, sector);
         }
+
+        // Geometric mode (sector-fixed).
         if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, sector) == false)
         {
             return false;
@@ -2592,7 +2695,6 @@ namespace csound
         }
         if (chord.is_opt_sector(sector) == false)
         {
-            //~ if (chord.iseRPT(range, sector) == false) {
             return false;
         }
         if (predicate<EQUIVALENCE_RELATION_Tg>(chord, range, g, sector) == false)
@@ -2606,27 +2708,111 @@ namespace csound
     {
         return predicate<EQUIVALENCE_RELATION_RPTg>(*this, range, g, sector);
     }
+
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTg>(const Chord &chord, double range, double g, int sector)
     {
-        if (sector >= 0)
+        if (sector < 0)
         {
-            CHORD_SPACE_DEBUG("equate<EQUIVALENCE_RELATION_RPTg>: sector %d not supported—using canonical mode\n", sector);
+            // Canonical mode:
+            // Choose a deterministic representative over the entire RPTg orbit, irrespective of OPT sector.
+            // Admissibility is: candidate satisfies the geometric predicate for at least one OPT domain sector
+            // of the candidate (including boundary sectors).
+            bool found = false;
+            Chord best;
+
+            auto satisfies_geometric_in_sector = [&](const Chord &c, int s) -> bool
+            {
+                if (predicate<EQUIVALENCE_RELATION_R>(c, range, g, s) == false)
+                {
+                    return false;
+                }
+                if (predicate<EQUIVALENCE_RELATION_P>(c, range, g, s) == false)
+                {
+                    return false;
+                }
+                if (c.is_opt_sector(s) == false)
+                {
+                    return false;
+                }
+                if (predicate<EQUIVALENCE_RELATION_Tg>(c, range, g, s) == false)
+                {
+                    return false;
+                }
+                return true;
+            };
+
+            auto satisfies_geometric_some_sector = [&](const Chord &c) -> bool
+            {
+                auto sectors = c.opt_domain_sectors();
+                if (!sectors.empty())
+                {
+                    for (int s : sectors)
+                    {
+                        if (satisfies_geometric_in_sector(c, s))
+                        {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+
+                const int n = static_cast<int>(c.voices());
+                for (int s = 0; s < n; ++s)
+                {
+                    if (satisfies_geometric_in_sector(c, s))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            auto consider = [&](const Chord &c)
+            {
+                if (!satisfies_geometric_some_sector(c))
+                {
+                    return;
+                }
+                if (!found || (c < best))
+                {
+                    best = c;
+                    found = true;
+                }
+            };
+
+            consider(chord);
+
+            auto rptgs = chord.eRPTTs(range, g);
+            for (const auto &c : rptgs)
+            {
+                consider(c);
+            }
+
+            if (found)
+            {
+                return best;
+            }
+
+            // Canonical fallback: return a deterministic element from the orbit if possible.
+            if (!rptgs.empty())
+            {
+                Chord fallback = rptgs.front();
+                for (const auto &c : rptgs)
+                {
+                    if (c < fallback)
+                    {
+                        fallback = c;
+                    }
+                }
+                return fallback;
+            }
+            return chord;
         }
 
+        // Geometric mode (sector-fixed).
         bool found = false;
         Chord best;
-
-        auto prefer = [&](const Chord &a, const Chord &b) -> bool
-        {
-            const bool a_in = a.is_opt_sector(sector);
-            const bool b_in = b.is_opt_sector(sector);
-            if (a_in != b_in)
-            {
-                return a_in;
-            }
-            return a < b;
-        };
 
         auto consider = [&](const Chord &c)
         {
@@ -2634,7 +2820,7 @@ namespace csound
             {
                 return;
             }
-            if (!found || prefer(c, best))
+            if (!found || (c < best))
             {
                 best = c;
                 found = true;
@@ -2643,10 +2829,10 @@ namespace csound
 
         consider(chord);
 
-        auto rpts = chord.eRPTTs(range, g);
-        for (const auto &rpt : rpts)
+        auto rptgs = chord.eRPTTs(range, g);
+        for (const auto &c : rptgs)
         {
-            consider(rpt);
+            consider(c);
         }
 
         if (found)
@@ -2654,39 +2840,26 @@ namespace csound
             return best;
         }
 
-        System::error("Error: Chord::equate<RPTg>: no representative in sector %d.\n", sector);
-        for (const auto &rpt : rpts)
+        // Geometric fallback (avoid throwing if possible): return any orbit element that lands in this OPT sector.
+        for (const auto &c : rptgs)
         {
-            if (rpt.is_opt_sector(sector))
+            if (c.is_opt_sector(sector))
             {
-                return rpt;
+                return c;
             }
         }
-        if (!rpts.empty())
+        if (!rptgs.empty())
         {
-            return rpts.front();
+            return rptgs.front();
         }
+
         CHORDSPACE_EQUATE_FAIL("RPTg", chord, sector);
-        System::error("Error:   Chord::equate<RPTg>: no representative in ANY candidate.\n");
         return chord;
     }
 
     inline Chord Chord::eRPTT(double range, double g, int sector) const
     {
         return csound::equate<EQUIVALENCE_RELATION_RPTg>(*this, range, g, sector);
-    }
-
-    inline std::vector<Chord> Chord::eRPTTs(double range, double g) const
-    {
-        auto rp = eRP(range);
-        std::vector<Chord> rptts;
-        auto rp_vs = rp.voicings();
-        for (auto rp_v : rp_vs)
-        {
-            auto rp_v_tt = rp_v.eTT(g);
-            rptts.push_back(rp_v_tt);
-        }
-        return rptts;
     }
 
     //	EQUIVALENCE_RELATION_RPI
@@ -2829,10 +3002,10 @@ namespace csound
         return predicate<EQUIVALENCE_RELATION_RPTI>(*this, range, 1.0, sector);
     }
 
-       template <>
+    template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const Chord &chord, double range, double g, int sector)
     {
-         if (sector < 0)
+        if (sector < 0)
         {
             // Canonical mode: do NOT call equate<RPT>(..., s) for any concrete s.
             // Some sectors legitimately have no representative for a given chord, and equate<RPT>
@@ -3062,7 +3235,7 @@ namespace csound
     template <>
     inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord, double range, double g, int sector)
     {
-         if (sector < 0)
+        if (sector < 0)
         {
             // Canonical mode: do NOT call equate<RPTg>(..., s) for any concrete s.
             // Some sectors legitimately have no representative for a given chord, and equate<RPTg>
