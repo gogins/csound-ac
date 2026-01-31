@@ -4988,7 +4988,7 @@ inline void Chord::initialize_sectors() {
                 auto norm = normal_vector.norm();
                 HyperplaneEquation hyperplane_equation_;
                 hyperplane_equation_.unit_normal_vector = normal_vector / norm;
-                auto temp = center_.col(0).adjoint() * hyperplane_equation_.unit_normal_vector;    
+                auto temp = center_t.col(0).adjoint() * hyperplane_equation_.unit_normal_vector;    
                 hyperplane_equation_.constant_term = temp(0, 0);
                 CHORD_SPACE_DEBUG("  hyperplane_equation: sector: %d\n", dimension_i);
                 CHORD_SPACE_DEBUG("  hyperplane_equation: center:\n");
