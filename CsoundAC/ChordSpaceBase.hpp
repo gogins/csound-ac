@@ -4945,7 +4945,7 @@ inline void Chord::initialize_sectors() {
                 opt_domain[(dimension_i + dimensions_i - 1) % dimensions_i] = center_t;
                 opt_domains.push_back(opt_domain);
                 CHORD_SPACE_DEBUG("  center:            %s\n", center_t.toString().c_str());
-                Chord extra_vertex = center_t.T(1.);
+                Chord extra_vertex = center_t.T(12.0 / voices());
                 std::vector<Chord> opt_simplex = opt_domain;
                 opt_simplex.push_back(extra_vertex);
                 opt_simplexes.push_back(opt_simplex);
@@ -4993,7 +4993,7 @@ inline void Chord::initialize_sectors() {
                 CHORD_SPACE_DEBUG("  hyperplane_equation: sector: %d\n", dimension_i);
                 CHORD_SPACE_DEBUG("  hyperplane_equation: center:\n");
                 for (int dimension_j = 0; dimension_j < dimensions_i; dimension_j++) {
-                    CHORD_SPACE_DEBUG("    %9.4f\n", center_.getPitch(dimension_j));
+                    CHORD_SPACE_DEBUG("    %9.4f\n", center_t.getPitch(dimension_j));
                 }
                 CHORD_SPACE_DEBUG("  hyperplane_equation: normal_vector:\n");
                 for (int dimension_j = 0; dimension_j < dimensions_i; dimension_j++) {
