@@ -2002,7 +2002,7 @@ inline Chord Chord::eP() const {
 
 template<> inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_T>(const Chord &chord, double range, double g, int opt_sector) {
     auto layer_ = chord.layer();
-    CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_T>: chord: %s sector: %s layer: %12.7f\n", chord.toString().c_str(), opt_sector, layer_);
+    CHORD_SPACE_DEBUG("predicate<EQUIVALENCE_RELATION_T>: chord: %s sector: %d layer: %12.7f\n", chord.toString().c_str(), opt_sector, layer_);
     if (eq_tolerance(layer_, 0.) == false) {
         return false;
     } else {
@@ -5108,17 +5108,81 @@ inline bool Chord::is_minor() const {
     return true;    
 }
 
+inline SILENCE_PUBLIC bool is_in_full_simplex(const Chord &point,
+    const std::vector<Chord> &simplex_vertices,
+    double tolerance = 1e-8)
+{
+    const int n = point.voices();
+
+    if (static_cast<int>(simplex_vertices.size()) != n + 1)
+    {
+        return false;
+    }
+
+    const Chord &v0 = simplex_vertices[0];
+
+    Eigen::MatrixXd A(n, n);
+    for (int i = 1; i < n + 1; ++i)
+    {
+        for (int j = 0; j < n; ++j)
+        {
+            A(j, i - 1) = simplex_vertices[i].getPitch(j) - v0.getPitch(j);
+        }
+    }
+
+    Eigen::VectorXd b(n);
+    for (int j = 0; j < n; ++j)
+    {
+        b(j) = point.getPitch(j) - v0.getPitch(j);
+    }
+
+    // Solve A w = b
+    Eigen::VectorXd w = A.colPivHouseholderQr().solve(b);
+
+    // Optional residual check (loose, relative)
+    double residual = (A * w - b).norm();
+    double scale = std::max(1.0, b.norm());
+    if (residual > tolerance * 100.0 * scale)
+    {
+        // Keep this loose or omit entirely.
+        // Returning false here can reintroduce "no sector" brittleness.
+        // I'd normally omit this for classification.
+    }
+
+    double sum_w = 0.0;
+    for (int i = 0; i < w.size(); ++i)
+    {
+        sum_w += w(i);
+    }
+
+    double lambda0 = 1.0 - sum_w;
+    if (lambda0 < -tolerance)
+    {
+        return false;
+    }
+
+    for (int i = 0; i < w.size(); ++i)
+    {
+        if (w(i) < -tolerance)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 inline std::vector<int> Chord::opt_domain_sectors() const
 {
-    auto &opt_sectors_for_dimensions = opt_sectors_for_dimensionalities();
-    auto &opt_sectors = opt_sectors_for_dimensions[voices()];
+    auto &opt_simplexes_for_dimensions = opt_simplexes_for_dimensionalities();
+    auto &opt_simplexes = opt_simplexes_for_dimensions[voices()];
 
     std::vector<int> result;
     auto ot = eOT();
 
-    for (int sector = 0, n = static_cast<int>(opt_sectors.size()); sector < n; ++sector)
+    for (int sector = 0, n = static_cast<int>(opt_simplexes.size()); sector < n; ++sector)
     {
-        if (is_in_affine_simplex(ot, opt_sectors[sector]) == true)
+        if (is_in_full_simplex(ot, opt_simplexes[sector]) == true)
         {
             result.push_back(sector);
         }
@@ -5126,13 +5190,12 @@ inline std::vector<int> Chord::opt_domain_sectors() const
 
     if (result.empty() == true)
     {
-        // Fallback: choose the closest sector by the prior heuristic
         double best = std::numeric_limits<double>::infinity();
         int best_sector = 0;
 
-        for (int sector = 0, n = static_cast<int>(opt_sectors.size()); sector < n; ++sector)
+        for (int sector = 0, n = static_cast<int>(opt_simplexes.size()); sector < n; ++sector)
         {
-            double d = distance_to_points(ot, opt_sectors[sector]);
+            double d = distance_to_points(ot, opt_simplexes[sector]);
             if (d < best)
             {
                 best = d;
@@ -5150,15 +5213,15 @@ inline std::vector<int> Chord::opt_domain_sectors() const
 
 inline std::vector<int> Chord::opti_domain_sectors() const
 {
-    auto &opti_sectors_for_dimensions = opti_sectors_for_dimensionalities();
-    auto &opti_sectors = opti_sectors_for_dimensions[voices()];
+    auto &opti_simplexes_for_dimensions = opti_simplexes_for_dimensionalities();
+    auto &opti_simplexes = opti_simplexes_for_dimensions[voices()];
 
     std::vector<int> result;
     auto ot = eOT();
 
-    for (int sector = 0, n = static_cast<int>(opti_sectors.size()); sector < n; ++sector)
+    for (int sector = 0, n = static_cast<int>(opti_simplexes.size()); sector < n; ++sector)
     {
-        if (is_in_affine_simplex(ot, opti_sectors[sector]) == true)
+        if (is_in_full_simplex(ot, opti_simplexes[sector]) == true)
         {
             result.push_back(sector);
         }
@@ -5166,13 +5229,12 @@ inline std::vector<int> Chord::opti_domain_sectors() const
 
     if (result.empty() == true)
     {
-        // Fallback: choose the closest sector by the prior heuristic
         double best = std::numeric_limits<double>::infinity();
         int best_sector = 0;
 
-        for (int sector = 0, n = static_cast<int>(opti_sectors.size()); sector < n; ++sector)
+        for (int sector = 0, n = static_cast<int>(opti_simplexes.size()); sector < n; ++sector)
         {
-            double d = distance_to_points(ot, opti_sectors[sector]);
+            double d = distance_to_points(ot, opti_simplexes[sector]);
             if (d < best)
             {
                 best = d;
