@@ -1929,13 +1929,26 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_r>(const Chor
     return normal;
 }
 
-inline bool Chord::self_inverse(int opt_sector) const {
-    auto inverse = reflect_in_inversion_flat(*this, opt_sector);
-    if (*this == inverse) {
-        return true;
-    } else {
-        return false;
-    }
+inline bool Chord::self_inverse(int opt_sector) const
+{
+    // Get the inversion hyperplane for this OPT sector
+    const HyperplaneEquation &h = hyperplane_equation(opt_sector);
+
+    // Signed distance to the hyperplane (unit normal assumed)
+    auto temp = col(0).adjoint() * h.unit_normal_vector;
+    double signed_distance = temp(0, 0) - h.constant_term;
+
+    // Boundary classification must be tolerant:
+    //  - chained floating ops (eT, reflect, sector tests)
+    //  - exact integer points often lie theoretically on the flat
+    //
+    // These values are intentionally higher than defaults.
+    return eq_tolerance(
+        signed_distance,
+        0.0,
+        /* epsilons = */ 64,
+        /* ulps     = */ 512
+    );
 }
 
 inline bool Chord::is_opt_sector(int index) const {
@@ -2417,7 +2430,7 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const 
 }
 
 inline Chord Chord::eRPTTI(double range, double g, int opt_sector) const {
-    return csound::equate<EQUIVALENCE_RELATION_RPTgI>(*this, range, 1.0, opt_sector);
+    return csound::equate<EQUIVALENCE_RELATION_RPTgI>(*this, range, g, opt_sector);
 }
 
 inline SILENCE_PUBLIC const std::map<std::string, double> &pitchClassesForNames() {
