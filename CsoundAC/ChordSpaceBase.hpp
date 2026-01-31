@@ -1245,6 +1245,80 @@ SILENCE_PUBLIC double epc(double pitch);
  */
 SILENCE_PUBLIC bool eq_tolerance(double a, double b, int epsilons=20, int ulps=200);
 
+inline SILENCE_PUBLIC bool is_in_affine_simplex(const Chord &point,
+    const std::vector<Chord> &vertices,
+    double tolerance = 1e-9)
+{
+    const int n = point.voices();
+    const int k = static_cast<int>(vertices.size());
+
+    if (k < 2)
+    {
+        return false;
+    }
+    if (vertices[0].voices() != n)
+    {
+        return false;
+    }
+
+    // We solve: point - v0 = B * w, where B columns are (vi - v0), i=1..k-1.
+    // This is a least-squares solve in R^n for an (k-1)-dimensional affine simplex.
+    const Chord &v0 = vertices[0];
+
+    Eigen::MatrixXd B(n, k - 1);
+    for (int i = 1; i < k; ++i)
+    {
+        Eigen::VectorXd col(n);
+        for (int j = 0; j < n; ++j)
+        {
+            col(j) = vertices[i].getPitch(j) - v0.getPitch(j);
+        }
+        B.col(i - 1) = col;
+    }
+
+    Eigen::VectorXd rhs(n);
+    for (int j = 0; j < n; ++j)
+    {
+        rhs(j) = point.getPitch(j) - v0.getPitch(j);
+    }
+
+    // Least-squares (works for rectangular B).
+    Eigen::VectorXd w = B.colPivHouseholderQr().solve(rhs);
+
+    // Check that point is actually close to the affine span (numerical sanity).
+    Eigen::VectorXd recon = B * w;
+    double residual = (rhs - recon).norm();
+    double scale = std::max(1.0, rhs.norm());
+    if (residual > tolerance * scale)
+    {
+        return false;
+    }
+
+    // Barycentric coordinates in the (k-1)-simplex:
+    // lambda0 = 1 - sum(w), lambdai = w[i-1]
+    double sum_w = 0.0;
+    for (int i = 0; i < w.size(); ++i)
+    {
+        sum_w += w(i);
+    }
+
+    double lambda0 = 1.0 - sum_w;
+    if (lambda0 < -tolerance)
+    {
+        return false;
+    }
+
+    for (int i = 0; i < w.size(); ++i)
+    {
+        if (w(i) < -tolerance)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 /**
  * Returns the Euclidean distance between the two chords.
  */
@@ -2668,7 +2742,15 @@ inline std::string Chord::information_sector(int opt_sector_) const {
     result.append(buffer);
     int opt_sector = 0;
     if (opt_sector_ == -1) {
-        opt_sector = opt_domain_sectors().front();
+        auto sectors = opt_domain_sectors();
+        if (sectors.empty() == false)
+        {
+            opt_sector = sectors.front();
+        }
+        else
+        {
+            opt_sector = 0; // or -1, but 0 avoids later indexing crashes in info printing
+        }    
     }
     snprintf(buffer, sizeof(buffer), "%-19s %s\n", name().c_str(), print_chord(*this));
     result.append(buffer);
@@ -4807,6 +4889,7 @@ inline void Chord::initialize_sectors() {
                 opt_simplex.push_back(extra_vertex);
                 opt_simplexes.push_back(opt_simplex);
                 auto opti_midpoint = midpoint(opt_domain[(dimension_i + dimensions_i) % dimensions_i], opt_domain[(dimension_i + dimensions_i - 2) % dimensions_i]);
+                opti_midpoint = opti_midpoint.eT();
                 CHORD_SPACE_DEBUG("  midpoint:          %s\n", opti_midpoint.toString().c_str());
                 CHORD_SPACE_DEBUG("  midpoint_t0:       %s\n", opti_midpoint.et().toString().c_str());
                 int vertex_i = 0;
@@ -5025,70 +5108,83 @@ inline bool Chord::is_minor() const {
     return true;    
 }
 
-inline std::vector<int> Chord::opt_domain_sectors() const {
-    //~ auto &opti_sectors_for_dimensions = opti_sectors_for_dimensionalities();
-    //~ auto &opti_sectors = opti_sectors_for_dimensions[voices()];
-    //~ std::multimap<double, int> sectors_for_distances;
-    //~ double minimum_distance = std::numeric_limits<double>::max();
-    //~ auto ot = eOT();
-    //~ for (int sector = 0, n = opti_sectors.size(); sector < n; ++sector) {
-        //~ auto opt_sector = sector / 2;
-        //~ auto distance_ = distance_to_points(ot, opti_sectors[sector]);
-        //~ auto distance = rownd(distance_);
-        //~ sectors_for_distances.insert({distance, opt_sector});
-        //~ if (lt_tolerance(distance, minimum_distance, 1000, 10000) == true) {
-            //~ minimum_distance = distance;
-        //~ }
-        //~ auto delta = minimum_distance - distance;
-        //~ CHORD_SPACE_DEBUG("Chord::opt_domain_sectors: %s sector: %3d distance: %.20g minimum distance: %.20g delta: %.20g\n", toString().c_str(), opt_sector, distance_, minimum_distance, delta);
-    //~ }
-    //~ std::vector<int> result;
-    //~ auto range = sectors_for_distances.equal_range(minimum_distance);
-    //~ for (auto it = range.first; it != range.second; ++it) {
-        //~ CHORD_SPACE_DEBUG("Chord::opt_domain_sectors: result for: %s sector: %3d distance: %.20g\n", toString().c_str(), it->second, it->first);
-        //~ result.push_back(it->second);
-    //~ }
-    //~ std::sort(result.begin(), result.end());
-    
-    // Counting ukp from OPTI sector 0, every two OPTI sectors is one OPT sector.
-    auto opti_sectors = opti_domain_sectors();
-    std::set<int> opt_sectors;
-    for (auto opti_sector : opti_sectors) {
-        int opt_sector = std::floor(opti_sector / 2.);
-        opt_sectors.insert(opt_sector);
-    }
+inline std::vector<int> Chord::opt_domain_sectors() const
+{
+    auto &opt_sectors_for_dimensions = opt_sectors_for_dimensionalities();
+    auto &opt_sectors = opt_sectors_for_dimensions[voices()];
+
     std::vector<int> result;
-    for (auto opt_sector : opt_sectors) {
-        result.push_back(opt_sector);
+    auto ot = eOT();
+
+    for (int sector = 0, n = static_cast<int>(opt_sectors.size()); sector < n; ++sector)
+    {
+        if (is_in_affine_simplex(ot, opt_sectors[sector]) == true)
+        {
+            result.push_back(sector);
+        }
     }
+
+    if (result.empty() == true)
+    {
+        // Fallback: choose the closest sector by the prior heuristic
+        double best = std::numeric_limits<double>::infinity();
+        int best_sector = 0;
+
+        for (int sector = 0, n = static_cast<int>(opt_sectors.size()); sector < n; ++sector)
+        {
+            double d = distance_to_points(ot, opt_sectors[sector]);
+            if (d < best)
+            {
+                best = d;
+                best_sector = sector;
+            }
+        }
+
+        result.push_back(best_sector);
+    }
+
     std::sort(result.begin(), result.end());
+    result.erase(std::unique(result.begin(), result.end()), result.end());
     return result;
 }
 
-inline std::vector<int> Chord::opti_domain_sectors() const {
-    ///SCOPED_DEBUGGING debug;
+inline std::vector<int> Chord::opti_domain_sectors() const
+{
     auto &opti_sectors_for_dimensions = opti_sectors_for_dimensionalities();
     auto &opti_sectors = opti_sectors_for_dimensions[voices()];
-    std::multimap<double, int> sectors_for_distances;
-    double minimum_distance = std::numeric_limits<double>::max();
-    auto ot = eOT();
-    for (int sector = 0, n = opti_sectors.size(); sector < n; ++sector) {
-        auto distance_ = distance_to_points(ot, opti_sectors[sector]);
-        auto distance = rownd(distance_);
-        sectors_for_distances.insert({distance, sector});
-        if (lt_tolerance(distance, minimum_distance, 1000, 10000) == true) {
-            minimum_distance = distance;
-        }
-        auto delta = minimum_distance - distance;
-        CHORD_SPACE_DEBUG("Chord::opti_domain_sectors: %s sector: %3d distance: %.20g minimum distance: %.20g delta: %.20g\n", toString().c_str(), sector, distance_, minimum_distance, delta);
-    }
+
     std::vector<int> result;
-    auto range = sectors_for_distances.equal_range(minimum_distance);
-    for (auto it = range.first; it != range.second; ++it) {
-        CHORD_SPACE_DEBUG("Chord::opti_domain_sectors: result for: %s sector: %3d distance: %.20g\n", toString().c_str(), it->second, it->first);
-        result.push_back(it->second);
+    auto ot = eOT();
+
+    for (int sector = 0, n = static_cast<int>(opti_sectors.size()); sector < n; ++sector)
+    {
+        if (is_in_affine_simplex(ot, opti_sectors[sector]) == true)
+        {
+            result.push_back(sector);
+        }
     }
+
+    if (result.empty() == true)
+    {
+        // Fallback: choose the closest sector by the prior heuristic
+        double best = std::numeric_limits<double>::infinity();
+        int best_sector = 0;
+
+        for (int sector = 0, n = static_cast<int>(opti_sectors.size()); sector < n; ++sector)
+        {
+            double d = distance_to_points(ot, opti_sectors[sector]);
+            if (d < best)
+            {
+                best = d;
+                best_sector = sector;
+            }
+        }
+
+        result.push_back(best_sector);
+    }
+
     std::sort(result.begin(), result.end());
+    result.erase(std::unique(result.begin(), result.end()), result.end());
     return result;
 }
 
