@@ -1385,12 +1385,48 @@ static const char* namesForEquivalenceRelations[] = {
 SILENCE_PUBLIC double factorial(double n);
 
 void fill(std::string rootName, double rootPitch, std::string typeName, std::string typePitches, bool is_scale = false);
+
+struct SILENCE_PUBLIC compare_by_quantized_sorted_pitches
+{
+    double g;
+
+    explicit compare_by_quantized_sorted_pitches(double g_)
+        : g(g_)
+    {
+        if (g <= 0.0)
+        {
+            g = 1.0;
+        }
+    }
+
+    bool operator()(const Chord &a, const Chord &b) const
+    {
+        auto ka = make_key(a);
+        auto kb = make_key(b);
+        return ka < kb;
+    }
+
+private:
+    std::vector<long long> make_key(const Chord &c) const
+    {
+        std::vector<long long> ticks;
+        ticks.reserve(c.voices());
+
+        for (int v = 0; v < c.voices(); ++v)
+        {
+            double p = c.getPitch(v);
+            long long t = static_cast<long long>(std::llround(p / g));
+            ticks.push_back(t);
+        }
+
+        // Permutational equivalence: compare as a multiset.
+        std::sort(ticks.begin(), ticks.end());
+        return ticks;
+    }
+};
  
 /**
- * Returns a set of chords in sector 0 of the cyclical region, sorted by 
- * normal order, for the indicated equivalence relation. If there are 
- * duplicate chords for the same equivalence, only the one closest to the 
- * origin is returned.
+ * Returns a set of chords in one sector of the cyclical region.
  */
 template<int EQUIVALENCE_RELATION> SILENCE_PUBLIC std::vector<Chord> fundamentalDomainByPredicate(int voiceN, double range, double g = 1., int sector=0, bool printme=false);
 
@@ -3951,12 +3987,52 @@ struct SILENCE_PUBLIC compare_by_normal_form {
     }
 };
 
+struct SILENCE_PUBLIC compare_by_polytope_key
+{
+    double g;
+
+    explicit compare_by_polytope_key(double g_)
+        : g(g_)
+    {
+        if (g <= 0.0)
+        {
+            g = 1.0;
+        }
+    }
+
+    bool operator()(const Chord &a, const Chord &b) const
+    {
+        auto ka = make_key(a);
+        auto kb = make_key(b);
+        return ka < kb;
+    }
+
+private:
+    std::vector<long long> make_key(const Chord &c) const
+    {
+        std::vector<long long> ticks;
+        ticks.reserve(c.voices());
+
+        for (int v = 0; v < c.voices(); ++v)
+        {
+            double p = c.getPitch(v);
+            long long t = static_cast<long long>(std::llround(p / g));
+            ticks.push_back(t);
+        }
+
+        // Enforce permutational equivalence: treat as a multiset
+        std::sort(ticks.begin(), ticks.end());
+        return ticks;
+    }
+};
+
 template<int EQUIVALENCE_RELATION> inline SILENCE_PUBLIC std::vector<csound::Chord> fundamentalDomainByPredicate(int voiceN, double range, double g, int sector, bool printme)
 {
     ///SCOPED_DEBUGGING debugging;
     auto name_ = namesForEquivalenceRelations[EQUIVALENCE_RELATION];
     System::message("fundamentalDomainByPredicate<%s>: voiceN: %d range: %f g: %f: sector: %d\n", name_, voiceN, range, g, sector);
-    std::set<Chord, compare_by_normal_order> fundamentalDomainSet;
+    std::set<Chord, compare_by_polytope_key> fundamentalDomainSet(
+        (compare_by_polytope_key(g)));
     std::vector<Chord> fundamentalDomainVector;
     int upperI = 3 * (range + 1);
     int lowerI = - (1 * (range + 1));
@@ -3979,7 +4055,8 @@ template<int EQUIVALENCE_RELATION> inline SILENCE_PUBLIC std::vector<csound::Cho
         if (iterator_is_normal == true) {
             normals++;
             fundamentalDomainVector.push_back(iterator_);
-            auto result = fundamentalDomainSet.insert(iterator_);
+            Chord representative = equate<EQUIVALENCE_RELATION>(iterator_, range, g, sector);
+            auto result = fundamentalDomainSet.insert(representative);
             if (CHORD_SPACE_DEBUGGING() && result.second == true) {
                 Chord normalized = equate<EQUIVALENCE_RELATION>(iterator_, range, g, sector);
                 bool normalized_is_normal = predicate<EQUIVALENCE_RELATION>(normalized, range, g, 0);
@@ -4008,8 +4085,8 @@ template<int EQUIVALENCE_RELATION> inline SILENCE_PUBLIC std::vector<csound::Cho
     }
     std::sort(fundamentalDomainVector.begin(), fundamentalDomainVector.end());
     System::message("fundamentalDomainByPredicate<%s>: count: %d unique: %d\n", namesForEquivalenceRelations[EQUIVALENCE_RELATION], fundamentalDomainVector.size(), fundamentalDomainSet.size());
-    //~ return std::vector<Chord>(fundamentalDomainSet.begin(), fundamentalDomainSet.end());
-    return fundamentalDomainVector;
+    return std::vector<Chord>(fundamentalDomainSet.begin(), fundamentalDomainSet.end());
+    /// return fundamentalDomainVector;
  }
 
 template<int EQUIVALENCE_RELATION> inline SILENCE_PUBLIC std::vector<csound::Chord> fundamentalDomainByTransformation(int voiceN, double range, double g, int sector)
