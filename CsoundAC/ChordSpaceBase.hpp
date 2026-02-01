@@ -2426,22 +2426,20 @@ inline Chord Chord::eRPTI(double range, int opt_sector) const {
 
 //	EQUIVALENCE_RELATION_RPTgI
 
-template<> inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord, double range, double g, int opt_sector) {
-    if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, opt_sector) == false) {
-        return false;
-    }
-    if (predicate<EQUIVALENCE_RELATION_P>(chord, range, g, opt_sector) == false) {
-        return false;
-    }
-    if (chord.is_opt_sector(opt_sector) == false) {
-        return false;
-    }
-    if (predicate<EQUIVALENCE_RELATION_Tg>(chord, range, g, opt_sector) == false) {
-        return false;
-    }
-    if (predicate<EQUIVALENCE_RELATION_I>(chord, range, g, opt_sector) == false) {
-        return false;
-    }
+template<>
+inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTgI>(
+    const Chord &chord, double range, double g, int opt_sector)
+{
+    if (!predicate<EQUIVALENCE_RELATION_R>(chord, range, g, opt_sector)) return false;
+    if (!predicate<EQUIVALENCE_RELATION_P>(chord, range, g, opt_sector)) return false;
+
+    // Must already be in the Tg base.
+    if (!predicate<EQUIVALENCE_RELATION_Tg>(chord, range, g, opt_sector)) return false;
+
+    // Now sector membership and inversion tests are meaningful.
+    if (!chord.is_opt_sector(opt_sector)) return false;
+    if (!predicate<EQUIVALENCE_RELATION_I>(chord, range, g, opt_sector)) return false;
+
     return true;
 }
 
