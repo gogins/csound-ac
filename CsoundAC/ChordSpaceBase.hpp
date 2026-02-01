@@ -4026,68 +4026,69 @@ private:
     }
 };
 
-template<int EQUIVALENCE_RELATION> inline SILENCE_PUBLIC std::vector<csound::Chord> fundamentalDomainByPredicate(int voiceN, double range, double g, int sector, bool printme)
+template<int EQUIVALENCE_RELATION>
+inline SILENCE_PUBLIC std::vector<csound::Chord>
+fundamentalDomainByPredicate(int voiceN, double range, double g, int sector, bool printme)
 {
-    ///SCOPED_DEBUGGING debugging;
-    auto name_ = namesForEquivalenceRelations[EQUIVALENCE_RELATION];
-    System::message("fundamentalDomainByPredicate<%s>: voiceN: %d range: %f g: %f: sector: %d\n", name_, voiceN, range, g, sector);
-    std::set<Chord, compare_by_polytope_key> fundamentalDomainSet(
-        (compare_by_polytope_key(g)));
-    std::vector<Chord> fundamentalDomainVector;
-    int upperI = 3 * (range + 1);
-    int lowerI = - (1 * (range + 1));
-    Chord iterator_ = iterator(voiceN, lowerI);
-    Chord origin = iterator_;
-    int chords = 0;
-    int normals = 0;
-    //~ static auto target = csound::Chord({-3.0000000,   -1.0000000,    2.0000000,    5.0000000});
-    //~ static bool target_found = false;
-    while (next(iterator_, origin, upperI, g) == true) {
-        chords++;
-        bool iterator_is_normal = predicate<EQUIVALENCE_RELATION>(iterator_, range, g, sector);
-        //~ if (target_found == false) {
-            //~ if (target.toString() == iterator_.toString()) {
-                //~ target_found = true;
-                //~ System::message("fundamentalDomainByPredicate<%s>: iterator_is_normal: %d\n    found:  %s\n    target: %s\n\n", name_, iterator_is_normal, print_chord(target), print_chord(iterator_));
-                //~ ///std::raise(SIGINT);
-            //~ }
-        //~ }
-        if (iterator_is_normal == true) {
-            normals++;
-            fundamentalDomainVector.push_back(iterator_);
-            Chord representative = equate<EQUIVALENCE_RELATION>(iterator_, range, g, sector);
-            auto result = fundamentalDomainSet.insert(representative);
-            if (CHORD_SPACE_DEBUGGING() && result.second == true) {
-                Chord normalized = equate<EQUIVALENCE_RELATION>(iterator_, range, g, sector);
-                bool normalized_is_normal = predicate<EQUIVALENCE_RELATION>(normalized, range, g, 0);
-                CHORD_SPACE_DEBUG("%s By predicate  %-8s: chord: %6d  domain: %6d  range: %7.2f  g: %7.2f  iterator: %s  predicate: %d  normalized: %s  predicate: %d\n",
-                    (normalized_is_normal ? "      " : "WRONG "),
-                    name_,
-                    chords,
-                    fundamentalDomainSet.size(),
-                    range,
-                    g,
-                    iterator_.toString().c_str(),
-                    iterator_is_normal,
-                    normalized.toString().c_str(),
-                    normalized_is_normal);
-            }
+    const char *name_ = namesForEquivalenceRelations[EQUIVALENCE_RELATION];
+    System::message(
+        "fundamentalDomainByPredicate<%s>: voiceN: %d range: %f g: %f sector: %d\n",
+        name_, voiceN, range, g, sector
+    );
+
+    if (g <= 0.0)
+    {
+        g = 1.0;
+    }
+
+    // Use a uniqueness key consistent with the enumeration lattice and permutation equivalence.
+    std::set<Chord, compare_by_polytope_key> unique_chords((compare_by_polytope_key(g)));
+
+    // Iterator bounds (same scheme you had).
+    const int upperI = static_cast<int>(3 * (range + 1));
+    const int lowerI = static_cast<int>(-(1 * (range + 1)));
+
+    Chord it = iterator(voiceN, lowerI);
+    const Chord origin = it;
+
+    int scanned = 0;
+    int accepted = 0;
+
+    while (next(it, origin, upperI, g))
+    {
+        ++scanned;
+
+        if (predicate<EQUIVALENCE_RELATION>(it, range, g, sector))
+        {
+            ++accepted;
+            unique_chords.insert(it);
         }
-        if (printme == true) {
-            System::message("fundamentalDomainByPredicate<%s>: %s normal: %6d set: %6d iterator: %12d %s\n", 
+
+        if (printme)
+        {
+            System::message(
+                "fundamentalDomainByPredicate<%s>: %s accepted: %6d unique: %6d scanned: %12d %s\n",
                 name_,
-                (iterator_is_normal ? "NORMAL " : "       "), 
-                normals, 
-                fundamentalDomainSet.size(), 
-                chords, 
-                print_chord(iterator_));
+                predicate<EQUIVALENCE_RELATION>(it, range, g, sector) ? "NORMAL " : "       ",
+                accepted,
+                static_cast<int>(unique_chords.size()),
+                scanned,
+                print_chord(it)
+            );
         }
     }
-    std::sort(fundamentalDomainVector.begin(), fundamentalDomainVector.end());
-    System::message("fundamentalDomainByPredicate<%s>: count: %d unique: %d\n", namesForEquivalenceRelations[EQUIVALENCE_RELATION], fundamentalDomainVector.size(), fundamentalDomainSet.size());
-    return std::vector<Chord>(fundamentalDomainSet.begin(), fundamentalDomainSet.end());
-    /// return fundamentalDomainVector;
- }
+
+    std::vector<Chord> result(unique_chords.begin(), unique_chords.end());
+    System::message(
+        "fundamentalDomainByPredicate<%s>: unique: %d (scanned: %d, accepted: %d)\n",
+        name_,
+        static_cast<int>(result.size()),
+        scanned,
+        accepted
+    );
+
+    return result;
+}
 
 template<int EQUIVALENCE_RELATION> inline SILENCE_PUBLIC std::vector<csound::Chord> fundamentalDomainByTransformation(int voiceN, double range, double g, int sector)
 {
