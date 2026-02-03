@@ -503,8 +503,10 @@ public:
     /**
      * For each chord space of dimensions 3 <= n <= 12, there is one cyclical 
      * region of n fundamental domains of OPT equivalence. The vertices of the
-     * cyclical region consist of the n octavewise revoicings of the origin. 
-     * This function returns a global collection of these cyclical regions.
+     * cyclical region consist of n transpositions of the origin by 12 / n, 
+     * under OP equivalence. This function returns a global collection of these 
+     * cyclical regions. Transposing this base by 12 / n defines a simplex 
+     * containing n fundamental domains of OPT.
      */
     static std::map<int, std::vector<Chord>> &cyclical_regions_for_dimensionalities();
     /**
