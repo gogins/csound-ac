@@ -40,12 +40,12 @@ The unit tests must satisfy:
  
  4. _Membership (representatives)_: All representative chords (one per equivalence class) can be assembled into a vector by globally iterating over a space enclosing the _representative_ fundamental domain, and inserting each chord that satisfies the __union membership predicate_ for that domain.  The union predicate is satisfied if the sector predicate is satisfied for one or more sectors in the domain.
 
-  -  _OPT_: The chord lies in any OPT sector.
+    -  _OPT_: The chord lies in any OPT sector.
 
-  -  _OPTg_: OPT membership, and the chord is on the g-lattice.
+    -  _OPTg_: OPT membership, and the chord is on the g-lattice.
 
-  -  _OPTI_: The chord lies in the minor half of any OPT sector.
+    -  _OPTI_: The chord lies in the minor half of any OPT sector.
   
-  -  _OPTgI_: OPTI membership, and the chord is on the g-lattice.
+    -  _OPTgI_: OPTI membership, and the chord is on the g-lattice.
 
  5. _Correct cardinality_: The counts of OPTg and OPTgI representatives must agree with Tymoczko, and visualizations must show the expected cyclical regions and their inversional subdivisions.

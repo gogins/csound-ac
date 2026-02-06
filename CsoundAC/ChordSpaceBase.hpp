@@ -1,7 +1,7 @@
 #ifndef CHORDSPACEBASE_HPP_INCLUDED
 #define CHORDSPACEBASE_HPP_INCLUDED
 /*
- * C S O U N D
+ * C S O U N D  A C
  *
  * L I C E N S E
  *
@@ -758,7 +758,7 @@ public:
      * In this code, sector vertices are NOT permuted.
      *
      * The reason for starting with C[n-1] is to include the origin in the 0th 
-     * fundamental domain, because we regard OPT sector 0 as the 
+     * sector, because we regard OPT sector 0 as the 
      * _representative_ fundamental  domain of OPT.
      *
      * This code is based on the construction of Noam Elkies described in the 
@@ -1115,7 +1115,7 @@ public:
     static std::map<int, std::vector<std::vector<Chord>>> &opti_sectors_for_dimensionalities();
      /**
      * Returns a collection of vertices for the OPTI fundamental domains that 
-     * have an added  vertex to make a simplex for chord location. 
+     * have an added vertex to make a polytope for chord location. 
      */
     static std::map<int, std::vector<std::vector<Chord>>> &opti_simplexes_for_dimensionalities();
     /**
@@ -3117,14 +3117,16 @@ inline bool Chord::test(const char *label) const {
     // For some of these we need to know the OPT sector, and if the chord 
     // belongs to more than one sector, we choose the first.
     auto opt_sector = opt_domain_sectors().front();
-    // Test the consistency of the predicates.
+    // Test the decomposability of the predicates. The predicate for a 
+    // compound equivalence relation must return the same truth value as the 
+    // conjunction of predicates for each elementary relation.
     if (iseOP() == true) {
         if (iseO() == false ||
             iseP() == false) {
             passed = false;
-            std::fprintf(stderr, "Failed: Chord::iseOP is not consistent.\n");
+            std::fprintf(stderr, "Failed: Chord::iseOP is not decomposable.\n");
         } else {
-            std::fprintf(stderr, "        Chord::iseOP is consistent.\n");
+            std::fprintf(stderr, "        Chord::iseOP is decomposable.\n");
         }
     }
     if (iseOPT(opt_sector) == true) {
@@ -3132,9 +3134,9 @@ inline bool Chord::test(const char *label) const {
             iseP() == false || 
             iseT() == false) {
             passed = false;
-            std::fprintf(stderr, "Failed: Chord::iseOPT is not consistent.\n");
+            std::fprintf(stderr, "Failed: Chord::iseOPT is not decomposable.\n");
         } else {
-            std::fprintf(stderr, "        Chord::iseOPT is consistent.\n");
+            std::fprintf(stderr, "        Chord::iseOPT is decomposable.\n");
         }
     }
     // If it is transformed to T, is it OPT? 
@@ -3144,9 +3146,9 @@ inline bool Chord::test(const char *label) const {
             iseP() == false || 
             iseTT() == false) {
             passed = false;
-            std::fprintf(stderr, "Failed: Chord::iseOPTT is not consistent.\n");
+            std::fprintf(stderr, "Failed: Chord::iseOPTT is not decomposable.\n");
         } else {
-            std::fprintf(stderr, "        Chord::iseOPTT is consistent.\n");
+            std::fprintf(stderr, "        Chord::iseOPTT is decomposable.\n");
         }
     }
     if (iseOPTI(opt_sector) == true) {
@@ -3155,9 +3157,9 @@ inline bool Chord::test(const char *label) const {
             iseT() == false || 
             iseI(opt_sector) == false) {
             passed = false;
-            std::fprintf(stderr, "Failed: Chord::iseOPTI is not consistent.\n");
+            std::fprintf(stderr, "Failed: Chord::iseOPTI is not decomposable.\n");
         } else {
-            std::fprintf(stderr, "        Chord::iseOPTI is consistent.\n");
+            std::fprintf(stderr, "        Chord::iseOPTI is decomposable.\n");
         }
     }
     if (iseOPTTI(opt_sector) == true) {
@@ -3166,12 +3168,13 @@ inline bool Chord::test(const char *label) const {
             iseTT() == false || 
             iseI(opt_sector) == false) {
             passed = false;
-            std::fprintf(stderr, "Failed: Chord::iseOPTTI is not consistent.\n");
+            std::fprintf(stderr, "Failed: Chord::iseOPTTI is not decomposable.\n");
         } else {
-            std::fprintf(stderr, "        Chord::iseOPTTI is consistent.\n");
+            std::fprintf(stderr, "        Chord::iseOPTTI is decomposable.\n");
         }
     }
-    // Test the consistency of the transformations.
+    // Test the consistency of the transformations:
+    // predicate<R>(equate<R>(chord, sector), sector) == true
     if (eO().iseO() == false) {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eO is not consistent with Chord::iseO.\n");
@@ -3239,6 +3242,38 @@ inline bool Chord::test(const char *label) const {
     }
     std::fprintf(stderr, "\n");
     std::fprintf(stderr, "%s", information().c_str());
+    // Test idempotency of transformations: 
+    // equate<R>(equate<R>(chord, sector), sector) == equate<R>(chord, sector)
+    if (eOP().eOP().iseOP() == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eOP is not idempotent.\n");
+    } else {
+        std::fprintf(stderr, "        Chord::eOP is idempotent.\n");
+    }
+    if (eOPT(opt_sector).eOPT(opt_sector).iseOPT(opt_sector) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eOPT is not idempotent.\n");
+    } else {
+        std::fprintf(stderr, "        Chord::eOPT is idempotent.\n");
+    }
+    if (eOPTT(opt_sector).eOPTT(opt_sector).iseOPTT(opt_sector) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eOPTT is not idempotent.\n");
+    } else {
+        std::fprintf(stderr, "        Chord::eOPTT is idempotent.\n");
+    }
+    if (eOPTI(opt_sector).eOPTI(opt_sector).iseOPTI(opt_sector) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eOPTI is not idempotent.\n");
+    } else {
+        std::fprintf(stderr, "        Chord::eOPTI is idempotent.\n");
+    }
+    if (eOPTTI(opt_sector).eOPTTI(opt_sector).iseOPTTI(opt_sector) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eOPTTI is not idempotent.\n");
+    } else {
+        std::fprintf(stderr, "        Chord::eOPTTI is idempotent.\n");
+    }
     return passed;
 }
 
