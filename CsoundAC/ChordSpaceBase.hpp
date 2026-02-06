@@ -3117,61 +3117,37 @@ inline bool Chord::test(const char *label) const {
     // For some of these we need to know the OPT sector, and if the chord 
     // belongs to more than one sector, we choose the first.
     auto opt_sector = opt_domain_sectors().front();
-    // Test the decomposability of the predicates. The predicate for a 
-    // compound equivalence relation must return the same truth value as the 
-    // conjunction of predicates for each elementary relation.
-    if (iseOP() == true) {
-        if (iseO() == false ||
-            iseP() == false) {
-            passed = false;
-            std::fprintf(stderr, "Failed: Chord::iseOP is not decomposable.\n");
-        } else {
-            std::fprintf(stderr, "        Chord::iseOP is decomposable.\n");
-        }
+    // Test idempotency of transformations: 
+    // equate<R>(equate<R>(chord, sector), sector) == equate<R>(chord, sector)
+    if (eOP().eOP().iseOP() == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eOP is not idempotent.\n");
+    } else {
+        std::fprintf(stderr, "        Chord::eOP is idempotent.\n");
     }
-    if (iseOPT(opt_sector) == true) {
-        if (iseO() == false ||
-            iseP() == false || 
-            iseT() == false) {
-            passed = false;
-            std::fprintf(stderr, "Failed: Chord::iseOPT is not decomposable.\n");
-        } else {
-            std::fprintf(stderr, "        Chord::iseOPT is decomposable.\n");
-        }
+    if (eOPT(opt_sector).eOPT(opt_sector).iseOPT(opt_sector) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eOPT is not idempotent.\n");
+    } else {
+        std::fprintf(stderr, "        Chord::eOPT is idempotent.\n");
     }
-    // If it is transformed to T, is it OPT? 
-    // After that, is it Tg?
-    if (iseOPTT(opt_sector) == true) {
-        if (iseO() == false ||
-            iseP() == false || 
-            iseTT() == false) {
-            passed = false;
-            std::fprintf(stderr, "Failed: Chord::iseOPTT is not decomposable.\n");
-        } else {
-            std::fprintf(stderr, "        Chord::iseOPTT is decomposable.\n");
-        }
+    if (eOPTT(opt_sector).eOPTT(opt_sector).iseOPTT(opt_sector) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eOPTT is not idempotent.\n");
+    } else {
+        std::fprintf(stderr, "        Chord::eOPTT is idempotent.\n");
     }
-    if (iseOPTI(opt_sector) == true) {
-        if (iseO() == false ||
-            iseP() == false || 
-            iseT() == false || 
-            iseI(opt_sector) == false) {
-            passed = false;
-            std::fprintf(stderr, "Failed: Chord::iseOPTI is not decomposable.\n");
-        } else {
-            std::fprintf(stderr, "        Chord::iseOPTI is decomposable.\n");
-        }
+    if (eOPTI(opt_sector).eOPTI(opt_sector).iseOPTI(opt_sector) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eOPTI is not idempotent.\n");
+    } else {
+        std::fprintf(stderr, "        Chord::eOPTI is idempotent.\n");
     }
-    if (iseOPTTI(opt_sector) == true) {
-        if (iseO() == false ||
-            iseP() == false || 
-            iseTT() == false || 
-            iseI(opt_sector) == false) {
-            passed = false;
-            std::fprintf(stderr, "Failed: Chord::iseOPTTI is not decomposable.\n");
-        } else {
-            std::fprintf(stderr, "        Chord::iseOPTTI is decomposable.\n");
-        }
+    if (eOPTTI(opt_sector).eOPTTI(opt_sector).iseOPTTI(opt_sector) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eOPTTI is not idempotent.\n");
+    } else {
+        std::fprintf(stderr, "        Chord::eOPTTI is idempotent.\n");
     }
     // Test the consistency of the transformations:
     // predicate<R>(equate<R>(chord, sector), sector) == true
@@ -3240,40 +3216,64 @@ inline bool Chord::test(const char *label) const {
     } else {
         std::fprintf(stderr, "        Chord::eOPTTI is consistent with Chord::iseOPTTI.\n");
     }
+    // Test the decomposability of the predicates. The predicate for a 
+    // compound equivalence relation must return the same truth value as the 
+    // conjunction of predicates for each elementary relation.
+    if (iseOP() == true) {
+        if (iseO() == false ||
+            iseP() == false) {
+            passed = false;
+            std::fprintf(stderr, "Failed: Chord::iseOP is not decomposable.\n");
+        } else {
+            std::fprintf(stderr, "        Chord::iseOP is decomposable.\n");
+        }
+    }
+    if (iseOPT(opt_sector) == true) {
+        if (iseO() == false ||
+            iseP() == false || 
+            iseT() == false) {
+            passed = false;
+            std::fprintf(stderr, "Failed: Chord::iseOPT is not decomposable.\n");
+        } else {
+            std::fprintf(stderr, "        Chord::iseOPT is decomposable.\n");
+        }
+    }
+    // If it is transformed to T, is it OPT? 
+    // After that, is it Tg?
+    if (iseOPTT(opt_sector) == true) {
+        if (iseO() == false ||
+            iseP() == false || 
+            iseTT() == false) {
+            passed = false;
+            std::fprintf(stderr, "Failed: Chord::iseOPTT is not decomposable.\n");
+        } else {
+            std::fprintf(stderr, "        Chord::iseOPTT is decomposable.\n");
+        }
+    }
+    if (iseOPTI(opt_sector) == true) {
+        if (iseO() == false ||
+            iseP() == false || 
+            iseT() == false || 
+            iseI(opt_sector) == false) {
+            passed = false;
+            std::fprintf(stderr, "Failed: Chord::iseOPTI is not decomposable.\n");
+        } else {
+            std::fprintf(stderr, "        Chord::iseOPTI is decomposable.\n");
+        }
+    }
+    if (iseOPTTI(opt_sector) == true) {
+        if (iseO() == false ||
+            iseP() == false || 
+            iseTT() == false || 
+            iseI(opt_sector) == false) {
+            passed = false;
+            std::fprintf(stderr, "Failed: Chord::iseOPTTI is not decomposable.\n");
+        } else {
+            std::fprintf(stderr, "        Chord::iseOPTTI is decomposable.\n");
+        }
+    }
     std::fprintf(stderr, "\n");
     std::fprintf(stderr, "%s", information().c_str());
-    // Test idempotency of transformations: 
-    // equate<R>(equate<R>(chord, sector), sector) == equate<R>(chord, sector)
-    if (eOP().eOP().iseOP() == false) {
-        passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOP is not idempotent.\n");
-    } else {
-        std::fprintf(stderr, "        Chord::eOP is idempotent.\n");
-    }
-    if (eOPT(opt_sector).eOPT(opt_sector).iseOPT(opt_sector) == false) {
-        passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPT is not idempotent.\n");
-    } else {
-        std::fprintf(stderr, "        Chord::eOPT is idempotent.\n");
-    }
-    if (eOPTT(opt_sector).eOPTT(opt_sector).iseOPTT(opt_sector) == false) {
-        passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTT is not idempotent.\n");
-    } else {
-        std::fprintf(stderr, "        Chord::eOPTT is idempotent.\n");
-    }
-    if (eOPTI(opt_sector).eOPTI(opt_sector).iseOPTI(opt_sector) == false) {
-        passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTI is not idempotent.\n");
-    } else {
-        std::fprintf(stderr, "        Chord::eOPTI is idempotent.\n");
-    }
-    if (eOPTTI(opt_sector).eOPTTI(opt_sector).iseOPTTI(opt_sector) == false) {
-        passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTTI is not idempotent.\n");
-    } else {
-        std::fprintf(stderr, "        Chord::eOPTTI is idempotent.\n");
-    }
     return passed;
 }
 
