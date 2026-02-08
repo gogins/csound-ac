@@ -283,7 +283,9 @@ P, L, and R have been extended as follows, see Fiore and Satyendra,
 */
 
 static SILENCE_PUBLIC std::string chord_space_version() {
-    return "ChordSpaceBase version 2.0.4.";
+    char buffer[0x500];
+    std::snprintf(buffer, sizeof(buffer), "ChordSpaceBase version 2.0.5. Compiled from %s on %s at %s.", __FILE__, __DATE__, __TIME__);
+    return buffer;
 }
 
 /**
@@ -787,16 +789,16 @@ public:
     virtual bool is_minor() const;
     /**
      * Returns whether or not this chord lies within the indicated sector of 
-     * the cyclical region of OPT fundamental domains.
+     * the cyclical region of the OPT fundamental domain.
      */
     virtual bool is_opt_sector(int opt_sector = 0) const;
     /**
      * Returns whether or not this chord lies within the indicated sector of 
-     * the cyclical region of OPTI fundamental domains.
+     * the cyclical region of the OPTI fundamental domain.
      */
     virtual bool is_opti_sector(int opti_sector = 0) const;
     /**
-     * Returns whether the chord is within a fundamental domain of inversional 
+     * Returns whether the chord is within the fundamental domain of inversional 
      * equivalence.
      */
     virtual bool iseI_chord(Chord *inverse, int opt_sector = 0) const;
@@ -1904,7 +1906,7 @@ SILENCE_PUBLIC double T(double pitch, double semitones);
  */
 SILENCE_PUBLIC Chord transpose_degrees(const Chord &scale, const Chord &original_chord, int transposition_degrees, int interval = 3);
 
-SILENCE_PUBLIC std::set<Chord> &unique_chords();
+///SILENCE_PUBLIC std::set<Chord> &unique_chords();
 
 SILENCE_PUBLIC std::set<Scale> &unique_scales();
 
@@ -4076,9 +4078,6 @@ fundamentalDomainByPredicate(int voiceN, double range, double g, int sector, boo
         g = 1.0;
     }
 
-    // Use a uniqueness key consistent with the enumeration lattice and permutation equivalence.
-    std::set<Chord, compare_by_polytope_key> unique_chords((compare_by_polytope_key(g)));
-
     // Iterator bounds (same scheme you had).
     const int upperI = static_cast<int>(3 * (range + 1));
     const int lowerI = static_cast<int>(-(1 * (range + 1)));
@@ -4088,15 +4087,24 @@ fundamentalDomainByPredicate(int voiceN, double range, double g, int sector, boo
 
     int scanned = 0;
     int accepted = 0;
+    int in_sector0 = 0;
+
+    std::vector<Chord> chords_in_domain;
 
     while (next(it, origin, upperI, g))
     {
         ++scanned;
-
-        if (predicate<EQUIVALENCE_RELATION>(it, range, g, sector))
-        {
-            ++accepted;
-            unique_chords.insert(it);
+        // This is the union predicate.
+        for (auto sector = 0; sector < voiceN; ++sector) {
+            if (predicate<EQUIVALENCE_RELATION>(it, range, g, sector))
+            {
+                ++accepted;
+                chords_in_domain.push_back(it);
+                if (sector == 0) {
+                    ++in_sector0;
+                }   
+                break;
+            }
         }
 
         if (printme)
@@ -4106,24 +4114,21 @@ fundamentalDomainByPredicate(int voiceN, double range, double g, int sector, boo
                 name_,
                 predicate<EQUIVALENCE_RELATION>(it, range, g, sector) ? "NORMAL " : "       ",
                 accepted,
-                static_cast<int>(unique_chords.size()),
+                static_cast<int>(chords_in_domain.size()),
                 scanned,
                 print_chord(it)
             );
         }
     }
 
-    std::vector<Chord> result(unique_chords.begin(), unique_chords.end());
-    System::message(
-        "fundamentalDomainByPredicate<%s>: unique: %d (scanned: %d, accepted: %d)\n",
-        name_,
-        static_cast<int>(result.size()),
-        scanned,
-        accepted
+     System::message(
+        "fundamentalDomainByPredicate<%s>: scanned: %d accepted: %d size: %d size in sector 0: %d\n",
+        name_, scanned, accepted, static_cast<int>(chords_in_domain.size()), in_sector0
     );
 
-    return result;
-}
+    return chords_in_domain;
+}   
+
 
 template<int EQUIVALENCE_RELATION> inline SILENCE_PUBLIC std::vector<csound::Chord> fundamentalDomainByTransformation(int voiceN, double range, double g, int sector)
 {
