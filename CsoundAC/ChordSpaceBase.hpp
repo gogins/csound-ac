@@ -504,7 +504,7 @@ public:
     virtual Chord cycle(int stride = 1) const;
     /**
      * For each chord space of dimensions 3 <= n <= 12, there is one cyclical 
-     * region of n fundamental domains of OPT equivalence. The vertices of the
+     * region in the domain OPT equivalence, consisting of n sectors. The vertices of the
      * cyclical region consist of n transpositions of the origin by 12 / n, 
      * under OP equivalence. This function returns a global collection of these 
      * cyclical regions. Transposing this base by 12 / n defines a simplex 
@@ -759,9 +759,14 @@ public:
      *
      * In this code, sector vertices are NOT permuted.
      *
-     * The reason for starting with C[n-1] is to include the origin in the 0th 
-     * sector, because we regard OPT sector 0 as the 
-     * _representative_ fundamental  domain of OPT.
+     * The reason for starting with C[n-1] is to include the origin in each 
+     * OPT sector, which is important for the code that identifies whether a 
+     * chord is in an OPT sector. If we started with C[0], then the origin 
+     * would be on the boundary of all OPT sectors, and the code that 
+     * identifies whether a chord is in an OPT sector would have to identify 
+     * whether the chord is on the boundary of the sector, which is more 
+     * complicated than identifying whether the chord is in the interior of 
+     * the sector. 
      *
      * This code is based on the construction of Noam Elkies described in the 
      * _Generalized Chord Spaces_ draft by Callender, Quinn, and Tymoczko.
@@ -5010,6 +5015,45 @@ inline HyperplaneEquation Chord::hyperplane_equation(int opt_sector) const {
     return hyperplane_equations[opt_sector];
 }
 
+// What we want is:
+//
+// 1) OPT fundamental domain (the OP/T base):
+//    In OT-reduced coordinates (mod transposition), the OPT fundamental domain
+//    is the (N−1)-dimensional simplex that is the convex hull of the N vertices
+//    of the cyclical region. This simplex is the base of the OP hyperprism.
+//
+// 2) OPT sector decomposition:
+//    The OPT fundamental domain tiles into N OPT sector polytopes. Each OPT
+//    sector is the convex hull of:
+//      - the OPT-domain center, and
+//      - one (N−2)-dimensional facet of the cyclical-region simplex.
+//    (For N=3 the facet has 2 vertices; for general N it has N−1 vertices.)
+//
+// 3) Extrusion to OP geometry:
+//    Extruding the OPT base along the unison-diagonal direction by height 12/N
+//    yields the OP fundamental hyperprism. Extruding each OPT sector yields the
+//    corresponding OP sector hyperprism.
+//
+// 4) Inversion flats:
+//    For each OPT sector there is an associated inversion hyperplane (“inversion
+//    flat”) that bisects the sector hyperprism into minor and major halves.
+//    In the base, this hyperplane passes through the OPT-domain center and the
+//    midpoint of the sector’s base facet; in the full OP geometry it is the
+//    extrusion of that bisector along the unison-diagonal direction.
+//    Each inversion flat is represented computationally by a hyperplane equation
+//    n·x = d (unit normal n and constant d).
+//
+// 5) OPTI representative domain:
+//    Each OPT sector is split by its inversion flat into two OPTI half-sector
+//    regions (minor and major). A fundamental domain for inversional equivalence
+//    OPTI can be chosen as the union of the N minor half-sector regions.
+//    (Equivalently, one may choose the union of the N major halves, but we take
+//    the minor union as the representative.)
+//
+// 6) Extrusion to OPI geometry:
+//    Extruding the OPTI half-sector regions by 12/N yields the corresponding
+//    OPI half-sector hyperprisms, and extruding the inversion flats yields the
+//    full inversion flats in OP space.
 inline void Chord::initialize_sectors() {
     static bool initialized = false;
     if (initialized == false) {
@@ -5106,7 +5150,7 @@ inline void Chord::initialize_sectors() {
                 auto norm = normal_vector.norm();
                 HyperplaneEquation hyperplane_equation_;
                 hyperplane_equation_.unit_normal_vector = normal_vector / norm;
-                auto temp = center_t.col(0).adjoint() * hyperplane_equation_.unit_normal_vector;    
+                auto temp = opti_midpoint.col(0).adjoint() * hyperplane_equation_.unit_normal_vector;
                 hyperplane_equation_.constant_term = temp(0, 0);
                 CHORD_SPACE_DEBUG("  hyperplane_equation: sector: %d\n", dimension_i);
                 CHORD_SPACE_DEBUG("  hyperplane_equation: center:\n");
