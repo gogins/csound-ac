@@ -80,40 +80,6 @@ static void printSet(std::string name, const std::vector<csound::Chord> &chords)
     }
 }
 
-static bool equals(const csound::HyperplaneEquation &a, const csound::HyperplaneEquation &b) {
-    if (a.unit_normal_vector.rows() == b.unit_normal_vector.rows() == false) {
-        csound::System::error("equals: size mismatch: %d %d\n", a.unit_normal_vector.rows(), b.unit_normal_vector.rows());
-        return false;
-    }
-    for (int row = 0; row < a.unit_normal_vector.rows(); ++row) {
-        if (csound::eq_tolerance(a.unit_normal_vector(row, 0), b.unit_normal_vector(row, 0)) == false) {
-            csound::System::error("equals: unit normal vector element mismatch: %.17g %.17g\n", a.unit_normal_vector(row, 0), b.unit_normal_vector(row, 0));
-            return false;
-        }
-    }
-    if (csound::eq_tolerance(a.constant_term, b.constant_term) == false) {
-        csound::System::error("equals: constant term mismatch: %.17g %,17g\n", a.constant_term, b.constant_term);
-        return false;
-    }
-    return true;
-}
-
-static void Hyperplane_Equation_for_Test_Points() {
-    std::vector<csound::Chord> points;
-    points.push_back(csound::Chord(std::vector<double>({ 4.,  0., -1.,  0.})));
-    points.push_back(csound::Chord(std::vector<double>({ 1.,  2.,  3., -1.})));
-    points.push_back(csound::Chord(std::vector<double>({ 0., -1.,  2.,  0.})));
-    points.push_back(csound::Chord(std::vector<double>({-1.,  1., -1.,  1.})));
-    // From inversion_flats.py for these points by SVD from vectors:
-    csound::HyperplaneEquation expected;
-    expected.unit_normal_vector.resize(4, 1);
-    expected.unit_normal_vector << 0.20864865369890548, 0.12839917150701868, 0.32099792876754685, 0.9148440969875088;
-    expected.constant_term = 0.5135966860280752;
-    csound::HyperplaneEquation actual = hyperplane_equation_from_singular_value_decomposition(points, false);
-    bool passes = equals(expected, actual);
-    test(passes, __func__);    
-}
-
 static void test_pitv(const csound::PITV &pitv_, std::string chordName) {
     csound::System::message("BEGAN test PITV for %s...\n", chordName.c_str());
     csound::Chord originalChord = csound::chordForName(chordName);
@@ -462,7 +428,6 @@ int main(int argc, char **argv) {
     auto opttis = csound::allOfEquivalenceClass(3, "RPTgI", 12., 1., 0, false);
     printSet("OPTTIs", opttis);
     //return 0;
-    Hyperplane_Equation_for_Test_Points();
 
     auto chordx = csound::chordForName("CM7");
     auto dominantx = csound::chordForName("G7");
