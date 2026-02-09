@@ -347,10 +347,7 @@ typedef Eigen::Matrix<double, Eigen::Dynamic, 1> Vector;
 
 class SILENCE_PUBLIC Chord;
 
-struct SILENCE_PUBLIC HyperplaneEquation {
-    Matrix unit_normal_vector;
-    double constant_term;
-};
+struct SILENCE_PUBLIC HyperplaneEquation;
 
 class SILENCE_PUBLIC PITV;
 
@@ -361,8 +358,6 @@ SILENCE_PUBLIC double distance_to_points(const Chord &chord, const std::vector<C
 SILENCE_PUBLIC double epc(double pitch);
 
 SILENCE_PUBLIC bool gt_tolerance(double a, double b, int epsilons=20, int ulps=200);
-
-SILENCE_PUBLIC HyperplaneEquation hyperplane_equation_from_singular_value_decomposition(const std::vector<Chord> &points_, bool make_eT);
 
 SILENCE_PUBLIC bool le_tolerance(double a, double b, int epsilons=20, int ulps=200);
 
@@ -1219,6 +1214,42 @@ public:
     virtual std::vector<Chord> voicings() const;
 };
 
+struct SILENCE_PUBLIC HyperplaneEquation {
+    HyperplaneEquation() : unit_normal_vector(), apex() {
+    }
+    /**
+     * Creates a hyperplane equation for the hyperplane that reflects a chord across the
+     * middle of one sector of the OPT cyclical region, i.e. from one OPTI sector in the 
+     * OPT sector to the other OPTI sector in the same OPT sector. 
+     */
+    void create(const Vector &apex_a, const Vector &base_b, const Vector &base_c) {
+        apex = apex_a;
+        auto normal_vector = base_c - base_b;
+        unit_normal_vector = normal_vector.normalized();
+    };
+    Chord reflect(const Chord &chord) const {
+        // Preserve non-pitch data in the chord.
+        Chord reflection = chord;
+        Vector a_to_chord = chord - apex;
+        double signed_distance = a_to_chord.dot(unit_normal_vector);
+        auto reflected = chord - (2. * signed_distance * unit_normal_vector);
+        for (int voice = 0; voice < chord.voices(); ++voice) {
+            reflection.setPitch(voice, reflected(voice, 0));
+        }
+        return reflection;
+    };
+    bool is_invariant(const Vector& chord) const {
+        Vector a_to_chord = chord - apex;
+        double signed_distance = a_to_chord.dot(unit_normal_vector);
+        double distance = std::abs(signed_distance);
+        bool result = lt_tolerance(distance, 0, 64, 512);
+        // If distance is effectively zero, the chord is on the flat.
+        return result;
+    }
+    Vector unit_normal_vector;
+    Vector apex;
+};
+
 SILENCE_PUBLIC const Chord &chordForName(std::string name);
 
 /**
@@ -1447,17 +1478,6 @@ template<int EQUIVALENCE_RELATION> SILENCE_PUBLIC std::vector<Chord> fundamental
 template<int EQUIVALENCE_RELATION> SILENCE_PUBLIC std::vector<Chord> fundamentalDomainByTransformation(int voiceN, double range, double g = 1., int sector=0);
 
 SILENCE_PUBLIC bool ge_tolerance(double a, double b, int epsilons=20,int ulps=200);
-
-//~ /**
- //~ * Given a set of points sufficient to define a hyperplane, computes the 
- //~ * scalar equation of the hyperplane. The algorithm derives vectors from the 
- //~ * points and solves for the scalar equation using the singular value 
- //~ * decomposition. The equation is returned in the form of a unit normal vector 
- //~ * of the hyperplane and a constant factor.
- //~ */
-//~ SILENCE_PUBLIC HyperplaneEquation hyperplane_equation(const std::vector<Chord> &points_in_hyperplane, bool make_eT = true);
-
-//~ SILENCE_PUBLIC HyperplaneEquation hyperplane_equation_from_random_inversion_flat(int dimensions, bool transpositional_equivalence = true, int opt_sector = 1);
 
 SILENCE_PUBLIC bool gt_tolerance(double a, double b, int epsilons, int ulps);
 
@@ -1976,24 +1996,9 @@ template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_r>(const Chor
 
 inline bool Chord::self_inverse(int opt_sector) const
 {
-    // Get the inversion hyperplane for this OPT sector
-    const HyperplaneEquation &h = hyperplane_equation(opt_sector);
-
-    // Signed distance to the hyperplane (unit normal assumed)
-    auto temp = col(0).adjoint() * h.unit_normal_vector;
-    double signed_distance = temp(0, 0) - h.constant_term;
-
-    // Boundary classification must be tolerant:
-    //  - chained floating ops (eT, reflect, sector tests)
-    //  - exact integer points often lie theoretically on the flat
-    //
-    // These values are intentionally higher than defaults.
-    return eq_tolerance(
-        signed_distance,
-        0.0,
-        /* epsilons = */ 64,
-        /* ulps     = */ 512
-    );
+    // Get the inversion hyperplane for this OPT sector.
+    const HyperplaneEquation &hyperplane_equation_ = hyperplane_equation(opt_sector);
+    auto result = hyperplane_equation_.is_invariant(*this); 
 }
 
 inline bool Chord::is_opt_sector(int index) const {
@@ -2929,8 +2934,6 @@ inline std::string Chord::information_sector(int opt_sector_) const {
             result.append(buffer);
         }
         auto reflected = reflect_in_inversion_flat(*this, i);
-        snprintf(buffer, sizeof(buffer), " ] Constant: %11.7f\n", hyperplane_equation.constant_term);
-        result.append(buffer);
         auto sector_text = print_opti_sectors(reflected);
         snprintf(buffer, sizeof(buffer), "         Reflection:%s\n", print_chord(reflected));
         result.append(buffer);   
@@ -4199,53 +4202,6 @@ inline SILENCE_PUBLIC double I(double pitch, double center) {
     return center - pitch;
 }
 
-inline SILENCE_PUBLIC HyperplaneEquation hyperplane_equation_from_singular_value_decomposition(const std::vector<Chord> &points_, bool make_eT) {
-    std::cerr << "hyperplane_equation_from_singular_value_decomposition: original points:" << std::endl;
-    std::vector<Chord> points;
-    if (make_eT == true) {
-        for (auto point : points_) {
-            points.push_back(point.eT());
-        }
-    } else {
-        points = points_;
-    }
-    std::cerr << "hyperplane_equation_from_singular_value_decomposition: points:" << std::endl;
-    auto opt = "";
-    if (make_eT == true) {
-        opt = "T: ";
-    }
-    for (auto point: points) {
-        std::cerr << opt <<  point.col(0).transpose() << std::endl;
-    }
-    auto subtrahend = points.back().col(0);
-    Matrix matrix(subtrahend.rows(), points.size() - 1);
-    for (int i = 0, n = points.size() - 1; i < n; ++i) {
-        Vector difference = points[i].col(0) - subtrahend;
-        matrix.col(i) = difference;
-    }
-    std::cerr << "hyperplane_equation_from_singular_value_decomposition: vectors:" << std::endl << matrix << std::endl;
-    matrix.transposeInPlace();
-    std::cerr << "hyperplane_equation_from_singular_value_decomposition: vectors transposed:" << std::endl << matrix << std::endl;
-    Eigen::JacobiSVD<Matrix, Eigen::FullPivHouseholderQRPreconditioner> svd(matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
-    std::cerr << "hyperplane_equation_from_singular_value_decomposition: U:" << std::endl << svd.matrixU() << std::endl;
-    std::cerr << "hyperplane_equation_from_singular_value_decomposition: singular values:" << std::endl << svd.singularValues() << std::endl;
-    std::cerr << "hyperplane_equation_from_singular_value_decomposition: V:" << std::endl << svd.matrixV() << std::endl;
-    //~ auto rhs = Matrix::Zero(svd.singularValues().rows(), 1);
-    //~ auto solution = svd.solve(rhs);
-    //~ std::cerr << "solution:\n";
-    //~ std::cerr << solution << std::endl;
-    HyperplaneEquation hyperplane_equation_;
-    hyperplane_equation_.unit_normal_vector = svd.matrixV().rightCols(1);
-    auto norm = hyperplane_equation_.unit_normal_vector.norm();
-    std::cerr << "hyperplane_equation_from_singular_value_decomposition: norm:" << std::endl << norm << std::endl;
-    hyperplane_equation_.unit_normal_vector = hyperplane_equation_.unit_normal_vector / norm;
-    auto constant_term = hyperplane_equation_.unit_normal_vector.adjoint() * subtrahend;
-    hyperplane_equation_.constant_term = constant_term(0, 0);
-    std::cerr << "hyperplane_equation_from_singular_value_decomposition: unit normal vector: " << std::endl << hyperplane_equation_.unit_normal_vector << std::endl;
-    std::cerr << "hyperplane_equation_from_singular_value_decomposition: constant term: " << std::endl << hyperplane_equation_.constant_term << std::endl;
-    return hyperplane_equation_;
-}
-
 /**
  * Returns the sum of the distances of the chord to each of one or more chords.
  */
@@ -4256,45 +4212,6 @@ inline SILENCE_PUBLIC double distance_to_points(const Chord &chord, const std::v
         sum = sum + distance;
     }
     return sum;
-}
-
-inline SILENCE_PUBLIC HyperplaneEquation hyperplane_equation_from_random_inversion_flat(int dimensions, bool transpositional_equivalence, int opt_sector) {
-    std::uniform_real_distribution<> uniform(-1., 1.);
-    std::vector<Chord> inversion_flat;
-    Chord center = Chord(dimensions).center();
-    for (int i = 0; i < 100; ++i) {
-        Chord chord(dimensions);
-        if (i == 0) {
-            inversion_flat.push_back(center);
-        } else {
-            int side = std::floor(dimensions / 2.);
-            int lower_voice = 0;
-            int upper_voice = dimensions - 1;
-            for (lower_voice = 0; lower_voice < side; ++lower_voice, --upper_voice) {
-                double random_pitch = uniform(mersenne_twister);
-                chord.setPitch(lower_voice, -random_pitch);
-                chord.setPitch(upper_voice,  random_pitch);
-            }
-            if (transpositional_equivalence == true) {
-                chord = chord.eT().eP();
-            } else {
-                chord = chord.eP();
-            }
-            inversion_flat.push_back(chord);
-        }
-    }
-    HyperplaneEquation hyperplane_equation_ = hyperplane_equation_from_singular_value_decomposition(inversion_flat, true);
-    CHORD_SPACE_DEBUG("hyperplane_equation_from_random_inversion_flat: sector: %d\n", opt_sector);
-    CHORD_SPACE_DEBUG("hyperplane_equation_from_random_inversion_flat: center:\n");
-    for(int i = 0; i < dimensions; i++) {
-        CHORD_SPACE_DEBUG("  %9.4f\n", center.getPitch(i));
-    }
-    CHORD_SPACE_DEBUG("hyperplane_equation_from_random_inversion_flat: unit_normal_vector:\n");
-    for(int i = 0; i < dimensions; i++) {
-        CHORD_SPACE_DEBUG("  %9.4f\n", hyperplane_equation_.unit_normal_vector(i, 0));
-    }
-    CHORD_SPACE_DEBUG("hyperplane_equation_from_random_inversion_flat: constant_term: %9.4f\n", hyperplane_equation_.constant_term);
-    return hyperplane_equation_;
 }
 
 template<int EQUIVALENCE_RELATION> inline SILENCE_PUBLIC bool predicate(const Chord &chord, double range, int sector) {
@@ -4585,7 +4502,7 @@ inline SILENCE_PUBLIC Chord reflect_in_inversion_flat(const Chord &chord, int op
     Chord result = chord;
     int dimensions = chord.voices();
     HyperplaneEquation hyperplane = chord.hyperplane_equation(opt_sector);
-    auto reflected = reflect_vector(chord.col(0), hyperplane.unit_normal_vector, hyperplane.constant_term);
+    auto reflected = hyperplane.reflect(chord);
     for (int voice = 0; voice < dimensions; ++voice) {
         result.setPitch(voice, reflected(voice, 0));
     }
@@ -5146,27 +5063,18 @@ inline void Chord::initialize_sectors() {
                 auto upper_point = opt_domain[(dimensions_i + dimension_i - 2) % dimensions_i];
                 CHORD_SPACE_DEBUG("  hyperplane_equation: upper_point: %s\n", upper_point.toString().c_str());
                 CHORD_SPACE_DEBUG("  hyperplane_equation: lower point: %s\n", lower_point.toString().c_str());
-                auto normal_vector = upper_point.col(0) - lower_point.col(0);
-                auto norm = normal_vector.norm();
                 HyperplaneEquation hyperplane_equation_;
-                hyperplane_equation_.unit_normal_vector = normal_vector / norm;
-                auto temp = opti_midpoint.col(0).adjoint() * hyperplane_equation_.unit_normal_vector;
-                hyperplane_equation_.constant_term = temp(0, 0);
+                hyperplane_equation_.create(center_t, upper_point, lower_point);
+
                 CHORD_SPACE_DEBUG("  hyperplane_equation: sector: %d\n", dimension_i);
                 CHORD_SPACE_DEBUG("  hyperplane_equation: center:\n");
                 for (int dimension_j = 0; dimension_j < dimensions_i; dimension_j++) {
                     CHORD_SPACE_DEBUG("    %9.4f\n", center_t.getPitch(dimension_j));
                 }
-                CHORD_SPACE_DEBUG("  hyperplane_equation: normal_vector:\n");
-                for (int dimension_j = 0; dimension_j < dimensions_i; dimension_j++) {
-                    CHORD_SPACE_DEBUG("    %9.4f\n", normal_vector(dimension_j, 0));
-                }
-                CHORD_SPACE_DEBUG("  hyperplane_equation: norm: %9.4f\n", norm);
                 CHORD_SPACE_DEBUG("  hyperplane_equation: unit_normal_vector:\n");
                 for (int dimension_j = 0; dimension_j < dimensions_i; dimension_j++) {
                     CHORD_SPACE_DEBUG("    %9.4f\n", hyperplane_equation_.unit_normal_vector(dimension_j, 0));
                 }
-                CHORD_SPACE_DEBUG("  hyperplane_equation: constant_term: %9.4f\n", hyperplane_equation_.constant_term);
                 hyperplane_equations.push_back(hyperplane_equation_);
             }
             opt_domains_for_dimensions[dimensions_i] = opt_domains;
