@@ -418,15 +418,13 @@ int main(int argc, char **argv) {
     test_nrL();
     ///return 0;
     CM.reflect(0);
-    auto domain = csound::allOfEquivalenceClass(3, "RPTg", 12., 1., 0, true);
-    ///return 0;
     // SILENCE_PUBLIC std::vector<Chord> allOfEquivalenceClass(int voice_count, std::string equivalence_class, double range, double g, int sector, bool printme) {
     auto ops = csound::allOfEquivalenceClass(3, "RP", 12., 1., 0, false);
-    printSet("OPs", ops);
+    //printSet("OPs", ops);
     auto optts = csound::allOfEquivalenceClass(3, "RPTg", 12., 1., 0, false);
-    printSet("OPTTs", optts);
+    //printSet("OPTTs", optts);
     auto opttis = csound::allOfEquivalenceClass(3, "RPTgI", 12., 1., 0, false);
-    printSet("OPTTIs", opttis);
+    //printSet("OPTTIs", opttis);
     //return 0;
 
     auto chordx = csound::chordForName("CM7");
