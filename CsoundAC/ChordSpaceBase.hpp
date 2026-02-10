@@ -798,6 +798,16 @@ public:
      */
     virtual bool is_in_rpt_sector(int opt_sector = 0, double range = 12.) const;
     /**
+     * Raw sector membership test.
+     *
+     * This assumes *this* is already expressed in the RP/T base (i.e. already
+     * reduced by eRP(range).eT() or an equivalent normalization).
+     *
+     * Unlike is_in_rpt_sector(), this function performs no internal reduction,
+     * which makes it suitable for decomposability checks.
+     */
+    virtual bool is_in_rpt_sector_raw(int opt_sector = 0, double range = 12.) const;
+    /**
      * Returns whether or not this chord lies within the indicated sector of 
      * the cyclical region of the OPTI fundamental domain.
      */
@@ -2095,6 +2105,39 @@ inline bool Chord::is_in_rpt_sector(int index, double range) const
     return true;
 }
 
+
+inline bool Chord::is_in_rpt_sector_raw(int index, double range) const
+{
+    (void)range;
+
+    if (index < 0 || index >= voices())
+    {
+        return false;
+    }
+
+    // Raw sectoring: assume *this is already in the RP/T base.
+    const Chord &base = *this;
+
+    const std::vector<Chord> vs = base.voicings();
+    const int n = static_cast<int>(vs.size());
+    if (n <= 0 || index >= n)
+    {
+        return false;
+    }
+
+    const Chord candidate = vs[index].eT();
+
+    for (int v = 0; v < voices(); ++v)
+    {
+        if (eq_tolerance(candidate.getPitch(v), base.getPitch(v)) == false)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+
 inline bool Chord::is_opti_sector(int index) const {
     auto sectors = opti_domain_sectors();
     for (auto sector : sectors) {
@@ -2223,19 +2266,27 @@ inline Chord Chord::eT() const {
 
 //	EQUIVALENCE_RELATION_Tg
 
-template<> inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int opt_sector) {
-    auto sum = chord.layer();
-    auto t = chord.eT();
-    auto t_ceiling = t.ceiling();
-    while (lt_tolerance(t_ceiling.layer(), 0.) == true) {
-        t_ceiling = t_ceiling.T(g);
+template<> inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int opt_sector)
+{
+    (void)range;
+    (void)opt_sector;
+
+    if (g <= 0.0)
+    {
+        g = 1.0;
     }
-    auto tt_sum = t_ceiling.sum();
-    if (eq_tolerance(sum, tt_sum) == true) {
-        return true;
-    } else {
+
+    // A chord is Tg-normal iff it equals its Tg representative (component-wise).
+    const Chord representative = csound::equate<EQUIVALENCE_RELATION_Tg>(chord, OCTAVE(), g, 0);
+
+    for (int v = 0; v < chord.voices(); ++v)
+    {
+        if (eq_tolerance(chord.getPitch(v), representative.getPitch(v)) == false)
+        {
         return false;
     }
+    }
+    return true;
 }
 
 template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int opt_sector) {
@@ -2368,14 +2419,22 @@ inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPT>(
 {
     (void)g;
 
-    // Membership is defined in the RP/T base:
-    //   - fold into RP prism,
-    //   - reduce by T,
-    //   - then sector test.
-    const Chord rp = chord.eRP(range);
-    const Chord rpt = rp.eT();
-
-    return rpt.is_in_rpt_sector(rpt_sector, range);
+    // Decomposable definition:
+    //   chord is RPT-normal iff it is already in the RP prism, already in the T base,
+    //   and lies in the requested sector (tested without further reduction).
+    if (predicate<EQUIVALENCE_RELATION_RP>(chord, range, 1.0, 0) == false)
+    {
+        return false;
+    }
+    if (predicate<EQUIVALENCE_RELATION_T>(chord, range, 1.0, 0) == false)
+    {
+        return false;
+    }
+    if (chord.is_in_rpt_sector_raw(rpt_sector, range) == false)
+    {
+        return false;
+    }
+    return true;
 }
 
 inline bool Chord::iseRPT(double range, int opt_sector) const {
@@ -2437,14 +2496,22 @@ inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTg>(
         g = 1.0;
     }
 
-    // Membership is defined in the RP/Tg base:
-    //   - fold into RP prism,
-    //   - reduce by Tg,
-    //   - then sector test.
-    const Chord rp = chord.eRP(range);
-    const Chord rptg = rp.eTT(g);   // your Tg representative
-
-    return rptg.is_in_rpt_sector(rpt_sector, range);
+    // Decomposable definition:
+    //   chord is RPTg-normal iff it is already in the RP prism, already Tg-normal,
+    //   and lies in the requested sector (tested without further reduction).
+    if (predicate<EQUIVALENCE_RELATION_RP>(chord, range, 1.0, 0) == false)
+    {
+        return false;
+    }
+    if (predicate<EQUIVALENCE_RELATION_Tg>(chord, range, g, 0) == false)
+    {
+        return false;
+    }
+    if (chord.is_in_rpt_sector_raw(rpt_sector, range) == false)
+    {
+        return false;
+    }
+    return true;
 }
 
 inline bool Chord::iseRPTT(double range, double g, int opt_sector) const {
