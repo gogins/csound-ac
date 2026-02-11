@@ -385,7 +385,7 @@ SILENCE_PUBLIC std::map<Chord, Chord> &inverse_prime_forms_for_chords();
  * sectors of the cyclical regions of the OPT and OPTI fundamental domains to 
  * which the chord belongs.
  */
-SILENCE_PUBLIC const char *print_chord(const Chord &chord);
+SILENCE_PUBLIC std::string print_chord(const Chord &chord);
 
 
 // End of forward declarations needed by other forward declarations!
@@ -808,10 +808,11 @@ public:
      */
     virtual bool is_in_rpt_sector_raw(int opt_sector = 0, double range = 12.) const;
     /**
-     * Returns whether or not this chord lies within the indicated sector of 
-     * the cyclical region of the OPTI fundamental domain.
+     * Returns whether this chord is in the "minor" half of the OPTI 
+     * fundamental domain. This function is only valid when called with 
+     * an OPT sector to which the chord belongs.
      */
-    virtual bool is_opti_sector(int opti_sector = 0) const;
+    virtual bool is_in_minor_opti_sector(int opt_sector) const;
     /**
      * Returns whether the chord is within the fundamental domain of inversional 
      * equivalence.
@@ -1297,7 +1298,7 @@ struct SILENCE_PUBLIC HyperplaneEquation
         return reflection;
     }
 
-    bool is_minor(Chord chord) const
+    bool is_minor(const Chord &chord) const
     {
         Vector a_to_chord = chord - apex;
         const double signed_distance = a_to_chord.dot(unit_normal_vector);
@@ -1537,13 +1538,6 @@ template<int EQUIVALENCE_RELATION> SILENCE_PUBLIC std::vector<Chord> fundamental
  * growth in candidate counts for higher voice counts.
  */
 template<int EQUIVALENCE_RELATION> SILENCE_PUBLIC std::vector<Chord> fundamentalDomainByGeneration(int voiceN, double range, double g = 1., int sector=0, bool printme=false);
-
-/**
- * Returns a set of chords in sector 0 of the cyclical region, sorted by 
- * normal order, for the indicated equivalence relation. All duplicate chords 
- * for the same equivalence are returned, ordered by distance from the origin.
- */
-template<int EQUIVALENCE_RELATION> SILENCE_PUBLIC std::vector<Chord> fundamentalDomainByTransformation(int voiceN, double range, double g = 1., int sector=0);
 
 SILENCE_PUBLIC bool ge_tolerance(double a, double b, int epsilons=20,int ulps=200);
 
@@ -2066,7 +2060,8 @@ inline bool Chord::self_inverse(int opt_sector) const
 {
     // Get the inversion hyperplane for this OPT sector.
     const HyperplaneEquation &hyperplane_equation_ = hyperplane_equation(opt_sector);
-    auto result = hyperplane_equation_.is_invariant(*this); 
+    bool result = hyperplane_equation_.is_invariant(*this); 
+    return result;
 }
 
 inline bool Chord::is_in_rpt_sector(int index, double range) const
@@ -2144,15 +2139,11 @@ inline bool Chord::is_in_rpt_sector_raw(int index, double range) const
     }
     return true;
 }
-
-inline bool Chord::is_opti_sector(int index) const {
-    auto sectors = opti_domain_sectors();
-    for (auto sector : sectors) {
-        if (sector == index) {
-            return true;
-        }
-    }
-    return false;
+ 
+inline bool Chord::is_in_minor_opti_sector(int opt_sector) const {
+    const auto &hyperplane_equation_ = hyperplane_equation(opt_sector);
+    bool result = hyperplane_equation_.is_minor(*this);
+    return result;
 }
 
 template<> inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_R>(
@@ -2477,12 +2468,12 @@ equate<EQUIVALENCE_RELATION_RPT>(
     // 4) Return the candidate that lies in the requested RPT sector
     for (const auto &c : candidates)
     {
-        if (c.is_in_rpt_sector(rpt_sector, range))
+        if (c.is_in_rpt_sector_raw(rpt_sector, range))
         {
             return c;
         }
     }
-    System::error("Error: Chord equate<EQUIVALENCE_RELATION_RPT>: no RPT in sector %d.\n", rpt_sector);
+    System::error("Error:   Chord equate<EQUIVALENCE_RELATION_RPT>: no RPT in sector %d.\n", rpt_sector);
     return candidates.front();
 }
 
@@ -2493,7 +2484,7 @@ inline Chord Chord::eRPT(double range, int opt_sector) const {
 //	EQUIVALENCE_RELATION_RPTg
 
 template<>
-inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTg>(
+inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTg> (
     const Chord &chord,
     double range,
     double g,
@@ -2528,7 +2519,7 @@ inline bool Chord::iseRPTT(double range, double g, int opt_sector) const {
 
 template<>
 inline SILENCE_PUBLIC Chord
-equate<EQUIVALENCE_RELATION_RPTg>(
+equate<EQUIVALENCE_RELATION_RPTg> (
     const Chord &chord,
     double range,
     double g,
@@ -2559,12 +2550,12 @@ equate<EQUIVALENCE_RELATION_RPTg>(
     // 4) Return the candidate that lies in the requested RPT sector
     for (const auto &c : candidates)
     {
-        if (c.is_in_rpt_sector(rpt_sector, range))
+        if (c.is_in_rpt_sector_raw(rpt_sector, range))
         {
             return c;
         }
     }
-    System::error("Error: Chord equate<EQUIVALENCE_RELATION_RPTg>: no RPTg in sector %d.\n", rpt_sector);
+    System::error("Error:  Chord equate<EQUIVALENCE_RELATION_RPTg>: no RPTg in sector %d.\n", rpt_sector);
     return candidates.front();
 }
 
@@ -3046,22 +3037,27 @@ inline SILENCE_PUBLIC const Scale &scaleForName(std::string name) {
 static std::string print_opti_sectors(const Chord &chord) {
     std::string result;
     char buffer[0x1000];
-    auto opti_sectors = chord.opti_domain_sectors();
-    for (auto opti_sector : opti_sectors) {
-        snprintf(buffer, sizeof(buffer), "[opt:%2d  opti:%2d]", opti_sector / 2, opti_sector);
+    for (int sector = 0; sector < chord.voices(); ++sector) {
+        bool belongs = chord.is_in_rpt_sector(sector);
+        bool minor = chord.is_in_minor_opti_sector(sector);
+        snprintf(buffer, sizeof(buffer), "OPT sector %3d: belongs: %s OPTI: %s\n", sector, belongs ? "yes" : "no ", belongs ?  (minor ? "minor" : "major") : "     ");
         result.append(buffer);
     }
     return result;    
 }
 
-inline const char *print_chord(const Chord &chord) {
+inline std::string print_chord(const Chord &chord) {
+    std::string result;
     static char buffer[0x1000];
     snprintf(buffer, sizeof(buffer), "%s   ", chord.toString().c_str());
-    auto opti_sectors = chord.opti_domain_sectors();
-    for (auto opti_sector : opti_sectors) {
-        std::snprintf(buffer + std::strlen(buffer), sizeof(buffer), "[OPT %2d  OPTI %2d]  ", opti_sector / 2, opti_sector);
-    }
-    return buffer;
+    result.append(buffer);
+    for (int sector = 0; sector < chord.voices(); ++sector) {
+        bool belongs = chord.is_in_rpt_sector(sector);
+        bool minor = chord.is_in_minor_opti_sector(sector);
+        snprintf(buffer, sizeof(buffer), "[OPT %2d %2d  %s]", sector, belongs, belongs ? (minor ? "M" : "m") : " ");
+        result.append(buffer);
+    }    
+    return result;
 }
 
 inline std::string Chord::information_debug(int sector_) const {
@@ -3079,7 +3075,7 @@ inline std::string Chord::information_sector(int opt_sector_) const {
     if (voices() < 1) {
         return "Empty chord.";
     }
-    snprintf(buffer, sizeof(buffer), "CHORD:\n");
+    snprintf(buffer, sizeof(buffer), "\nCHORD:\n");
     result.append(buffer);
     int opt_sector = 0;
     if (opt_sector_ == -1) {
@@ -3093,7 +3089,7 @@ inline std::string Chord::information_sector(int opt_sector_) const {
             opt_sector = 0; // or -1, but 0 avoids later indexing crashes in info printing
         }    
     }
-    snprintf(buffer, sizeof(buffer), "%-19s %s\n", name().c_str(), print_chord(*this));
+    snprintf(buffer, sizeof(buffer), "%-19s %s\n", name().c_str(), print_chord(*this).c_str());
     result.append(buffer);
     snprintf(buffer, sizeof(buffer), "Pitch-class set:    %s\n", epcs().eP().toString().c_str());
     result.append(buffer);
@@ -3107,33 +3103,33 @@ inline std::string Chord::information_sector(int opt_sector_) const {
     result.append(buffer);
     snprintf(buffer, sizeof(buffer), "Sum:                %12.7f\n", layer());
     result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "O:           %3d => %s\n", iseO(), print_chord(eO()));
+    snprintf(buffer, sizeof(buffer), "O:           %3d => %s\n", iseO(), print_chord(eO()).c_str());
     result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "P:           %3d => %s\n", iseP(), print_chord(eP()));
+    snprintf(buffer, sizeof(buffer), "P:           %3d => %s\n", iseP(), print_chord(eP()).c_str());
     result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "T:           %3d => %s\n", iseT(), print_chord(eT()));
+    snprintf(buffer, sizeof(buffer), "T:           %3d => %s\n", iseT(), print_chord(eT()).c_str());
     result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "TT:          %3d => %s\n", iseTT(), print_chord(eTT()));
+    snprintf(buffer, sizeof(buffer), "TT:          %3d => %s\n", iseTT(), print_chord(eTT()).c_str());
     result.append(buffer);
     auto isei = iseI(opt_sector);
     auto ei = eI(opt_sector);
-    snprintf(buffer, sizeof(buffer), "I:           %3d => %s\n", isei, print_chord(ei));
+    snprintf(buffer, sizeof(buffer), "I:           %3d => %s\n", isei, print_chord(ei).c_str());
     result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "OP:          %3d => %s\n", iseOP(), print_chord(eOP()));
+    snprintf(buffer, sizeof(buffer), "OP:          %3d => %s\n", iseOP(), print_chord(eOP()).c_str());
     result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "OT:          %3d => %s\n", iseOT(), print_chord(eOT()));
+    snprintf(buffer, sizeof(buffer), "OT:          %3d => %s\n", iseOT(), print_chord(eOT()).c_str());
     result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "OTT:         %3d => %s\n", iseOTT(), print_chord(eOTT()));
+    snprintf(buffer, sizeof(buffer), "OTT:         %3d => %s\n", iseOTT(1.0), print_chord(eOTT()).c_str());
     result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "OPT:         %3d => %s\n", iseOPT(opt_sector), print_chord(eOPT(opt_sector)));
+    snprintf(buffer, sizeof(buffer), "OPT:         %3d => %s\n", iseOPT(opt_sector), print_chord(eOPT(opt_sector)).c_str());
     result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "OPTT:        %3d => %s\n", iseOPTT(opt_sector), print_chord(eOPTT(opt_sector)));
+    snprintf(buffer, sizeof(buffer), "OPTT:        %3d => %s\n", iseOPTT(1.0, opt_sector), print_chord(eOPTT(opt_sector)).c_str());
     result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "OPI:         %3d => %s\n", iseOPI(opt_sector), print_chord(eOPI(opt_sector)));
+    snprintf(buffer, sizeof(buffer), "OPI:         %3d => %s\n", iseOPI(opt_sector), print_chord(eOPI(opt_sector)).c_str());
     result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "OPTI:        %3d => %s\n", iseOPTI(opt_sector), print_chord(eOPTI(opt_sector)));
+    snprintf(buffer, sizeof(buffer), "OPTI:        %3d => %s\n", iseOPTI(opt_sector), print_chord(eOPTI(opt_sector)).c_str());
     result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "OPTTI:       %3d => %s\n", iseOPTTI(opt_sector), print_chord(eOPTTI(opt_sector)));
+    snprintf(buffer, sizeof(buffer), "OPTTI:       %3d => %s\n", iseOPTTI(1.0, opt_sector), print_chord(eOPTTI(opt_sector)).c_str());
     result.append(buffer);
     snprintf(buffer, sizeof(buffer), "               OPT sectors:\n");
     result.append(buffer);
@@ -3142,7 +3138,7 @@ inline std::string Chord::information_sector(int opt_sector_) const {
     for (auto i = 0; i < rpts.size(); ++i) {
         auto rpt = rpts[i];
         auto sector_text = print_opti_sectors(rpt);
-        snprintf(buffer, sizeof(buffer), "                    %s\n", print_chord(rpt));
+        snprintf(buffer, sizeof(buffer), "                    %s\n", print_chord(rpt).c_str());
         result.append(buffer);
     }
     snprintf(buffer, sizeof(buffer), "               OPTT sectors:\n");
@@ -3151,7 +3147,7 @@ inline std::string Chord::information_sector(int opt_sector_) const {
     for (auto i = 0; i < rptts.size(); ++i) {
         auto rptt = rptts[i];
         auto sector_text = print_opti_sectors(rptt);
-        snprintf(buffer, sizeof(buffer), "                    %s\n", print_chord(rptt));
+        snprintf(buffer, sizeof(buffer), "                    %s\n", print_chord(rptt).c_str());
         result.append(buffer);
     }
     snprintf(buffer, sizeof(buffer), "               Inversion flats (vector equations) and corresponding reflections of this:\n");
@@ -3167,9 +3163,10 @@ inline std::string Chord::information_sector(int opt_sector_) const {
         }
         auto reflected = reflect_in_inversion_flat(*this, i);
         auto sector_text = print_opti_sectors(reflected);
-        snprintf(buffer, sizeof(buffer), "         Reflection:%s\n", print_chord(reflected));
+        snprintf(buffer, sizeof(buffer), "         Reflection:%s\n", print_chord(reflected).c_str());
         result.append(buffer);   
     }    
+    result.append("\n");
     return result;
 }
 
@@ -3372,7 +3369,7 @@ inline bool Chord::test(const char *label) const {
     } else {
         std::fprintf(stderr, "        Chord::eOPT is idempotent.\n");
     }
-    if (eOPTT(opt_sector).eOPTT(opt_sector).iseOPTT(opt_sector) == false) {
+    if (eOPTT(1.0, opt_sector).eOPTT(1.0, opt_sector).iseOPTT(1.0, opt_sector) == false) {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eOPTT is not idempotent.\n");
     } else {
@@ -3384,7 +3381,7 @@ inline bool Chord::test(const char *label) const {
     } else {
         std::fprintf(stderr, "        Chord::eOPTI is idempotent.\n");
     }
-    if (eOPTTI(opt_sector).eOPTTI(opt_sector).iseOPTTI(opt_sector) == false) {
+    if (eOPTTI(1.0, opt_sector).eOPTTI(1.0, opt_sector).iseOPTTI(1.0, opt_sector) == false) {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eOPTTI is not idempotent.\n");
     } else {
@@ -3410,7 +3407,7 @@ inline bool Chord::test(const char *label) const {
     } else {
         std::fprintf(stderr, "        Chord::eT is consistent with Chord::iseT.\n");
     }
-    if (eTT().iseTT() == false) {
+    if (eTT(1.0).iseTT(1.0) == false) {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eTT is not consistent with Chord::iseTT.\n");
     } else {
@@ -3436,9 +3433,9 @@ inline bool Chord::test(const char *label) const {
     } else {
         std::fprintf(stderr, "        Chord::eOPT is consistent with Chord::iseOPT.\n");
     }
-    if (eOPTT(opt_sector).iseOPTT(opt_sector) == false) {
+    if (eOPTT(1.0, opt_sector).iseOPTT(1.0, opt_sector) == false) {
         passed = false;
-        auto optt_chord = eOPTT(opt_sector);
+        auto optt_chord = eOPTT(1.0, opt_sector);
         std::fprintf(stderr, "Failed: Chord::eOPTT is not consistent with Chord::iseOPTT (%s => %s).\n", toString().c_str(), optt_chord.toString().c_str());
     } else {
         std::fprintf(stderr, "        Chord::eOPTT is consistent with Chord::iseOPTT.\n");
@@ -3450,8 +3447,8 @@ inline bool Chord::test(const char *label) const {
     } else {
         std::fprintf(stderr, "        Chord::eOPTI is consistent with Chord::iseOPTI.\n");
     }
-    auto optti_chord = eOPTTI(opt_sector);
-    if (optti_chord.iseOPTTI(opt_sector) == false) {
+    auto optti_chord = eOPTTI(1.0, opt_sector);
+    if (optti_chord.iseOPTTI(1.0, opt_sector) == false) {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eOPTTI is not consistent with Chord::iseOPTTI  (%s => %s).\n", toString().c_str(), optti_chord.toString().c_str());
     } else {
@@ -3481,10 +3478,10 @@ inline bool Chord::test(const char *label) const {
     }
     // If it is transformed to T, is it OPT? 
     // After that, is it Tg?
-    if (iseOPTT(opt_sector) == true) {
+    if (iseOPTT(1.0, opt_sector) == true) {
         if (iseO() == false ||
             iseP() == false || 
-            iseTT() == false) {
+            iseTT(1.0) == false) {
             passed = false;
             std::fprintf(stderr, "Failed: Chord::iseOPTT is not decomposable.\n");
         } else {
@@ -3502,10 +3499,10 @@ inline bool Chord::test(const char *label) const {
             std::fprintf(stderr, "        Chord::iseOPTI is decomposable.\n");
         }
     }
-    if (iseOPTTI(opt_sector) == true) {
+    if (iseOPTTI(1.0, opt_sector) == true) {
         if (iseO() == false ||
             iseP() == false || 
-            iseTT() == false || 
+            iseTT(1.0) == false || 
             iseI(opt_sector) == false) {
             passed = false;
             std::fprintf(stderr, "Failed: Chord::iseOPTTI is not decomposable.\n");
@@ -3708,8 +3705,8 @@ inline Chord Chord::ceiling(double g) const {
     for (size_t voice = 0; voice  < voices(); voice++) {
         result.setPitch(voice, std::ceil(getPitch(voice)));
     }
-    CHORD_SPACE_DEBUG("Chord::ceiling: %s\n", print_chord(*this));
-    CHORD_SPACE_DEBUG("             => %s\n", print_chord(result));
+    CHORD_SPACE_DEBUG("Chord::ceiling: %s\n", print_chord(*this).c_str());
+    CHORD_SPACE_DEBUG("             => %s\n", print_chord(result).c_str());
     return result;
 }
 
@@ -4355,7 +4352,7 @@ fundamentalDomainByPredicate(int voiceN, double range, double g, int sector, boo
                 accepted,
                 static_cast<int>(chords_in_domain.size()),
                 scanned,
-                print_chord(it)
+                print_chord(it).c_str()
             );
         }
     }
@@ -4472,7 +4469,7 @@ fundamentalDomainByGeneration(int voiceN, double range, double g, int sector, bo
                         accepted,
                         static_cast<int>(chords_in_domain.size()),
                         generated,
-                        print_chord(c)
+                        print_chord(c).c_str()
                     );
                 }
             }
@@ -4501,44 +4498,6 @@ fundamentalDomainByGeneration(int voiceN, double range, double g, int sector, bo
     return chords_in_domain;
 }
    
-
-
-template<int EQUIVALENCE_RELATION> inline SILENCE_PUBLIC std::vector<csound::Chord> fundamentalDomainByTransformation(int voiceN, double range, double g, int sector)
-{
-    std::set<Chord> fundamentalDomain;
-    int upperI = 2 * (range + 1);
-    int lowerI = - (range + 1);
-    Chord iterator_ = iterator(voiceN, lowerI);
-    Chord origin = iterator_;
-    int chords = 0;
-    while (next(iterator_, origin, upperI, g) == true) {
-        chords++;
-        CHORD_SPACE_DEBUG("fundamentalDomainByTransformation: %6d %s\n", chords, iterator_.toString().c_str());
-        bool iterator_is_normal = predicate<EQUIVALENCE_RELATION>(iterator_, range, g, sector);
-        CHORD_SPACE_DEBUG("fundamentalDomainByTransformation: %6d is_normal: %d\n", chords, iterator_is_normal);
-        Chord normalized = equate<EQUIVALENCE_RELATION>(iterator_, range, g, sector);
-        CHORD_SPACE_DEBUG("fundamentalDomainByTransformation: %6d normalized: %s\n", chords, normalized.toString().c_str());
-        bool normalized_is_normal = predicate<EQUIVALENCE_RELATION>(normalized, range, g, sector);
-        CHORD_SPACE_DEBUG("fundamentalDomainByTransformation: %6d normalized_is_normal: %d\n", chords, normalized_is_normal);
-        auto result = fundamentalDomain.insert(normalized);
-        if (CHORD_SPACE_DEBUGGING() && result.second == true) {
-            CHORD_SPACE_DEBUG("%s By equate %-8s: chord: %6d  domain: %6d  range: %7.2f  g: %7.2f  iterator: %s  predicate: %d  normalized: %s  predicate: %d\n",
-                (normalized_is_normal ? "      " : "WRONG "),
-                namesForEquivalenceRelations[EQUIVALENCE_RELATION],
-                chords,
-                fundamentalDomain.size(),
-                range,
-                g,
-                iterator_.toString().c_str(),
-                iterator_is_normal,
-                normalized.toString().c_str(),
-                normalized_is_normal);
-        }
-    }
-    std::vector<Chord> result(fundamentalDomain.begin(), fundamentalDomain.end());
-    return result;
-}
-
 inline SILENCE_PUBLIC bool ge_tolerance(double a, double b, int epsilons, int ulps) {
     if (eq_tolerance(a, b, epsilons, ulps)) {
         return true;
@@ -5847,10 +5806,10 @@ inline SILENCE_PUBLIC void PITV::initialize(int N_, double range_, double g_, bo
         // If prime != normal then I == 1.
         auto inserted_normal_form = normal_forms.insert(normal_form_);
         if (inserted_normal_form.second == true && printme == true) {
-            System::message("%3d chord:               %s\n", normal_form_n, print_chord(iterator_));
-            System::message("    normal form:         %s\n", print_chord(normal_form_));
-            System::message("    prime form:          %s\n", print_chord(iterator_.prime_form()));
-            System::message("    inverse prime form:  %s\n", print_chord(iterator_.inverse_prime_form()));
+            System::message("%3d chord:               %s\n", normal_form_n, print_chord(iterator_).c_str());
+            System::message("    normal form:         %s\n", print_chord(normal_form_).c_str());
+            System::message("    prime form:          %s\n", print_chord(iterator_.prime_form()).c_str());
+            System::message("    inverse prime form:  %s\n", print_chord(iterator_.inverse_prime_form()).c_str());
             ++normal_form_n;
         }
     }    
@@ -5901,10 +5860,10 @@ inline SILENCE_PUBLIC void PITV::list(bool listheader, bool listps, bool listvoi
             for(auto opti_sector : opti_sectors) {
                 opttis_for_sectors.insert({opti_sector, optti.toString()});
             }
-            System::message("PsForIndexes[%5d]: chord:         %s\n", index, print_chord(chord));
-            System::message("PsForIndexes[%5d]: prime:         %s\n", index, print_chord(prime_form_));
-            System::message("PsForIndexes[%5d]: normal:        %s\n", index, print_chord(normal_form_));
-            System::message("PsForIndexes[%5d]: inverse prime: %s\n", index, print_chord(inverse_prime_form_));
+            System::message("PsForIndexes[%5d]: chord:         %s\n", index, print_chord(chord).c_str());
+            System::message("PsForIndexes[%5d]: prime:         %s\n", index, print_chord(prime_form_).c_str());
+            System::message("PsForIndexes[%5d]: normal:        %s\n", index, print_chord(normal_form_).c_str());
+            System::message("PsForIndexes[%5d]: inverse prime: %s\n", index, print_chord(inverse_prime_form_).c_str());
         }
         for (const auto &entry : indexesForPs) {
             const auto &chord = entry.first;
@@ -5924,10 +5883,10 @@ inline SILENCE_PUBLIC void PITV::list(bool listheader, bool listps, bool listvoi
             const auto opt_sectors = optt.opt_domain_sectors();
             const auto opti_sectors = optti.opti_domain_sectors();
             auto key = chord.toString();
-            System::message("indexesForPs[%s]: index:   %5d %s\n", key.c_str(), index, print_chord(chord));
-            System::message("indexesForPs[%s]: prime:         %s\n", key.c_str(), print_chord(prime_form_));
-            System::message("indexesForPs[%s]: normal:        %s\n", key.c_str(), print_chord(normal_form_));
-            System::message("indexesForPs[%s]: inverse prime: %s\n", key.c_str(), print_chord(inverse_prime_form_));
+            System::message("indexesForPs[%s]: index:   %5d %s\n", key.c_str(), index, print_chord(chord).c_str());
+            System::message("indexesForPs[%s]: prime:         %s\n", key.c_str(), print_chord(prime_form_).c_str());
+            System::message("indexesForPs[%s]: normal:        %s\n", key.c_str(), print_chord(normal_form_).c_str());
+            System::message("indexesForPs[%s]: inverse prime: %s\n", key.c_str(), print_chord(inverse_prime_form_).c_str());
         }
         System::message("PsForIndexes size:           %6d\n", PsForIndexes.size());
         System::message("indexesForPs size:           %6d\n", indexesForPs.size());
@@ -5951,7 +5910,7 @@ inline SILENCE_PUBLIC void PITV::list(bool listheader, bool listps, bool listvoi
 
 inline Eigen::VectorXi PITV::fromChord(const Chord &chord, bool printme) const {
     if (printme) {
-        System::message("PITV::fromChord:          chord:         %s\n", print_chord(chord));
+        System::message("PITV::fromChord:          chord:         %s\n", print_chord(chord).c_str());
     }
     Eigen::VectorXi pitv(4);
     const auto ppcs = chord.eppcs();
@@ -5966,9 +5925,9 @@ inline Eigen::VectorXi PITV::fromChord(const Chord &chord, bool printme) const {
     }
     pitv.coeffRef(1) = I;
     if (printme) {
-        System::message("PITV::fromChord: I: %5d normal_form:   %s\n", pitv(1), print_chord(normal_form_));
-        System::message("PITV::fromChord: P: %5d prime_form:    %s\n", pitv(0), print_chord(prime_form_));
-        System::message("PITV::fromChord:          inverse_prime: %s\n", print_chord(inverse_prime));
+        System::message("PITV::fromChord: I: %5d normal_form:   %s\n", pitv(1), print_chord(normal_form_).c_str());
+        System::message("PITV::fromChord: P: %5d prime_form:    %s\n", pitv(0), print_chord(prime_form_).c_str());
+        System::message("PITV::fromChord:          inverse_prime: %s\n", print_chord(inverse_prime).c_str());
     }
     auto normal_form_t = normal_form_;
     int T;
@@ -5980,13 +5939,13 @@ inline Eigen::VectorXi PITV::fromChord(const Chord &chord, bool printme) const {
     }
     pitv.coeffRef(2) = T;
     if (printme) {
-        System::message("PITV::fromChord: T: %5d normal_form_t: %s\n", pitv(2), print_chord(normal_form_t));
+        System::message("PITV::fromChord: T: %5d normal_form_t: %s\n", pitv(2), print_chord(normal_form_t).c_str());
     }
     auto op = normal_form_t.eOP();
     auto op_from_chord = chord.eOP();
     if (printme) {
-        System::message("PITV::fromChord:          op from PIT:   %s\n", print_chord(op));
-        System::message("PITV::fromChord:          op from chord: %s\n", print_chord(op_from_chord));
+        System::message("PITV::fromChord:          op from PIT:   %s\n", print_chord(op).c_str());
+        System::message("PITV::fromChord:          op from chord: %s\n", print_chord(op_from_chord).c_str());
     }
     int V;
     if (chord < op) {
@@ -6001,11 +5960,11 @@ inline Eigen::VectorXi PITV::fromChord(const Chord &chord, bool printme) const {
         op_v = octavewiseRevoicing(op, V, range);
     }
     if (op_v != chord) {
-        System::error("PITV::fromChord: Error: revoiced OP  (%s)\n", print_chord(op_v));
-        System::error("                 doesn't match chord (%s)\n", print_chord(chord));
+        System::error("PITV::fromChord: Error: revoiced OP  (%s)\n", print_chord(op_v).c_str());
+        System::error("                 doesn't match chord (%s)\n", print_chord(chord).c_str());
     }
     if (printme) {
-        System::message("PITV::fromChord: V: %5d op_v:          %s\n", pitv(3), print_chord(op_v));
+        System::message("PITV::fromChord: V: %5d op_v:          %s\n", pitv(3), print_chord(op_v).c_str());
     }
     if (printme) {
         System::message("PITV::fromChord: PITV:               %8d     %8d     %8d     %8d\n\n", pitv(0), pitv(1), pitv(2), pitv(3));
@@ -6036,20 +5995,20 @@ inline std::vector<Chord> PITV::toChord(int P, int I, int T, int V, bool printme
         normal_form_ = inverse_prime_form_;
     }
     if (printme) {
-        System::message("PITV::toChord:   I: %5d normal_form:   %s\n", I, print_chord(normal_form_));
-        System::message("PITV::toChord:   P: %5d prime_form_:   %s\n", P, print_chord(prime_form_));
-        System::message("PITV::toChord:            inv prime form:%s\n",  print_chord(inverse_prime_form_));
+        System::message("PITV::toChord:   I: %5d normal_form:   %s\n", I, print_chord(normal_form_).c_str());
+        System::message("PITV::toChord:   P: %5d prime_form_:   %s\n", P, print_chord(prime_form_).c_str());
+        System::message("PITV::toChord:            inv prime form:%s\n",  print_chord(inverse_prime_form_).c_str());
    }
     auto normal_form_t = normal_form_;
     for (int t = 0; t < T; ++t) {
         normal_form_t = normal_form_t.T(g);
     }
     if (printme) {
-        System::message("PITV::toChord:   T: %5d normal_form_t: %s\n", T, print_chord(normal_form_t));
+        System::message("PITV::toChord:   T: %5d normal_form_t: %s\n", T, print_chord(normal_form_t).c_str());
     }
     auto op = normal_form_t.eOP();
     if (printme) {
-        System::message("PITV::toChord:            op:            %s\n",  print_chord(op));
+        System::message("PITV::toChord:            op:            %s\n",  print_chord(op).c_str());
     }
     auto op_v = octavewiseRevoicing(op, V, range);
     std::vector<Chord> result(3);

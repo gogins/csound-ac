@@ -70,11 +70,8 @@ static void printSet(std::string name, const std::vector<csound::Chord> &chords)
     int i = 1;
     for (auto &value : sorted) {
         auto &c = value.second;
-        csound::System::message("normal: %s  chord[%04d]: %s  OPTT: %s  OPTTI: %s opti_sector: ", c.normal_form().toString().c_str(), i, c.toString().c_str(), c.eOPTT().toString().c_str(), c.eOPTTI().toString().c_str());
-        auto opti_sectors_ = c.opti_domain_sectors();
-        for (auto opti_sector : opti_sectors_) {
-            csound::System::message("%2d (%4.1f)", opti_sector, opti_sector / 2.);
-        }
+        csound::System::message("normal: %s  chord[%04d]: %s  OPTT: %s  OPTTI: %s\n", c.normal_form().toString().c_str(), i, c.toString().c_str(), c.eOPTT().toString().c_str(), c.eOPTTI().toString().c_str()); 
+        csound::System::message(print_opti_sectors(c).c_str());   
         csound::System::message("\n");
         i = i + 1;
     }
@@ -235,22 +232,14 @@ std::map<std::string, fundamentalDomainByEquate_t> fundamentalDomainByEquateForE
 std::map<std::string, fundamentalDomainByPredicate_t> fundamentalDomainByPredicateForEquivalenceRelations;
 
 static bool testNormalsAndEquivalents(std::string equivalence,
-                                      std::vector<csound::Chord> &made_equivalents,
                                       std::vector<csound::Chord> &found_equivalents,
                                       double range,
                                       double g) {
     char buffer[0x200];
     auto is_equivalent = predicatesForEquivalenceRelations[equivalence];
-    csound::System::message("\nequivalence: %s  normalized: %ld  is_normal: %ld  range: %f  g: %f\n", equivalence.c_str(), made_equivalents.size(), found_equivalents.size(), range, g);
-    auto make_equivalent = equatesForEquivalenceRelations[equivalence];
+    csound::System::message("\nequivalence: %s  is_normal: %ld  range: %f  g: %f\n", equivalence.c_str(), found_equivalents.size(), range, g);
     bool passes1 = true;
     int count = 1;
-    for (auto made_equivalent = made_equivalents.begin(); made_equivalent != made_equivalents.end(); ++made_equivalent) {
-        std::snprintf(buffer, sizeof(buffer), "MADE EQUIVALENT %d\n", count);
-        test(made_equivalent->test(), std::string(buffer));
-        count = count + 1;
-    }
-    count = 1;
     for (auto found_equivalent = found_equivalents.begin(); found_equivalent != found_equivalents.end(); ++found_equivalent) {
         std::snprintf(buffer, sizeof(buffer), "FOUND EQUIVALENT %d\n", count);
         test(found_equivalent->test(), std::string(buffer));
@@ -262,15 +251,15 @@ static bool testNormalsAndEquivalents(std::string equivalence,
 static bool testEquivalenceRelation(std::string equivalenceRelation, int voiceCount, double range, double g) {
     bool passes = true;
     char buffer[0x200];
-    auto normalsForEquivalenceRelation = fundamentalDomainByEquateForEquivalenceRelations[equivalenceRelation](voiceCount, range, g, testSector);
+
     auto equivalentsForEquivalenceRelation = fundamentalDomainByPredicateForEquivalenceRelations[equivalenceRelation](voiceCount, range, g, testSector, false);
     if (!testNormalsAndEquivalents(equivalenceRelation,
-                                   normalsForEquivalenceRelation,
                                    equivalentsForEquivalenceRelation,
                                    range,
                                    g)) {
         passes = false;
     }
+
     if (equivalenceRelation == "RPTgI") {
         if (voiceCount == 3) {
             if (equivalentsForEquivalenceRelation.size() != 19) {
@@ -348,9 +337,9 @@ static void setDifference(const std::string &a_name, std::vector<csound::Chord> 
             std::fprintf(stderr, "    prime_form:         %s\n", a.prime_form().toString().c_str());
             std::fprintf(stderr, "    inverse_prime_form: %s\n", a.inverse_prime_form().toString().c_str());
             std::fprintf(stderr, "    eppcs:              %s\n", a.eppcs().toString().c_str());
-            std::fprintf(stderr, "    chord:              %s\n", print_chord(a));
-            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(a.eOPTT()));
-            std::fprintf(stderr, "    OPTTI:              %s\n\n\n\n\n\n\n", print_chord(a.eOPTTI()));
+            std::fprintf(stderr, "    chord:              %s\n", print_chord(a).c_str());
+            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(a.eOPTT()).c_str());
+            std::fprintf(stderr, "    OPTTI:              %s\n\n\n\n\n\n\n", print_chord(a.eOPTTI()).c_str());
             difference.push_back(a_it->second);
             ++a_i;
         } else {
@@ -360,17 +349,17 @@ static void setDifference(const std::string &a_name, std::vector<csound::Chord> 
             std::fprintf(stderr, "    prime_form:         %s\n", a.prime_form().toString().c_str());
             std::fprintf(stderr, "    inverse_prime_form: %s\n", a.inverse_prime_form().toString().c_str());
             std::fprintf(stderr, "    eppcs:              %s\n", a.eppcs().toString().c_str());
-            std::fprintf(stderr, "    chord:              %s\n", print_chord(a));
-            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(a.eOPTT()));
-            std::fprintf(stderr, "    OPTTI:              %s\n", print_chord(a.eOPTTI()));
+            std::fprintf(stderr, "    chord:              %s\n", print_chord(a).c_str());
+            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(a.eOPTT()).c_str());
+            std::fprintf(stderr, "    OPTTI:              %s\n", print_chord(a.eOPTTI()).c_str());
             std::fprintf(stderr, "  %s[%d]:\n",  b_name.c_str(), b_i);
             std::fprintf(stderr, "    normal_form:        %s\n", b.normal_form().toString().c_str());
             std::fprintf(stderr, "    prime_form:         %s\n", b.prime_form().toString().c_str());
             std::fprintf(stderr, "    inverse_prime_form: %s\n", b.inverse_prime_form().toString().c_str());
             std::fprintf(stderr, "    eppcs:              %s\n", b.eppcs().toString().c_str());
-            std::fprintf(stderr, "    chord:              %s\n", print_chord(b));
-            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(b.eOPTT()));
-            std::fprintf(stderr, "    OPTTI:              %s\n\n", print_chord(b.eOPTTI()));
+            std::fprintf(stderr, "    chord:              %s\n", print_chord(b).c_str());
+            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(b.eOPTT()).c_str());
+            std::fprintf(stderr, "    OPTTI:              %s\n\n", print_chord(b.eOPTTI()).c_str());
             ++a_i;
             ++b_i;
         }
@@ -459,17 +448,6 @@ int main(int argc, char **argv) {
     equivalenceRelationsForCompoundEquivalenceRelations["RPTg"] =    {"R", "P", "Tg"}; // V?
     equivalenceRelationsForCompoundEquivalenceRelations["RPI"] =     {"R", "P"};
     equivalenceRelationsForCompoundEquivalenceRelations["RPTgI"] =   {"RPTg", "RP", "R", "P", "Tg"}; // V?
-    fundamentalDomainByEquateForEquivalenceRelations["R"] =        csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_R>;
-    fundamentalDomainByEquateForEquivalenceRelations["P"] =        csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_P>;
-    fundamentalDomainByEquateForEquivalenceRelations["T"] =        csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_T>;
-    fundamentalDomainByEquateForEquivalenceRelations["Tg"] =       csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_Tg>;
-    fundamentalDomainByEquateForEquivalenceRelations["I"] =        csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_I>;
-    fundamentalDomainByEquateForEquivalenceRelations["RP"] =       csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RP>;
-    fundamentalDomainByEquateForEquivalenceRelations["RPT"] =      csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RPT>;
-    fundamentalDomainByEquateForEquivalenceRelations["RPTg"] =     csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RPTg>;
-    fundamentalDomainByEquateForEquivalenceRelations["RPI"] =      csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RPI>;
-    fundamentalDomainByEquateForEquivalenceRelations["RPTI"] =     csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RPTI>;
-    fundamentalDomainByEquateForEquivalenceRelations["RPTgI"] =    csound::fundamentalDomainByTransformation<csound::EQUIVALENCE_RELATION_RPTgI>;
     fundamentalDomainByPredicateForEquivalenceRelations["R"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_R>;
     fundamentalDomainByPredicateForEquivalenceRelations["P"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_P>;
     fundamentalDomainByPredicateForEquivalenceRelations["T"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_T>;
