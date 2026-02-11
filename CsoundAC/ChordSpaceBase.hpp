@@ -2429,7 +2429,9 @@ inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPT>(
     {
         return false;
     }
-    if (chord.is_in_rpt_sector_raw(rpt_sector, range) == false)
+        // Sectoring is defined in the RP/T base, not in the Tg base.
+    // Using raw-sectoring on a Tg-normal chord will generally fail.
+    if (chord.eT().is_in_rpt_sector_raw(rpt_sector, range) == false)
     {
         return false;
     }
@@ -2468,7 +2470,8 @@ equate<EQUIVALENCE_RELATION_RPT>(
     // 4) Return the candidate that lies in the requested RPT sector
     for (const auto &c : candidates)
     {
-        if (c.is_in_rpt_sector_raw(rpt_sector, range))
+        // Sectoring is defined in the RP/T base, not in the Tg base.
+        if (c.eT().is_in_rpt_sector_raw(rpt_sector, range))
         {
             return c;
         }
@@ -2506,7 +2509,9 @@ inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTg> (
     {
         return false;
     }
-    if (chord.is_in_rpt_sector_raw(rpt_sector, range) == false)
+        // Sectoring is defined in the RP/T base, not in the Tg base.
+    // Using raw-sectoring on a Tg-normal chord will generally fail.
+    if (chord.eT().is_in_rpt_sector_raw(rpt_sector, range) == false)
     {
         return false;
     }
@@ -2550,7 +2555,8 @@ equate<EQUIVALENCE_RELATION_RPTg> (
     // 4) Return the candidate that lies in the requested RPT sector
     for (const auto &c : candidates)
     {
-        if (c.is_in_rpt_sector_raw(rpt_sector, range))
+        // Sectoring is defined in the RP/T base, not in the Tg base.
+        if (c.eT().is_in_rpt_sector_raw(rpt_sector, range))
         {
             return c;
         }
