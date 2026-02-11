@@ -420,11 +420,11 @@ int main(int argc, char **argv) {
     CM.reflect(0);
     // SILENCE_PUBLIC std::vector<Chord> allOfEquivalenceClass(int voice_count, std::string equivalence_class, double range, double g, int sector, bool printme) {
     auto ops = csound::allOfEquivalenceClass(3, "RP", 12., 1., 0, false);
-    //printSet("OPs", ops);
+    printSet("OPs", ops);
     auto optts = csound::allOfEquivalenceClass(3, "RPTg", 12., 1., 0, false);
-    //printSet("OPTTs", optts);
+    printSet("OPTTs", optts);
     auto opttis = csound::allOfEquivalenceClass(3, "RPTgI", 12., 1., 0, false);
-    //printSet("OPTTIs", opttis);
+    printSet("OPTTIs", opttis);
     //return 0;
 
     auto chordx = csound::chordForName("CM7");
@@ -475,23 +475,23 @@ int main(int argc, char **argv) {
     fundamentalDomainByPredicateForEquivalenceRelations["T"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_T>;
     fundamentalDomainByPredicateForEquivalenceRelations["Tg"] =          csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_Tg>;
     fundamentalDomainByPredicateForEquivalenceRelations["I"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_I>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RP"] =          csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RP>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPT"] =         csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPT>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPTg"] =        csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTg>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPI"] =         csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPI>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPTI"] =        csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTI>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPTgI"] =       csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTgI>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RP"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RP>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPT"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPT>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPTg"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTg>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPI"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPI>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPTI"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTI>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPTgI"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTgI>;
         
-    auto chordspace_optts_3 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTg>(3, 12., 1., testSector);
+    auto chordspace_optts_3 = csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTg>(3, 12., 1., testSector);
     printSet("My OPTTs", chordspace_optts_3);
  
-    auto chordspace_opttis_3 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTgI>(3, 12., 1., testSector);
+    auto chordspace_opttis_3 = csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTgI>(3, 12., 1., testSector);
     printSet("My OPTTIs", chordspace_opttis_3);
     
-    auto chordspace_optts_4 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTg>(4, csound::OCTAVE(), 1., testSector);
+    auto chordspace_optts_4 = csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTg>(4, csound::OCTAVE(), 1., testSector);
     printSet("My OPTTs", chordspace_optts_4);
 
-    auto chordspace_opttis_4 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTgI>(4, csound::OCTAVE(), 1., testSector);
+    auto chordspace_opttis_4 = csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTgI>(4, csound::OCTAVE(), 1., testSector);
     printSet("My OPTTIs", chordspace_opttis_4);
     
     csound::System::message("\nBehavior of std::fmod and std::remainder:\n\n");
