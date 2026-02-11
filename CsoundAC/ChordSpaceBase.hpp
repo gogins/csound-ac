@@ -1529,6 +1529,16 @@ private:
 template<int EQUIVALENCE_RELATION> SILENCE_PUBLIC std::vector<Chord> fundamentalDomainByPredicate(int voiceN, double range, double g = 1., int sector=0, bool printme=false);
 
 /**
+ * Returns a set of chords in the union of all sectors of the cyclical region,
+ * generated directly from the RP lattice (nondecreasing "shape" plus scalar
+ * translation) and filtered by the indicated predicate.
+ *
+ * This avoids scanning an ambient box and therefore prevents pathological
+ * growth in candidate counts for higher voice counts.
+ */
+template<int EQUIVALENCE_RELATION> SILENCE_PUBLIC std::vector<Chord> fundamentalDomainByGeneration(int voiceN, double range, double g = 1., int sector=0, bool printme=false);
+
+/**
  * Returns a set of chords in sector 0 of the cyclical region, sorted by 
  * normal order, for the indicated equivalence relation. All duplicate chords 
  * for the same equivalence are returned, ordered by distance from the origin.
@@ -2105,7 +2115,6 @@ inline bool Chord::is_in_rpt_sector(int index, double range) const
     return true;
 }
 
-
 inline bool Chord::is_in_rpt_sector_raw(int index, double range) const
 {
     (void)range;
@@ -2117,7 +2126,6 @@ inline bool Chord::is_in_rpt_sector_raw(int index, double range) const
 
     // Raw sectoring: assume *this is already in the RP/T base.
     const Chord &base = *this;
-
     const std::vector<Chord> vs = base.voicings();
     const int n = static_cast<int>(vs.size());
     if (n <= 0 || index >= n)
@@ -2136,7 +2144,6 @@ inline bool Chord::is_in_rpt_sector_raw(int index, double range) const
     }
     return true;
 }
-
 
 inline bool Chord::is_opti_sector(int index) const {
     auto sectors = opti_domain_sectors();
@@ -2283,13 +2290,14 @@ template<> inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_Tg>(const C
     {
         if (eq_tolerance(chord.getPitch(v), representative.getPitch(v)) == false)
         {
-        return false;
-    }
+            return false;
+        }
     }
     return true;
 }
 
-template<> inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int opt_sector) {
+template<> 
+inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int opt_sector) {
     auto self_t = chord.eT();
     auto self_t_ceiling = self_t.ceiling();
     while (lt_tolerance(self_t_ceiling.layer(), 0.) == true) {
@@ -3348,8 +3356,7 @@ inline void Chord::resize(size_t voiceN) {
 inline bool Chord::test(const char *label) const {
     std::fprintf(stderr, "\nTESTING %s %s\n\n", toString().c_str(), label);
     bool passed = true;
-    // For some of these we need to know the OPT sector, and if the chord 
-    // belongs to more than one sector, we choose the first.
+    // For some of these we need to know the OPT sector.
     auto opt_sector = opt_domain_sectors().front();
     // Test idempotency of transformations: 
     // equate<R>(equate<R>(chord, sector), sector) == equate<R>(chord, sector)
@@ -4360,6 +4367,140 @@ fundamentalDomainByPredicate(int voiceN, double range, double g, int sector, boo
 
     return chords_in_domain;
 }   
+
+template<int EQUIVALENCE_RELATION>
+inline SILENCE_PUBLIC std::vector<csound::Chord>
+fundamentalDomainByGeneration(int voiceN, double range, double g, int sector, bool printme)
+{
+    const char *name_ = namesForEquivalenceRelations[EQUIVALENCE_RELATION];
+    System::message(
+        "fundamentalDomainByGeneration<%s>: voiceN: %d range: %f g: %f sector: %d\n",
+        name_, voiceN, range, g, sector
+    );
+
+    if (voiceN <= 0)
+    {
+        return {};
+    }
+
+    if (g <= 0.0)
+    {
+        g = 1.0;
+    }
+
+    // We generate candidates in the RP lattice parameterization:
+    //   chord[v] = m + s[v], with s[0]=0 and nondecreasing integer s[v] in [0, range].
+    // This guarantees P and max-min <= range. We then choose integer m so that
+    // layer(chord) is within [0, range], which satisfies R.
+    const int range_i = static_cast<int>(std::floor(range + 0.0000001));
+
+    auto floor_div = [](int a, int b) -> int
+    {
+        // b > 0
+        if (a >= 0)
+        {
+            return a / b;
+        }
+        return -(((-a) + b - 1) / b);
+    };
+
+    auto ceil_div = [](int a, int b) -> int
+    {
+        // b > 0
+        if (a >= 0)
+        {
+            return (a + b - 1) / b;
+        }
+        return -(((-a) / b));
+    };
+
+    std::vector<Chord> chords_in_domain;
+    chords_in_domain.reserve(1024);
+
+    std::vector<int> shape(static_cast<size_t>(voiceN), 0);
+
+    long long generated = 0;
+    long long accepted = 0;
+    long long in_sector0 = 0;
+
+    // Recursive enumeration of nondecreasing shapes with shape[0]=0.
+    std::function<void(int, int)> enumerate_shapes = [&](int voice, int last_value)
+    {
+        if (voice >= voiceN)
+        {
+            long long sum_s = 0;
+            for (int v = 0; v < voiceN; ++v)
+            {
+                sum_s += shape[static_cast<size_t>(v)];
+            }
+
+            const int n = voiceN;
+            // m such that 0 <= n*m + sum_s <= range_i
+            const int m_min = ceil_div(static_cast<int>(-sum_s), n);
+            const int m_max = floor_div(static_cast<int>(range_i - sum_s), n);
+
+            for (int m = m_min; m <= m_max; ++m)
+            {
+                Chord c(voiceN);
+                for (int v = 0; v < voiceN; ++v)
+                {
+                    c.setPitch(v, static_cast<double>(m + shape[static_cast<size_t>(v)]));
+                }
+
+                ++generated;
+
+                // Union over sectors, as in fundamentalDomainByPredicate.
+                for (int s = 0; s < voiceN; ++s)
+                {
+                    if (predicate<EQUIVALENCE_RELATION>(c, range, g, s))
+                    {
+                        ++accepted;
+                        chords_in_domain.push_back(c);
+                        if (s == 0)
+                        {
+                            ++in_sector0;
+                        }
+                        break;
+                    }
+                }
+
+                if (printme)
+                {
+                    System::message(
+                        "fundamentalDomainByGeneration<%s>: accepted: %6lld size: %6d generated: %12lld %s\n",
+                        name_,
+                        accepted,
+                        static_cast<int>(chords_in_domain.size()),
+                        generated,
+                        print_chord(c)
+                    );
+                }
+            }
+            return;
+        }
+
+        for (int v = last_value; v <= range_i; ++v)
+        {
+            shape[static_cast<size_t>(voice)] = v;
+            enumerate_shapes(voice + 1, v);
+        }
+    };
+
+    // shape[0] fixed at 0; enumerate remaining voices.
+    enumerate_shapes(1, 0);
+
+    System::message(
+        "fundamentalDomainByGeneration<%s>: generated: %lld accepted: %lld size: %d size in sector 0: %lld\n",
+        name_,
+        generated,
+        accepted,
+        static_cast<int>(chords_in_domain.size()),
+        in_sector0
+    );
+
+    return chords_in_domain;
+}
+   
 
 
 template<int EQUIVALENCE_RELATION> inline SILENCE_PUBLIC std::vector<csound::Chord> fundamentalDomainByTransformation(int voiceN, double range, double g, int sector)
