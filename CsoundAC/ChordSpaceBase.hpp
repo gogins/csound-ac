@@ -2133,43 +2133,9 @@ inline bool Chord::is_in_rpt_sector(int index, double range) const
         return false;
     }
 
-    // Sectoring is defined in the RP/T base.
+    // Reduce to the RP/T base, then classify there.
     const Chord base = eRP(range).eT();
-
-    // The RP prism tiles into N sectors via octavewise revoicings.
-    // Each revoicing, reduced back to the T-base, should land in exactly one
-    // sector interior, and may land in multiple sectors on boundaries.
-    const std::vector<Chord> vs = base.voicings();
-
-    // Be defensive: some implementations might not return exactly N.
-    // We'll only test what we have.
-    const int n = static_cast<int>(vs.size());
-    if (n <= 0)
-    {
-        return false;
-    }
-
-    // Interpret `index` as the index into the octavewise-revoicing list.
-    // If your voicings() order is different, this mapping is where you adjust it.
-    if (index >= n)
-    {
-        return false;
-    }
-
-    // Candidate sector representative is the index-th revoicing, reduced to the base again.
-    // (Usually redundant if `base` is already in the base, but harmless and stabilizes boundaries.)
-    const Chord candidate = vs[index].eT();
-
-    // Membership test: base is in sector `index` iff the candidate coincides with base.
-    // Boundary points can coincide for multiple indices -> multiple true results.
-    for (int v = 0; v < voices(); ++v)
-    {
-        if (eq_tolerance(candidate.getPitch(v), base.getPitch(v)) == false)
-        {
-            return false;
-        }
-    }
-    return true;
+    return base.is_in_rpt_sector_raw(index, range);
 }
 
 inline bool Chord::is_in_rpt_sector_raw(int index, double range) const
@@ -2181,8 +2147,9 @@ inline bool Chord::is_in_rpt_sector_raw(int index, double range) const
         return false;
     }
 
-    // Raw sectoring: assume *this is already in the RP/T base.
+    // Raw sectoring assumes *this is already in the RP/T base.
     const Chord &base = *this;
+
     const std::vector<Chord> vs = base.voicings();
     const int n = static_cast<int>(vs.size());
     if (n <= 0 || index >= n)
@@ -2190,15 +2157,49 @@ inline bool Chord::is_in_rpt_sector_raw(int index, double range) const
         return false;
     }
 
-    const Chord candidate = vs[index].eT();
+    // Build the T-base representatives of each revoicing.
+    std::vector<Chord> candidates;
+    candidates.reserve(vs.size());
+    for (const auto &v : vs)
+    {
+        candidates.push_back(v.eT());
+    }
+
+    // Choose a canonical representative for this revoicing orbit using a stable ordering.
+    // On boundaries, more than one candidate may coincide with the chosen representative.
+    ChordTickLess less;
+    int chosen = 0;
+    for (int i = 1; i < static_cast<int>(candidates.size()); ++i)
+    {
+        if (less(candidates[i], candidates[chosen]))
+        {
+            chosen = i;
+        }
+    }
+
+    // If this base equals the candidate for `index` (within tolerance), accept it,
+    // but only if that candidate is also equivalent to the chosen representative
+    // (boundary points may belong to multiple sectors).
+    const Chord &cand_index = candidates[index];
+    const Chord &cand_chosen = candidates[chosen];
 
     for (int v = 0; v < voices(); ++v)
     {
-        if (eq_tolerance(candidate.getPitch(v), base.getPitch(v)) == false)
+        if (!eq_tolerance(cand_index.getPitch(v), base.getPitch(v)))
         {
             return false;
         }
     }
+
+    // Boundary handling: allow all sectors whose candidate coincides with the chosen representative.
+    for (int v = 0; v < voices(); ++v)
+    {
+        if (!eq_tolerance(cand_index.getPitch(v), cand_chosen.getPitch(v)))
+        {
+            return false;
+        }
+    }
+
     return true;
 }
  
