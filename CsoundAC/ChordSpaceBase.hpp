@@ -1225,6 +1225,68 @@ public:
 };
 
 /**
+ * Provides a strict weak ordering of chords by their pitches, independent of 
+ * g. This must be used in all std:: containers that require ordering (e.g. 
+ * std::set) to ensure that the ordering is stable and not affected by tiny 
+ * floating point noise. The ordering is determined first by number of voices, 
+ * then by pitches in voice order. NaNs are considered greater than any number, 
+ * and equal to each other.
+ */
+struct ChordTickLess
+{
+    // Fixed resolution, independent of g.
+    // 1e6 ticks per semitone gives a stable ordering while tolerating tiny 
+    // floating point noise.
+    static constexpr double ticks_per_semitone = 1000000.0;
+
+    bool operator()(const Chord &a, const Chord &b) const
+    {
+        const int a_n = a.voices();
+        const int b_n = b.voices();
+
+        if (a_n != b_n)
+        {
+            return a_n < b_n;
+        }
+
+        for (int i = 0; i < a_n; ++i)
+        {
+            const double ap = a.getPitch(i);
+            const double bp = b.getPitch(i);
+
+            // Deterministic NaN handling so ordering can't go undefined.
+            const bool a_nan = std::isnan(ap);
+            const bool b_nan = std::isnan(bp);
+
+            if (a_nan || b_nan)
+            {
+                if (a_nan != b_nan)
+                {
+                    // Put NaNs after numbers.
+                    return b_nan;
+                }
+                // Both NaN at this position, continue.
+                continue;
+            }
+
+            const int64_t at = static_cast<int64_t>(std::llround(ap * ticks_per_semitone));
+            const int64_t bt = static_cast<int64_t>(std::llround(bp * ticks_per_semitone));
+
+            if (at < bt)
+            {
+                return true;
+            }
+            if (at > bt)
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+};
+
+/**
  * This is the basis of all other numeric comparisons that take floating-point 
  * limits into account. It is a "close enough" comparison. If a or b equals 0,
  * the indicated number of machine epsilons is used as the tolerance; if 
@@ -4265,75 +4327,6 @@ struct SILENCE_PUBLIC compare_by_normal_form {
         }
     }
 };
-
-/**
- * Provides a strict weak ordering of chords by their pitches, independent of 
- * g. This must be used in all std:: containers that require ordering (e.g. 
- * std::set) to ensure that the ordering is stable and not affected by tiny 
- * floating point noise. The ordering is determined first by number of voices, 
- * then by pitches in voice order. NaNs are considered greater than any number, 
- * and equal to each other.
- */
-struct ChordTickLess
-{
-    // Fixed resolution, independent of g.
-    // 1e6 ticks per semitone gives a stable ordering while tolerating tiny 
-    // floating point noise.
-    static constexpr double ticks_per_semitone = 1000000.0;
-
-    bool operator()(const Chord &a, const Chord &b) const
-    {
-        const int a_n = a.voices();
-        const int b_n = b.voices();
-
-        if (a_n != b_n)
-        {
-            return a_n < b_n;
-        }
-
-        for (int i = 0; i < a_n; ++i)
-        {
-            const double ap = a.getPitch(i);
-            const double bp = b.getPitch(i);
-
-            // Deterministic NaN handling so ordering can't go undefined.
-            const bool a_nan = std::isnan(ap);
-            const bool b_nan = std::isnan(bp);
-
-            if (a_nan || b_nan)
-            {
-                if (a_nan != b_nan)
-                {
-                    // Put NaNs after numbers.
-                    return b_nan;
-                }
-                // Both NaN at this position, continue.
-                continue;
-            }
-
-            const int64_t at = static_cast<int64_t>(std::llround(ap * ticks_per_semitone));
-            const int64_t bt = static_cast<int64_t>(std::llround(bp * ticks_per_semitone));
-
-            if (at < bt)
-            {
-                return true;
-            }
-            if (at > bt)
-            {
-                return false;
-            }
-        }
-
-        return false;
-    }
-};
-
-
-
-
-
-
-
 struct SILENCE_PUBLIC compare_by_polytope_key
 {
     double g;
@@ -6105,7 +6098,7 @@ inline SILENCE_PUBLIC std::map<Chord, Chord, ChordTickLess> &normal_forms_for_ch
 }
 
 inline SILENCE_PUBLIC std::map<Chord, Chord, ChordTickLess> &prime_forms_for_chords() {
-    static std::map<Chord, Chord> cache;
+    static std::map<Chord, Chord, ChordTickLess> cache;
     return cache;
 }
 
