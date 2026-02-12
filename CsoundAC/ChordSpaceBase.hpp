@@ -284,7 +284,7 @@ P, L, and R have been extended as follows, see Fiore and Satyendra,
 
 static SILENCE_PUBLIC std::string chord_space_version() {
     char buffer[0x500];
-    std::snprintf(buffer, sizeof(buffer), "ChordSpaceBase version 2.0.5. Compiled from %s on %s at %s.", __FILE__, __DATE__, __TIME__);
+    std::snprintf(buffer, sizeof(buffer), "ChordSpaceBase version 2.0.6. Compiled from %s on %s at %s.", __FILE__, __DATE__, __TIME__);
     return buffer;
 }
 
@@ -347,6 +347,8 @@ typedef Eigen::Matrix<double, Eigen::Dynamic, 1> Vector;
 
 class SILENCE_PUBLIC Chord;
 
+struct SILENCE_PUBLIC ChordTickLess;
+
 struct SILENCE_PUBLIC HyperplaneEquation;
 
 class SILENCE_PUBLIC PITV;
@@ -368,17 +370,17 @@ SILENCE_PUBLIC Chord midpoint(const Chord &a, const Chord &b);
 /**
  * Cache prime forms for chords for speed.
  */
-SILENCE_PUBLIC std::map<Chord, Chord> &normal_forms_for_chords();
+SILENCE_PUBLIC std::map<Chord, Chord, ChordTickLess> &normal_forms_for_chords();
 
 /**
  * Cache normal forms for chords for speed.
  */
-SILENCE_PUBLIC std::map<Chord, Chord> &prime_forms_for_chords();
+SILENCE_PUBLIC std::map<Chord, Chord, ChordTickLess> &prime_forms_for_chords();
 
 /**
  * Cache inverse prime forms for chords for speed.
  */
-SILENCE_PUBLIC std::map<Chord, Chord> &inverse_prime_forms_for_chords();
+SILENCE_PUBLIC std::map<Chord, Chord, ChordTickLess> &inverse_prime_forms_for_chords();
 
 /**
  * Returns a string representation of the pitches in the chord, along with the 
@@ -1638,9 +1640,9 @@ SILENCE_PUBLIC std::string nameForPitchClass(double pitch);
 
 SILENCE_PUBLIC std::string nameForScale(const Scale &scale);
 
-SILENCE_PUBLIC std::multimap<Chord, std::string> &namesForChords();
+SILENCE_PUBLIC std::multimap<Chord, std::string, ChordTickLess> &namesForChords();
 
-SILENCE_PUBLIC std::multimap<Scale, std::string> &namesForScales();
+SILENCE_PUBLIC std::multimap<Scale, std::string, ChordTickLess> &namesForScales();
 
 /**
  * Increment a chord voicewise through chord space, from a low point on the 
@@ -1752,9 +1754,9 @@ public:
     virtual int getG() const;
     virtual int getN() const;
     virtual int getRange() const;
-    std::map<Chord, int> indexesForPs;
+    std::map<Chord, int, ChordTickLess> indexesForPs;
     std::map<int, Chord> PsForIndexes;
-    std::set<Chord> normal_forms;
+    std::set<Chord, ChordTickLess> normal_forms;
     virtual void initialize(int N_, double range_, double g_ = 1., bool printme=false);
     virtual void list(bool listheader = true, bool listps = false, bool listvoicings = false) const;
     int N;
@@ -1993,9 +1995,7 @@ SILENCE_PUBLIC double T(double pitch, double semitones);
  */
 SILENCE_PUBLIC Chord transpose_degrees(const Chord &scale, const Chord &original_chord, int transposition_degrees, int interval = 3);
 
-///SILENCE_PUBLIC std::set<Chord> &unique_chords();
-
-SILENCE_PUBLIC std::set<Scale> &unique_scales();
+SILENCE_PUBLIC std::set<Scale, ChordTickLess> &unique_scales();
 
 /**
  * Returns the voice-leading between chords a and b,
@@ -2766,8 +2766,8 @@ inline SILENCE_PUBLIC std::string nameForPitchClass(double pitch) {
     return "";
 }
 
-inline SILENCE_PUBLIC std::multimap<Chord, std::string> &namesForChords() {
-    static std::multimap<Chord, std::string> namesForChords_;
+inline SILENCE_PUBLIC std::multimap<Chord, std::string, ChordTickLess> &namesForChords() {
+    static std::multimap<Chord, std::string, ChordTickLess> namesForChords_;
     return namesForChords_;
 }
 
@@ -2776,8 +2776,8 @@ inline SILENCE_PUBLIC std::map<std::string, Chord> &chordsForNames() {
     return chordsForNames_;
 }
 
-inline SILENCE_PUBLIC std::multimap<Scale, std::string> &namesForScales() {
-    static std::multimap<Scale, std::string> namesForScales_;
+inline SILENCE_PUBLIC std::multimap<Scale, std::string, ChordTickLess> &namesForScales() {
+    static std::multimap<Scale, std::string, ChordTickLess> namesForScales_;
     return namesForScales_;
 }
 
@@ -2786,13 +2786,13 @@ inline SILENCE_PUBLIC std::map<std::string, Scale> &scalesForNames() {
     return scalesForNames_;
 }
 
-inline SILENCE_PUBLIC std::set<Chord> &unique_chords() {
-    static std::set<Chord> unique_chords_;
+inline SILENCE_PUBLIC std::set<Chord, ChordTickLess> &unique_chords() {
+    static std::set<Chord, ChordTickLess> unique_chords_;
     return unique_chords_;
 }
 
-inline SILENCE_PUBLIC std::set<Scale> &unique_scales() {
-    static std::set<Scale> unique_scales_;
+inline SILENCE_PUBLIC std::set<Scale, ChordTickLess> &unique_scales() {
+    static std::set<Scale, ChordTickLess> unique_scales_;
     return unique_scales_;
 }
 
@@ -2953,7 +2953,7 @@ inline SILENCE_PUBLIC std::vector<std::string> namesForChord(const Chord &chord)
         initialized = true;
         initializeNames();
     }
-    std::multimap<Chord, std::string> &namesForChords_ = namesForChords();
+    std::multimap<Chord, std::string, ChordTickLess> &namesForChords_ = namesForChords();
     std::vector<std::string> result;
     auto matches = namesForChords_.equal_range(chord);
     for (auto it = matches.first; it != matches.second; ++it) {
@@ -3002,7 +3002,7 @@ inline SILENCE_PUBLIC std::vector<std::string> namesForScale(const Scale &scale)
         initialized = true;
         initializeNames();
     }
-    std::multimap<Scale, std::string> &namesForScales_ = namesForScales();
+    std::multimap<Scale, std::string, ChordTickLess> &namesForScales_ = namesForScales();
     std::vector<std::string> result;
     auto matches = namesForScales_.equal_range(scale);
     for (auto it = matches.first; it != matches.second; ++it) {
@@ -4265,6 +4265,74 @@ struct SILENCE_PUBLIC compare_by_normal_form {
         }
     }
 };
+
+/**
+ * Provides a strict weak ordering of chords by their pitches, independent of 
+ * g. This must be used in all std:: containers that require ordering (e.g. 
+ * std::set) to ensure that the ordering is stable and not affected by tiny 
+ * floating point noise. The ordering is determined first by number of voices, 
+ * then by pitches in voice order. NaNs are considered greater than any number, 
+ * and equal to each other.
+ */
+struct ChordTickLess
+{
+    // Fixed resolution, independent of g.
+    // 1e6 ticks per semitone gives a stable ordering while tolerating tiny 
+    // floating point noise.
+    static constexpr double ticks_per_semitone = 1000000.0;
+
+    bool operator()(const Chord &a, const Chord &b) const
+    {
+        const int a_n = a.voices();
+        const int b_n = b.voices();
+
+        if (a_n != b_n)
+        {
+            return a_n < b_n;
+        }
+
+        for (int i = 0; i < a_n; ++i)
+        {
+            const double ap = a.getPitch(i);
+            const double bp = b.getPitch(i);
+
+            // Deterministic NaN handling so ordering can't go undefined.
+            const bool a_nan = std::isnan(ap);
+            const bool b_nan = std::isnan(bp);
+
+            if (a_nan || b_nan)
+            {
+                if (a_nan != b_nan)
+                {
+                    // Put NaNs after numbers.
+                    return b_nan;
+                }
+                // Both NaN at this position, continue.
+                continue;
+            }
+
+            const int64_t at = static_cast<int64_t>(std::llround(ap * ticks_per_semitone));
+            const int64_t bt = static_cast<int64_t>(std::llround(bp * ticks_per_semitone));
+
+            if (at < bt)
+            {
+                return true;
+            }
+            if (at > bt)
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+};
+
+
+
+
+
+
 
 struct SILENCE_PUBLIC compare_by_polytope_key
 {
@@ -6031,18 +6099,18 @@ inline SILENCE_PUBLIC std::vector<Chord> PITV::toChord_vector(const Eigen::Vecto
     return toChord(pitv(0), pitv(1), pitv(2), pitv(3), printme);
 }
 
-inline SILENCE_PUBLIC std::map<Chord, Chord> &normal_forms_for_chords() {
+inline SILENCE_PUBLIC std::map<Chord, Chord, ChordTickLess> &normal_forms_for_chords() {
+    static std::map<Chord, Chord, ChordTickLess> cache;
+    return cache;
+}
+
+inline SILENCE_PUBLIC std::map<Chord, Chord, ChordTickLess> &prime_forms_for_chords() {
     static std::map<Chord, Chord> cache;
     return cache;
 }
 
-inline SILENCE_PUBLIC std::map<Chord, Chord> &prime_forms_for_chords() {
-    static std::map<Chord, Chord> cache;
-    return cache;
-}
-
-inline SILENCE_PUBLIC std::map<Chord, Chord> &inverse_prime_forms_for_chords() {
-    static std::map<Chord, Chord> cache;
+inline SILENCE_PUBLIC std::map<Chord, Chord, ChordTickLess> &inverse_prime_forms_for_chords() {
+    static std::map<Chord, Chord, ChordTickLess> cache;
     return cache;
 }
 
