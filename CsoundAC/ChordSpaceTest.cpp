@@ -1,3 +1,4 @@
+#include "ChordSpaceBase.hpp"
 #include "ChordSpace.hpp"
 #include <algorithm>
 #include <iostream>
@@ -63,7 +64,7 @@ static bool test(bool passes, std::string message) {
 
 static void printSet(std::string name, const std::vector<csound::Chord> &chords) {
     csound::System::message("%s\n", name.c_str());
-    std::multimap<csound::Chord, csound::Chord> sorted;
+    std::multimap<csound::Chord, csound::Chord, csound::ChordTickLess> sorted;
     for (auto &e : chords) {
         sorted.insert({e.normal_form(), e}); 
     }
