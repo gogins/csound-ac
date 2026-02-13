@@ -72,7 +72,8 @@ static void printSet(std::string name, const std::vector<csound::Chord> &chords)
     for (auto &value : sorted) {
         auto &c = value.second;
         csound::System::message("normal: %s  chord[%04d]: %s  OPTT: %s  OPTTI: %s\n", c.normal_form().toString().c_str(), i, c.toString().c_str(), c.eOPTT().toString().c_str(), c.eOPTTI().toString().c_str()); 
-        csound::System::message(print_opti_sectors(c).c_str());   
+        auto s = print_opti_sectors(c);
+        csound::System::message("%s", s.c_str());
         csound::System::message("\n");
         i = i + 1;
     }

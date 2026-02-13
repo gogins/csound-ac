@@ -3070,11 +3070,11 @@ inline SILENCE_PUBLIC const Scale &scaleForName(std::string name) {
 
 static std::string print_opti_sectors(const Chord &chord) {
     std::string result;
-    char buffer[0x1000];
+    char buffer[0x8000];
     for (int sector = 0; sector < chord.voices(); ++sector) {
         bool belongs = chord.is_in_rpt_sector(sector);
         bool minor = chord.is_in_minor_opti_sector(sector);
-        snprintf(buffer, sizeof(buffer), "OPT sector %3d: belongs: %s OPTI: %s\n", sector, belongs ? "yes" : "no ", belongs ?  (minor ? "minor" : "major") : "     ");
+        snprintf(buffer, sizeof(buffer), "OPT sector %3d: belongs: %s OPTI: %s\n", sector, (belongs ? "yes" : "no "), (belongs ?  (minor ? "minor" : "major") : "     "));
         result.append(buffer);
     }
     return result;    
@@ -3082,7 +3082,7 @@ static std::string print_opti_sectors(const Chord &chord) {
 
 inline std::string print_chord(const Chord &chord) {
     std::string result;
-    static char buffer[0x1000];
+    static char buffer[0x8000];
     snprintf(buffer, sizeof(buffer), "%s   ", chord.toString().c_str());
     result.append(buffer);
     for (int sector = 0; sector < chord.voices(); ++sector) {
@@ -3105,7 +3105,7 @@ inline std::string Chord::information() const {
 
 inline std::string Chord::information_sector(int opt_sector_) const {
     std::string result;
-    char buffer[0x4000];
+    char buffer[0x10000];
     if (voices() < 1) {
         return "Empty chord.";
     }
@@ -3201,6 +3201,9 @@ inline std::string Chord::information_sector(int opt_sector_) const {
         result.append(buffer);   
     }    
     result.append("\n");
+
+
+
     return result;
 }
 
@@ -3507,28 +3510,6 @@ inline bool Chord::test(const char *label) const {
             std::fprintf(stderr, "        Chord::iseOP is decomposable.\n");
         }
     }
-
-// const bool opt_ok = iseOPT(opt_sector);
-// std::fprintf(stderr, "iseOPT(opt_sector) returned %d\n", opt_ok);
-
-// if (opt_ok)
-// {
-//     std::fprintf(stderr, "entered TRUE branch\n");
-//         if (iseO() == false ||
-//             iseP() == false || 
-//             iseT() == false) {
-//             passed = false;
-//             std::fprintf(stderr, "Failed: Chord::iseOPT is not decomposable.\n");
-//         } else {
-//             std::fprintf(stderr, "        Chord::iseOPT is decomposable.\n");
-//         }
-// }
-// else
-// {
-//     std::fprintf(stderr, "entered FALSE branch\n");
-// }
-// std::fprintf(stderr, "after if/else\n");
-
     if (iseOPT(opt_sector) == true) {
         if (iseO() == false ||
             iseP() == false || 
