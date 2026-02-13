@@ -445,6 +445,7 @@ public:
         PAN = 4,
         COUNT = 5
     };
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Chord();
     Chord(int size);
     Chord(const Chord &other);
@@ -1829,7 +1830,7 @@ SILENCE_PUBLIC Chord scale(std::string name);
  */
 class SILENCE_PUBLIC Scale : public Chord {
     public:
-        /**
+         /**
          * Default constructor, an empty Scale.
          */
         Scale();
