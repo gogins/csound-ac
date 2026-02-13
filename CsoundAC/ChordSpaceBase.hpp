@@ -5441,53 +5441,94 @@ inline void Chord::clamp(double g) {
     }
 }
 
-inline Chord Chord::normal_order() const {
-    // This chord as a pitch-class set in ascending order.
+inline Chord Chord::normal_order() const
+{
     const auto ppcs = eppcs();
-    // All cyclic permutations.
+
+    // Trivial cases.
+    if (ppcs.voices() == 0)
+    {
+        return ppcs;
+    }
+    if (ppcs.voices() == 1)
+    {
+        return ppcs;
+    }
+
     auto permutations_ = ppcs.permutations();
-    // We need to keep track of intervals.
-    double least_interval = std::numeric_limits<double>::max();
-    std::multimap<double, Chord> permutations_for_intervals;
-    // Store the permutations keyed by ordered pitch-class interval from the 
-    // bottom  voice to the top voice.
-    for (auto upper_voice = voices() - 1; upper_voice > 0; --upper_voice) {
-        for (auto &permutation : permutations_) {
-            auto lower_pc = permutation.getPitch(0);
+
+    // Iterate upper_voice from voices()-1 down to 1 safely.
+    for (size_t upper_voice = ppcs.voices() - 1; upper_voice >= 1; --upper_voice)
+    {
+        double least_interval = std::numeric_limits<double>::max();
+        std::multimap<double, Chord> permutations_for_intervals;
+
+        for (const auto &permutation : permutations_)
+        {
+            const auto lower_pc = permutation.getPitch(0);
             auto upper_pc = permutation.getPitch(upper_voice);
             auto interval = upper_pc - lower_pc;
-            // Tricky! This is arithmetic modulo the octave.
-            // This is _ordered pitch-class interval_.
-            // Count up from the left pc to the right pc modulo octaves.
-            if (lt_tolerance(interval, 0.) == true) {
-                interval = interval + OCTAVE();
+
+            if (lt_tolerance(interval, 0.0))
+            {
+                interval += OCTAVE();
             }
+
             interval = rownd(interval, 9);
-            if (lt_tolerance(interval, least_interval) == true) {
+
+            if (lt_tolerance(interval, least_interval))
+            {
                 least_interval = interval;
             }
+
             permutations_for_intervals.insert({interval, permutation});
         }
-        // If only one permutation has the least interval, that permutation is 
-        // the normal order.
-        if (permutations_for_intervals.count(least_interval) == 1) {
+
+        // No candidates: bail out deterministically (avoids UB).
+        if (permutations_for_intervals.empty())
+        {
+            break;
+        }
+
+        if (permutations_for_intervals.count(least_interval) == 1)
+        {
             return permutations_for_intervals.begin()->second;
-        // Otherwise, replace the list of permutations with only the 
-        // permutations having the least interval, and decrement the 
-        // upper voice.
-        } else {
-            permutations_.clear();
-            auto range = permutations_for_intervals.equal_range(least_interval);
-            for (auto &it = range.first; it != range.second; ++it) {
-                permutations_.push_back(it->second);
-            }
-            permutations_for_intervals.clear();
+        }
+
+        // Filter to only those with the least interval.
+        std::vector<Chord> filtered;
+        filtered.reserve(permutations_for_intervals.count(least_interval));
+
+        auto range = permutations_for_intervals.equal_range(least_interval);
+        for (auto it = range.first; it != range.second; ++it)
+        {
+            filtered.push_back(it->second);
+        }
+
+        permutations_.swap(filtered);
+
+        // Stop if we're down to one candidate.
+        if (permutations_.size() == 1)
+        {
+            return permutations_.front();
+        }
+
+        // Prevent size_t underflow in the loop condition.
+        if (upper_voice == 1)
+        {
+            break;
         }
     }
-    std::sort(permutations_.begin(), permutations_.end(), ChordTickLess());
-    return permutations_.front();    
-}
 
+    // Final deterministic choice.
+    if (permutations_.empty())
+    {
+        return ppcs;
+    }
+
+    std::sort(permutations_.begin(), permutations_.end(), ChordTickLess());
+    return permutations_.front();
+}
 inline Chord Chord::normal_form() const {
     auto &cache = normal_forms_for_chords();
     auto it = cache.find(*this);
