@@ -3508,12 +3508,28 @@ inline bool Chord::test(const char *label) const {
         }
     }
 
-const bool opt_ok = iseOPT(opt_sector);
-std::fprintf(stderr, "iseOPT(opt_sector) returned %d\n", opt_ok);
+// const bool opt_ok = iseOPT(opt_sector);
+// std::fprintf(stderr, "iseOPT(opt_sector) returned %d\n", opt_ok);
 
-if (opt_ok)
-{
-    std::fprintf(stderr, "entered TRUE branch\n");
+// if (opt_ok)
+// {
+//     std::fprintf(stderr, "entered TRUE branch\n");
+//         if (iseO() == false ||
+//             iseP() == false || 
+//             iseT() == false) {
+//             passed = false;
+//             std::fprintf(stderr, "Failed: Chord::iseOPT is not decomposable.\n");
+//         } else {
+//             std::fprintf(stderr, "        Chord::iseOPT is decomposable.\n");
+//         }
+// }
+// else
+// {
+//     std::fprintf(stderr, "entered FALSE branch\n");
+// }
+// std::fprintf(stderr, "after if/else\n");
+
+    if (iseOPT(opt_sector) == true) {
         if (iseO() == false ||
             iseP() == false || 
             iseT() == false) {
@@ -3522,25 +3538,7 @@ if (opt_ok)
         } else {
             std::fprintf(stderr, "        Chord::iseOPT is decomposable.\n");
         }
-}
-else
-{
-    std::fprintf(stderr, "entered FALSE branch\n");
-}
-std::fprintf(stderr, "after if/else\n");
-
-
-
-    // if (iseOPT(opt_sector) == true) {
-    //     if (iseO() == false ||
-    //         iseP() == false || 
-    //         iseT() == false) {
-    //         passed = false;
-    //         std::fprintf(stderr, "Failed: Chord::iseOPT is not decomposable.\n");
-    //     } else {
-    //         std::fprintf(stderr, "        Chord::iseOPT is decomposable.\n");
-    //     }
-    // }
+    }
     // If it is transformed to T, is it OPT? 
     // After that, is it Tg?
     if (iseOPTT(1.0, opt_sector) == true) {
