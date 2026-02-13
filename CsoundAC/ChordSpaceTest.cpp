@@ -391,6 +391,11 @@ static void test_eq_tolerance() {
 
 int main(int argc, char **argv) {
     csound::System::message("C H O R D S P A C E   U N I T   T E S T S\n\n");
+    setvbuf(stderr, nullptr, _IONBF, 0);
+    std::fprintf(stderr, "BIN PID=%d\n", getpid());
+    std::fprintf(stderr, "BIN argv0=%s\n", argv[0] ? argv[0] : "(null)");
+    std::fflush(stderr);
+
     std::cerr << csound::chord_space_version() << std::endl;
     csound::Chord CM = csound::chordForName("C+");
     CM = CM.T(-4.);
