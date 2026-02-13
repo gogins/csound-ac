@@ -1549,45 +1549,6 @@ SILENCE_PUBLIC double factorial(double n);
 
 void fill(std::string rootName, double rootPitch, std::string typeName, std::string typePitches, bool is_scale = false);
 
-struct SILENCE_PUBLIC compare_by_quantized_sorted_pitches
-{
-    double g;
-
-    explicit compare_by_quantized_sorted_pitches(double g_)
-        : g(g_)
-    {
-        if (g <= 0.0)
-        {
-            g = 1.0;
-        }
-    }
-
-    bool operator()(const Chord &a, const Chord &b) const
-    {
-        auto ka = make_key(a);
-        auto kb = make_key(b);
-        return ka < kb;
-    }
-
-private:
-    std::vector<long long> make_key(const Chord &c) const
-    {
-        std::vector<long long> ticks;
-        ticks.reserve(c.voices());
-
-        for (int v = 0; v < c.voices(); ++v)
-        {
-            double p = c.getPitch(v);
-            long long t = static_cast<long long>(std::llround(p / g));
-            ticks.push_back(t);
-        }
-
-        // Permutational equivalence: compare as a multiset.
-        std::sort(ticks.begin(), ticks.end());
-        return ticks;
-    }
-};
- 
 /**
  * Returns a set of chords in one sector of the cyclical region.
  */
@@ -3535,7 +3496,13 @@ inline bool Chord::test(const char *label) const {
             std::fprintf(stderr, "        Chord::iseOP is decomposable.\n");
         }
     }
-    if (iseOPT(opt_sector) == true) {
+
+const bool opt_ok = iseOPT(opt_sector);
+std::fprintf(stderr, "iseOPT(opt_sector) returned %d\n", opt_ok);
+
+if (opt_ok)
+{
+    std::fprintf(stderr, "entered TRUE branch\n");
         if (iseO() == false ||
             iseP() == false || 
             iseT() == false) {
@@ -3544,7 +3511,25 @@ inline bool Chord::test(const char *label) const {
         } else {
             std::fprintf(stderr, "        Chord::iseOPT is decomposable.\n");
         }
-    }
+}
+else
+{
+    std::fprintf(stderr, "entered FALSE branch\n");
+}
+std::fprintf(stderr, "after if/else\n");
+
+
+
+    // if (iseOPT(opt_sector) == true) {
+    //     if (iseO() == false ||
+    //         iseP() == false || 
+    //         iseT() == false) {
+    //         passed = false;
+    //         std::fprintf(stderr, "Failed: Chord::iseOPT is not decomposable.\n");
+    //     } else {
+    //         std::fprintf(stderr, "        Chord::iseOPT is decomposable.\n");
+    //     }
+    // }
     // If it is transformed to T, is it OPT? 
     // After that, is it Tg?
     if (iseOPTT(1.0, opt_sector) == true) {
@@ -4298,74 +4283,6 @@ inline SILENCE_PUBLIC double factorial(double n) {
     }
     return result;
 }
-
-struct SILENCE_PUBLIC compare_by_normal_order {
-    bool operator ()(const Chord &a, const Chord &b) const {
-        if (a.normal_order() < b.normal_order()) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-};
-
-struct SILENCE_PUBLIC compare_by_op {
-    bool operator ()(const Chord &a, const Chord &b) const {
-        if (a.eOP() < b.eOP()) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-};
-
-struct SILENCE_PUBLIC compare_by_normal_form {
-    bool operator ()(const Chord &a, const Chord &b) const {
-        if (a.normal_form() < b.normal_form()) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-};
-struct SILENCE_PUBLIC compare_by_polytope_key
-{
-    double g;
-
-    explicit compare_by_polytope_key(double g_)
-        : g(g_)
-    {
-        if (g <= 0.0)
-        {
-            g = 1.0;
-        }
-    }
-
-    bool operator()(const Chord &a, const Chord &b) const
-    {
-        auto ka = make_key(a);
-        auto kb = make_key(b);
-        return ka < kb;
-    }
-
-private:
-    std::vector<long long> make_key(const Chord &c) const
-    {
-        std::vector<long long> ticks;
-        ticks.reserve(c.voices());
-
-        for (int v = 0; v < c.voices(); ++v)
-        {
-            double p = c.getPitch(v);
-            long long t = static_cast<long long>(std::llround(p / g));
-            ticks.push_back(t);
-        }
-
-        // Enforce permutational equivalence: treat as a multiset
-        std::sort(ticks.begin(), ticks.end());
-        return ticks;
-    }
-};
 
 template<int EQUIVALENCE_RELATION>
 inline SILENCE_PUBLIC std::vector<csound::Chord>
@@ -5697,6 +5614,12 @@ inline SILENCE_PUBLIC bool is_in_full_simplex(const Chord &point,
 inline std::vector<int> Chord::opt_domain_sectors() const
 {
     auto &opt_simplexes_for_dimensions = opt_simplexes_for_dimensionalities();
+    if (voices() < 0 || static_cast<size_t>(voices()) >= opt_simplexes_for_dimensions.size())
+    {
+        std::fprintf(stderr, "opt_domain_sectors: voices()=%d out of range (size=%zu)\n",
+            voices(), opt_simplexes_for_dimensions.size());
+        std::abort();
+    }
     auto &opt_simplexes = opt_simplexes_for_dimensions[voices()];
 
     std::vector<int> result;
@@ -5736,6 +5659,14 @@ inline std::vector<int> Chord::opt_domain_sectors() const
 inline std::vector<int> Chord::opti_domain_sectors() const
 {
     auto &opti_simplexes_for_dimensions = opti_simplexes_for_dimensionalities();
+
+    if (voices() < 0 || static_cast<size_t>(voices()) >= opti_simplexes_for_dimensions.size())
+    {
+        std::fprintf(stderr, "opti_domain_sectors: voices()=%d out of range (size=%zu)\n",
+            voices(), opti_simplexes_for_dimensions.size());
+        std::abort();
+    }
+
     auto &opti_simplexes = opti_simplexes_for_dimensions[voices()];
 
     std::vector<int> result;
