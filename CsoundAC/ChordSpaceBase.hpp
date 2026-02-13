@@ -445,16 +445,14 @@ public:
         PAN = 4,
         COUNT = 5
     };
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Chord();
     Chord(int size);
     Chord(const Chord &other);
     Chord(const std::vector<double> &other);
     virtual ~Chord();
     virtual Chord &operator = (const Chord &other);
-#if __cpplusplus >= 201103L
-    Chord &operator = (Chord &&other) = default;
-#endif
+    Chord& operator=(Chord&& other) noexcept = default;
+    Chord(Chord&& other) noexcept = default;
     virtual Chord clone() const {
         Chord clone_ = *this;
         return clone_;
@@ -775,6 +773,8 @@ public:
      * _Generalized Chord Spaces_ draft by Callender, Quinn, and Tymoczko.
      */
     virtual void initialize_sectors();
+
+    virtual void ensure_sectors_initialized();
     /**
      * Returns this chord as the inverse standard "prime form."
      *
@@ -1834,6 +1834,9 @@ class SILENCE_PUBLIC Scale : public Chord {
          * Default constructor, an empty Scale.
          */
         Scale();
+        Scale &operator=(Scale &&other) noexcept = default;
+        Scale(const Scale &other) = default;
+        Scale(Scale &&other) noexcept = default;
         /**
          * Creates a Scale by name, e.g. 'C major'. If the named Scale does 
          * not already exist, an empty Scale without a name is created.
@@ -3328,8 +3331,17 @@ inline SILENCE_PUBLIC Chord chord(const Chord &scale, int scale_degree, int chor
     return result;
 }
 
+inline void Chord::ensure_sectors_initialized()
+{
+    static bool initialized = false;
+    if (!initialized)
+    {
+        initialized = true;
+        initialize_sectors();
+    }
+}
+
 inline Chord::Chord() {
-    initialize_sectors();
     resize(0);
 }
 
@@ -3337,9 +3349,7 @@ inline Chord::Chord(int voices_) {
     resize(voices_);    
 }
 
-inline Chord::Chord(const Chord &other) {
-    *this = other;
-}
+inline Chord::Chord(const Chord &other) = default;
 
 inline Chord::Chord(const std::vector<double> &other) {
     *this = other;
@@ -3857,7 +3867,7 @@ inline std::vector<Chord> Chord::permutations() const {
         permutation = permutation.cycle();
         permutations_.push_back(permutation);
     }
-    std::sort(permutations_.begin(), permutations_.end());
+    std::sort(permutations_.begin(), permutations_.end(), ChordTickLess());
     return permutations_;
 }
 
@@ -4870,10 +4880,10 @@ inline SILENCE_PUBLIC Scale::Scale(std::string name, const std::vector<double> &
     add_scale(name, *this);
 }
 
-inline SILENCE_PUBLIC Scale::~Scale() {};
+inline SILENCE_PUBLIC Scale::~Scale() = default;
 
 inline SILENCE_PUBLIC Scale &Scale::operator = (const Scale &other) {
-   Matrix::operator=(dynamic_cast<const Chord &>(other));
+    Chord::operator=(other);
     type_name = other.getTypeName();
     return *this;
 }
@@ -5207,31 +5217,37 @@ inline SILENCE_PUBLIC double voiceleadingSmoothness(const Chord &a, const Chord 
 
 inline std::map<int, std::vector<Chord>> &Chord::cyclical_regions_for_dimensionalities() {
     static std::map<int, std::vector<Chord>> cyclical_regions_for_dimensionalities_;
+    Chord().ensure_sectors_initialized();
     return cyclical_regions_for_dimensionalities_;
 }
 
 inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opt_sectors_for_dimensionalities() {
     static std::map<int, std::vector<std::vector<Chord>>> opt_sectors_for_dimensionalities_;
+    Chord().ensure_sectors_initialized();
     return opt_sectors_for_dimensionalities_;
 }
 
 inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opti_sectors_for_dimensionalities() {
     static std::map<int, std::vector<std::vector<Chord>>> opti_sectors_for_dimensionalities_;
+    Chord().ensure_sectors_initialized();
     return opti_sectors_for_dimensionalities_;
 }
 
 inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opt_simplexes_for_dimensionalities() {
     static std::map<int, std::vector<std::vector<Chord>>> opt_simplexes_for_dimensionalities_;
+    Chord().ensure_sectors_initialized();
     return opt_simplexes_for_dimensionalities_;
 }
 
 inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opti_simplexes_for_dimensionalities() {
     static std::map<int, std::vector<std::vector<Chord>>> opti_simplexes_for_dimensionalities_;
+    Chord().ensure_sectors_initialized();
     return opti_simplexes_for_dimensionalities_;
 }
 
 inline std::map<int, std::vector<HyperplaneEquation>> &Chord::hyperplane_equations_for_opt_sectors() {
     static std::map<int, std::vector<HyperplaneEquation>> hyperplane_equations_for_opt_sectors_;
+    Chord().ensure_sectors_initialized();
     return hyperplane_equations_for_opt_sectors_;
 }
 
@@ -5468,7 +5484,7 @@ inline Chord Chord::normal_order() const {
             permutations_for_intervals.clear();
         }
     }
-    std::sort(permutations_.begin(), permutations_.end());
+    std::sort(permutations_.begin(), permutations_.end(), ChordTickLess());
     return permutations_.front();    
 }
 

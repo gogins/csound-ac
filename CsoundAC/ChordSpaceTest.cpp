@@ -301,21 +301,21 @@ static bool testEquivalenceRelations(int voiceCount, double range, double g) {
  * Puts the set difference of A \ B, if any, into difference.
  */
 static void setDifference(const std::string &a_name, std::vector<csound::Chord> &A, const std::string &b_name,std::vector<csound::Chord> &B, std::vector<csound::Chord> &difference) {
-    auto comparator = [](auto &a, auto &b) {
-        auto an = a.eOPTT(0);
-        an.clamp();
-        auto bn = b.eOPTT(0);
-        bn.clamp();
-        if ((an < bn) == true) {
-            ///std::cerr << "less" << std::endl;
-            return true;
-        } else {
-            ///std::cerr << "not less" << std::endl;
-            return false;
-        }
-    };
-    std::sort(A.begin(), A.end(), comparator);
-    std::sort(B.begin(), B.end(), comparator);
+    // auto comparator = [](auto &a, auto &b) {
+    //     auto an = a.eOPTT(0);
+    //     an.clamp();
+    //     auto bn = b.eOPTT(0);
+    //     bn.clamp();
+    //     if ((an < bn) == true) {
+    //         ///std::cerr << "less" << std::endl;
+    //         return true;
+    //     } else {
+    //         ///std::cerr << "not less" << std::endl;
+    //         return false;
+    //     }
+    // };
+    std::sort(A.begin(), A.end(), csound::ChordTickLess());
+    std::sort(B.begin(), B.end(), csound::ChordTickLess());
     std::multimap<std::string, csound::Chord> map_a;
     for (csound::Chord &chord : A) {
         std::string key = chord.eOPTT().normal_form().toString();
@@ -365,7 +365,7 @@ static void setDifference(const std::string &a_name, std::vector<csound::Chord> 
             ++b_i;
         }
     }
-    std::sort(difference.begin(), difference.end(), comparator);
+    std::sort(difference.begin(), difference.end(), csound::ChordTickLess());
  }
  
 static void test_eq_tolerance() {
