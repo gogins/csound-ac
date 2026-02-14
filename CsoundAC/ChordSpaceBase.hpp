@@ -2091,81 +2091,53 @@ inline bool Chord::self_inverse(int opt_sector) const
     return result;
 }
 
-inline bool Chord::is_in_rpt_sector(int index, double range) const
+inline bool Chord::is_in_rpt_sector(int sector, double range) const
 {
-    if (index < 0 || index >= voices())
+    if (sector < 0 || sector >= voices())
     {
         return false;
     }
 
-    // Reduce to the RP/T base, then classify there.
+    // Put chord into RP/T base.
     const Chord base = eRP(range).eT();
-    return base.is_in_rpt_sector_raw(index, range);
+    return base.is_in_rpt_sector_raw(sector, range);
 }
 
-inline bool Chord::is_in_rpt_sector_raw(int index, double range) const
+inline bool Chord::is_in_rpt_sector_raw(int sector, double range) const
 {
-    (void)range;
-
-    if (index < 0 || index >= voices())
+    if (sector < 0 || sector >= voices())
     {
         return false;
     }
 
-    // Raw sectoring assumes *this is already in the RP/T base.
+    // Raw assumes already in RP/T base.
     const Chord &base = *this;
 
-    const std::vector<Chord> vs = base.voicings();
-    const int n = static_cast<int>(vs.size());
-    if (n <= 0 || index >= n)
+    // Walk the cyclical region by octavewise revoicing.
+    Chord cand = base;
+    for (int s = 0; s < voices(); ++s)
     {
-        return false;
-    }
-
-    // Build the T-base representatives of each revoicing.
-    std::vector<Chord> candidates;
-    candidates.reserve(vs.size());
-    for (const auto &v : vs)
-    {
-        candidates.push_back(v.eT());
-    }
-
-    // Choose a canonical representative for this revoicing orbit using a stable ordering.
-    // On boundaries, more than one candidate may coincide with the chosen representative.
-    ChordTickLess less;
-    int chosen = 0;
-    for (int i = 1; i < static_cast<int>(candidates.size()); ++i)
-    {
-        if (less(candidates[i], candidates[chosen]))
+        // Boundary-inclusive: accept if equal within tolerance.
+        bool same = true;
+        for (int v = 0; v < voices(); ++v)
         {
-            chosen = i;
+            if (eq_tolerance(cand.getPitch(v), base.getPitch(v)) == false)
+            {
+                same = false;
+                break;
+            }
         }
-    }
 
-    // If this base equals the candidate for `index` (within tolerance), accept it,
-    // but only if that candidate is also equivalent to the chosen representative
-    // (boundary points may belong to multiple sectors).
-    const Chord &cand_index = candidates[index];
-    const Chord &cand_chosen = candidates[chosen];
-
-    for (int v = 0; v < voices(); ++v)
-    {
-        if (!eq_tolerance(cand_index.getPitch(v), base.getPitch(v)))
+        if (same)
         {
-            return false;
+            return (s == sector);
         }
+
+        // Step to next sector tile.
+        cand = cand.v(range).eT();
     }
 
-    // Boundary handling: allow all sectors whose candidate coincides with the chosen representative.
-    for (int v = 0; v < voices(); ++v)
-    {
-        if (!eq_tolerance(cand_index.getPitch(v), cand_chosen.getPitch(v)))
-        {
-            return false;
-        }
-    }
-
-    return true;
+    return false;
 }
  
 inline bool Chord::is_in_minor_opti_sector(int opt_sector) const {
@@ -2362,7 +2334,6 @@ inline Chord Chord::eI(int opt_sector) const {
     return csound::equate<EQUIVALENCE_RELATION_I>(*this, OCTAVE(), 1.0, opt_sector);
 }
 
-
 //  EQUIVALENCE_RELATION_RP
 
 template<> inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RP>(const Chord &chord, double range, double g, int opt_sector) {
@@ -2457,7 +2428,7 @@ inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPT>(
     {
         return false;
     }
-        // Sectoring is defined in the RP/T base, not in the Tg base.
+    // Sectoring is defined in the RP/T base, not in the Tg base.
     // Using raw-sectoring on a Tg-normal chord will generally fail.
     if (chord.eT().is_in_rpt_sector_raw(rpt_sector, range) == false)
     {
@@ -5328,7 +5299,7 @@ inline void Chord::initialize_sectors() {
                 opt_domain[(dimension_i + dimensions_i - 1) % dimensions_i] = center_t;
                 opt_domains.push_back(opt_domain);
                 CHORD_SPACE_DEBUG("  center:            %s\n", center_t.toString().c_str());
-                Chord extra_vertex = center_t.T(12.0 / voices());
+                Chord extra_vertex = center_t.T(12.0 / dimensions_i);
                 std::vector<Chord> opt_simplex = opt_domain;
                 opt_simplex.push_back(extra_vertex);
                 opt_simplexes.push_back(opt_simplex);

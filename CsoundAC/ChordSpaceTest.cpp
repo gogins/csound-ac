@@ -608,30 +608,99 @@ int main(int argc, char **argv) {
     csound::Chord chordForName_ = csound::chordForName("CM9");
     csound::System::message("chordForName(%s): %s\n", "CM9", chordForName_.information().c_str());
 
-    std::cerr << "Testing inversions in OP...\n" << std::endl;
+    // The following is kind of the acid test. If the inversions in OP are not 
+    // consistent, then the fundamental domains or RPTgI will not be correct, 
+    // and the whole system will be compromised. This test mimics what one 
+    // expects to see in the demo program.
+
+    std::cerr << "Testing inversions in OP...\n\n";
+
     csound::Chord test_chord = csound::chordForName("CM").eOP();
-    for (int i = 0; i < 12; ++i) {
-        test_chord = test_chord.eOP();
+
+    for (int i = 0; i < 12; ++i)
+    {
         std::fprintf(stderr, "Chord to invert: %2d %s\n", (i + 1), test_chord.toString().c_str());
-        for (int sector = 0; sector < test_chord.voices(); ++sector) {
-            bool contains = test_chord.is_in_rpt_sector(sector, 12.);
-            if (contains) {
-                std::cerr << "  sector " << sector << " contains chord." << std::endl;
-                csound::Chord inverted = test_chord.reflect(sector);
-                std::cerr << "    inverted        " << inverted.toString() << std::endl;
-                csound::Chord re_inverted = inverted.eI(sector);
-                std::cerr << "    re-inverted.    " << re_inverted.toString() << std::endl;
-                if (test_chord == re_inverted) {
-                    std::cerr << "    inversion is consistent." << std::endl;
-                } else {
-                    std::cerr << "    inversion is not consistent." << std::endl;
-                }
-            } else {
-                std::cerr << "  sector " << sector << " does not contain chord." << std::endl;
-            }
-            test_chord = test_chord.T(1.);
+
+        const csound::Chord eop = test_chord.eOP();
+
+        // Sector membership comes from the chord itself (boundary-inclusive).
+        const std::vector<int> sectors = eop.opt_domain_sectors();
+
+        std::cerr << "  chord belongs to OPT sectors:";
+        for (int s : sectors)
+        {
+            std::cerr << " " << s;
         }
+        std::cerr << "\n";
+
+        for (int s : sectors)
+        {
+            std::cerr << "  sector " << s << " contains chord.\n";
+            std::cerr << "    chord in OP     " << eop.toString() << "\n";
+
+            // 1) Pure reflection test (should always be an involution)
+            const csound::Chord inv_reflect = eop.reflect(s);
+            const csound::Chord reinv_reflect = inv_reflect.reflect(s);
+
+            std::cerr << "    reflected       " << inv_reflect.toString() << "\n";
+            std::cerr << "    re-reflected    " << reinv_reflect.toString() << "\n";
+
+            if (reinv_reflect == eop)
+            {
+                std::cerr << "    reflection is involutive.\n";
+            }
+            else
+            {
+                std::cerr << "    reflection is NOT involutive.\n";
+            }
+
+            // 2) eI test (should also be involutive if it is implemented as “reflect if major”)
+            const csound::Chord inv_eI = eop.eI(s);
+            const csound::Chord reinv_eI = inv_eI.eI(s);
+
+            std::cerr << "    eI              " << inv_eI.toString() << "\n";
+            std::cerr << "    eI(eI(.))       " << reinv_eI.toString() << "\n";
+
+            if (reinv_eI == eop)
+            {
+                std::cerr << "    eI is involutive.\n";
+            }
+            else
+            {
+                std::cerr << "    eI is NOT involutive.\n";
+            }
+        }
+
+        test_chord = test_chord.T(1.0);
     }
+
+
+
+    // std::cerr << "Testing inversions in OP...\n" << std::endl;
+    // csound::Chord test_chord = csound::chordForName("CM").eOP();
+    // for (int i = 0; i < 12; ++i) {
+    //     std::fprintf(stderr, "Chord to invert: %2d %s\n", (i + 1), test_chord.toString().c_str());
+    //     csound::Chord eop = test_chord.eOP();
+    //     for (int sector = 0; sector < test_chord.voices(); ++sector) {
+    //         bool contains = eop.is_in_rpt_sector(sector, 12.);
+    //         if (contains) {
+    //             std::cerr << "  sector " << sector << " contains chord." << std::endl;
+    //             std::cerr << "    chord in OP     " << eop.toString() << std::endl;
+    //                csound::Chord inverted = eop.reflect(sector);
+    //             std::cerr << "    inverted        " << inverted.toString() << std::endl;
+    //             csound::Chord re_inverted = inverted.eI(sector);
+    //             std::cerr << "    re-inverted     " << re_inverted.toString() << std::endl;
+    //             if (eop == re_inverted) {
+    //                 std::cerr << "    inversion is consistent." << std::endl;
+    //             } else {
+    //                 std::cerr << "    inversion is not consistent." << std::endl;
+    //             }
+    //         } else {
+    //             std::cerr << "  sector " << sector << " does not contain chord." << std::endl;
+    //         }
+    //     }
+    //     test_chord = test_chord.T(1.);
+    // }
     exit(0);
 
     std::vector<csound::Chord> science_optts_3;
