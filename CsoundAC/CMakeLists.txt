@@ -12,18 +12,83 @@ set(CMAKE_INCLUDE_CURRENT_DIR "On")
 option(BUILD_CSOUND_AC "Build CsoundAC extension module for Csound with algorithmic composition (needs C++ interface)" ON)
 option(BUILD_CSOUND_AC_PYTHON_INTERFACE "Build the Csound AC Python interface" ON)
 
+# Prefer local dependencies (from repo/build tree) when available.
+# Canonical Csound is handled in the top-level CMakeLists.txt and is not overridden here.
+option(CSOUND_AC_PREFER_LOCAL_DEPS "Prefer dependencies from the repo/build tree when available (except Csound)." ON)
+
 find_package(SWIG)
 
 # /opt/homebrew/Cellar/python@3.12/3.12.7_1/Frameworks/Python.framework/Versions/3.12/lib/libpython3.12.dylib -> ../Python)
-find_package (Python3 3.12 EXACT COMPONENTS Interpreter Development)
+find_package(Python3 3.12 EXACT COMPONENTS Interpreter Development)
 message(STATUS "Python libraries:  ${PYTHONLIBS_VERSION_STRING}")
 
-# Prefer the static MusicXML library as there is no system package for it.
+# Ensure LIBSNDFILE_LIBRARY is a resolvable library path (not just '-lsndfile').
+# The top-level CMake provides LIBSNDFILE_LIBRARY_DIRS when discovered via pkg-config.
+if(LIBSNDFILE_LIBRARY MATCHES "^-l.+" OR LIBSNDFILE_LIBRARY STREQUAL "sndfile" OR LIBSNDFILE_LIBRARY STREQUAL "-lsndfile")
+    set(_libsndfile_resolved "")
+    if(LIBSNDFILE_LIBRARY_DIRS)
+        find_library(_libsndfile_resolved
+            NAMES sndfile libsndfile
+            HINTS ${LIBSNDFILE_LIBRARY_DIRS}
+            NO_DEFAULT_PATH
+        )
+    endif()
+    if(NOT _libsndfile_resolved)
+        find_library(_libsndfile_resolved NAMES sndfile libsndfile)
+    endif()
+    if(_libsndfile_resolved)
+        set(LIBSNDFILE_LIBRARY "${_libsndfile_resolved}")
+    endif()
+endif()
+message(STATUS "LIBSNDFILE_LIBRARY (resolved): ${LIBSNDFILE_LIBRARY}")
 
-set(${MUSICXML2_LIBRARY} "${CMAKE_SOURCE_DIR}/dependencies/build/lib/libmusicxml2.a")
+# Prefer the static MusicXML library (built from the repo subproject).
+#
+# IMPORTANT: When you link a target to a *file path* that does not exist at build
+# start, Make may error with "No rule to make target ...libmusicxml2.a".
+# Therefore, if the libmusicxml subproject exposes a CMake target, link to the
+# target instead of a path. If no target is available, fall back to a path under
+# the repo's in-tree libmusicxml build directory.
+set(MUSICXML2_LIBRARY "")
+set(MUSICXML2_TARGET "")
+
+# If the libmusicxml subproject provides a target, prefer it.
+foreach(tgt IN ITEMS libmusicxml2 musicxml2 libmusicxml musicxml)
+    if(TARGET ${tgt})
+        set(MUSICXML2_TARGET "${tgt}")
+        break()
+    endif()
+endforeach()
+
+if(NOT MUSICXML2_TARGET)
+    # Fall back to a static library path in the repo/build tree.
+    set(_musicxml2_candidates
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.a"
+        "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.a"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/libmusicxml2.a"
+        "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/libmusicxml2.a"
+    )
+
+    foreach(p IN LISTS _musicxml2_candidates)
+        if(EXISTS "${p}")
+            set(MUSICXML2_LIBRARY "${p}")
+            break()
+        endif()
+    endforeach()
+
+    # If it still doesn't exist at configure time, keep the canonical in-tree output
+    # path so that a later build of the subproject can satisfy it.
+    if(NOT MUSICXML2_LIBRARY)
+        set(MUSICXML2_LIBRARY "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.a")
+    endif()
+endif()
+
+message(STATUS "MUSICXML2_TARGET:  ${MUSICXML2_TARGET}")
+message(STATUS "MUSICXML2_LIBRARY: ${MUSICXML2_LIBRARY}")
 
 list(APPEND CMAKE_SWIG_FLAGS
-"-I${CMAKE_SOURCE_DIR}/dependencies/csound/interfaces")
+    "-I${CMAKE_SOURCE_DIR}/dependencies/csound/interfaces"
+)
 
 if(BUILD_CSOUND_AC)
     set(libcsoundac_SRCS
@@ -63,15 +128,21 @@ if(BUILD_CSOUND_AC)
         ../dependencies/portsmf/allegrowr.cpp
         ../dependencies/portsmf/mfmidi.cpp
         ../dependencies/portsmf/strparse.cpp
-        trace.cpp)
+        trace.cpp
+    )
     message(STATUS "libcsoundac_SRCS: " ${libcsoundac_SRCS})
 
-    if (MSVC)
+    if(MSVC)
         add_library(libCsoundAC STATIC ${libcsoundac_SRCS})
     else()
         add_library(libCsoundAC SHARED ${libcsoundac_SRCS})
     endif()
-    
+
+    # Ensure the libmusicxml build happens before we try to link against it.
+    if(MUSICXML2_TARGET)
+        add_dependencies(libCsoundAC ${MUSICXML2_TARGET})
+    endif()
+
     target_include_directories(libCsoundAC SYSTEM PRIVATE ${Python3_INCLUDE_DIRS})
     target_include_directories(libCsoundAC SYSTEM PRIVATE ${CSOUND_INCLUDE_DIRS})
     target_include_directories(libCsoundAC PRIVATE ${EIGEN3_INCLUDE_DIRS})
@@ -79,7 +150,7 @@ if(BUILD_CSOUND_AC)
     target_include_directories(libCsoundAC PRIVATE ../dependencies/portsmf)
     target_include_directories(libCsoundAC PRIVATE ../dependencies/stb)
     target_include_directories(libCsoundAC PRIVATE ../dependencies/CImg)
-    if (MUSICXML_FOUND)
+    if(MUSICXML_FOUND)
         target_include_directories(libCsoundAC PRIVATE ${MUSICXML_INCLUDE_DIRS})
     endif()
 
@@ -88,9 +159,10 @@ if(BUILD_CSOUND_AC)
         OUTPUT_NAME CsoundAC
         RUNTIME_OUTPUT_DIRECTORY "${BUILD_BIN_DIR}"
         LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
-        ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}")
+        ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
+    )
 
-    target_link_libraries(libCsoundAC PRIVATE ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY})
+    target_link_libraries(libCsoundAC PRIVATE ${MUSICXML2_TARGET} ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY})
 
     # Standalone test program (from: c++ ChordSpaceTest.cpp ... -o ChordSpaceTest)
     # User requested target name: ChordSpaceTests; adjust OUTPUT_NAME if desired.
@@ -99,15 +171,15 @@ if(BUILD_CSOUND_AC)
     target_include_directories(ChordSpaceTests SYSTEM PRIVATE ${CSOUND_INCLUDE_DIRS})
     target_include_directories(ChordSpaceTests PRIVATE ${EIGEN3_INCLUDE_DIRS})
     target_include_directories(ChordSpaceTests PRIVATE ${Boost_INCLUDE_DIR})
-    if (MUSICXML_FOUND)
+    if(MUSICXML_FOUND)
         target_include_directories(ChordSpaceTests PRIVATE ${MUSICXML_INCLUDE_DIRS})
     endif()
 
     target_compile_options(ChordSpaceTests PRIVATE -O3 -g -Wno-write-strings)
-    target_link_libraries(ChordSpaceTests PRIVATE libCsoundAC ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY})
- 
+    target_link_libraries(ChordSpaceTests PRIVATE libCsoundAC ${MUSICXML2_TARGET} ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY})
+
     if(WIN32) # for MSYS2/mingw64
-        #  mingw64 needs this to create a valid .pyd.
+        # mingw64 needs this to create a valid .pyd.
         if(NOT MSVC AND CMAKE_SIZEOF_VOID_P EQUAL 8)
             target_compile_definitions(libCsoundAC PRIVATE -DMS_WIN64)
         endif()
@@ -116,16 +188,19 @@ if(BUILD_CSOUND_AC)
 
     if(HAVE_UNISTD_H)
         set_target_properties(libCsoundAC PROPERTIES
-        COMPILE_FLAGS "-DHAVE_UNISTD_H")
+            COMPILE_FLAGS "-DHAVE_UNISTD_H"
+        )
     endif()
 
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIRECTORY}"
         DESTINATION "include/csound"
-        FILES_MATCHING PATTERN "*.hpp")
+        FILES_MATCHING PATTERN "*.hpp"
+    )
 
     install(TARGETS libCsoundAC
         LIBRARY DESTINATION "${LIBRARY_INSTALL_DIR}"
-        ARCHIVE DESTINATION "${LIBRARY_INSTALL_DIR}")
+        ARCHIVE DESTINATION "${LIBRARY_INSTALL_DIR}"
+    )
 
     if(SWIG_FOUND)
         message(STATUS "SWIG_USE_FILE: " ${SWIG_USE_FILE})
@@ -141,62 +216,74 @@ if(BUILD_CSOUND_AC)
         message(STATUS "Python3_SITEARCH: ${Python3_SITEARCH}")
         message(STATUS "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
         include_directories(${Python3_INCLUDE_DIRS})
-        # Had: 	    SWIG_FLAGS "-threads"
+        # Had: SWIG_FLAGS "-threads"
         set_source_files_properties(CsoundAC.i
             PROPERTIES CPLUSPLUS ON
             SWIG_USE_TARGET_INCLUDE_DIRECTORIES ON
-            SWIG_MODULE_NAME CsoundAC)
-        swig_add_library(CsoundAC 
-            LANGUAGE python 
-            SOURCES CsoundAC.i)
-        swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
+            SWIG_MODULE_NAME CsoundAC
+        )
+        swig_add_library(CsoundAC
+            LANGUAGE python
+            SOURCES CsoundAC.i
+        )
+        swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_TARGET} ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
         target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} PRIVATE ${EIGEN3_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${CSOUND_SOURCE_HOME}/include)
         set(SWIG_USE_TARGET_INCLUDE_DIRECTORIES True)
         target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/stb ${CMAKE_SOURCE_DIR}/dependencies/CImg ${LIBSNDFILE_INCLUDE_DIR})
         set_property(TARGET ${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTY SWIG_INCLUDE_DIRECTORIES ${EIGEN3_INCLUDE_DIRS} ${Boost_INCLUDE_DIR})
- 
+
         if(APPLE)
             set_target_properties(${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTIES
-                LINK_FLAGS "-undefined dynamic_lookup")
+                LINK_FLAGS "-undefined dynamic_lookup"
+            )
         endif()
 
         target_include_directories(libCsoundAC SYSTEM PRIVATE . ${CSOUND_INCLUDE_PATH})
-        
+
         set_target_properties(${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
             LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
-            ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}")
+            ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
+        )
 
         message(STATUS "SWIG_MODULE_CsoundAC_REAL_NAME: ${SWIG_MODULE_CsoundAC_REAL_NAME}")
 
         # For make install.
-        
+
         install(TARGETS ${SWIG_MODULE_CsoundAC_REAL_NAME}
-            LIBRARY DESTINATION "${Python3_SITEARCH}")
-            
+            LIBRARY DESTINATION "${Python3_SITEARCH}"
+        )
+
         install(FILES "${BUILD_DIR}/CsoundAC.py"
-            DESTINATION "${Python3_SITEARCH}")
-            
+            DESTINATION "${Python3_SITEARCH}"
+        )
+
         install(FILES "${CMAKE_SOURCE_DIR}/silencio/python/GeneralizedContextualGroup.py"
-            DESTINATION "${Python3_SITEARCH}")
+            DESTINATION "${Python3_SITEARCH}"
+        )
 
         install(FILES "${CMAKE_SOURCE_DIR}/reaper/ac_reaper.py"
-            DESTINATION "${Python3_SITEARCH}")
+            DESTINATION "${Python3_SITEARCH}"
+        )
 
         # For CPack to ZIP.
 
         install(TARGETS "${SWIG_MODULE_CsoundAC_REAL_NAME}"
-            DESTINATION "lib/python/site-packages")
-            
+            DESTINATION "lib/python/site-packages"
+        )
+
         install(FILES "${BUILD_DIR}/CsoundAC.py"
-            DESTINATION "lib/python/site-packages")
-            
+            DESTINATION "lib/python/site-packages"
+        )
+
         install(FILES "${CMAKE_SOURCE_DIR}/silencio/python/GeneralizedContextualGroup.py"
-            DESTINATION "lib/python/site-packages")
+            DESTINATION "lib/python/site-packages"
+        )
 
         install(FILES "${CMAKE_SOURCE_DIR}/reaper/ac_reaper.py"
-            DESTINATION "lib/python/site-packages")
-     
+            DESTINATION "lib/python/site-packages"
+        )
+
     endif()
 
 endif()
