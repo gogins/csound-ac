@@ -186,27 +186,55 @@ if(LIBSNDFILE_INCLUDE_DIR AND LIBSNDFILE_LIBRARY)
     message(STATUS "  LIBSNDFILE_LIBRARY:     ${LIBSNDFILE_LIBRARY}")
 else()
     pkg_check_modules(SNDFILE REQUIRED sndfile)
+
     # Preserve original variable names used by subprojects, but ensure we end up
-    # with a real library *path* (not just '-lsndfile'), so link lines work on macOS.
+    # with a real library *path* (not just 'sndfile' / '-lsndfile'), so link lines work on macOS.
     set(LIBSNDFILE_INCLUDE_DIR "${SNDFILE_INCLUDE_DIRS}")
     set(LIBSNDFILE_LIBRARY_DIRS "${SNDFILE_LIBRARY_DIRS}")
 
+    # Homebrew sometimes returns "sndfile" (not "-lsndfile", not a path).
+    # Resolve explicitly using the directories we know contain the actual files.
+    set(LIBSNDFILE_LIBRARY "")
     set(_libsndfile_resolved "")
-    if(LIBSNDFILE_LIBRARY_DIRS)
+
+    # Add stable Homebrew paths as additional fallbacks.
+    list(APPEND LIBSNDFILE_LIBRARY_DIRS
+        "/opt/homebrew/opt/libsndfile/lib"
+        "/opt/homebrew/lib"
+    )
+
+    # First: explicit filename checks (works with your actual Homebrew layout).
+    foreach(_d IN LISTS LIBSNDFILE_LIBRARY_DIRS)
+        if(EXISTS "${_d}/libsndfile.dylib")
+            set(_libsndfile_resolved "${_d}/libsndfile.dylib")
+            break()
+        endif()
+        if(EXISTS "${_d}/libsndfile.1.dylib")
+            set(_libsndfile_resolved "${_d}/libsndfile.1.dylib")
+            break()
+        endif()
+        if(EXISTS "${_d}/libsndfile.a")
+            set(_libsndfile_resolved "${_d}/libsndfile.a")
+            break()
+        endif()
+    endforeach()
+
+    # Second: find_library fallback.
+    if(NOT _libsndfile_resolved)
         find_library(_libsndfile_resolved
             NAMES sndfile libsndfile
-            HINTS ${LIBSNDFILE_LIBRARY_DIRS}
-            NO_DEFAULT_PATH
+            PATHS ${LIBSNDFILE_LIBRARY_DIRS}
         )
     endif()
-    if(NOT _libsndfile_resolved)
-        find_library(_libsndfile_resolved NAMES sndfile libsndfile)
-    endif()
+
     if(_libsndfile_resolved)
         set(LIBSNDFILE_LIBRARY "${_libsndfile_resolved}")
     else()
-        # Final fallback: preserve pkg-config's libs, even if that is '-lsndfile'.
-    set(LIBSNDFILE_LIBRARY "${SNDFILE_LIBRARIES}")
+        message(FATAL_ERROR
+            "libsndfile not found as a file path. "
+            "pkg-config libs='${SNDFILE_LIBRARIES}', libdirs='${SNDFILE_LIBRARY_DIRS}'. "
+            "Tried also /opt/homebrew/opt/libsndfile/lib and /opt/homebrew/lib."
+        )
     endif()
 
     message(STATUS "[PKG-CONFIG] Using libsndfile from:")
@@ -360,5 +388,13 @@ install(FILES "silencio/README.md"
 install(FILES "playpen/README.md"
     DESTINATION share/doc/${CPACK_PACKAGE_NAME}
     RENAME "README-PLAYPEN.md")
+
+# Make CPack stage installation into the package directory via DESTDIR,
+# instead of installing into the real CMAKE_INSTALL_PREFIX during packaging.
+set(CPACK_SET_DESTDIR ON)
+
+# Package contents should be rooted at the staging area (not at /opt/homebrew).
+# This makes the ZIP contain "csound-ac/..." rather than trying to write into /opt/homebrew.
+set(CPACK_PACKAGING_INSTALL_PREFIX "csound-ac")
 
 include(CPack)
