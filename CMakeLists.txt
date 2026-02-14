@@ -17,11 +17,11 @@ include(ExternalProject)
 
 set(CMAKE_CXX_STANDARD 17)
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "MSVC")
-add_compile_options(/WX-)
+    add_compile_options(/WX-)
 else()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wno-deprecated-declarations -Wno-sign-compare -Wno-unknown-pragmas -Wno-misleading-indentation -Wno-writable-strings")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
-# add_compile_options(-Wno-c++11-narrowing)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wno-deprecated-declarations -Wno-sign-compare -Wno-unknown-pragmas -Wno-misleading-indentation -Wno-writable-strings")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+    # add_compile_options(-Wno-c++11-narrowing)
 endif()
 
 
@@ -67,29 +67,177 @@ message(STATUS "PLUGIN_INSTALL_DIR: ${PLUGIN_INSTALL_DIR}")
 option(USE_LRINT "Use lrint/lrintf for converting floating point values to integers." ON)
 option(USE_CURL "Use CURL library" ON)
 
-# All dependencies are to be located from here.
+# ------------------------------------------------------------------------------
+# Dependency policy
+#
+# - Csound is assumed to be canonically installed and is NOT searched locally.
+# - For all other dependencies, if headers/libs exist in the repo or the current
+#   build tree, those are preferred and used in preference to any system copies.
+# ------------------------------------------------------------------------------
 
-# Local TARGETS are not PACKAGES!
-# Locally installed packages must be searched locally first!
-# Locally built packages must be searched locally first!
+option(CSOUND_AC_PREFER_LOCAL_DEPS "Prefer dependencies from the repo/build tree when available (except Csound)." ON)
 
-# First we locate all system packages, these are used to make the Ubuntu
-# csound-ac package, even though local packages may be used for other
-# targets.
+set(CSOUND_AC_LOCAL_PREFIXES
+    "${CMAKE_BINARY_DIR}"
+    "${CMAKE_BINARY_DIR}/local"
+    "${CMAKE_SOURCE_DIR}"
+    "${CMAKE_SOURCE_DIR}/local"
+    "${CMAKE_SOURCE_DIR}/local-linux"
+    "${CMAKE_SOURCE_DIR}/dependencies"
+)
+
+# Make CMake package discovery prefer local prefixes (except where NO_DEFAULT_PATH is used).
+if(CSOUND_AC_PREFER_LOCAL_DEPS)
+    foreach(prefix IN LISTS CSOUND_AC_LOCAL_PREFIXES)
+        if(EXISTS "${prefix}")
+            list(PREPEND CMAKE_PREFIX_PATH "${prefix}")
+        endif()
+    endforeach()
+endif()
+
+# Make pkg-config prefer local .pc files first.
+if(CSOUND_AC_PREFER_LOCAL_DEPS)
+    set(_pc_paths "")
+    foreach(prefix IN LISTS CSOUND_AC_LOCAL_PREFIXES)
+        list(APPEND _pc_paths
+            "${prefix}/lib/pkgconfig"
+            "${prefix}/lib64/pkgconfig"
+            "${prefix}/share/pkgconfig"
+        )
+    endforeach()
+    list(JOIN _pc_paths ":" _pc_paths_joined)
+    if(DEFINED ENV{PKG_CONFIG_PATH} AND NOT "$ENV{PKG_CONFIG_PATH}" STREQUAL "")
+        set(ENV{PKG_CONFIG_PATH} "${_pc_paths_joined}:$ENV{PKG_CONFIG_PATH}")
+    else()
+        set(ENV{PKG_CONFIG_PATH} "${_pc_paths_joined}")
+    endif()
+endif()
+
 message("CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
-set(CMAKE_PREFIX_PATH /usr/local)
+
+# ------------------------------------------------------------------------------
+# Canonical Csound (hardcoded location preserved)
+# ------------------------------------------------------------------------------
+
+# Keep this as a canonical installed Csound; do not attempt to pick up local builds.
 find_package(Csound REQUIRED)
 message("CSOUND_LIBRARIES: ${CSOUND_LIBRARIES}")
-# SHOULD find: CsoundLib64.framework/Versions/6.0/Headers/
 message("CSOUND_INCLUDE_DIRS: ${CSOUND_INCLUDE_DIRS}")
 message("CSOUND_INCLUDE_PATH: ${CSOUND_INCLUDE_PATH}")
+
+# SHOULD find: CsoundLib64.framework/Versions/6.0/Headers/
 include_directories("/Library/Frameworks/CsoundLib64.framework/Versions/6.0/Headers/")
+
+# ------------------------------------------------------------------------------
+# Other dependencies (prefer local copies if present)
+# ------------------------------------------------------------------------------
+
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(SNDFILE REQUIRED sndfile)
+
+# libsndfile: prefer locally provided headers/libs if present.
+set(LIBSNDFILE_INCLUDE_DIR "")
+set(LIBSNDFILE_LIBRARY "")
+
+if(CSOUND_AC_PREFER_LOCAL_DEPS)
+    set(_sndfile_include_candidates
+        "${CMAKE_SOURCE_DIR}/dependencies/libsndfile/include"
+        "${CMAKE_SOURCE_DIR}/dependencies/sndfile/include"
+        "${CMAKE_BINARY_DIR}/dependencies/libsndfile/include"
+        "${CMAKE_BINARY_DIR}/dependencies/sndfile/include"
+        "${CMAKE_SOURCE_DIR}/local/include"
+        "${CMAKE_BINARY_DIR}/local/include"
+    )
+    foreach(dir IN LISTS _sndfile_include_candidates)
+        if(EXISTS "${dir}/sndfile.h")
+            set(LIBSNDFILE_INCLUDE_DIR "${dir}")
+            break()
+        endif()
+    endforeach()
+
+    set(_sndfile_lib_candidates
+        "${CMAKE_SOURCE_DIR}/dependencies/libsndfile/lib"
+        "${CMAKE_SOURCE_DIR}/dependencies/libsndfile/lib64"
+        "${CMAKE_BINARY_DIR}/dependencies/libsndfile/lib"
+        "${CMAKE_BINARY_DIR}/dependencies/libsndfile/lib64"
+        "${CMAKE_SOURCE_DIR}/local/lib"
+        "${CMAKE_SOURCE_DIR}/local/lib64"
+        "${CMAKE_BINARY_DIR}/local/lib"
+        "${CMAKE_BINARY_DIR}/local/lib64"
+    )
+    foreach(dir IN LISTS _sndfile_lib_candidates)
+        if(EXISTS "${dir}/libsndfile.a")
+            set(LIBSNDFILE_LIBRARY "${dir}/libsndfile.a")
+            break()
+        endif()
+        if(EXISTS "${dir}/libsndfile.dylib")
+            set(LIBSNDFILE_LIBRARY "${dir}/libsndfile.dylib")
+            break()
+        endif()
+        if(EXISTS "${dir}/libsndfile.so")
+            set(LIBSNDFILE_LIBRARY "${dir}/libsndfile.so")
+            break()
+        endif()
+    endforeach()
+endif()
+
+if(LIBSNDFILE_INCLUDE_DIR AND LIBSNDFILE_LIBRARY)
+    message(STATUS "[LOCAL] Using libsndfile from:")
+    message(STATUS "  LIBSNDFILE_INCLUDE_DIR: ${LIBSNDFILE_INCLUDE_DIR}")
+    message(STATUS "  LIBSNDFILE_LIBRARY:     ${LIBSNDFILE_LIBRARY}")
+else()
+    pkg_check_modules(SNDFILE REQUIRED sndfile)
+    # Preserve original variable names used by subprojects, but ensure we end up
+    # with a real library *path* (not just '-lsndfile'), so link lines work on macOS.
+    set(LIBSNDFILE_INCLUDE_DIR "${SNDFILE_INCLUDE_DIRS}")
+    set(LIBSNDFILE_LIBRARY_DIRS "${SNDFILE_LIBRARY_DIRS}")
+
+    set(_libsndfile_resolved "")
+    if(LIBSNDFILE_LIBRARY_DIRS)
+        find_library(_libsndfile_resolved
+            NAMES sndfile libsndfile
+            HINTS ${LIBSNDFILE_LIBRARY_DIRS}
+            NO_DEFAULT_PATH
+        )
+    endif()
+    if(NOT _libsndfile_resolved)
+        find_library(_libsndfile_resolved NAMES sndfile libsndfile)
+    endif()
+    if(_libsndfile_resolved)
+        set(LIBSNDFILE_LIBRARY "${_libsndfile_resolved}")
+    else()
+        # Final fallback: preserve pkg-config's libs, even if that is '-lsndfile'.
+    set(LIBSNDFILE_LIBRARY "${SNDFILE_LIBRARIES}")
+    endif()
+
+    message(STATUS "[PKG-CONFIG] Using libsndfile from:")
+    message(STATUS "  LIBSNDFILE_INCLUDE_DIR: ${LIBSNDFILE_INCLUDE_DIR}")
+    message(STATUS "  LIBSNDFILE_LIBRARY:     ${LIBSNDFILE_LIBRARY}")
+    message(STATUS "  LIBSNDFILE_LIBRARY_DIRS:${LIBSNDFILE_LIBRARY_DIRS}")
+endif()
+
 set(EIGEN3_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/dependencies/eigen")
 message("[DEBUG] EIGEN3_INCLUDE_DIRS: ${EIGEN3_INCLUDE_DIRS}")
+
+# Boost: prefer local prefix if headers exist there; otherwise use normal search.
+if(CSOUND_AC_PREFER_LOCAL_DEPS)
+    set(_boost_root "")
+    foreach(prefix IN LISTS CSOUND_AC_LOCAL_PREFIXES)
+        if(EXISTS "${prefix}/include/boost")
+            set(_boost_root "${prefix}")
+            break()
+        endif()
+    endforeach()
+
+    if(_boost_root)
+        message(STATUS "[LOCAL] Using Boost from prefix: ${_boost_root}")
+        set(BOOST_ROOT "${_boost_root}")
+        set(Boost_NO_SYSTEM_PATHS ON)
+    endif()
+endif()
+
 find_package(Boost 1.65 REQUIRED)
 message("[DEBUG] Boost_INCLUDE_DIR: ${Boost_INCLUDE_DIR}")
+
 find_package(Python3 3.12 EXACT COMPONENTS Interpreter Development)
 find_package(SWIG)
 include(UseSWIG)
@@ -98,11 +246,13 @@ find_package(SWIG)
 if(LIBSNDFILE_INCLUDE_DIR)
     include_directories("${LIBSNDFILE_INCLUDE_DIR}")
 endif()
-# Boost conflicts with GitHub's Windows runner, which #defines 
+
+# Boost conflicts with GitHub's Windows runner, which #defines
 # both `WIN32` and `linux`.
 if(UNISTD_WIN32_INCLUDE_DIR)
     include_directories("${UNISTD_WIN32_INCLUDE_DIR}")
 endif()
+
 include_directories("${CSOUND_INCLUDE_DIR}")
 include_directories("${CSOUND_INCLUDE_DIR}/csound")
 include_directories("${CSOUND_SOURCE_HOME}/interfaces")
@@ -118,7 +268,7 @@ include_directories("${CSOUND_SOURCE_HOME}/interfaces")
 function(check_deps option)
     if(${option})
         set(i 1)
-        while( ${i} LESS ${ARGC} )
+        while(${i} LESS ${ARGC})
             set(dep ${ARGV${i}})
             if(NOT ${dep})
                 if(FAIL_MISSING)
@@ -145,13 +295,13 @@ add_subdirectory(dependencies/libmusicxml/build)
 add_subdirectory(CsoundAC)
 
 if(GENERATE_DOCUMENTATION)
-message("Generating documentation.")
-add_custom_target(doxygen_reference
-    ALL
-    COMMAND ./latex.sh
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/doc")
+    message("Generating documentation.")
+    add_custom_target(doxygen_reference
+        ALL
+        COMMAND ./latex.sh
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/doc")
 else()
-message("Not generating documentation.")
+    message("Not generating documentation.")
 endif()
 
 # These are the real targets: the packages.
@@ -171,18 +321,18 @@ install(FILES ${CMAKE_SOURCE_DIR}/copyright.txt
     DESTINATION share/doc/${CPACK_PACKAGE_NAME}
     RENAME copyright)
 if(GENERATE_DOCUMENTATION)
-install(FILES ${CMAKE_SOURCE_DIR}/doc/latex/csound-ac.pdf
-    DESTINATION share/doc/${CPACK_PACKAGE_NAME})
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/doc/html
-    DESTINATION share/doc/${CPACK_PACKAGE_NAME})
+    install(FILES ${CMAKE_SOURCE_DIR}/doc/latex/csound-ac.pdf
+        DESTINATION share/doc/${CPACK_PACKAGE_NAME})
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/doc/html
+        DESTINATION share/doc/${CPACK_PACKAGE_NAME})
 endif()
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/patches
     DESTINATION share/doc/${CPACK_PACKAGE_NAME}/patches)
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/playpen
     DESTINATION share/doc/${CPACK_PACKAGE_NAME}/playpen)
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/user-guide/" 
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/user-guide/"
     DESTINATION  share/doc/${CPACK_PACKAGE_NAME}/user-guide
-    FILES_MATCHING 
+    FILES_MATCHING
     PATTERN "*.py"
     PATTERN "44025833484_70440d3a59_o.jpg"
     PATTERN "*.pdf")
@@ -211,4 +361,4 @@ install(FILES "playpen/README.md"
     DESTINATION share/doc/${CPACK_PACKAGE_NAME}
     RENAME "README-PLAYPEN.md")
 
-include (CPack)
+include(CPack)
