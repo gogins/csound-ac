@@ -608,6 +608,31 @@ int main(int argc, char **argv) {
     csound::Chord chordForName_ = csound::chordForName("CM9");
     csound::System::message("chordForName(%s): %s\n", "CM9", chordForName_.information().c_str());
 
+    std::cerr << "Testing inversions in OP...\n" << std::endl;
+    csound::Chord test_chord = csound::chordForName("CM").eOP();
+    for (int i = 0; i < 12; ++i) {
+        test_chord = test_chord.T(1).eOP();
+        std::fprintf(stderr, "Chord to invert: %2d %s\n", (i + 1), test_chord.toString().c_str());
+        for (int sector = 0; sector < chord.voices(); ++sector) {
+            bool contains = test_chord.is_in_rpt_sector(sector, 12.);
+            if (contains) {
+                std::cerr << "  sector " << sector << " contains chord." << std::endl;
+                csound::Chord inverted = test_chord.eI(sector);
+                std::cerr << "  inverted    " << inverted.toString() << std::endl;
+                csound::Chord re_inverted = inverted.eI(sector);
+                std::cerr << "  re-inverted " << re_inverted.toString() << std::endl;
+                if (test_chord == re_inverted) {
+                    std::cerr << "  inversion is consistent." << std::endl;
+                } else {
+                    std::cerr << "  inversion is not consistent." << std::endl;
+                }
+            } else {
+                std::cerr << "  sector" << sector << " does not contain chord." << std::endl;
+            }
+        }
+    }
+    exit(0);
+
     std::vector<csound::Chord> science_optts_3;
     science_optts_3.push_back(csound::Chord({0., 0., 0.}));
     science_optts_3.push_back(csound::Chord({0., 0., 1.}));
