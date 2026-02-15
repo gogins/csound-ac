@@ -707,7 +707,8 @@ public:
      * Inverts the chord by another chord that is on the unison diagonal, by
      * default the origin.
      * 
-     * NOTE: Does NOT return an equivalent under any requivalence relation.
+     * NOTE: Does NOT return an equivalent under any requivalence relation; 
+     * not to be confused with reflection in the inversion flat.
      */
     virtual Chord I(double center = 0.0) const;
     /**
@@ -1198,11 +1199,11 @@ public:
     /**
      * Returns a copy of the chord 'inverted' in the musician's sense, i.e. 
      * revoiced by cyclically permuting the chord and adding (or subtracting) 
-     * an octave to the highest (or lowest) voice. The revoicing will move the 
-     * chord up or down in pitch. A positive direction is the same as a 
-     * musician's first inversion, second inversion, etc.
+     * an octave (or other interval) to the highest (or lowest) voice. The 
+     * revoicing will move the chord up or down in pitch. A positive direction 
+     * is the same as a  musician's first inversion, second inversion, etc.
      */
-    virtual Chord v(int direction = 1) const;
+    virtual Chord v(int direction = 1, double interval = OCTAVE()) const;
     /**
      * Returns the transpositions (as a Chord of directed intervals) that 
      * takes this chord to the destination chord.
@@ -3821,17 +3822,17 @@ inline std::vector<Chord> Chord::permutations() const {
     return permutations_;
 }
 
-inline Chord Chord::v(int direction) const {
+inline Chord Chord::v(int direction, double interval) const {
     Chord chord = *this;
     int head = voices() - 1;
     while (direction > 0) {
         chord = chord.cycle(1);
-        chord.setPitch(head, chord.getPitch(head) + OCTAVE());
+        chord.setPitch(head, chord.getPitch(head) + interval);
         direction--;
     }
     while (direction < 0) {
         chord = chord.cycle(-1);
-        chord.setPitch(0, chord.getPitch(0) + OCTAVE());
+        chord.setPitch(0, chord.getPitch(0) - interval);
         direction++;
     }
     return chord;

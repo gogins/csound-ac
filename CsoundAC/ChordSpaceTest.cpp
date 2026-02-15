@@ -613,13 +613,13 @@ int main(int argc, char **argv) {
     // and the whole system will be compromised. This test mimics what one 
     // expects to see in the demo program.
 
-    std::cerr << "Testing inversions in OP...\n\n";
+    std::cerr << "Testing reflections in OP...\n\n";
 
-    csound::Chord test_chord = csound::chordForName("CM").eOP();
+    csound::Chord test_chord = csound::chordForName("AM").eOP();
 
     for (int i = 0; i < 12; ++i)
     {
-        std::fprintf(stderr, "Chord to invert: %2d %s\n", (i + 1), test_chord.toString().c_str());
+        std::fprintf(stderr, "Chord to reflect: %2d %s\n", (i + 1), test_chord.toString().c_str());
 
         const csound::Chord eop = test_chord.eOP();
 
@@ -639,22 +639,22 @@ int main(int argc, char **argv) {
             std::cerr << "    chord in OP     " << eop.toString() << "\n";
 
             // 1) Pure reflection test (should always be an involution)
-            const csound::Chord inv_reflect = eop.reflect(s);
-            const csound::Chord reinv_reflect = inv_reflect.reflect(s);
+            const csound::Chord reflected = eop.reflect(s);
+            const csound::Chord re_reflected = reflected.reflect(s);
 
-            std::cerr << "    reflected       " << inv_reflect.toString() << "\n";
-            std::cerr << "    re-reflected    " << reinv_reflect.toString() << "\n";
+            std::cerr << "    reflected       " << reflected.toString() << "\n";
+            std::cerr << "    re-reflected    " << re_reflected.toString() << "\n";
 
-            if (reinv_reflect == eop)
+            if (re_reflected == eop)
             {
-                std::cerr << "    reflection is involutive.\n";
+                test(true, "    reflection is involutive.\n");
             }
             else
             {
-                std::cerr << "    reflection is NOT involutive.\n";
+                test(false, "    reflection is not involutive.\n");
             }
 
-            // 2) eI test (should also be involutive if it is implemented as “reflect if major”)
+            // NOTE: eI is “reflect if major”).
             const csound::Chord inv_eI = eop.eI(s);
             const csound::Chord reinv_eI = inv_eI.eI(s);
 
@@ -671,10 +671,8 @@ int main(int argc, char **argv) {
             }
         }
 
-        test_chord = test_chord.T(1.0);
+        test_chord = test_chord.T(-1.0);
     }
-
-
 
     // std::cerr << "Testing inversions in OP...\n" << std::endl;
     // csound::Chord test_chord = csound::chordForName("CM").eOP();
@@ -701,7 +699,6 @@ int main(int argc, char **argv) {
     //     }
     //     test_chord = test_chord.T(1.);
     // }
-    exit(0);
 
     std::vector<csound::Chord> science_optts_3;
     science_optts_3.push_back(csound::Chord({0., 0., 0.}));
