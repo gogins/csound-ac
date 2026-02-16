@@ -1218,12 +1218,13 @@ public:
      */
     virtual size_t voices() const;
     /**
-     * Returns all the 'inversions' (in the musician's sense) or octavewise 
-     * revoicings of the chord. The first voice is transposed up by one octave, 
-     * and all voices are then rotated "left" so the transposed voice becomes 
-     * the last voice.
+     * Returns all the 'inversions' (in the musician's sense) of this chord. 
+     * The first voice is transposed up (or down) by an interval (defaulting 
+     * to the octave), and all voices are then rotated "left" so the 
+     * transposed voice becomes the last voice. This procedure is iterated 
+     * until all 'inversions' have been generated.
      */
-    virtual std::vector<Chord> voicings() const;
+    virtual std::vector<Chord> voicings(int direction = 1, double interval = OCTAVE()) const;
 };
 
 /**
@@ -2136,39 +2137,51 @@ inline bool Chord::is_in_rpt_sector(int sector, double range) const
 
 inline bool Chord::is_in_rpt_sector_raw(int sector, double range) const
 {
-    if (sector < 0 || sector >= voices())
+    const int n = voices();
+    if (sector < 0 || sector >= n)
     {
         return false;
     }
 
-    // Raw assumes already in RP/T base.
-    const Chord &base = *this;
-
-    // Walk the cyclical region by octavewise revoicing.
-    Chord cand = base;
-    for (int s = 0; s < voices(); ++s)
+    auto squared_distance = [n](const Chord &a, const Chord &b) -> double
     {
-        // Boundary-inclusive: accept if equal within tolerance.
-        bool same = true;
-        for (int v = 0; v < voices(); ++v)
+        double sum = 0.0;
+        for (int v = 0; v < n; ++v)
         {
-            if (eq_tolerance(cand.getPitch(v), base.getPitch(v)) == false)
-            {
-                same = false;
-                break;
-            }
+            const double d = a.getPitch(v) - b.getPitch(v);
+            sum += d * d;
         }
+        return sum;
+    };
 
-        if (same)
-        {
-            return (s == sector);
-        }
+    // IMPORTANT: raw assumes already in RP/T base.
+    // Build the cyclic sector centers in the same RP/T slice.
+    Chord center_0 = center().eRP(range).eT();
 
-        // Step to next sector tile.
-        cand = cand.v(range).eT();
+    std::vector<Chord> centers;
+    centers.reserve(n);
+    centers.push_back(center_0);
+
+    for (int s = 1; s < n; ++s)
+    {
+        Chord next = centers.back().v(1, range).eT();
+        centers.push_back(next);
     }
 
-    return false;
+    const double d_sector = squared_distance(*this, centers[sector]);
+
+    // Membership (boundary-inclusive):
+    // sector is valid iff no other center is strictly closer than centers[sector].
+    for (int j = 0; j < n; ++j)
+    {
+        const double d_j = squared_distance(*this, centers[j]);
+        if (lt_tolerance(d_j, d_sector))
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
  
 inline bool Chord::is_in_minor_opti_sector(int opt_sector) const {
@@ -3848,12 +3861,12 @@ inline Chord Chord::v(int direction, double interval) const {
     return chord;
 }
 
-inline std::vector<Chord> Chord::voicings() const {
+inline std::vector<Chord> Chord::voicings(int direction, double interval) const {
     Chord chord = *this;
     std::vector<Chord> voicings;
     voicings.push_back(chord);
     for (size_t voicing = 1; voicing < voices(); voicing++) {
-        chord = chord.v();
+        chord = chord.v(direction, interval);
         voicings.push_back(chord);
     }
     return voicings;
