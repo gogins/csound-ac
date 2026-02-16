@@ -674,6 +674,65 @@ int main(int argc, char **argv) {
         test_chord = test_chord.T(-1.0);
     }
 
+    test_chord = csound::chordForName("AM7").eOP();
+
+    for (int i = 0; i < 12; ++i)
+    {
+        std::fprintf(stderr, "Chord to reflect: %2d %s\n", (i + 1), test_chord.toString().c_str());
+
+        const csound::Chord eop = test_chord.eOP();
+
+        // Sector membership comes from the chord itself (boundary-inclusive).
+        const std::vector<int> sectors = eop.opt_domain_sectors();
+
+        std::cerr << "  chord belongs to OPT sectors:";
+        for (int s : sectors)
+        {
+            std::cerr << " " << s;
+        }
+        std::cerr << "\n";
+
+        for (int s : sectors)
+        {
+            std::cerr << "  sector " << s << " contains chord.\n";
+            std::cerr << "    chord in OP     " << eop.toString() << "\n";
+
+            // 1) Pure reflection test (should always be an involution)
+            const csound::Chord reflected = eop.reflect(s);
+            const csound::Chord re_reflected = reflected.reflect(s);
+
+            std::cerr << "    reflected       " << reflected.toString() << "\n";
+            std::cerr << "    re-reflected    " << re_reflected.toString() << "\n";
+
+            if (re_reflected == eop)
+            {
+                test(true, "    reflection is involutive.\n");
+            }
+            else
+            {
+                test(false, "    reflection is not involutive.\n");
+            }
+
+            // NOTE: eI is “reflect if major”).
+            const csound::Chord inv_eI = eop.eI(s);
+            const csound::Chord reinv_eI = inv_eI.eI(s);
+
+            std::cerr << "    eI              " << inv_eI.toString() << "\n";
+            std::cerr << "    eI(eI(.))       " << reinv_eI.toString() << "\n";
+
+            if (reinv_eI == eop)
+            {
+                std::cerr << "    eI is involutive.\n";
+            }
+            else
+            {
+                std::cerr << "    eI is NOT involutive.\n";
+            }
+        }
+
+        test_chord = test_chord.T(-1.0);
+    }
+
     // std::cerr << "Testing inversions in OP...\n" << std::endl;
     // csound::Chord test_chord = csound::chordForName("CM").eOP();
     // for (int i = 0; i < 12; ++i) {
