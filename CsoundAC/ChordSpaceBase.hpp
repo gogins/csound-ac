@@ -702,7 +702,7 @@ public:
      * fundamental domains. This function returns a global collection of the hyperplane 
      * equations that define these inversion flats.
      */
-    static std::map<int, std::vector<HyperplaneEquation>> &hyperplane_equations_for_opt_sectors();
+    static std::map<int, std::vector<HyperplaneEquation>> &hyperplane_equations_for_dimensionalities();
     /**
      * Inverts the chord by another chord that is on the unison diagonal, by
      * default the origin.
@@ -1379,6 +1379,36 @@ struct SILENCE_PUBLIC HyperplaneEquation
 
         return eq_tolerance(distance, 0.0, 64, 512);
     }
+
+    std::string toString() const
+    {
+        std::string result;
+
+        auto append_vector = [&](const char* label, const Vector& v)
+        {
+            result += label;
+
+            const int rows = static_cast<int>(v.rows());
+            for (int i = 0; i < rows; ++i)
+            {
+                char buffer[64];
+                std::snprintf(buffer, sizeof(buffer), "%12.7f", v(i, 0));
+                result += buffer;
+
+                if (i < rows - 1)
+                {
+                    result += " ";
+                }
+            }
+        };
+
+        append_vector("unit_normal: ", unit_normal_vector);
+        result += " ";
+        append_vector(" apex: ", apex);
+
+        return result;
+    }
+
 
     Vector unit_normal_vector;
     Vector apex;
@@ -3137,45 +3167,25 @@ inline std::string Chord::information_sector(int opt_sector_) const {
     result.append(buffer);
     snprintf(buffer, sizeof(buffer), "OPTTI:       %3d => %s\n", iseOPTTI(1.0, opt_sector), print_chord(eOPTTI(opt_sector)).c_str());
     result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "               OPT sectors:\n");
+    snprintf(buffer, sizeof(buffer), "OPT sector:  %3d\n", opt_sector);
     result.append(buffer);
-    auto rpts = eRPTs(); 
-    auto &hyperplane_equations = hyperplane_equations_for_opt_sectors()[voices()];
-    for (auto i = 0; i < rpts.size(); ++i) {
-        auto rpt = rpts[i];
-        auto sector_text = print_opti_sectors(rpt);
-        snprintf(buffer, sizeof(buffer), "                    %s\n", print_chord(rpt).c_str());
-        result.append(buffer);
-    }
-    snprintf(buffer, sizeof(buffer), "               OPTT sectors:\n");
-    result.append(buffer);
-    auto rptts = eRPTTs(12.);
-    for (auto i = 0; i < rptts.size(); ++i) {
-        auto rptt = rptts[i];
-        auto sector_text = print_opti_sectors(rptt);
-        snprintf(buffer, sizeof(buffer), "                    %s\n", print_chord(rptt).c_str());
-        result.append(buffer);
-    }
-    snprintf(buffer, sizeof(buffer), "               Inversion flats (vector equations) and corresponding reflections of this:\n");
-    result.append(buffer);
-    auto sectors = opt_domain_sectors();
-    for (int i = 0, n = voices(); i < n; ++i) {
-        auto &hyperplane_equation = hyperplane_equations[i];
-        snprintf(buffer, sizeof(buffer), "OPT[%2d]  Normal:  [", i);
-        result.append(buffer);
-        for (int j = 0, m = hyperplane_equation.unit_normal_vector.rows(); j < m; ++j) {
-            snprintf(buffer, sizeof(buffer), " %12.7f", hyperplane_equation.unit_normal_vector(j, 0));
+    auto &hyperplane_equations = hyperplane_equations_for_dimensionalities()[voices()];
+    auto &opt_sectors = opt_sectors_for_dimensionalities()[voices()];
+    for (int sector = 0, n = opt_sectors.size(); sector < n; ++sector) {
+        for (int vertex = 0; vertex < voices(); ++vertex) {
+            snprintf(buffer, sizeof(buffer), "    vertex:  %3d:   %s\n", vertex, opt_sectors[sector][vertex].toString().c_str());
             result.append(buffer);
-        }
-        auto reflected = reflect_in_inversion_flat(*this, i);
+        }    
+        auto &hyperplane_equation = hyperplane_equations[sector];
+        auto text = hyperplane_equation.toString();
+        snprintf(buffer, sizeof(buffer), "    hyperplane equation:\n       %s\n", text.c_str());
+        result.append(buffer);
+        auto reflected = reflect_in_inversion_flat(*this, sector);
         auto sector_text = print_opti_sectors(reflected);
-        snprintf(buffer, sizeof(buffer), "         Reflection:%s\n", print_chord(reflected).c_str());
-        result.append(buffer);   
-    }    
-    result.append("\n");
-
-
-
+        snprintf(buffer, sizeof(buffer), "    reflect(*this): %s\n", print_chord(reflected).c_str());
+        result.append(buffer);      
+        result.append("\n");
+    }
     return result;
 }
 
@@ -5196,14 +5206,14 @@ inline std::map<int, std::vector<std::vector<Chord>>> &Chord::opti_simplexes_for
     return opti_simplexes_for_dimensionalities_;
 }
 
-inline std::map<int, std::vector<HyperplaneEquation>> &Chord::hyperplane_equations_for_opt_sectors() {
-    static std::map<int, std::vector<HyperplaneEquation>> hyperplane_equations_for_opt_sectors_;
+inline std::map<int, std::vector<HyperplaneEquation>> &Chord::hyperplane_equations_for_dimensionalities() {
+    static std::map<int, std::vector<HyperplaneEquation>> hyperplane_equations_for_dimensionalities_;
     Chord().ensure_sectors_initialized();
-    return hyperplane_equations_for_opt_sectors_;
+    return hyperplane_equations_for_dimensionalities_;
 }
 
 inline HyperplaneEquation Chord::hyperplane_equation(int opt_sector) const {
-    auto hyperplane_equations_for_dimensions = hyperplane_equations_for_opt_sectors();
+    auto hyperplane_equations_for_dimensions = hyperplane_equations_for_dimensionalities();
     auto hyperplane_equations = hyperplane_equations_for_dimensions[voices()];
     return hyperplane_equations[opt_sector];
 }
@@ -5251,13 +5261,13 @@ inline void Chord::initialize_sectors() {
     static bool initialized = false;
     if (initialized == false) {
         initialized = true;
-        //SCOPED_DEBUGGING scoped_debugging;
+        SCOPED_DEBUGGING scoped_debugging;
         auto cyclical_regions = cyclical_regions_for_dimensionalities();
-        auto &opt_domains_for_dimensions = opt_sectors_for_dimensionalities();
-        auto &opti_domains_for_dimensions = opti_sectors_for_dimensionalities();
-        auto &opt_simplexes_for_dimensions = opt_simplexes_for_dimensionalities();
-        auto &opti_simplexes_for_dimensions = opti_simplexes_for_dimensionalities();
-        auto &hyperplane_equations_for_dimensions = hyperplane_equations_for_opt_sectors();
+        auto &opt_sectors_for_dimensionalities_ = opt_sectors_for_dimensionalities();
+        auto &opti_sectors_for_dimensionalities_ = opti_sectors_for_dimensionalities();
+        auto &opt_simplexes_for_dimensionalities_ = opt_simplexes_for_dimensionalities();
+        auto &opti_simplexes_for_dimensionalities_ = opti_simplexes_for_dimensionalities();
+        auto &hyperplane_equations_for_dimensions = hyperplane_equations_for_dimensionalities();
         for (int dimensions_i = 3; dimensions_i < 12; ++dimensions_i) {
             CHORD_SPACE_DEBUG("cyclical region for %d dimensions:\n", dimensions_i);
             auto cyclical_region = cyclical_regions[dimensions_i];
@@ -5290,10 +5300,10 @@ inline void Chord::initialize_sectors() {
                 CHORD_SPACE_DEBUG("  cyclical[%2d][%2d]   %s\n", dimensions_i, dimension_i, cyclical_region[dimension_i].toString().c_str());
             }
             cyclical_regions[dimensions_i] = cyclical_region;
-            auto opt_domains = opt_domains_for_dimensions[dimensions_i];
-            auto opti_domains = opti_domains_for_dimensions[dimensions_i];
-            auto opt_simplexes = opt_simplexes_for_dimensions[dimensions_i];
-            auto opti_simplexes = opti_simplexes_for_dimensions[dimensions_i];
+            auto opt_domains = opt_sectors_for_dimensionalities_[dimensions_i];
+            auto opti_domains = opti_sectors_for_dimensionalities_[dimensions_i];
+            auto opt_simplexes = opt_simplexes_for_dimensionalities_[dimensions_i];
+            auto opti_simplexes = opti_simplexes_for_dimensionalities_[dimensions_i];
             auto hyperplane_equations = hyperplane_equations_for_dimensions[dimensions_i];
             for (int dimension_i = 0; dimension_i < dimensions_i; ++dimension_i) {
                 auto opt_domain = cyclical_regions[dimensions_i];
@@ -5353,10 +5363,10 @@ inline void Chord::initialize_sectors() {
                 }
                 hyperplane_equations.push_back(hyperplane_equation_);
             }
-            opt_domains_for_dimensions[dimensions_i] = opt_domains;
-            opti_domains_for_dimensions[dimensions_i] = opti_domains;
-            opt_simplexes_for_dimensions[dimensions_i] = opt_simplexes;
-            opti_simplexes_for_dimensions[dimensions_i] = opti_simplexes;
+            opt_sectors_for_dimensionalities_[dimensions_i] = opt_domains;
+            opti_sectors_for_dimensionalities_[dimensions_i] = opti_domains;
+            opt_simplexes_for_dimensionalities_[dimensions_i] = opt_simplexes;
+            opti_simplexes_for_dimensionalities_[dimensions_i] = opti_simplexes;
             hyperplane_equations_for_dimensions[dimensions_i] = hyperplane_equations;
         }
     }
@@ -5622,14 +5632,14 @@ inline SILENCE_PUBLIC bool is_in_full_simplex(const Chord &point,
 
 inline std::vector<int> Chord::opt_domain_sectors() const
 {
-    auto &opt_simplexes_for_dimensions = opt_simplexes_for_dimensionalities();
-    if (voices() < 0 || static_cast<size_t>(voices()) >= opt_simplexes_for_dimensions.size())
+    auto &opt_simplexes_for_dimensionalities_ = opt_simplexes_for_dimensionalities();
+    if (voices() < 0 || static_cast<size_t>(voices()) >= opt_simplexes_for_dimensionalities_.size())
     {
         std::fprintf(stderr, "opt_domain_sectors: voices()=%d out of range (size=%zu)\n",
-            voices(), opt_simplexes_for_dimensions.size());
+            voices(), opt_simplexes_for_dimensionalities_.size());
         std::abort();
     }
-    auto &opt_simplexes = opt_simplexes_for_dimensions[voices()];
+    auto &opt_simplexes = opt_simplexes_for_dimensionalities_[voices()];
 
     std::vector<int> result;
     auto ot = eOT();
@@ -5667,16 +5677,16 @@ inline std::vector<int> Chord::opt_domain_sectors() const
 
 inline std::vector<int> Chord::opti_domain_sectors() const
 {
-    auto &opti_simplexes_for_dimensions = opti_simplexes_for_dimensionalities();
+    auto &opti_simplexes_for_dimensionalities_ = opti_simplexes_for_dimensionalities();
 
-    if (voices() < 0 || static_cast<size_t>(voices()) >= opti_simplexes_for_dimensions.size())
+    if (voices() < 0 || static_cast<size_t>(voices()) >= opti_simplexes_for_dimensionalities_.size())
     {
         std::fprintf(stderr, "opti_domain_sectors: voices()=%d out of range (size=%zu)\n",
-            voices(), opti_simplexes_for_dimensions.size());
+            voices(), opti_simplexes_for_dimensionalities_.size());
         std::abort();
     }
 
-    auto &opti_simplexes = opti_simplexes_for_dimensions[voices()];
+    auto &opti_simplexes = opti_simplexes_for_dimensionalities_[voices()];
 
     std::vector<int> result;
     auto ot = eOT();
