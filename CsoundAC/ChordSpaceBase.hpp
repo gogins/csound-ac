@@ -3755,6 +3755,8 @@ inline Chord Chord::ceiling(double g) const {
 }
 #endif
 
+// TODO: Keep track of this.
+
 inline Chord Chord::ceiling(double g) const
 {
     Chord out = *this;
