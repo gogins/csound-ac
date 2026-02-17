@@ -2334,9 +2334,11 @@ template<> inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_Tg>(const C
 template<> 
 inline SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int opt_sector) {
     auto self_t = chord.eT();
-    auto self_t_ceiling = self_t.ceiling();
+    auto self_t_ceiling = self_t.ceiling(g);
     while (lt_tolerance(self_t_ceiling.layer(), 0.) == true) {
-        self_t_ceiling = self_t_ceiling.T(g);
+        /// self_t_ceiling = self_t_ceiling.T(g);
+        auto self_t = chord.eT();
+        auto self_t_ceiling = self_t.ceiling(g);
     }
     return self_t_ceiling;
 }
@@ -3739,15 +3741,43 @@ inline Chord Chord::floor() const {
     return clone;
 }
 
+#if 0
 inline Chord Chord::ceiling(double g) const {
+    SCOPED_DEBUGGING debugging;
     Chord result = *this;
     for (size_t voice = 0; voice  < voices(); voice++) {
         result.setPitch(voice, std::ceil(getPitch(voice)));
     }
     CHORD_SPACE_DEBUG("Chord::ceiling: %s\n", print_chord(*this).c_str());
     CHORD_SPACE_DEBUG("             => %s\n", print_chord(result).c_str());
+    result.clamp(g);
     return result;
 }
+#endif
+
+inline Chord Chord::ceiling(double g) const
+{
+    Chord out = *this;
+
+    for (int v = 0; v < voices(); ++v)
+    {
+        const double x = out.getPitch(v);
+        const double q = x / g;
+
+        const double qi = std::round(q);
+        if (eq_tolerance(q, qi))
+        {
+            out.setPitch(v, qi * g);
+            continue;
+        }
+
+        const double eps = 1e-12;
+        out.setPitch(v, std::ceil(q - eps) * g);
+    }
+
+    return out;
+}
+
 
 inline Chord Chord::origin() const {
     Chord origin_;
