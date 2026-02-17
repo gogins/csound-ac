@@ -1312,52 +1312,39 @@ struct SILENCE_PUBLIC HyperplaneEquation
      * for one OPT sector.
      *
      * Parameters:
-     *  - apex_a: a point on the hyperplane (your sector apex / center_t).
+     *  - apex_a: a point on the hyperplane (sector apex / center_t).
      *  - base_b, base_c: two vertices of the sector's base facet chosen so that
      *    the edge direction (base_c - base_b) is perpendicular to the inversion flat
      *    within the OPT base.
      *
      * Notes:
-     *  - We force the normal to be orthogonal to the unison direction so the flat
-     *    is compatible with extrusion along the unison diagonal.
+     *  - We force the normal to be orthogonal to the unison direction (1,1,...,1)
+     *    so the flat is compatible with extrusion along the unison diagonal.
+     *
+     * Important:
+     *  - Chord is a Matrix. We interpret the chord-space point as column 0.
+     *    This function safely extracts column 0 into Vector (Nx1) before doing
+     *    any vector algebra, avoiding Eigen Matrix->Vector assertion failures.
      */
-    void create(const Vector &apex_a, const Vector &base_b, const Vector &base_c)
+    void create(const Chord &apex_a, const Chord &base_b, const Chord &base_c)
     {
-        apex = apex_a;
+        const Vector apex_v = chord_point_column(apex_a);
+        const Vector base_b_v = chord_point_column(base_b);
+        const Vector base_c_v = chord_point_column(base_c);
 
-        Vector normal_vector = base_c - base_b;
-
-        // Enforce orthogonality to the unison direction (1,1,...,1).
-        // This makes the plane an extrusion along the unison diagonal.
-        Vector unison = Vector::Ones(normal_vector.rows(), 1);
-
-        const double unison_norm = unison.norm();
-        if (unison_norm > 0.0)
-        {
-            const Vector unison_hat = unison / unison_norm;
-
-            const double proj = normal_vector.dot(unison_hat);
-            normal_vector = normal_vector - (proj * unison_hat);
-        }
-
-        const double nrm = normal_vector.norm();
-        if (nrm <= 0.0)
-        {
-            // Degenerate: base_b == base_c or bad selection of points.
-            System::error("HyperplaneEquation::create: degenerate normal (check base_b/base_c selection).\n");
-            unit_normal_vector = Vector::Zero(apex.rows(), 1);
-            return;
-        }
-
-        unit_normal_vector = normal_vector / nrm;
+        create_from_vectors(apex_v, base_b_v, base_c_v);
     }
 
     Chord reflect(const Chord &chord) const
     {
         Chord reflection = chord;
-        Vector a_to_chord = chord - apex;
+
+        const Vector chord_v = chord_point_column(chord);
+        const Vector a_to_chord = chord_v - apex;
+
         const double signed_distance = a_to_chord.dot(unit_normal_vector);
-        Vector reflected = chord - (2.0 * signed_distance * unit_normal_vector);
+        const Vector reflected = chord_v - (2.0 * signed_distance * unit_normal_vector);
+
         for (int voice = 0; voice < chord.voices(); ++voice)
         {
             reflection.setPitch(voice, reflected(voice, 0));
@@ -1367,14 +1354,18 @@ struct SILENCE_PUBLIC HyperplaneEquation
 
     bool is_minor(const Chord &chord) const
     {
-        Vector a_to_chord = chord - apex;
+        const Vector chord_v = chord_point_column(chord);
+        const Vector a_to_chord = chord_v - apex;
+
         const double signed_distance = a_to_chord.dot(unit_normal_vector);
         return le_tolerance(signed_distance, 0.0, 64, 512);
     }
 
-    bool is_invariant(const Vector &chord_vec) const
+    bool is_invariant(const Chord &chord) const
     {
-        Vector a_to_chord = chord_vec - apex;
+        const Vector chord_v = chord_point_column(chord);
+        const Vector a_to_chord = chord_v - apex;
+
         const double signed_distance = a_to_chord.dot(unit_normal_vector);
         const double distance = std::abs(signed_distance);
 
@@ -1385,7 +1376,7 @@ struct SILENCE_PUBLIC HyperplaneEquation
     {
         std::string result;
 
-        auto append_vector = [&](const char* label, const Vector& v)
+        auto append_vector = [&](const char *label, const Vector &v)
         {
             result += label;
 
@@ -1410,9 +1401,59 @@ struct SILENCE_PUBLIC HyperplaneEquation
         return result;
     }
 
-
     Vector unit_normal_vector;
     Vector apex;
+
+private:
+    static Vector chord_point_column(const Chord &chord)
+    {
+        const Eigen::Index rows = chord.rows();
+        const Eigen::Index cols = chord.cols();
+
+        if (rows <= 0)
+        {
+            return Vector();
+        }
+
+        if (cols <= 0)
+        {
+            System::error("HyperplaneEquation: chord has no columns; cannot extract point column 0.\n");
+            return Vector::Zero(rows, 1);
+        }
+
+        // The chord-space point is defined to be column 0.
+        // Make an owning Vector copy (Nx1) to avoid expression-lifetime issues.
+        return chord.col(0);
+    }
+
+    void create_from_vectors(const Vector &apex_a, const Vector &base_b, const Vector &base_c)
+    {
+        apex = apex_a;
+
+        Vector normal_vector = base_c - base_b;
+
+        // Enforce orthogonality to the unison direction (1,1,...,1).
+        Vector unison = Vector::Ones(normal_vector.rows(), 1);
+
+        const double unison_norm = unison.norm();
+        if (unison_norm > 0.0)
+        {
+            const Vector unison_hat = unison / unison_norm;
+
+            const double proj = normal_vector.dot(unison_hat);
+            normal_vector = normal_vector - (proj * unison_hat);
+        }
+
+        const double nrm = normal_vector.norm();
+        if (nrm <= 0.0)
+        {
+            System::error("HyperplaneEquation::create: degenerate normal (check base_b/base_c selection).\n");
+            unit_normal_vector = Vector::Zero(apex.rows(), 1);
+            return;
+        }
+
+        unit_normal_vector = normal_vector / nrm;
+    }
 };
 
 SILENCE_PUBLIC const Chord &chordForName(std::string name);
@@ -5395,9 +5436,7 @@ inline void Chord::initialize_sectors() {
                 CHORD_SPACE_DEBUG("  hyperplane_equation: upper_point: %s\n", upper_point.toString().c_str());
                 CHORD_SPACE_DEBUG("  hyperplane_equation: lower point: %s\n", lower_point.toString().c_str());
                 HyperplaneEquation hyperplane_equation_;
-                hyperplane_equation_.create(center_t.col(0).eval(),
-                    upper_point.col(0).eval(),
-                    lower_point.col(0).eval());
+                hyperplane_equation_.create(center_t, upper_point,lower_point);
                 CHORD_SPACE_DEBUG("  hyperplane_equation: sector: %d\n", dimension_i);
                 CHORD_SPACE_DEBUG("  hyperplane_equation: center:\n");
                 for (int dimension_j = 0; dimension_j < dimensions_i; dimension_j++) {
