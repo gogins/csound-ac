@@ -5395,8 +5395,9 @@ inline void Chord::initialize_sectors() {
                 CHORD_SPACE_DEBUG("  hyperplane_equation: upper_point: %s\n", upper_point.toString().c_str());
                 CHORD_SPACE_DEBUG("  hyperplane_equation: lower point: %s\n", lower_point.toString().c_str());
                 HyperplaneEquation hyperplane_equation_;
-                hyperplane_equation_.create(center_t, upper_point, lower_point);
-
+                hyperplane_equation_.create(center_t.col(0).eval(),
+                    upper_point.col(0).eval(),
+                    lower_point.col(0).eval());
                 CHORD_SPACE_DEBUG("  hyperplane_equation: sector: %d\n", dimension_i);
                 CHORD_SPACE_DEBUG("  hyperplane_equation: center:\n");
                 for (int dimension_j = 0; dimension_j < dimensions_i; dimension_j++) {
