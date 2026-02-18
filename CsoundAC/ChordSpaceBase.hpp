@@ -1302,8 +1302,11 @@ SILENCE_PUBLIC bool eq_tolerance(double a, double b, int epsilons=20, int ulps=2
 struct SILENCE_PUBLIC HyperplaneEquation
 {
     HyperplaneEquation()
-        : unit_normal_vector()
-        , apex()
+        : unit_normal()
+        , apex_a()
+        , base_b()
+        , base_c()
+        , base_midpoint()
     {
     }
 
@@ -1328,23 +1331,19 @@ struct SILENCE_PUBLIC HyperplaneEquation
      */
     void create(const Chord &apex_a, const Chord &base_b, const Chord &base_c)
     {
-        const Vector apex_v = chord_point_column(apex_a);
+        const Vector apex_a_v = chord_point_column(apex_a);
         const Vector base_b_v = chord_point_column(base_b);
         const Vector base_c_v = chord_point_column(base_c);
-
-        create_from_vectors(apex_v, base_b_v, base_c_v);
+        create_from_vectors(apex_a_v, base_b_v, base_c_v);
     }
 
     Chord reflect(const Chord &chord) const
     {
         Chord reflection = chord;
-
         const Vector chord_v = chord_point_column(chord);
-        const Vector a_to_chord = chord_v - apex;
-
-        const double signed_distance = a_to_chord.dot(unit_normal_vector);
-        const Vector reflected = chord_v - (2.0 * signed_distance * unit_normal_vector);
-
+        const Vector a_to_chord = chord_v - apex_a;
+        const double signed_distance = a_to_chord.dot(unit_normal);
+        const Vector reflected = chord_v - (2.0 * signed_distance * unit_normal);
         for (int voice = 0; voice < chord.voices(); ++voice)
         {
             reflection.setPitch(voice, reflected(voice, 0));
@@ -1355,38 +1354,32 @@ struct SILENCE_PUBLIC HyperplaneEquation
     bool is_minor(const Chord &chord) const
     {
         const Vector chord_v = chord_point_column(chord);
-        const Vector a_to_chord = chord_v - apex;
-
-        const double signed_distance = a_to_chord.dot(unit_normal_vector);
+        const Vector a_to_chord = chord_v - apex_a;
+        const double signed_distance = a_to_chord.dot(unit_normal);
         return le_tolerance(signed_distance, 0.0, 64, 512);
     }
 
     bool is_invariant(const Chord &chord) const
     {
         const Vector chord_v = chord_point_column(chord);
-        const Vector a_to_chord = chord_v - apex;
-
-        const double signed_distance = a_to_chord.dot(unit_normal_vector);
+        const Vector a_to_chord = chord_v - apex_a;
+        const double signed_distance = a_to_chord.dot(unit_normal);
         const double distance = std::abs(signed_distance);
-
         return eq_tolerance(distance, 0.0, 64, 512);
     }
 
     std::string toString() const
     {
         std::string result;
-
         auto append_vector = [&](const char *label, const Vector &v)
         {
             result += label;
-
             const int rows = static_cast<int>(v.rows());
             for (int i = 0; i < rows; ++i)
             {
                 char buffer[64];
                 std::snprintf(buffer, sizeof(buffer), "%12.7f", v(i, 0));
                 result += buffer;
-
                 if (i < rows - 1)
                 {
                     result += " ";
@@ -1394,65 +1387,61 @@ struct SILENCE_PUBLIC HyperplaneEquation
             }
         };
 
-        append_vector("unit_normal: ", unit_normal_vector);
+        append_vector("unit_normal: ", unit_normal);
         result += " ";
-        append_vector(" apex: ", apex);
-
+        append_vector(" apex: ", apex_a);
         return result;
     }
 
-    Vector unit_normal_vector;
-    Vector apex;
+    Vector apex_a;
+    Vector base_b;
+    Vector base_c;
+    Vector base_midpoint;
+    Vector unit_normal;
 
 private:
     static Vector chord_point_column(const Chord &chord)
     {
         const Eigen::Index rows = chord.rows();
         const Eigen::Index cols = chord.cols();
-
         if (rows <= 0)
         {
             return Vector();
         }
-
         if (cols <= 0)
         {
             System::error("HyperplaneEquation: chord has no columns; cannot extract point column 0.\n");
             return Vector::Zero(rows, 1);
         }
-
         // The chord-space point is defined to be column 0.
         // Make an owning Vector copy (Nx1) to avoid expression-lifetime issues.
         return chord.col(0);
     }
 
-    void create_from_vectors(const Vector &apex_a, const Vector &base_b, const Vector &base_c)
+    void create_from_vectors(const Vector &apex_a_, const Vector &base_b_, const Vector &base_c_)
     {
-        apex = apex_a;
-
+        apex_a = apex_a_;
+        base_b = base_b_;
+        base_c = base_c_;
+        base_midpoint = (base_b + base_c) / 2.0;
         Vector normal_vector = base_c - base_b;
-
         // Enforce orthogonality to the unison direction (1,1,...,1).
         Vector unison = Vector::Ones(normal_vector.rows(), 1);
-
         const double unison_norm = unison.norm();
         if (unison_norm > 0.0)
         {
             const Vector unison_hat = unison / unison_norm;
-
-            const double proj = normal_vector.dot(unison_hat);
-            normal_vector = normal_vector - (proj * unison_hat);
+            const double projection = normal_vector.dot(unison_hat);
+            normal_vector = normal_vector - (projection * unison_hat);
         }
-
-        const double nrm = normal_vector.norm();
-        if (nrm <= 0.0)
+        const double norm_ = normal_vector.norm();
+        if (norm_ <= 0.0)
         {
             System::error("HyperplaneEquation::create: degenerate normal (check base_b/base_c selection).\n");
-            unit_normal_vector = Vector::Zero(apex.rows(), 1);
+            unit_normal = Vector::Zero(apex_a.rows(), 1);
             return;
         }
-
-        unit_normal_vector = normal_vector / nrm;
+        unit_normal = normal_vector / norm_;
     }
 };
 
@@ -1876,7 +1865,7 @@ SILENCE_PUBLIC const std::map<std::string, double> &pitchClassesForNames();
  * Returns the point reflected in the hyperplane defined by the unit normal 
  * vector and constant term.
  */
-SILENCE_PUBLIC Vector reflect_vector(const Vector &point, const Vector &unit_normal_vector, double constant_term);
+SILENCE_PUBLIC Vector reflect_vector(const Vector &point, const Vector &unit_normal, double constant_term);
 
 SILENCE_PUBLIC Chord reflect_by_householder(const Chord &chord);
 
@@ -4798,10 +4787,10 @@ inline SILENCE_PUBLIC Chord reflect_by_householder(const Chord &chord) {
     auto opt_domain_sectors_ = chord.opt_domain_sectors().front();
     auto hyperplane_equation = chord.hyperplane_equation(opt_domain_sectors_);
     CHORD_SPACE_DEBUG("reflect_by_householder: chord:              %s\n", chord.toString().c_str());
-    CHORD_SPACE_DEBUG("reflect_by_householder: unit normal vector: \n%s\n", toString(hyperplane_equation.unit_normal_vector).c_str());
+    CHORD_SPACE_DEBUG("reflect_by_householder: unit normal vector: \n%s\n", toString(hyperplane_equation.unit_normal).c_str());
     auto center_ = chord.center().eT();
     CHORD_SPACE_DEBUG("reflect_by_householder: center:             %s\n", center_.toString().c_str());
-    auto tensor = hyperplane_equation.unit_normal_vector.col(0) * hyperplane_equation.unit_normal_vector.col(0).transpose();
+    auto tensor = hyperplane_equation.unit_normal.col(0) * hyperplane_equation.unit_normal.col(0).transpose();
     CHORD_SPACE_DEBUG("reflect_by_householder: tensor: \n%s\n", toString(tensor).c_str());
     auto product = 2. * tensor;
     CHORD_SPACE_DEBUG("reflect_by_householder: product:  \n%s\n", toString(product).c_str());
@@ -5442,9 +5431,9 @@ inline void Chord::initialize_sectors() {
                 for (int dimension_j = 0; dimension_j < dimensions_i; dimension_j++) {
                     CHORD_SPACE_DEBUG("    %9.4f\n", center_t.getPitch(dimension_j));
                 }
-                CHORD_SPACE_DEBUG("  hyperplane_equation: unit_normal_vector:\n");
+                CHORD_SPACE_DEBUG("  hyperplane_equation: unit_normal:\n");
                 for (int dimension_j = 0; dimension_j < dimensions_i; dimension_j++) {
-                    CHORD_SPACE_DEBUG("    %9.4f\n", hyperplane_equation_.unit_normal_vector(dimension_j, 0));
+                    CHORD_SPACE_DEBUG("    %9.4f\n", hyperplane_equation_.unit_normal(dimension_j, 0));
                 }
                 hyperplane_equations.push_back(hyperplane_equation_);
             }
