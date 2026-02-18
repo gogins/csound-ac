@@ -1392,6 +1392,16 @@ struct SILENCE_PUBLIC HyperplaneEquation
         append_vector(" apex: ", apex_a);
         return result;
     }
+    Chord midpoint() const
+    {
+        Chord midpoint_chord;
+        midpoint_chord.resize(apex_a.rows());
+        for (int voice = 0; voice < midpoint_chord.voices(); ++voice)
+        {
+            midpoint_chord.setPitch(voice, base_midpoint(voice, 0));
+        }
+        return midpoint_chord;
+    }
 
     Vector apex_a;
     Vector base_b;
@@ -2153,65 +2163,44 @@ inline bool Chord::self_inverse(int opt_sector) const
     return result;
 }
 
+/** 
+ * To identify the sector to which a chord in RP belongs, we project the chord 
+ * onto RPT. Then we measure the Euclidean distance of the midpoint of each 
+ * sector's base face to the chord, and the closest midpoint belongs to that 
+ * chord's sector. A chord may belong to more than one sector if it is 
+ * equidistant from two or more midpoints. This is numerically tricky.
+ */
 inline bool Chord::is_in_rpt_sector(int sector, double range) const
 {
     if (sector < 0 || sector >= voices())
     {
         return false;
     }
-
-    // Put chord into RP/T base.
+    // Project chord onto RP/T base.
     const Chord base = eRP(range).eT();
     return base.is_in_rpt_sector_raw(sector, range);
 }
 
 inline bool Chord::is_in_rpt_sector_raw(int sector, double range) const
 {
-    const int n = voices();
-    if (sector < 0 || sector >= n)
-    {
-        return false;
+    bool result = false;
+    double least_distance = std::numeric_limits<double>::max();
+    std::vector<double> distances;
+    for (int i = 0; i < voices(); ++i) {
+        const auto &hyperplane_equation_ = hyperplane_equation(sector);
+        double distance = euclidean(hyperplane_equation_.midpoint(), *this);
+        if (distance < least_distance) {
+            least_distance = distance;
+        } 
+        distances.push_back(distance);
     }
-
-    auto squared_distance = [n](const Chord &a, const Chord &b) -> double
-    {
-        double sum = 0.0;
-        for (int v = 0; v < n; ++v)
-        {
-            const double d = a.getPitch(v) - b.getPitch(v);
-            sum += d * d;
-        }
-        return sum;
-    };
-
-    // IMPORTANT: raw assumes already in RP/T base.
-    // Build the cyclic sector centers in the same RP/T slice.
-    Chord center_0 = center().eRP(range).eT();
-
-    std::vector<Chord> centers;
-    centers.reserve(n);
-    centers.push_back(center_0);
-
-    for (int s = 1; s < n; ++s)
-    {
-        Chord next = centers.back().v(1, range).eT();
-        centers.push_back(next);
-    }
-
-    const double d_sector = squared_distance(*this, centers[sector]);
-
-    // Membership (boundary-inclusive):
-    // sector is valid iff no other center is strictly closer than centers[sector].
-    for (int j = 0; j < n; ++j)
-    {
-        const double d_j = squared_distance(*this, centers[j]);
-        if (lt_tolerance(d_j, d_sector))
-        {
-            return false;
+    for (auto distance : distances) {
+        if (le_tolerance(distance, least_distance)) {
+            result = true;
+            break;
         }
     }
-
-    return true;
+    return result;
 }
  
 inline bool Chord::is_in_minor_opti_sector(int opt_sector) const {
@@ -3135,7 +3124,7 @@ inline std::string print_chord(const Chord &chord) {
     for (int sector = 0; sector < chord.voices(); ++sector) {
         bool belongs = chord.is_in_rpt_sector(sector);
         bool minor = chord.is_in_minor_opti_sector(sector);
-        snprintf(buffer, sizeof(buffer), "[OPT %2d %2d  %s]", sector, belongs, belongs ? (minor ? "M" : "m") : " ");
+        snprintf(buffer, sizeof(buffer), "[OPT %2d %2d %s]", sector, belongs, belongs ? (minor ? "m" : "M") : " ");
         result.append(buffer);
     }    
     return result;
@@ -3221,8 +3210,8 @@ inline std::string Chord::information_sector(int opt_sector_) const {
             snprintf(buffer, sizeof(buffer), "    vertex:  %3d:   %s\n", vertex, opt_sectors[sector][vertex].toString().c_str());
             result.append(buffer);
         }    
-        auto &hyperplane_equation = hyperplane_equations[sector];
-        auto text = hyperplane_equation.toString();
+        const auto &hyperplane_equation_ = hyperplane_equation(sector);
+        auto text = hyperplane_equation_.toString();
         snprintf(buffer, sizeof(buffer), "    hyperplane equation:\n       %s\n", text.c_str());
         result.append(buffer);
         auto reflected = reflect_in_inversion_flat(*this, sector);
