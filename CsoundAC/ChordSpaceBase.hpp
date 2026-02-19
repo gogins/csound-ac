@@ -359,6 +359,18 @@ SILENCE_PUBLIC double distance_to_points(const Chord &chord, const std::vector<C
 
 SILENCE_PUBLIC double epc(double pitch);
 
+/**
+ * This is the basis of all other numeric comparisons that take floating-point 
+ * limits into account. It is a "close enough" comparison. If a or b equals 0,
+ * the indicated number of machine epsilons is used as the tolerance; if 
+ * neither a nor b equals 0, the indicated number of units in the last place
+ * (ULPs) is used as the tolerance. These tolerances should be set to 
+ * appropriate values based on the use case.
+ */
+SILENCE_PUBLIC bool eq_tolerance(double a, double b, int epsilons=20, int ulps=200);
+
+SILENCE_PUBLIC bool ge_tolerance(double a, double b, int epsilons=20, int ulps=200);
+
 SILENCE_PUBLIC bool gt_tolerance(double a, double b, int epsilons=20, int ulps=200);
 
 SILENCE_PUBLIC bool le_tolerance(double a, double b, int epsilons=20, int ulps=200);
@@ -810,13 +822,13 @@ public:
      * Unlike is_in_rpt_sector(), this function performs no internal reduction,
      * which makes it suitable for decomposability checks.
      */
-    virtual bool is_in_rpt_sector_raw(int opt_sector = 0, double range = 12.) const;
+    virtual bool is_in_rpt_sector_base(int opt_sector = 0, double range = 12.) const;
     /**
      * Returns whether this chord is in the "minor" half of the OPTI 
      * fundamental domain. This function is only valid when called with 
      * an OPT sector to which the chord belongs.
      */
-    virtual bool is_in_minor_opti_sector(int opt_sector) const;
+    virtual bool is_in_minor_rpti_sector(int opt_sector) const;
     /**
      * Returns whether the chord is within the fundamental domain of inversional 
      * equivalence.
@@ -1263,15 +1275,6 @@ struct ChordTickLess
     }
 };
 
-/**
- * This is the basis of all other numeric comparisons that take floating-point 
- * limits into account. It is a "close enough" comparison. If a or b equals 0,
- * the indicated number of machine epsilons is used as the tolerance; if 
- * neither a nor b equals 0, the indicated number of units in the last place
- * (ULPs) is used as the tolerance. These tolerances should be set to 
- * appropriate values based on the use case.
- */
-SILENCE_PUBLIC bool eq_tolerance(double a, double b, int epsilons=20, int ulps=200);
 
 struct SILENCE_PUBLIC HyperplaneEquation
 {
@@ -1325,12 +1328,16 @@ struct SILENCE_PUBLIC HyperplaneEquation
         return reflection;
     }
 
+    // The "minor" half of the OPTI fundamental domain is the half that
+    // contains the base facet vertex that is closer to the centroid of the 
+    // OPT fundamental domain. 
     bool is_minor(const Chord &chord) const
     {
         const Vector chord_v = chord_point_column(chord);
         const Vector a_to_chord = chord_v - apex_a;
         const double signed_distance = a_to_chord.dot(unit_normal);
-        return le_tolerance(signed_distance, 0.0, 64, 512);
+        bool minor = (ge_tolerance(signed_distance, 0.0, 64, 512) == true);
+        return minor;
     }
 
     bool is_invariant(const Chord &chord) const
@@ -1610,10 +1617,6 @@ template<int EQUIVALENCE_RELATION> SILENCE_PUBLIC std::vector<Chord> fundamental
  * growth in candidate counts for higher voice counts.
  */
 template<int EQUIVALENCE_RELATION> SILENCE_PUBLIC std::vector<Chord> fundamentalDomainByGeneration(int voiceN, double range, double g = 1., int sector=0, bool printme=false);
-
-SILENCE_PUBLIC bool ge_tolerance(double a, double b, int epsilons=20,int ulps=200);
-
-SILENCE_PUBLIC bool gt_tolerance(double a, double b, int epsilons, int ulps);
 
 /**
  * Returns the pitch reflected in the center, which may be any pitch.
@@ -2152,29 +2155,30 @@ inline bool Chord::is_in_rpt_sector(int sector, double range) const
     }
     // Project chord onto RP/T base.
     const Chord base = eRP(range).eT();
-    return base.is_in_rpt_sector_raw(sector, range);
+    return base.is_in_rpt_sector_base(sector, range);
 }
 
-inline bool Chord::is_in_rpt_sector_raw(int sector, double range) const
+inline bool Chord::is_in_rpt_sector_base(int sector, double range) const
 {
     double least_distance = std::numeric_limits<double>::max();
     std::vector<double> distances;
-    for (int i = 0; i < voices(); ++i) {
-        const auto &hyperplane_equation_ = hyperplane_equation(i);
+    for (int sector_i = 0; sector_i < voices(); ++sector_i) {
+        const auto &hyperplane_equation_ = hyperplane_equation(sector_i);
         double distance = euclidean(hyperplane_equation_.midpoint(), *this);
         if (distance < least_distance) {
             least_distance = distance;
         } 
         distances.push_back(distance);
     }
-    if (eq_tolerance(distances[sector], least_distance, 20, 1024) == true) {
+    double distance_for_sector = distances[sector];
+    if (eq_tolerance(distance_for_sector, least_distance, 20, 1024) == true) {
         return true;
     } else {
         return false;
     }
 }
  
-inline bool Chord::is_in_minor_opti_sector(int opt_sector) const {
+inline bool Chord::is_in_minor_rpti_sector(int opt_sector) const {
     const auto &hyperplane_equation_ = hyperplane_equation(opt_sector);
     bool result = hyperplane_equation_.is_minor(*this);
     return result;
@@ -2466,7 +2470,7 @@ inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPT>(
     }
     // Sectoring is defined in the RP/T base, not in the Tg base.
     // Using raw-sectoring on a Tg-normal chord will generally fail.
-    if (chord.eT().is_in_rpt_sector_raw(rpt_sector, range) == false)
+    if (chord.eT().is_in_rpt_sector_base(rpt_sector, range) == false)
     {
         return false;
     }
@@ -2506,7 +2510,7 @@ equate<EQUIVALENCE_RELATION_RPT>(
     for (const auto &c : candidates)
     {
         // Sectoring is defined in the RP/T base, not in the Tg base.
-        if (c.eT().is_in_rpt_sector_raw(rpt_sector, range))
+        if (c.eT().is_in_rpt_sector_base(rpt_sector, range))
         {
             return c;
         }
@@ -2546,7 +2550,7 @@ inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTg> (
     }
         // Sectoring is defined in the RP/T base, not in the Tg base.
     // Using raw-sectoring on a Tg-normal chord will generally fail.
-    if (chord.eT().is_in_rpt_sector_raw(rpt_sector, range) == false)
+    if (chord.eT().is_in_rpt_sector_base(rpt_sector, range) == false)
     {
         return false;
     }
@@ -2591,7 +2595,7 @@ equate<EQUIVALENCE_RELATION_RPTg> (
     for (const auto &c : candidates)
     {
         // Sectoring is defined in the RP/T base, not in the Tg base.
-        if (c.eT().is_in_rpt_sector_raw(rpt_sector, range))
+        if (c.eT().is_in_rpt_sector_base(rpt_sector, range))
         {
             return c;
         }
@@ -3080,8 +3084,18 @@ static std::string print_opti_sectors(const Chord &chord) {
     char buffer[0x8000];
     for (int sector = 0; sector < chord.voices(); ++sector) {
         bool belongs = chord.is_in_rpt_sector(sector);
-        bool minor = chord.is_in_minor_opti_sector(sector);
-        snprintf(buffer, sizeof(buffer), "OPT sector %3d: belongs: %s OPTI: %s\n", sector, (belongs ? "yes" : "no "), (belongs ?  (minor ? "minor" : "major") : "     "));
+        std::string membership;
+        if (belongs == true) {  
+            bool minor = chord.is_in_minor_rpti_sector(sector);
+            if (minor == true) {
+                membership = "minor";
+            } else {
+                membership = "major";     
+            }
+        } else {
+            membership = "     ";
+        }
+        snprintf(buffer, sizeof(buffer), "RPT sector %3d: %s\n", sector, membership.c_str());
         result.append(buffer);
     }
     return result;    
@@ -3094,10 +3108,20 @@ inline std::string print_chord(const Chord &chord) {
     result.append(buffer);
     for (int sector = 0; sector < chord.voices(); ++sector) {
         bool belongs = chord.is_in_rpt_sector(sector);
-        bool minor = chord.is_in_minor_opti_sector(sector);
-        snprintf(buffer, sizeof(buffer), "[OPT %2d %2d %s]", sector, belongs, belongs ? (minor ? "m" : "M") : " ");
-        result.append(buffer);
-    }    
+        std::string membership;
+        if (belongs == true) {  
+            bool minor = chord.is_in_minor_rpti_sector(sector);
+            if (minor == true) {
+                membership = "m";
+            } else {                
+                membership = "M";     
+            }
+        } else {            
+            membership = " ";
+        }
+        snprintf(buffer, sizeof(buffer), "[OPT %2d %s]", sector, membership.c_str());
+        result.append(buffer);    
+    }
     return result;
 }
 
@@ -3175,7 +3199,7 @@ inline std::string Chord::information_sector(int opt_sector_) const {
     auto &hyperplane_equations = hyperplane_equations_for_dimensionalities()[voices()];
     auto &opt_sectors = opt_sectors_for_dimensionalities()[voices()];
     for (int sector = 0, n = opt_sectors.size(); sector < n; ++sector) {
-        snprintf(buffer, sizeof(buffer), "OPT sector:  %3d\n", opt_sector);
+        snprintf(buffer, sizeof(buffer), "OPT sector:  %3d\n", sector);
         result.append(buffer);
         for (int vertex = 0; vertex < voices(); ++vertex) {
             snprintf(buffer, sizeof(buffer), "    vertex:  %3d:   %s\n", vertex, opt_sectors[sector][vertex].toString().c_str());
