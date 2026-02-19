@@ -1275,69 +1275,106 @@ struct ChordTickLess
     }
 };
 
-
 struct SILENCE_PUBLIC HyperplaneEquation
 {
     HyperplaneEquation()
-        : unit_normal()
-        , apex_a()
-        , base_b()
-        , base_c()
+        : apex_a()
         , base_midpoint()
+        , unit_normal()
     {
     }
 
     /**
-     * Creates a hyperplane used to reflect a chord across the inversion flat
-     * for one OPT sector.
+     * Create hyperplane for one OPT sector.
      *
-     * Parameters:
-     *  - apex_a: a point on the hyperplane (sector apex / center_t).
-     *  - base_b, base_c: two vertices of the sector's base facet chosen so that
-     *    the edge direction (base_c - base_b) is perpendicular to the inversion flat
-     *    within the OPT base.
+     * vertices[0]  = apex
+     * vertices[1..] = vertices of the opposite base facet
      *
-     * Notes:
-     *  - We force the normal to be orthogonal to the unison direction (1,1,...,1)
-     *    so the flat is compatible with extrusion along the unison diagonal.
-     *
-     * Important:
-     *  - Chord is a Matrix. We interpret the chord-space point as column 0.
-     *    This function safely extracts column 0 into Vector (Nx1) before doing
-     *    any vector algebra, avoiding Eigen Matrix->Vector assertion failures.
+     * Works in all dimensions.
      */
-    void create(const Chord &apex_a, const Chord &base_b, const Chord &base_c)
+    void create(const std::vector<Chord> &vertices)
     {
-        const Vector apex_a_v = chord_point_column(apex_a);
-        const Vector base_b_v = chord_point_column(base_b);
-        const Vector base_c_v = chord_point_column(base_c);
-        create_from_vectors(apex_a_v, base_b_v, base_c_v);
+        if (vertices.size() < 2)
+        {
+            System::error("HyperplaneEquation::create: need at least 2 vertices.\n");
+            return;
+        }
+
+        const int dimensions = vertices[0].rows();
+
+        // Extract apex
+        apex_a = chord_point_column(vertices[0]);
+
+        // Compute centroid of base facet (all vertices except apex)
+        base_midpoint = Vector::Zero(dimensions, 1);
+
+        const std::size_t base_count = vertices.size() - 1;
+        for (std::size_t i = 1; i < vertices.size(); ++i)
+        {
+            base_midpoint += chord_point_column(vertices[i]);
+        }
+        base_midpoint /= double(base_count);
+
+        // Normal direction: from base facet centroid toward apex
+        Vector normal_vector = apex_a - base_midpoint;
+
+        // Remove unison component (extrusion compatibility)
+        Vector unison = Vector::Ones(dimensions, 1);
+        const double unison_norm = unison.norm();
+        if (unison_norm > 0.0)
+        {
+            const Vector unison_hat = unison / unison_norm;
+            const double projection = normal_vector.dot(unison_hat);
+            normal_vector = normal_vector - (projection * unison_hat);
+        }
+
+        const double norm_ = normal_vector.norm();
+        if (norm_ <= 0.0)
+        {
+            System::error("HyperplaneEquation::create: degenerate normal.\n");
+            unit_normal = Vector::Zero(dimensions, 1);
+            return;
+        }
+
+        unit_normal = normal_vector / norm_;
+
+        // Ensure base facet lies on the "minor" side
+        const double signed_at_base =
+            (base_midpoint - apex_a).dot(unit_normal);
+
+        if (signed_at_base > 0.0)
+        {
+            unit_normal = -unit_normal;
+        }
     }
 
     Chord reflect(const Chord &chord) const
     {
         Chord reflection = chord;
+
         const Vector chord_v = chord_point_column(chord);
         const Vector a_to_chord = chord_v - apex_a;
+
         const double signed_distance = a_to_chord.dot(unit_normal);
-        const Vector reflected = chord_v - (2.0 * signed_distance * unit_normal);
+
+        const Vector reflected =
+            chord_v - (2.0 * signed_distance * unit_normal);
+
         for (int voice = 0; voice < chord.voices(); ++voice)
         {
             reflection.setPitch(voice, reflected(voice, 0));
         }
+
         return reflection;
     }
 
-    // The "minor" half of the OPTI fundamental domain is the half that
-    // contains the base facet vertex that is closer to the centroid of the 
-    // OPT fundamental domain. 
     bool is_minor(const Chord &chord) const
     {
         const Vector chord_v = chord_point_column(chord);
         const Vector a_to_chord = chord_v - apex_a;
         const double signed_distance = a_to_chord.dot(unit_normal);
-        bool minor = (ge_tolerance(signed_distance, 0.0, 64, 512) == true);
-        return minor;
+
+        return le_tolerance(signed_distance, 0.0, 64, 512);
     }
 
     bool is_invariant(const Chord &chord) const
@@ -1345,13 +1382,27 @@ struct SILENCE_PUBLIC HyperplaneEquation
         const Vector chord_v = chord_point_column(chord);
         const Vector a_to_chord = chord_v - apex_a;
         const double signed_distance = a_to_chord.dot(unit_normal);
-        const double distance = std::abs(signed_distance);
-        return eq_tolerance(distance, 0.0, 64, 512);
+
+        return eq_tolerance(std::abs(signed_distance), 0.0, 64, 512);
+    }
+
+    Chord midpoint() const
+    {
+        Chord midpoint_chord;
+        midpoint_chord.resize(apex_a.rows());
+
+        for (int voice = 0; voice < midpoint_chord.voices(); ++voice)
+        {
+            midpoint_chord.setPitch(voice, base_midpoint(voice, 0));
+        }
+
+        return midpoint_chord;
     }
 
     std::string toString() const
     {
         std::string result;
+
         auto append_vector = [&](const char *label, const Vector &v)
         {
             result += label;
@@ -1373,66 +1424,29 @@ struct SILENCE_PUBLIC HyperplaneEquation
         append_vector(" apex: ", apex_a);
         return result;
     }
-    Chord midpoint() const
-    {
-        Chord midpoint_chord;
-        midpoint_chord.resize(apex_a.rows());
-        for (int voice = 0; voice < midpoint_chord.voices(); ++voice)
-        {
-            midpoint_chord.setPitch(voice, base_midpoint(voice, 0));
-        }
-        return midpoint_chord;
-    }
 
     Vector apex_a;
-    Vector base_b;
-    Vector base_c;
     Vector base_midpoint;
     Vector unit_normal;
 
-private:
     static Vector chord_point_column(const Chord &chord)
     {
         const Eigen::Index rows = chord.rows();
         const Eigen::Index cols = chord.cols();
+
         if (rows <= 0)
         {
             return Vector();
         }
+
         if (cols <= 0)
         {
-            System::error("HyperplaneEquation: chord has no columns; cannot extract point column 0.\n");
+            System::error(
+                "HyperplaneEquation: chord has no columns.\n");
             return Vector::Zero(rows, 1);
         }
-        // The chord-space point is defined to be column 0.
-        // Make an owning Vector copy (Nx1) to avoid expression-lifetime issues.
-        return chord.col(0);
-    }
 
-    void create_from_vectors(const Vector &apex_a_, const Vector &base_b_, const Vector &base_c_)
-    {
-        apex_a = apex_a_;
-        base_b = base_b_;
-        base_c = base_c_;
-        base_midpoint = (base_b + base_c) / 2.0;
-        Vector normal_vector = base_c - base_b;
-        // Enforce orthogonality to the unison direction (1,1,...,1).
-        Vector unison = Vector::Ones(normal_vector.rows(), 1);
-        const double unison_norm = unison.norm();
-        if (unison_norm > 0.0)
-        {
-            const Vector unison_hat = unison / unison_norm;
-            const double projection = normal_vector.dot(unison_hat);
-            normal_vector = normal_vector - (projection * unison_hat);
-        }
-        const double norm_ = normal_vector.norm();
-        if (norm_ <= 0.0)
-        {
-            System::error("HyperplaneEquation::create: degenerate normal (check base_b/base_c selection).\n");
-            unit_normal = Vector::Zero(apex_a.rows(), 1);
-            return;
-        }
-        unit_normal = normal_vector / norm_;
+        return chord.col(0);
     }
 };
 
@@ -2160,28 +2174,39 @@ inline bool Chord::is_in_rpt_sector(int sector, double range) const
 
 inline bool Chord::is_in_rpt_sector_base(int sector, double range) const
 {
-    double least_distance = std::numeric_limits<double>::max();
-    std::vector<double> distances;
-    for (int sector_i = 0; sector_i < voices(); ++sector_i) {
-        const auto &hyperplane_equation_ = hyperplane_equation(sector_i);
-        double distance = euclidean(hyperplane_equation_.midpoint(), *this);
-        if (distance < least_distance) {
-            least_distance = distance;
-        } 
-        distances.push_back(distance);
+    (void)range;
+
+    // Linear classifier: pick the sector whose base midpoint has maximal dot
+    // product with the chord (in the same affine slice). Equality (within
+    // tolerance) admits boundary membership in multiple sectors.
+    double best_score = -std::numeric_limits<double>::infinity();
+    std::vector<double> scores;
+    scores.reserve(size_t(voices()));
+
+    for (int sector_i = 0; sector_i < voices(); ++sector_i)
+    {
+        const auto &hp = hyperplane_equation(sector_i);
+
+        const Vector chord_v = HyperplaneEquation::chord_point_column(*this);
+        const Vector midpoint_v = hp.base_midpoint;
+
+        const double score = chord_v.dot(midpoint_v);
+
+        if (score > best_score)
+        {
+            best_score = score;
+        }
+        scores.push_back(score);
     }
-    double distance_for_sector = distances[sector];
-    if (eq_tolerance(distance_for_sector, least_distance, 20, 1024) == true) {
-        return true;
-    } else {
-        return false;
-    }
+
+    const double score_for_sector = scores[size_t(sector)];
+    return eq_tolerance(score_for_sector, best_score, 20, 1024);
 }
- 
-inline bool Chord::is_in_minor_rpti_sector(int opt_sector) const {
+
+inline bool Chord::is_in_minor_rpti_sector(int opt_sector) const
+{
     const auto &hyperplane_equation_ = hyperplane_equation(opt_sector);
-    bool result = hyperplane_equation_.is_minor(*this);
-    return result;
+    return hyperplane_equation_.is_minor(*this);
 }
 
 template<> inline SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_R>(
@@ -3209,9 +3234,16 @@ inline std::string Chord::information_sector(int opt_sector_) const {
         auto text = hyperplane_equation_.toString();
         snprintf(buffer, sizeof(buffer), "    hyperplane equation:\n       %s\n", text.c_str());
         result.append(buffer);
+        auto sector_text = print_opti_sectors(*this);
+        snprintf(buffer, sizeof(buffer), "    this:           %s\n", print_chord(*this).c_str());
+        result.append(buffer);      
         auto reflected = reflect_in_inversion_flat(*this, sector);
-        auto sector_text = print_opti_sectors(reflected);
-        snprintf(buffer, sizeof(buffer), "    reflect(*this): %s\n", print_chord(reflected).c_str());
+        sector_text = print_opti_sectors(reflected);
+        snprintf(buffer, sizeof(buffer), "    reflected:      %s\n", print_chord(reflected).c_str());
+        result.append(buffer);      
+        auto rereflected = reflect_in_inversion_flat(reflected, sector);
+        sector_text = print_opti_sectors(rereflected);
+        snprintf(buffer, sizeof(buffer), "    re-reflected:   %s\n", print_chord(rereflected).c_str());
         result.append(buffer);      
         result.append("\n");
     }
@@ -5304,57 +5336,120 @@ inline HyperplaneEquation Chord::hyperplane_equation(int opt_sector) const {
 //    Extruding the OPTI half-sector regions by 12/N yields the corresponding
 //    OPI half-sector hyperprisms, and extruding the inversion flats yields the
 //    full inversion flats in OP space.
-inline void Chord::initialize_sectors() {
+inline void Chord::initialize_sectors()
+{
     static bool initialized = false;
-    if (initialized == false) {
-        initialized = true;
-        SCOPED_DEBUGGING scoped_debugging;
-        auto cyclical_regions = cyclical_regions_for_dimensionalities();
-        auto &opt_sectors_for_dimensionalities_ = opt_sectors_for_dimensionalities();
-        auto &opt_simplexes_for_dimensionalities_ = opt_simplexes_for_dimensionalities();
-        auto &hyperplane_equations_for_dimensions = hyperplane_equations_for_dimensionalities();
-        for (int dimensions_i = 3; dimensions_i < 12; ++dimensions_i) {
-            Chord origin(dimensions_i);
-            CHORD_SPACE_DEBUG("cyclical region for %d dimensions:\n", dimensions_i);
-            auto cyclical_region = cyclical_regions[dimensions_i];
-            cyclical_regions[dimensions_i] = cyclical_region;
-            auto opt_domains = opt_sectors_for_dimensionalities_[dimensions_i];
-            auto opt_simplexes = opt_simplexes_for_dimensionalities_[dimensions_i];
-            auto hyperplane_equations = hyperplane_equations_for_dimensions[dimensions_i];
-            // Sector vertices are octavewise revoicings of the origin 
-            // projected to the OPT base, so we can get them by revoicing the 
-            // origin and then projecting the voicings to the base. The center 
-            // of the OPT base is then the centroid of the sector vertices.
-            std::vector<Chord> base_vertices = origin.voicings(1, OCTAVE());
-            Chord chord_sum(dimensions_i);
-            for (int i = 0; i < dimensions_i; ++i) {
-                base_vertices[i] = base_vertices[i].eT();
-                chord_sum += base_vertices[i];
-                CHORD_SPACE_DEBUG("  vertex %d: %s\n", i, base_vertices[i].toString().c_str());
-            }
-            // The center of the OPT base is the centroid of the sector 
-            // vertices.
-            Chord centroid(dimensions_i);
-            centroid.col(0) = chord_sum / dimensions_i;
-            for (int dimension_i = 0; dimension_i < dimensions_i; ++dimension_i) {
-                auto opt_domain = cyclical_regions[dimensions_i];
-                opt_domain.push_back(centroid);
-                auto base_vertex_b = base_vertices[(dimension_i + dimensions_i - 1) % dimensions_i];
-                opt_domain.push_back(base_vertex_b);
-                auto base_vertex_c = base_vertices[(dimension_i + dimensions_i - 2) % dimensions_i];
-                opt_domain.push_back(base_vertex_c);
-                opt_domains.push_back(opt_domain);
-                int vertex_i = 0;
-                for (auto vertex : opt_domains[dimension_i]) {
-                    CHORD_SPACE_DEBUG("  OPT [%2d][%2d]       %s\n", opt_domains.size() - 1, vertex_i++, vertex.toString().c_str());
-                }
-                HyperplaneEquation hyperplane_equation_;
-                hyperplane_equation_.create(centroid, base_vertex_b, base_vertex_c);
-                hyperplane_equations.push_back(hyperplane_equation_);
-            }
-            opt_sectors_for_dimensionalities_[dimensions_i] = opt_domains;
-            hyperplane_equations_for_dimensions[dimensions_i] = hyperplane_equations;
+    if (initialized)
+    {
+        return;
+    }
+    initialized = true;
+
+    SCOPED_DEBUGGING scoped_debugging;
+
+    auto cyclical_regions = cyclical_regions_for_dimensionalities();
+    auto &opt_sectors_for_dimensionalities_ = opt_sectors_for_dimensionalities();
+    auto &opt_simplexes_for_dimensionalities_ = opt_simplexes_for_dimensionalities();
+    auto &hyperplane_equations_for_dimensions = hyperplane_equations_for_dimensionalities();
+
+    for (int n = 3; n < 12; ++n)
+    {
+        CHORD_SPACE_DEBUG("initialize_sectors for %d dimensions:\n", n);
+
+        const auto cyclical_region = cyclical_regions[n];
+
+        std::vector<std::vector<Chord>> opt_domains;
+        std::vector<std::vector<Chord>> opt_simplexes;
+        std::vector<HyperplaneEquation> hyperplane_equations;
+
+        // ------------------------------------------------------------
+        // OPT base simplex vertices from octavewise revoicings of origin.
+        // These remain distinct after eT().
+        // ------------------------------------------------------------
+        Chord origin(n);
+
+        std::vector<Chord> base_vertices;
+        base_vertices.reserve(size_t(n));
+
+        for (int i = 0; i < n; ++i)
+        {
+            base_vertices.push_back(origin.v(i, OCTAVE()).eT());
         }
+
+        for (int i = 0; i < n; ++i)
+        {
+            for (int j = i + 1; j < n; ++j)
+            {
+                if (base_vertices[i] == base_vertices[j])
+                {
+                    System::error("initialize_sectors: duplicate base vertices for n=%d (i=%d j=%d).\n",
+                                  n, i, j);
+                }
+            }
+        }
+
+        // Common apex: centroid of base vertices (center of OPT base).
+        Chord sum(n);
+        for (int i = 0; i < n; ++i)
+        {
+            sum += base_vertices[i];
+            CHORD_SPACE_DEBUG("  base vertex %d: %s\n", i, base_vertices[i].toString().c_str());
+        }
+
+        Chord apex(n);
+        apex.col(0) = sum / double(n);
+        CHORD_SPACE_DEBUG("  apex (centroid): %s\n", apex.toString().c_str());
+
+        // ------------------------------------------------------------
+        // Sector k: { apex, all base vertices except base_vertices[k] }.
+        // vertices[0] is apex as required by HyperplaneEquation::create(vertices).
+        // ------------------------------------------------------------
+        for (int k = 0; k < n; ++k)
+        {
+            std::vector<Chord> sector_vertices;
+            sector_vertices.reserve(size_t(n));
+
+            sector_vertices.push_back(apex);
+
+            for (int v = 0; v < n; ++v)
+            {
+                if (v == k)
+                {
+                    continue;
+                }
+                sector_vertices.push_back(base_vertices[v]);
+            }
+
+            if (int(sector_vertices.size()) != n)
+            {
+                System::error("initialize_sectors: sector %d in n=%d has %d vertices (expected %d).\n",
+                              k, n, int(sector_vertices.size()), n);
+            }
+
+            auto opt_domain = cyclical_region;
+            for (const auto &vx : sector_vertices)
+            {
+                opt_domain.push_back(vx);
+            }
+            opt_domains.push_back(opt_domain);
+            opt_simplexes.push_back(sector_vertices);
+
+            for (int vi = 0; vi < int(sector_vertices.size()); ++vi)
+            {
+                CHORD_SPACE_DEBUG("  OPT sector %2d vertex %2d: %s\n",
+                                  k, vi, sector_vertices[size_t(vi)].toString().c_str());
+            }
+
+            HyperplaneEquation hp;
+            hp.create(sector_vertices);
+            hyperplane_equations.push_back(hp);
+
+            CHORD_SPACE_DEBUG("  OPT sector %2d hyperplane: %s\n", k, hp.toString().c_str());
+        }
+
+        opt_sectors_for_dimensionalities_[n] = opt_domains;
+        opt_simplexes_for_dimensionalities_[n] = opt_simplexes;
+        hyperplane_equations_for_dimensions[n] = hyperplane_equations;
     }
 }
 
