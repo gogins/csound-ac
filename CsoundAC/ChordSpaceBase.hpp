@@ -2176,9 +2176,13 @@ inline bool Chord::is_in_rpt_sector_base(int sector, double range) const
 {
     (void)range;
 
-    // Linear classifier: pick the sector whose base midpoint has maximal dot
-    // product with the chord (in the same affine slice). Equality (within
-    // tolerance) admits boundary membership in multiple sectors.
+    if (sector < 0 || sector >= voices())
+    {
+        return false;
+    }
+
+    const Vector chord_v = this->col(0);
+
     double best_score = -std::numeric_limits<double>::infinity();
     std::vector<double> scores;
     scores.reserve(size_t(voices()));
@@ -2186,11 +2190,9 @@ inline bool Chord::is_in_rpt_sector_base(int sector, double range) const
     for (int sector_i = 0; sector_i < voices(); ++sector_i)
     {
         const auto &hp = hyperplane_equation(sector_i);
+        const Vector &m = hp.base_midpoint;
 
-        const Vector chord_v = HyperplaneEquation::chord_point_column(*this);
-        const Vector midpoint_v = hp.base_midpoint;
-
-        const double score = chord_v.dot(midpoint_v);
+        const double score = chord_v.dot(m) - 0.5 * m.dot(m);
 
         if (score > best_score)
         {
