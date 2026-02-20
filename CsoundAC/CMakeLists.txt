@@ -166,7 +166,7 @@ if(BUILD_CSOUND_AC)
 
     # Standalone test program (from: c++ ChordSpaceTest.cpp ... -o ChordSpaceTest)
     # User requested target name: ChordSpaceTests; adjust OUTPUT_NAME if desired.
-    add_executable(ChordSpaceTests ChordSpaceTest.cpp)
+    add_executable(ChordSpaceTests ChordSpaceTests.cpp)
     target_include_directories(ChordSpaceTests PRIVATE .)
     target_include_directories(ChordSpaceTests SYSTEM PRIVATE ${CSOUND_INCLUDE_DIRS})
     target_include_directories(ChordSpaceTests PRIVATE ${EIGEN3_INCLUDE_DIRS})
