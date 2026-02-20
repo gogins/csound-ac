@@ -167,6 +167,7 @@ if(BUILD_CSOUND_AC)
     # Standalone test program (from: c++ ChordSpaceTest.cpp ... -o ChordSpaceTest)
     # User requested target name: ChordSpaceTests; adjust OUTPUT_NAME if desired.
     add_executable(ChordSpaceTests ChordSpaceTests.cpp)
+
     target_include_directories(ChordSpaceTests PRIVATE .)
     target_include_directories(ChordSpaceTests SYSTEM PRIVATE ${CSOUND_INCLUDE_DIRS})
     target_include_directories(ChordSpaceTests PRIVATE ${EIGEN3_INCLUDE_DIRS})
@@ -175,8 +176,31 @@ if(BUILD_CSOUND_AC)
         target_include_directories(ChordSpaceTests PRIVATE ${MUSICXML_INCLUDE_DIRS})
     endif()
 
-    target_compile_options(ChordSpaceTests PRIVATE -O3 -g -Wno-write-strings)
-    target_link_libraries(ChordSpaceTests PRIVATE libCsoundAC ${MUSICXML2_TARGET} ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY})
+    target_compile_options(ChordSpaceTests PRIVATE -Wno-write-strings)
+
+    target_link_libraries(ChordSpaceTests PRIVATE
+        libCsoundAC
+        ${MUSICXML2_TARGET}
+        ${MUSICXML2_LIBRARY}
+        ${CSOUND_LIBRARIES}
+        ${LIBSNDFILE_LIBRARY}
+    )
+
+    if(APPLE)
+        set_target_properties(ChordSpaceTests PROPERTIES
+            MACOSX_RPATH ON
+
+            # Build tree layout:
+            #   build-macos/CsoundAC/ChordSpaceTests
+            #   build-macos/libCsoundAC.7.1.dylib
+            BUILD_RPATH "@executable_path/.."
+
+            # Install layout:
+            #   <prefix>/bin/ChordSpaceTests
+            #   <prefix>/lib/libCsoundAC.7.1.dylib
+            INSTALL_RPATH "@executable_path/../lib"
+        )
+    endif()
 
     if(WIN32) # for MSYS2/mingw64
         # mingw64 needs this to create a valid .pyd.

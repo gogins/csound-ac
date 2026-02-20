@@ -396,6 +396,10 @@ int main(int argc, char **argv) {
     std::fprintf(stderr, "BIN PID=%d\n", getpid());
     std::fprintf(stderr, "BIN argv0=%s\n", argv[0] ? argv[0] : "(null)");
     std::fflush(stderr);
+    auto pid = getpid();
+    std::fprintf(stderr, "Raising SIGSTOP for pid %d to allow attaching a debugger;\n", pid);
+    std::fprintf(stderr, "execute 'fg' in terminal to resume, or attach debugger with 'lldb -p %d'\n", pid);
+    raise(SIGSTOP);
 
     std::cerr << csound::chord_space_version() << std::endl;
     csound::Chord CM = csound::chordForName("C+");
