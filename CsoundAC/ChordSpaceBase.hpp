@@ -706,7 +706,7 @@ public:
      * divides the fundamental domain in the indicated sector of the OPT 
      * cyclical region.
      */
-    virtual HyperplaneEquation hyperplane_equation(int opt_sector) const;
+    virtual const HyperplaneEquation &hyperplane_equation(int opt_sector) const;
     /**
      * For each chord space of dimensions 3 <= n <= 12, there are n 
      * fundamental domains (sectors) of OPT equivalence. For each OPT fundamental domain,
@@ -5293,10 +5293,17 @@ inline std::map<int, std::vector<HyperplaneEquation>> &Chord::hyperplane_equatio
     return hyperplane_equations_for_dimensionalities_;
 }
 
-inline HyperplaneEquation Chord::hyperplane_equation(int opt_sector) const {
-    auto hyperplane_equations_for_dimensions = hyperplane_equations_for_dimensionalities();
-    auto hyperplane_equations = hyperplane_equations_for_dimensions[voices()];
-    return hyperplane_equations[opt_sector];
+inline const HyperplaneEquation &Chord::hyperplane_equation(int opt_sector) const
+{
+    auto &by_dim = hyperplane_equations_for_dimensionalities();
+    auto it = by_dim.find(voices());
+    if (it == by_dim.end() || opt_sector < 0 || opt_sector >= int(it->second.size()))
+    {
+        System::error("hyperplane_equation: missing dim=%d or bad sector=%d.\n", voices(), opt_sector);
+        static HyperplaneEquation dummy;
+        return dummy;
+    }
+    return it->second[size_t(opt_sector)];
 }
 
 // What we want is:
