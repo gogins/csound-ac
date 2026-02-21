@@ -284,7 +284,7 @@ P, L, and R have been extended as follows, see Fiore and Satyendra,
 
 static SILENCE_PUBLIC std::string chord_space_version() {
     char buffer[0x500];
-    std::snprintf(buffer, sizeof(buffer), "ChordSpaceBase version 2.0.6. Compiled from %s on %s at %s.", __FILE__, __DATE__, __TIME__);
+    std::snprintf(buffer, sizeof(buffer), "ChordSpaceBase version 2.0.7. Compiled from %s on %s at %s.", __FILE__, __DATE__, __TIME__);
     return buffer;
 }
 
@@ -3913,17 +3913,17 @@ inline Chord Chord::cycle(int stride) const {
     return permuted;
 }
 
-inline std::vector<Chord> Chord::permutations() const {
-    std::vector<Chord> permutations_;
-    Chord permutation = *this;
-    permutations_.push_back(permutation);
-    for (size_t i = 1; i < voices(); i++) {
-        permutation = permutation.cycle();
+    inline std::vector<Chord> Chord::permutations() const {
+        std::vector<Chord> permutations_;
+        Chord permutation = *this;
         permutations_.push_back(permutation);
+        for (size_t i = 1; i < voices(); i++) {
+            permutation = permutation.cycle();
+            permutations_.push_back(permutation);
+        }
+        std::sort(permutations_.begin(), permutations_.end(), ChordTickLess());
+        return permutations_;
     }
-    std::sort(permutations_.begin(), permutations_.end(), ChordTickLess());
-    return permutations_;
-}
 
 inline Chord Chord::v(int direction, double interval) const {
     Chord chord = *this;
@@ -5406,7 +5406,10 @@ inline void Chord::initialize_sectors()
         }
 
         Chord apex(n);
-        apex.col(0) = sum / double(n);
+        /// Crashes in WASM: apex.col(0) = sum / double(n);
+        for (int voice = 0; voice < n; ++voice) {
+            apex.setPitch(voice, sum.getPitch(voice) / double(n));
+        }   
         CHORD_SPACE_DEBUG("  apex (centroid): %s\n", apex.toString().c_str());
 
         // ------------------------------------------------------------
@@ -5580,6 +5583,7 @@ inline Chord Chord::normal_order() const
     std::sort(permutations_.begin(), permutations_.end(), ChordTickLess());
     return permutations_.front();
 }
+
 inline Chord Chord::normal_form() const {
     auto &cache = normal_forms_for_chords();
     auto it = cache.find(*this);
