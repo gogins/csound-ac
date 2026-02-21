@@ -542,7 +542,7 @@ namespace csound {
                 int iteration = 0;
                 HarmonyPoint2 initial_point;
                 initial_point.set_homogeneity(1);
-                System::inform("HarmonyIFS::generate_score_attractor: initial point:\n%s\n", toString(initial_point).c_str());
+                System::inform("HarmonyIFS::generate_score_attractor: initial point:\n%s\n", initial_point.toString().c_str());
                 for (int i = 0, n = hutchinson_operator.size(); i < n; ++i) {
                     System::inform("HarmonyIFS::generate_score_attractor: transformation[%3d]\n", i + 1);
                     std::cerr << hutchinson_operator[i] << std::endl << std::endl;
@@ -570,7 +570,7 @@ namespace csound {
                         int T = std::floor(new_point.T());
                         int V = std::floor(new_point.V());
                         Chord chord = pitv_.toChord(P, I, T, V)[0];
-                        System::inform("HarmonyIFS::iterate: depth: %2d index: [%2d] iteration: %9d\n      point: %s\n   => chord: %s\n", depth, index, iteration, point.toString().c_str(), chord.toString().c_str());
+                        System::inform("HarmonyIFS::iterate: depth: %2d index: [%2d] iteration: %9d\n      point: %s\n   => chord: %s\n", depth, index, iteration, new_point.toString().c_str(), chord.toString().c_str());
                         toScore(chord, score, tyme, true);
                     }
                     iterate(depth, iteration, i, new_point);
