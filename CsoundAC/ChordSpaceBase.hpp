@@ -1295,20 +1295,19 @@ struct SILENCE_PUBLIC HyperplaneEquation
      */
     void create(const std::vector<Chord> &vertices)
     {
-        if (vertices.size() < 2)
+        if (vertices.size() < 3)
         {
-            System::error("HyperplaneEquation::create: need at least 2 vertices.\n");
+            System::error("HyperplaneEquation::create: need at least 3 vertices (apex + two base vertices).\n");
             return;
         }
 
         const int dimensions = vertices[0].rows();
 
-        // Extract apex
+        // Extract apex (must be vertices[0]).
         apex_a = chord_point_column(vertices[0]);
 
-        // Compute centroid of base facet (all vertices except apex)
+        // Compute centroid of the base facet (all vertices except apex).
         base_midpoint = Vector::Zero(dimensions, 1);
-
         const std::size_t base_count = vertices.size() - 1;
         for (std::size_t i = 1; i < vertices.size(); ++i)
         {
@@ -1316,10 +1315,18 @@ struct SILENCE_PUBLIC HyperplaneEquation
         }
         base_midpoint /= double(base_count);
 
-        // Normal direction: from base facet centroid toward apex
-        Vector normal_vector = apex_a - base_midpoint;
+        // --------------------------------------------------------------------
+        // Inversion-flat normal:
+        // For sector k, initialize_sectors() must order the base vertices so that:
+        //   vertices[1] = base_vertices[(k + 1) % n]  (v_plus)
+        //   vertices[2] = base_vertices[(k - 1 + n) % n] (v_minus)
+        //
+        // Then the OPT inversion-flat (extruded along unison) has a normal
+        // proportional to (v_plus - v_minus), projected off unison.
+        // --------------------------------------------------------------------
+        Vector normal_vector = chord_point_column(vertices[1]) - chord_point_column(vertices[2]);
 
-        // Remove unison component (extrusion compatibility)
+        // Remove unison component (extrusion compatibility).
         Vector unison = Vector::Ones(dimensions, 1);
         const double unison_norm = unison.norm();
         if (unison_norm > 0.0)
@@ -1339,10 +1346,8 @@ struct SILENCE_PUBLIC HyperplaneEquation
 
         unit_normal = normal_vector / norm_;
 
-        // Ensure base facet lies on the "minor" side
-        const double signed_at_base =
-            (base_midpoint - apex_a).dot(unit_normal);
-
+        // Keep your existing sign convention: base facet should lie on "minor" side.
+        const double signed_at_base = (base_midpoint - apex_a).dot(unit_normal);
         if (signed_at_base > 0.0)
         {
             unit_normal = -unit_normal;
@@ -1875,7 +1880,7 @@ SILENCE_PUBLIC Chord reflect_in_central_diagonal(const Chord &chord);
 
 SILENCE_PUBLIC Chord reflect_in_central_point(const Chord &chord);
 
-SILENCE_PUBLIC Chord reflect_in_inversion_flat(const Chord &chord, int opt_sector);
+SILENCE_PUBLIC Chord reflect_in_inversion_flat(const Chord &chord, int opt_sector, double g = 1.0);
 
 SILENCE_PUBLIC Chord reflect_in_unison_diagonal(const Chord &chord);
     
