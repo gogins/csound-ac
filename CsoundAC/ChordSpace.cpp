@@ -478,33 +478,52 @@ bool Chord::is_in_rpt_sector_base(int sector, double range) const
 {
     (void)range;
 
-    if (sector < 0 || sector >= voices())
+    const int n = voices();
+    if (sector < 0 || sector >= n)
     {
         return false;
     }
 
-    const Vector chord_v = this->col(0);
+    const Vector x = this->col(0);
 
-    double best_score = -std::numeric_limits<double>::infinity();
-    std::vector<double> scores;
-    scores.reserve(size_t(voices()));
+    // ----------------------------------------------------------
+    // 1. Determine OPT sector membership using hyperplanes
+    // ----------------------------------------------------------
+    int best_sector = -1;
+    double best_value = -std::numeric_limits<double>::infinity();
 
-    for (int sector_i = 0; sector_i < voices(); ++sector_i)
+    for (int k = 0; k < n; ++k)
     {
-        const auto &hp = hyperplane_equation(sector_i);
-        const Vector &m = hp.base_midpoint;
+        const HyperplaneEquation &hp = hyperplane_equation(k);
 
-        const double score = chord_v.dot(m) - 0.5 * m.dot(m);
+        const double value =
+            (x - hp.apex_a).dot(hp.unit_normal);
 
-        if (score > best_score)
+        // Larger signed value = deeper into that sector
+        if (value > best_value)
         {
-            best_score = score;
+            best_value = value;
+            best_sector = k;
         }
-        scores.push_back(score);
     }
 
-    const double score_for_sector = scores[size_t(sector)];
-    return eq_tolerance(score_for_sector, best_score, 20, 1024);
+    if (best_sector != sector)
+    {
+        return false;
+    }
+
+    // ----------------------------------------------------------
+    // 2. Now test which half of that OPT sector
+    // ----------------------------------------------------------
+    const HyperplaneEquation &hp = hyperplane_equation(sector);
+
+    const double signed_distance =
+        (x - hp.apex_a).dot(hp.unit_normal);
+
+    // By construction, the base facet lies on the negative side.
+    // RPT base is that half-space.
+    return signed_distance <= 0.0 ||
+           eq_tolerance(signed_distance, 0.0, 20, 1024);
 }
 
 bool Chord::is_in_minor_rpti_sector(int opt_sector) const
@@ -2973,15 +2992,130 @@ SILENCE_PUBLIC Chord reflect_in_unison_diagonal(const Chord &chord) {
     return reflection;
 }
 
-SILENCE_PUBLIC Chord reflect_in_inversion_flat(const Chord &chord, int opt_sector) {
-    // Preserve non-pitch data in the chord.
+SILENCE_PUBLIC Chord reflect_in_inversion_flat(const Chord &chord, int opt_sector, double g)
+{
     Chord result = chord;
-    int dimensions = chord.voices();
-    HyperplaneEquation hyperplane = chord.hyperplane_equation(opt_sector);
-    auto reflected = hyperplane.reflect(chord);
-    for (int voice = 0; voice < dimensions; ++voice) {
-        result.setPitch(voice, reflected.getPitch(voice));
+
+    const int n = chord.voices();
+    const double range = OCTAVE();
+
+    // ---------------------------------------------------------------------
+    // Helper: sector-set (may contain multiple indices on boundaries).
+    // Uses your existing definition: project to RP then to T-base, then test
+    // against sector base midpoints.
+    // ---------------------------------------------------------------------
+    auto get_rpt_sector_set =
+        [&](const Chord &c) -> std::vector<int>
+        {
+            std::vector<int> sectors;
+            sectors.reserve(size_t(n));
+
+            for (int s = 0; s < n; ++s)
+            {
+                if (c.is_in_rpt_sector(s, range))
+                {
+                    sectors.push_back(s);
+                }
+            }
+            return sectors;
+        };
+
+    auto intersects =
+        [&](const std::vector<int> &a, const std::vector<int> &b) -> bool
+        {
+            for (int ai : a)
+            {
+                for (int bi : b)
+                {
+                    if (ai == bi)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+
+    const std::vector<int> original_sectors = get_rpt_sector_set(chord);
+
+    // ---------------------------------------------------------------------
+    // 1) Reflect in OT/OPT base coordinates (continuous).
+    // ---------------------------------------------------------------------
+    const Chord ot = chord.eOT();
+    const HyperplaneEquation hyperplane = chord.hyperplane_equation(opt_sector);
+    Chord reflected_ot = hyperplane.reflect(ot);
+
+    // Snap to lattice if requested (all equal temperaments).
+    if (g > 0.0)
+    {
+        reflected_ot.clamp(g);
     }
+
+    // ---------------------------------------------------------------------
+    // 2) Generate candidate OP representatives of the reflected point,
+    //    and pick one that stays in the same OP-sector *set*.
+    //
+    // We do NOT assume uniqueness of sector membership.
+    // ---------------------------------------------------------------------
+    bool found = false;
+    Chord best_candidate;
+    double best_distance = std::numeric_limits<double>::infinity();
+
+    for (int p = 0; p < n; ++p)
+    {
+        // Start from reflected OT, apply cyclic permutation, then normalize to OP.
+        Chord candidate = reflected_ot.cycle(p).eOP();
+
+        if (g > 0.0)
+        {
+            candidate.clamp(g);
+            candidate = candidate.eOP();
+        }
+
+        const std::vector<int> candidate_sectors = get_rpt_sector_set(candidate);
+
+        // Sector preservation criterion: intersection of sector-sets.
+        if (!original_sectors.empty() && !candidate_sectors.empty())
+        {
+            if (!intersects(original_sectors, candidate_sectors))
+            {
+                continue;
+            }
+        }
+        else if (!original_sectors.empty())
+        {
+            // Original has defined sectors but candidate has none: reject.
+            continue;
+        }
+        // If original_sectors is empty, we can't enforce; fall through.
+
+        // Tie-breaker: choose candidate closest to original chord in OP metric.
+        const double d = (candidate - chord).norm();
+        if (!found || d < best_distance)
+        {
+            best_candidate = candidate;
+            best_distance = d;
+            found = true;
+        }
+    }
+
+    // Fallback: if we couldn't preserve sector-set (should be rare; mostly
+    // numerical edge cases), return the canonical OP representative.
+    if (!found)
+    {
+        best_candidate = reflected_ot.eOP();
+        if (g > 0.0)
+        {
+            best_candidate.clamp(g);
+            best_candidate = best_candidate.eOP();
+        }
+    }
+
+    for (int v = 0; v < n; ++v)
+    {
+        result.setPitch(v, best_candidate.getPitch(v));
+    }
+
     return result;
 }
 
@@ -3479,10 +3613,8 @@ void Chord::initialize_sectors()
         // These remain distinct after eT().
         // ------------------------------------------------------------
         Chord origin(n);
-
         std::vector<Chord> base_vertices;
         base_vertices.reserve(size_t(n));
-
         for (int i = 0; i < n; ++i)
         {
             base_vertices.push_back(origin.v(i, OCTAVE()).eT());
@@ -3494,8 +3626,7 @@ void Chord::initialize_sectors()
             {
                 if (base_vertices[i] == base_vertices[j])
                 {
-                    System::error("initialize_sectors: duplicate base vertices for n=%d (i=%d j=%d).\n",
-                                  n, i, j);
+                    System::error("initialize_sectors: duplicate base vertices for n=%d (i=%d j=%d).\n", n, i, j);
                 }
             }
         }
@@ -3505,30 +3636,42 @@ void Chord::initialize_sectors()
         for (int i = 0; i < n; ++i)
         {
             sum += base_vertices[i];
-            CHORD_SPACE_DEBUG("  base vertex %d: %s\n", i, base_vertices[i].toString().c_str());
+            CHORD_SPACE_DEBUG(" base vertex %d: %s\n", i, base_vertices[i].toString().c_str());
         }
 
         Chord apex(n);
-        /// Crashes in WASM: apex.col(0) = sum / double(n);
-        for (int voice = 0; voice < n; ++voice) {
+        for (int voice = 0; voice < n; ++voice)
+        {
             apex.setPitch(voice, sum.getPitch(voice) / double(n));
-        }   
-        CHORD_SPACE_DEBUG("  apex (centroid): %s\n", apex.toString().c_str());
+        }
+        CHORD_SPACE_DEBUG(" apex (centroid): %s\n", apex.toString().c_str());
 
         // ------------------------------------------------------------
         // Sector k: { apex, all base vertices except base_vertices[k] }.
-        // vertices[0] is apex as required by HyperplaneEquation::create(vertices).
+        //
+        // IMPORTANT ordering for HyperplaneEquation::create():
+        //   vertices[0] = apex
+        //   vertices[1] = base_vertices[(k + 1) % n]      (v_plus)
+        //   vertices[2] = base_vertices[(k - 1 + n) % n]  (v_minus)
+        //
+        // Remaining base vertices (if n > 3) are appended in ascending index
+        // order, skipping {k, plus, minus}.
         // ------------------------------------------------------------
         for (int k = 0; k < n; ++k)
         {
+            const int plus_index = (k + 1) % n;
+            const int minus_index = (k - 1 + n) % n;
+
             std::vector<Chord> sector_vertices;
             sector_vertices.reserve(size_t(n));
 
-            sector_vertices.push_back(apex);
+            sector_vertices.push_back(apex);                    // [0]
+            sector_vertices.push_back(base_vertices[plus_index]);  // [1]
+            sector_vertices.push_back(base_vertices[minus_index]); // [2]
 
             for (int v = 0; v < n; ++v)
             {
-                if (v == k)
+                if (v == k || v == plus_index || v == minus_index)
                 {
                     continue;
                 }
@@ -3537,8 +3680,9 @@ void Chord::initialize_sectors()
 
             if (int(sector_vertices.size()) != n)
             {
-                System::error("initialize_sectors: sector %d in n=%d has %d vertices (expected %d).\n",
-                              k, n, int(sector_vertices.size()), n);
+                System::error(
+                    "initialize_sectors: sector %d in n=%d has %d vertices (expected %d).\n",
+                    k, n, int(sector_vertices.size()), n);
             }
 
             auto opt_domain = cyclical_region;
@@ -3546,20 +3690,22 @@ void Chord::initialize_sectors()
             {
                 opt_domain.push_back(vx);
             }
+
             opt_domains.push_back(opt_domain);
             opt_simplexes.push_back(sector_vertices);
 
             for (int vi = 0; vi < int(sector_vertices.size()); ++vi)
             {
-                CHORD_SPACE_DEBUG("  OPT sector %2d vertex %2d: %s\n",
-                                  k, vi, sector_vertices[size_t(vi)].toString().c_str());
+                CHORD_SPACE_DEBUG(
+                    " OPT sector %2d vertex %2d: %s\n",
+                    k, vi, sector_vertices[size_t(vi)].toString().c_str());
             }
 
             HyperplaneEquation hp;
             hp.create(sector_vertices);
             hyperplane_equations.push_back(hp);
 
-            CHORD_SPACE_DEBUG("  OPT sector %2d hyperplane: %s\n", k, hp.toString().c_str());
+            CHORD_SPACE_DEBUG(" OPT sector %2d hyperplane: %s\n", k, hp.toString().c_str());
         }
 
         opt_sectors_for_dimensionalities_[n] = opt_domains;
