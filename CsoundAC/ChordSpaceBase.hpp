@@ -1144,7 +1144,8 @@ public:
     /**
      * Reflects the chord in the inversion flat of the indicated OPT domain sector.
      */
-    virtual Chord reflect(int opt_sector) const;
+    virtual Chord reflect(int opt_sector, double g = OCTAVE()) const;
+
     virtual void resize(size_t voiceN);
     /**
      * Rounds the value of x to the specified number of decimal places.
