@@ -22,6 +22,7 @@ static int failureCount = 0;
 static int testCount = 0;
 static int exitAfterFailureCount = 5;
 static int testSector = 0;
+static double g = 1.0;
 
 static bool pass(std::string message) {
     passCount = passCount + 1;
@@ -935,7 +936,7 @@ int main(int argc, char **argv) {
     original = csound::chordForName("C7");
     std::cerr << "original:" << std::endl;
     std::cerr << original.information() << std::endl;
-    reflected = reflect_in_inversion_flat(original, testSector);
+    reflected = reflect_in_inversion_flat(original, testSector, g);
     std::cerr << "reflected:" << std::endl;
     std::cerr << reflected.information() << std::endl;
     spun_back = reflected.eOPTT();
