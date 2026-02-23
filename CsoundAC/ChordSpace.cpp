@@ -714,7 +714,7 @@ template<> SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_I>(const Chord &chor
     if (predicate<EQUIVALENCE_RELATION_I>(chord, range, g, opt_sector) == true) {
         return chord;
     } else {
-        return reflect_in_inversion_flat(chord, opt_sector);
+        return reflect_in_inversion_flat(chord, opt_sector, g);
     }
 }
 
@@ -1560,11 +1560,11 @@ std::string Chord::information_sector(int opt_sector_) const {
         auto sector_text = print_opti_sectors(*this);
         snprintf(buffer, sizeof(buffer), "    this:           %s\n", print_chord(*this).c_str());
         result.append(buffer);      
-        auto reflected = reflect_in_inversion_flat(*this, sector);
+        auto reflected = reflect_in_inversion_flat(*this, sector, OCTAVE());
         sector_text = print_opti_sectors(reflected);
         snprintf(buffer, sizeof(buffer), "    reflected:      %s\n", print_chord(reflected).c_str());
         result.append(buffer);      
-        auto rereflected = reflect_in_inversion_flat(reflected, sector);
+        auto rereflected = reflect_in_inversion_flat(reflected, sector, OCTAVE());
         sector_text = print_opti_sectors(rereflected);
         snprintf(buffer, sizeof(buffer), "    re-reflected:   %s\n", print_chord(rereflected).c_str());
         result.append(buffer);      
@@ -2992,130 +2992,15 @@ SILENCE_PUBLIC Chord reflect_in_unison_diagonal(const Chord &chord) {
     return reflection;
 }
 
-SILENCE_PUBLIC Chord reflect_in_inversion_flat(const Chord &chord, int opt_sector, double g)
-{
+SILENCE_PUBLIC Chord reflect_in_inversion_flat(const Chord &chord, int opt_sector, double g) {
+    // Preserve non-pitch data in the chord.
     Chord result = chord;
-
-    const int n = chord.voices();
-    const double range = OCTAVE();
-
-    // ---------------------------------------------------------------------
-    // Helper: sector-set (may contain multiple indices on boundaries).
-    // Uses your existing definition: project to RP then to T-base, then test
-    // against sector base midpoints.
-    // ---------------------------------------------------------------------
-    auto get_rpt_sector_set =
-        [&](const Chord &c) -> std::vector<int>
-        {
-            std::vector<int> sectors;
-            sectors.reserve(size_t(n));
-
-            for (int s = 0; s < n; ++s)
-            {
-                if (c.is_in_rpt_sector(s, range))
-                {
-                    sectors.push_back(s);
-                }
-            }
-            return sectors;
-        };
-
-    auto intersects =
-        [&](const std::vector<int> &a, const std::vector<int> &b) -> bool
-        {
-            for (int ai : a)
-            {
-                for (int bi : b)
-                {
-                    if (ai == bi)
-                    {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        };
-
-    const std::vector<int> original_sectors = get_rpt_sector_set(chord);
-
-    // ---------------------------------------------------------------------
-    // 1) Reflect in OT/OPT base coordinates (continuous).
-    // ---------------------------------------------------------------------
-    const Chord ot = chord.eOT();
-    const HyperplaneEquation hyperplane = chord.hyperplane_equation(opt_sector);
-    Chord reflected_ot = hyperplane.reflect(ot);
-
-    // Snap to lattice if requested (all equal temperaments).
-    if (g > 0.0)
-    {
-        reflected_ot.clamp(g);
+    int dimensions = chord.voices();
+    HyperplaneEquation hyperplane = chord.hyperplane_equation(opt_sector);
+    auto reflected = hyperplane.reflect(chord);
+    for (int voice = 0; voice < dimensions; ++voice) {
+        result.setPitch(voice, reflected.getPitch(voice));
     }
-
-    // ---------------------------------------------------------------------
-    // 2) Generate candidate OP representatives of the reflected point,
-    //    and pick one that stays in the same OP-sector *set*.
-    //
-    // We do NOT assume uniqueness of sector membership.
-    // ---------------------------------------------------------------------
-    bool found = false;
-    Chord best_candidate;
-    double best_distance = std::numeric_limits<double>::infinity();
-
-    for (int p = 0; p < n; ++p)
-    {
-        // Start from reflected OT, apply cyclic permutation, then normalize to OP.
-        Chord candidate = reflected_ot.cycle(p).eOP();
-
-        if (g > 0.0)
-        {
-            candidate.clamp(g);
-            candidate = candidate.eOP();
-        }
-
-        const std::vector<int> candidate_sectors = get_rpt_sector_set(candidate);
-
-        // Sector preservation criterion: intersection of sector-sets.
-        if (!original_sectors.empty() && !candidate_sectors.empty())
-        {
-            if (!intersects(original_sectors, candidate_sectors))
-            {
-                continue;
-            }
-        }
-        else if (!original_sectors.empty())
-        {
-            // Original has defined sectors but candidate has none: reject.
-            continue;
-        }
-        // If original_sectors is empty, we can't enforce; fall through.
-
-        // Tie-breaker: choose candidate closest to original chord in OP metric.
-        const double d = (candidate - chord).norm();
-        if (!found || d < best_distance)
-        {
-            best_candidate = candidate;
-            best_distance = d;
-            found = true;
-        }
-    }
-
-    // Fallback: if we couldn't preserve sector-set (should be rare; mostly
-    // numerical edge cases), return the canonical OP representative.
-    if (!found)
-    {
-        best_candidate = reflected_ot.eOP();
-        if (g > 0.0)
-        {
-            best_candidate.clamp(g);
-            best_candidate = best_candidate.eOP();
-        }
-    }
-
-    for (int v = 0; v < n; ++v)
-    {
-        result.setPitch(v, best_candidate.getPitch(v));
-    }
-
     return result;
 }
 
@@ -4036,8 +3921,8 @@ Chord Chord::eOTT(double g) const {
     return o_tt;
 }
 
-Chord Chord::reflect(int opt_sector) const {
-    auto reflection = reflect_in_inversion_flat(*this, opt_sector);
+Chord Chord::reflect(int opt_sector, double g) const {
+    auto reflection = reflect_in_inversion_flat(*this, opt_sector, g);
     return reflection;
 }
 
