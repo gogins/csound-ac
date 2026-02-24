@@ -286,7 +286,7 @@ P, L, and R have been extended as follows, see Fiore and Satyendra,
 
 static SILENCE_PUBLIC std::string chord_space_version() {
     char buffer[0x500];
-    std::snprintf(buffer, sizeof(buffer), "ChordSpaceBase version 2.1.0. Compiled from %s on %s at %s.", __FILE__, __DATE__, __TIME__);
+    std::snprintf(buffer, sizeof(buffer), "ChordSpaceBase version 2.1.1. Compiled from %s on %s at %s.", __FILE__, __DATE__, __TIME__);
     return buffer;
 }
 
@@ -380,6 +380,8 @@ SILENCE_PUBLIC bool le_tolerance(double a, double b, int epsilons=20, int ulps=2
 SILENCE_PUBLIC bool lt_tolerance(double a, double b, int epsilons=20, int ulps=200);
 
 SILENCE_PUBLIC Chord midpoint(const Chord &a, const Chord &b);
+
+SILENCE_PUBLIC bool equals_in_rpt(const Chord& a, const Chord& b, double range, double g);
 
 /**
  * Cache prime forms for chords for speed.
@@ -1284,7 +1286,7 @@ struct ChordTickLess
 struct SILENCE_PUBLIC HyperplaneEquation
 {
     HyperplaneEquation()
-        : apex_a()
+        : apex()
         , base_midpoint()
         , unit_normal()
     {
@@ -1309,7 +1311,7 @@ struct SILENCE_PUBLIC HyperplaneEquation
         const int dimensions = vertices[0].rows();
 
         // Extract apex (must be vertices[0]).
-        apex_a = chord_point_column(vertices[0]);
+        apex = chord_point_column(vertices[0]);
 
         // Compute centroid of the base facet (all vertices except apex).
         base_midpoint = Vector::Zero(dimensions, 1);
@@ -1352,7 +1354,7 @@ struct SILENCE_PUBLIC HyperplaneEquation
         unit_normal = normal_vector / norm_;
 
         // Keep your existing sign convention: base facet should lie on "minor" side.
-        const double signed_at_base = (base_midpoint - apex_a).dot(unit_normal);
+        const double signed_at_base = (base_midpoint - apex).dot(unit_normal);
         if (signed_at_base > 0.0)
         {
             unit_normal = -unit_normal;
@@ -1364,7 +1366,7 @@ struct SILENCE_PUBLIC HyperplaneEquation
         Chord reflection = chord;
 
         const Vector chord_v = chord_point_column(chord);
-        const Vector a_to_chord = chord_v - apex_a;
+        const Vector a_to_chord = chord_v - apex;
 
         const double signed_distance = a_to_chord.dot(unit_normal);
 
@@ -1382,7 +1384,7 @@ struct SILENCE_PUBLIC HyperplaneEquation
     bool is_minor(const Chord &chord) const
     {
         const Vector chord_v = chord_point_column(chord);
-        const Vector a_to_chord = chord_v - apex_a;
+        const Vector a_to_chord = chord_v - apex;
         const double signed_distance = a_to_chord.dot(unit_normal);
 
         return le_tolerance(signed_distance, 0.0, 64, 512);
@@ -1391,7 +1393,7 @@ struct SILENCE_PUBLIC HyperplaneEquation
     bool is_invariant(const Chord &chord) const
     {
         const Vector chord_v = chord_point_column(chord);
-        const Vector a_to_chord = chord_v - apex_a;
+        const Vector a_to_chord = chord_v - apex;
         const double signed_distance = a_to_chord.dot(unit_normal);
 
         return eq_tolerance(std::abs(signed_distance), 0.0, 64, 512);
@@ -1400,7 +1402,7 @@ struct SILENCE_PUBLIC HyperplaneEquation
     Chord midpoint() const
     {
         Chord midpoint_chord;
-        midpoint_chord.resize(apex_a.rows());
+        midpoint_chord.resize(apex.rows());
 
         for (int voice = 0; voice < midpoint_chord.voices(); ++voice)
         {
@@ -1432,11 +1434,11 @@ struct SILENCE_PUBLIC HyperplaneEquation
 
         append_vector("unit_normal: ", unit_normal);
         result += " ";
-        append_vector(" apex: ", apex_a);
+        append_vector(" apex: ", apex);
         return result;
     }
 
-    Vector apex_a;
+    Vector apex;
     Vector base_midpoint;
     Vector unit_normal;
 
@@ -1485,10 +1487,10 @@ inline SILENCE_PUBLIC Chord discrete_involutive_map(
 
     // Neighborhood around y_lattice (radius 1 in each coordinate).
     std::vector<Chord> candidates;
-    candidates.reserve(1 + 2 * n);
+    candidates.reserve(size_t(1 + 2 * n));
     candidates.push_back(y_lattice);
 
-    for (int v = 0; v < n; +v)
+    for (int v = 0; v < n; ++v)
     {
         for (int dir : {-1, 1})
         {
