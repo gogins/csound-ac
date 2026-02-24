@@ -39,6 +39,7 @@
 #include <functional>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <set>
 #include <sstream>
@@ -64,6 +65,7 @@
 #include <functional>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <random>
 #include <set>
@@ -1278,6 +1280,7 @@ struct ChordTickLess
     }
 };
 
+
 struct SILENCE_PUBLIC HyperplaneEquation
 {
     HyperplaneEquation()
@@ -1457,6 +1460,102 @@ struct SILENCE_PUBLIC HyperplaneEquation
         return chord.col(0);
     }
 };
+
+/**
+ * Induced discrete involution helper: Given a continuous involution R (e.g., 
+ * reflection in inversion-flat), produce a lattice map R_g that is an 
+ * involution on the g-lattice.
+ */ 
+template<typename ContinuousMap, typename SectorPredicate>
+inline SILENCE_PUBLIC Chord discrete_involutive_map(
+    const Chord& x,
+    double g,
+    ContinuousMap R,
+    SectorPredicate sector_ok)
+{
+    const int n = x.voices();
+
+    // Continuous image.
+    const Chord y_cont = R(x);
+
+    // Reference lattice snap near the continuous image.
+    Chord y_lattice = y_cont;
+    y_lattice.clamp(g);
+    y_lattice = y_lattice.eOP();
+
+    // Neighborhood around y_lattice (radius 1 in each coordinate).
+    std::vector<Chord> candidates;
+    candidates.reserve(1 + 2 * n);
+    candidates.push_back(y_lattice);
+
+    for (int v = 0; v < n; +v)
+    {
+        for (int dir : {-1, 1})
+        {
+            Chord c = y_lattice;
+            c.setPitch(v, c.getPitch(v) + dir * g);
+            c = c.eOP();
+            c.clamp(g);
+            c = c.eOP();
+            candidates.push_back(c);
+        }
+    }
+
+    // Optional sector-preserving filter.
+    std::vector<Chord> filtered;
+    filtered.reserve(candidates.size());
+    for (const auto& c : candidates)
+    {
+        if (sector_ok(x, c))
+        {
+            filtered.push_back(c);
+        }
+    }
+    if (filtered.empty())
+    {
+        filtered = candidates;
+    }
+
+    // Symmetric pairing selection: choose c such that R_g(c) == x.
+    Chord best;
+    bool found = false;
+    double best_dist = std::numeric_limits<double>::infinity();
+
+    for (const auto& c : filtered)
+    {
+        Chord back = R(c);
+        back.clamp(g);
+        back = back.eOP();
+
+        if ((back - x).norm() < 1e-9)
+        {
+            const double d = (c - y_cont).norm();
+            if (!found || d < best_dist)
+            {
+                best = c;
+                best_dist = d;
+                found = true;
+            }
+        }
+    }
+
+    if (!found)
+    {
+        // Fallback: nearest filtered lattice point to y_cont.
+        for (const auto& c : filtered)
+        {
+            const double d = (c - y_cont).norm();
+            if (!found || d < best_dist)
+            {
+                best = c;
+                best_dist = d;
+                found = true;
+            }
+        }
+    }
+
+    return best;
+}
 
 SILENCE_PUBLIC const Chord &chordForName(std::string name);
 
