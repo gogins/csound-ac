@@ -654,16 +654,37 @@ template<> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_Tg>(const Chord &c
     return true;
 }
 
-template<> 
-SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int opt_sector) {
-    auto self_t = chord.eT();
-    auto self_t_ceiling = self_t.ceiling(g);
-    while (lt_tolerance(self_t_ceiling.layer(), 0.) == true) {
-        /// self_t_ceiling = self_t_ceiling.T(g);
-        auto self_t = chord.eT();
-        auto self_t_ceiling = self_t.ceiling(g);
+template<>
+SILENCE_PUBLIC Chord
+equate<EQUIVALENCE_RELATION_Tg>(
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
+{
+    (void)range;
+    (void)opt_sector;
+
+    if (g <= 0.0)
+    {
+        g = 1.0;
     }
-    return self_t_ceiling;
+
+    // 1) Continuous T-reduction
+    Chord result = chord.eT();
+
+    // 2) Snap to lattice step g
+    for (int v = 0; v < result.voices(); ++v)
+    {
+        double p = result.getPitch(v);
+
+        // nearest multiple of g
+        double snapped = std::round(p / g) * g;
+
+        result.setPitch(v, snapped);
+    }
+
+    return result;
 }
 
 Chord Chord::eTT(double g) const {
@@ -855,7 +876,7 @@ Chord Chord::eRPT(double range, int opt_sector) const {
 //	EQUIVALENCE_RELATION_RPTg
 
 template<>
-SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTg> (
+SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTg>(
     const Chord &chord,
     double range,
     double g,
@@ -866,23 +887,26 @@ SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTg> (
         g = 1.0;
     }
 
-    // Decomposable definition:
-    //   chord is RPTg-normal iff it is already in the RP prism, already Tg-normal,
-    //   and lies in the requested sector (tested without further reduction).
-    if (predicate<EQUIVALENCE_RELATION_RP>(chord, range, 1.0, 0) == false)
+    // 1) Must already be permutation-normal (P).
+    if (!predicate<EQUIVALENCE_RELATION_P>(chord, range, g, 0))
     {
         return false;
     }
-    if (predicate<EQUIVALENCE_RELATION_Tg>(chord, range, g, 0) == false)
+
+    // 2) Must already be Tg-normal.
+    if (!predicate<EQUIVALENCE_RELATION_Tg>(chord, range, g, 0))
     {
         return false;
     }
-        // Sectoring is defined in the RP/T base, not in the Tg base.
-    // Using raw-sectoring on a Tg-normal chord will generally fail.
-    if (chord.eT().is_in_rpt_sector_base(rpt_sector, range) == false)
+
+    // 3) Sector membership is defined in the RP/T base.
+    //    IMPORTANT: do NOT re-apply RP reduction here.
+    //    We assume canonicalization already placed it in RP prism.
+    if (!chord.eT().is_in_rpt_sector_base(rpt_sector, range))
     {
         return false;
     }
+
     return true;
 }
 
@@ -892,45 +916,48 @@ bool Chord::iseRPTT(double range, double g, int opt_sector) const {
 
 template<>
 SILENCE_PUBLIC Chord
-equate<EQUIVALENCE_RELATION_RPTg> (
+equate<EQUIVALENCE_RELATION_RPTg>(
     const Chord &chord,
     double range,
     double g,
     int rpt_sector)
 {
-    // Defensive defaults
     if (g <= 0.0)
     {
         g = 1.0;
     }
 
-    // 1) Reduce into the RP prism (range + permutation)
-    //    This is the "tall prism" you described.
-    const Chord rp = chord.eRP(range);
+    // 1) Reduce once into the RP prism.
+    Chord rp = chord.eRP(range);
 
-    // 2) Enumerate octavewise revoicings that tile RP into RPT sectors
+    // 2) Tile the RP prism by octavewise voicings.
     const std::vector<Chord> rp_voicings = rp.voicings();
 
-    // 3) Apply Tg reduction to each candidate
-    std::vector<Chord> candidates;
-    candidates.reserve(rp_voicings.size());
-
-    for (const auto &v : rp_voicings)
+    // 3) For each tile, apply Tg normalization.
+    //    We enforce permutation normalization AFTER Tg,
+    //    but we DO NOT re-apply RP (that would disturb sectoring).
+    for (const Chord &v : rp_voicings)
     {
-        candidates.push_back(v.eTT(g));   // Tg representative
-    }
+        Chord candidate = v.eTT(g);   // Tg-normal representative
 
-    // 4) Return the candidate that lies in the requested RPT sector
-    for (const auto &c : candidates)
-    {
-        // Sectoring is defined in the RP/T base, not in the Tg base.
-        if (c.eT().is_in_rpt_sector_base(rpt_sector, range))
+        // Enforce permutation normalization only (P),
+        // do NOT re-run RP(range).
+        candidate = candidate.eP();
+
+        // Sectoring is defined in RP/T base.
+        if (candidate.eT().is_in_rpt_sector_base(rpt_sector, range))
         {
-            return c;
+            return candidate;
         }
     }
-    System::error("Error:  Chord equate<EQUIVALENCE_RELATION_RPTg>: no RPTg in sector %d.\n", rpt_sector);
-    return candidates.front();
+
+    // Defensive fallback (should never happen if geometry is correct)
+    System::error(
+        "Error: Chord equate<EQUIVALENCE_RELATION_RPTg>: "
+        "no RPTg representative in sector %d.\n",
+        rpt_sector);
+
+    return rp_voicings.front().eTT(g).eP();
 }
 
 Chord Chord::eRPTT(double range, double g, int opt_sector) const {
@@ -1058,20 +1085,48 @@ bool Chord::iseRPTTI(double range, double g, int opt_sector) const {
     return predicate<EQUIVALENCE_RELATION_RPTgI>(*this, range, g, opt_sector);
 }
 
-template<> SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord, double range, double g, int opt_sector) {
-    Chord self = chord;
-    if (predicate<EQUIVALENCE_RELATION_RPTgI>(self, range, g, opt_sector) == true) {
-        return self;
-    } else {
-        auto rptt = equate<EQUIVALENCE_RELATION_RPTg>(self, range, g, opt_sector);
-        if (predicate<EQUIVALENCE_RELATION_I>(rptt, range, g, opt_sector) == true) {
-            return rptt;
-        } else {
-            auto rptt_i = equate<EQUIVALENCE_RELATION_I>(rptt, range, g, opt_sector);
-            auto rptt_i_rptt = equate<EQUIVALENCE_RELATION_RPTg>(rptt_i, range, g, opt_sector);
-            return rptt_i_rptt;
-        }
+template<>
+SILENCE_PUBLIC Chord
+equate<EQUIVALENCE_RELATION_RPTgI>(
+    const Chord &chord,
+    double range,
+    double g,
+    int rpt_sector)
+{
+    if (g <= 0.0)
+    {
+        g = 1.0;
     }
+
+    // 1. Canonical RPTg representative
+    Chord a =
+        equate<EQUIVALENCE_RELATION_RPTg>(
+            chord, range, g, rpt_sector);
+
+    // 2. Determine which half of the sector a lies in
+    //    using signed distance to the inversion hyperplane.
+    HyperplaneEquation hp =
+        a.hyperplane_equation(rpt_sector);
+
+    double signed_distance =
+        (a.col(0) - hp.apex).dot(hp.unit_normal);
+
+    // Define negative side as canonical "minor" side.
+    if (signed_distance <= 0.0 ||
+        eq_tolerance(signed_distance, 0.0))
+    {
+        return a;
+    }
+
+    // 3. Otherwise reflect discretely and re-canonicalize.
+    Chord b =
+        reflect_in_inversion_flat(a, rpt_sector, g);
+
+    b =
+        equate<EQUIVALENCE_RELATION_RPTg>(
+            b, range, g, rpt_sector);
+
+    return b;
 }
 
 Chord Chord::eRPTTI(double range, double g, int opt_sector) const {
@@ -1584,6 +1639,42 @@ SILENCE_PUBLIC int indexForOctavewiseRevoicing(const Chord &chord, double range)
     const auto origin = csound::equate<EQUIVALENCE_RELATION_RP>(chord, OCTAVE(), 1.0, 0);
     auto result = indexForOctavewiseRevoicing(origin, chord, range);
     return result;
+}
+
+SILENCE_PUBLIC bool equals_in_rpt(
+    const Chord& a,
+    const Chord& b,
+    double range,
+    double g)
+{
+    if (a.voices() != b.voices())
+    {
+        return false;
+    }
+
+    Chord aa = a;
+    Chord bb = b;
+
+    // Normalize in RP domain first
+    aa = aa.eRP(range);
+    bb = bb.eRP(range);
+
+    if (g > 0.0)
+    {
+        aa.clamp(g);
+        bb.clamp(g);
+    }
+
+    for (int v = 0; v < aa.voices(); ++v)
+    {
+        if (!eq_tolerance(
+                aa.getPitch(v),
+                bb.getPitch(v)))
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 SILENCE_PUBLIC bool operator == (const Chord &a, const Chord &b) {
@@ -2977,14 +3068,71 @@ SILENCE_PUBLIC Chord reflect_in_unison_diagonal(const Chord &chord) {
     return reflection;
 }
 
-SILENCE_PUBLIC Chord reflect_in_inversion_flat(const Chord &chord, int opt_sector, double g) {
-    // Preserve non-pitch data in the chord.
+SILENCE_PUBLIC Chord reflect_in_inversion_flat(const Chord &chord, int opt_sector, double g)
+{
+    // Continuous reflection (always non-recursive).
+    auto reflect_continuous = [&](const Chord& x) -> Chord
+    {
+        HyperplaneEquation hyperplane = x.hyperplane_equation(opt_sector);
+        return hyperplane.reflect(x);
+    };
+
+    // Continuous mode.
+    if (!(g > 0.0))
+    {
+        // Preserve non-pitch data.
+        Chord result = chord;
+        Chord reflected = reflect_continuous(chord);
+        for (int v = 0; v < chord.voices(); ++v)
+        {
+            result.setPitch(v, reflected.getPitch(v));
+        }
+        return result;
+    }
+
+    // ---- Discrete induced involution on the g-lattice ----
+
+    const int n = chord.voices();
+    const double range = OCTAVE();
+
+    // Sector-set membership masks using ONLY is_in_rpt_sector_base
+    // (no predicate/equate calls, so no recursion).
+    auto sector_mask = [&](const Chord& x) -> uint64_t
+    {
+        uint64_t mask = 0;
+        for (int s = 0; s < n; ++s)
+        {
+            if (x.is_in_rpt_sector_base(s, range))
+            {
+                mask |= (uint64_t(1) << s);
+            }
+        }
+        return mask;
+    };
+
+    const uint64_t mask_x = sector_mask(chord);
+
+    auto sector_ok = [&](const Chord& x, const Chord& c) -> bool
+    {
+        (void)x;
+        // Boundary-safe: accept if there exists ANY sector shared by x and c.
+        return (sector_mask(c) & mask_x) != 0;
+    };
+
+    // Wrap the continuous reflection with induced discrete involution.
+    // NOTE: This must not call reflect_in_inversion_flat recursively.
+    auto induced = [&](const Chord& x) -> Chord
+    {
+        return reflect_continuous(x);
+    };
+
+    Chord y = discrete_involutive_map(chord, g, induced, sector_ok);
+
+    // Preserve non-pitch data from original chord in the return value.
     Chord result = chord;
-    int dimensions = chord.voices();
-    HyperplaneEquation hyperplane = chord.hyperplane_equation(opt_sector);
-    auto reflected = hyperplane.reflect(chord);
-    for (int voice = 0; voice < dimensions; ++voice) {
-        result.setPitch(voice, reflected.getPitch(voice));
+    for (int v = 0; v < n; ++v)
+    {
+        result.setPitch(v, y.getPitch(v));
     }
     return result;
 }
