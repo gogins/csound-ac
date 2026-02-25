@@ -1022,23 +1022,21 @@ Chord Chord::eRPI(double range, int opt_sector) const {
 
 //	EQUIVALENCE_RELATION_RPTI
 
-template<> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTI>(const Chord &chord, double range, double g, int opt_sector) {
-    if (predicate<EQUIVALENCE_RELATION_R>(chord, range, g, opt_sector) == false) {
-        return false;
-    }
-    if (predicate<EQUIVALENCE_RELATION_P>(chord, range, g, opt_sector) == false) {
-        return false;
-    }
-    if (chord.is_in_rpt_sector(opt_sector, range) == false) {
-        return false;
-    }
-    if (predicate<EQUIVALENCE_RELATION_T>(chord, range, g, opt_sector) == false) {
-        return false;
-    }
-    if (predicate<EQUIVALENCE_RELATION_I>(chord, range, g, opt_sector) == false) {
-        return false;
-    }
-    return true;
+template<>
+SILENCE_PUBLIC bool
+predicate<EQUIVALENCE_RELATION_RPTI>(
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
+{
+    (void)g;
+
+    const Chord canonical =
+        equate<EQUIVALENCE_RELATION_RPTI>(
+            chord, range, 1.0, opt_sector);
+
+    return chord == canonical;
 }
 
 bool Chord::iseRPTI(double range, int opt_sector) const {
@@ -1085,8 +1083,6 @@ SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTgI>(
 bool Chord::iseRPTTI(double range, double g, int opt_sector) const {
     return predicate<EQUIVALENCE_RELATION_RPTgI>(*this, range, g, opt_sector);
 }
-
-// EQUIVALENCE_RELATION_RPTgI
 
 template<>
 SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(
