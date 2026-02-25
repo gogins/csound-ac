@@ -686,9 +686,7 @@ equate<EQUIVALENCE_RELATION_Tg>(
     }
     mean /= x.voices();
 
-    // 3) Choose a fundamental domain: mean in [0, g).
-    const double shift = std::floor(mean / g) * g;
-
+    const double shift = std::floor((mean + g/2.0) / g) * g;    
     for (int v = 0; v < x.voices(); ++v)
     {
         x.setPitch(v, x.getPitch(v) - shift);
