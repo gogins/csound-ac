@@ -631,27 +631,30 @@ Chord Chord::eT() const {
 
 //	EQUIVALENCE_RELATION_Tg
 
-template<> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_Tg>(const Chord &chord, double range, double g, int opt_sector)
+template<>
+SILENCE_PUBLIC bool
+predicate<EQUIVALENCE_RELATION_Tg>(
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
 {
     (void)range;
     (void)opt_sector;
 
-    if (g <= 0.0)
+    if (!(g > 0.0))
     {
         g = 1.0;
     }
 
-    // A chord is Tg-normal iff it equals its Tg representative (component-wise).
-    const Chord representative = csound::equate<EQUIVALENCE_RELATION_Tg>(chord, OCTAVE(), g, 0);
+    const Chord canonical =
+        equate<EQUIVALENCE_RELATION_Tg>(chord, OCTAVE(), g, 0);
 
-    for (int v = 0; v < chord.voices(); ++v)
-    {
-        if (eq_tolerance(chord.getPitch(v), representative.getPitch(v)) == false)
-        {
-            return false;
-        }
-    }
-    return true;
+    return chord == canonical;
+}
+
+bool Chord::iseTT(double g) const {
+    return predicate<EQUIVALENCE_RELATION_Tg>(*this, OCTAVE(), g, 0);
 }
 
 template<>
@@ -665,34 +668,40 @@ equate<EQUIVALENCE_RELATION_Tg>(
     (void)range;
     (void)opt_sector;
 
-    if (g <= 0.0)
+    if (!(g > 0.0))
     {
         g = 1.0;
     }
 
-    // 1) Continuous T-reduction
-    Chord result = chord.eT();
+    Chord x = chord;
 
-    // 2) Snap to lattice step g
-    for (int v = 0; v < result.voices(); ++v)
+    // 1) Snap to lattice.
+    x.clamp(g);
+
+    // 2) Compute mean (layer).
+    double mean = 0.0;
+    for (int v = 0; v < x.voices(); ++v)
     {
-        double p = result.getPitch(v);
+        mean += x.getPitch(v);
+    }
+    mean /= x.voices();
 
-        // nearest multiple of g
-        double snapped = std::round(p / g) * g;
+    // 3) Choose a fundamental domain: mean in [0, g).
+    const double shift = std::floor(mean / g) * g;
 
-        result.setPitch(v, snapped);
+    for (int v = 0; v < x.voices(); ++v)
+    {
+        x.setPitch(v, x.getPitch(v) - shift);
     }
 
-    return result;
+    // 4) Snap again to clean floating error.
+    x.clamp(g);
+
+    return x;
 }
 
 Chord Chord::eTT(double g) const {
     return csound::equate<EQUIVALENCE_RELATION_Tg>(*this, OCTAVE(), g, 0);
-}
-
-bool Chord::iseTT(double g) const {
-    return predicate<EQUIVALENCE_RELATION_Tg>(*this, OCTAVE(), g, 0);
 }
 
 //	EQUIVALENCE_RELATION_I
@@ -923,57 +932,41 @@ equate<EQUIVALENCE_RELATION_RPTg>(
     int rpt_sector)
 {
     if (!(g > 0.0))
-    {
         g = 1.0;
-    }
 
-    // Reduce once into RP prism.
-    const Chord rp = chord.eRP(range);
+    // 1. Snap to lattice (Tg)
+    Chord x = chord;
+    x.clamp(g);
 
-    // Enumerate RP tiles.
-    const std::vector<Chord> rp_voicings = rp.voicings();
+    // 2. Apply discrete permutation normalization
+    x = x.eP();
 
-    // Best-candidate selection (stable on boundaries):
-    // pick among candidates that end up in the requested sector after Tg.
-    bool found = false;
-    Chord best;
-    double best_dist2 = std::numeric_limits<double>::infinity();
+    // 3. Apply discrete layer normalization:
+    // Instead of continuous eT(),
+    // subtract the mean rounded to nearest multiple of g.
+    double mean = 0.0;
+    for (int v = 0; v < x.voices(); ++v)
+        mean += x.getPitch(v);
+    mean /= x.voices();
 
-    for (const Chord &v : rp_voicings)
+    double mean_snap = std::round(mean / g) * g;
+
+    for (int v = 0; v < x.voices(); ++v)
+        x.setPitch(v, x.getPitch(v) - mean_snap);
+
+    // 4. Sector selection (purely geometric, no further snapping)
+    if (!x.is_in_rpt_sector_base(rpt_sector, range))
     {
-        // Build the Tg representative inside this RP tile.
-        Chord candidate = v.eTT(g).eP();
-
-        // Sector test MUST be on the *final* candidate in the RP/T base.
-        if (!candidate.eT().is_in_rpt_sector_base(rpt_sector, range))
+        // If necessary, rotate voicings discretely and re-test.
+        auto vs = x.voicings();
+        for (auto &v : vs)
         {
-            continue;
-        }
-
-        // Choose the one closest (in Euclidean) to the continuous layer-0 point v.eT().
-        // This makes selection stable on boundaries.
-        const Vector dv = (candidate.col(0) - v.eT().col(0));
-        const double dist2 = dv.dot(dv);
-
-        if (dist2 < best_dist2)
-        {
-            best_dist2 = dist2;
-            best = candidate;
-            found = true;
+            if (v.is_in_rpt_sector_base(rpt_sector, range))
+                return v;
         }
     }
 
-    if (found)
-    {
-        return best;
-    }
-
-    System::error(
-        "Error: Chord equate<EQUIVALENCE_RELATION_RPTg>: no RPTg representative in sector %d.\n",
-        rpt_sector);
-
-    // Defensive fallback: return something Tg/P-normal even if sectoring failed.
-    return rp_voicings.front().eTT(g).eP();
+    return x;
 }
 
 Chord Chord::eRPTT(double range, double g, int opt_sector) const {
