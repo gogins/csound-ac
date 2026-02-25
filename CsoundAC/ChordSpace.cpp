@@ -922,39 +922,57 @@ equate<EQUIVALENCE_RELATION_RPTg>(
     double g,
     int rpt_sector)
 {
-    if (g <= 0.0)
+    if (!(g > 0.0))
     {
         g = 1.0;
     }
 
-    // 1) Reduce once into RP prism
-    Chord rp = chord.eRP(range);
+    // Reduce once into RP prism.
+    const Chord rp = chord.eRP(range);
 
-    // 2) Tile RP prism by octavewise voicings
+    // Enumerate RP tiles.
     const std::vector<Chord> rp_voicings = rp.voicings();
+
+    // Best-candidate selection (stable on boundaries):
+    // pick among candidates that end up in the requested sector after Tg.
+    bool found = false;
+    Chord best;
+    double best_dist2 = std::numeric_limits<double>::infinity();
 
     for (const Chord &v : rp_voicings)
     {
-        // Sector test MUST be done in RP/T base BEFORE Tg
-        if (!v.eT().is_in_rpt_sector_base(rpt_sector, range))
+        // Build the Tg representative inside this RP tile.
+        Chord candidate = v.eTT(g).eP();
+
+        // Sector test MUST be on the *final* candidate in the RP/T base.
+        if (!candidate.eT().is_in_rpt_sector_base(rpt_sector, range))
+        {
             continue;
+        }
 
-        // Now apply Tg inside the chosen tile
-        Chord candidate = v.eTT(g);
+        // Choose the one closest (in Euclidean) to the continuous layer-0 point v.eT().
+        // This makes selection stable on boundaries.
+        const Vector dv = (candidate.col(0) - v.eT().col(0));
+        const double dist2 = dv.dot(dv);
 
-        // Do NOT re-run RP.
-        // Do NOT re-test sector.
-        // Just enforce permutation ordering.
-        candidate = candidate.eP();
+        if (dist2 < best_dist2)
+        {
+            best_dist2 = dist2;
+            best = candidate;
+            found = true;
+        }
+    }
 
-        return candidate;
+    if (found)
+    {
+        return best;
     }
 
     System::error(
-        "Error: Chord equate<EQUIVALENCE_RELATION_RPTg>: "
-        "no RPTg representative in sector %d.\n",
+        "Error: Chord equate<EQUIVALENCE_RELATION_RPTg>: no RPTg representative in sector %d.\n",
         rpt_sector);
 
+    // Defensive fallback: return something Tg/P-normal even if sectoring failed.
     return rp_voicings.front().eTT(g).eP();
 }
 
