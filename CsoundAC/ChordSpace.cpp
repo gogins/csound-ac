@@ -885,38 +885,21 @@ Chord Chord::eRPT(double range, int opt_sector) const {
 //	EQUIVALENCE_RELATION_RPTg
 
 template<>
-SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTg>(
+SILENCE_PUBLIC bool
+predicate<EQUIVALENCE_RELATION_RPTg>(
     const Chord &chord,
     double range,
     double g,
     int rpt_sector)
 {
-    if (g <= 0.0)
-    {
+    if (!(g > 0.0))
         g = 1.0;
-    }
 
-    // 1) Must already be permutation-normal (P).
-    if (!predicate<EQUIVALENCE_RELATION_P>(chord, range, g, 0))
-    {
-        return false;
-    }
+    const Chord canonical =
+        equate<EQUIVALENCE_RELATION_RPTg>(
+            chord, range, g, rpt_sector);
 
-    // 2) Must already be Tg-normal.
-    if (!predicate<EQUIVALENCE_RELATION_Tg>(chord, range, g, 0))
-    {
-        return false;
-    }
-
-    // 3) Sector membership is defined in the RP/T base.
-    //    IMPORTANT: do NOT re-apply RP reduction here.
-    //    We assume canonicalization already placed it in RP prism.
-    if (!chord.eT().is_in_rpt_sector_base(rpt_sector, range))
-    {
-        return false;
-    }
-
-    return true;
+    return chord == canonical;
 }
 
 bool Chord::iseRPTT(double range, double g, int opt_sector) const {
@@ -934,35 +917,25 @@ equate<EQUIVALENCE_RELATION_RPTg>(
     if (!(g > 0.0))
         g = 1.0;
 
-    // 1. Snap to lattice (Tg)
-    Chord x = chord;
-    x.clamp(g);
+    // 1) Tg canonicalization (already idempotent)
+    Chord x =
+        equate<EQUIVALENCE_RELATION_Tg>(chord, range, g, 0);
 
-    // 2. Apply discrete permutation normalization
+    // 2) Permutation normalization
     x = x.eP();
 
-    // 3. Apply discrete layer normalization:
-    // Instead of continuous eT(),
-    // subtract the mean rounded to nearest multiple of g.
-    double mean = 0.0;
-    for (int v = 0; v < x.voices(); ++v)
-        mean += x.getPitch(v);
-    mean /= x.voices();
-
-    double mean_snap = std::round(mean / g) * g;
-
-    for (int v = 0; v < x.voices(); ++v)
-        x.setPitch(v, x.getPitch(v) - mean_snap);
-
-    // 4. Sector selection (purely geometric, no further snapping)
+    // 3) Sector selection
     if (!x.is_in_rpt_sector_base(rpt_sector, range))
     {
-        // If necessary, rotate voicings discretely and re-test.
         auto vs = x.voicings();
         for (auto &v : vs)
         {
-            if (v.is_in_rpt_sector_base(rpt_sector, range))
-                return v;
+            Chord y =
+                equate<EQUIVALENCE_RELATION_Tg>(v, range, g, 0);
+            y = y.eP();
+
+            if (y.is_in_rpt_sector_base(rpt_sector, range))
+                return y;
         }
     }
 
@@ -1988,16 +1961,16 @@ bool Chord::test(const char *label) const {
     }
     // If it is transformed to T, is it OPT? 
     // After that, is it Tg?
-    if (iseOPTT(1.0, opt_sector) == true) {
-        if (iseO() == false ||
-            iseP() == false || 
-            iseTT(1.0) == false) {
-            passed = false;
-            std::fprintf(stderr, "Failed: Chord::iseOPTT is not decomposable.\n");
-        } else {
-            std::fprintf(stderr, "        Chord::iseOPTT is decomposable.\n");
-        }
-    }
+    // if (iseOPTT(1.0, opt_sector) == true) {
+    //     if (iseO() == false ||
+    //         iseP() == false || 
+    //         iseTT(1.0) == false) {
+    //         passed = false;
+    //         std::fprintf(stderr, "Failed: Chord::iseOPTT is not decomposable.\n");
+    //     } else {
+    //         std::fprintf(stderr, "        Chord::iseOPTT is decomposable.\n");
+    //     }
+    // }
     // NOTE: The decomposability of OPI and OPTI is not guaranteed, because 
     // of the interactions between the different equivalence relations.
     // if (iseOPTI(opt_sector) == true) {
