@@ -1053,32 +1053,32 @@ equate<EQUIVALENCE_RELATION_RPTI>(
 {
     (void)g;
 
-    // 1. Reduce to RPT base
+    // 1. Reduce to RPT
     Chord a = equate<EQUIVALENCE_RELATION_RPT>(
         chord, range, 1.0, rpt_sector);
 
     // 2. Reflect continuously
     Chord b = reflect_in_inversion_flat(a, rpt_sector, 0.0);
 
-    // 3. Reduce reflected result to RPT base
+    // 3. Reduce reflected to RPT
     b = equate<EQUIVALENCE_RELATION_RPT>(
         b, range, 1.0, rpt_sector);
 
-    // 4. Choose canonical half-space (minor side rule)
-    HyperplaneEquation hp = a.hyperplane_equation(rpt_sector);
+    // 4. Use sector hyperplane (fixed geometry)
+    HyperplaneEquation hp =
+        a.hyperplane_equation(rpt_sector);
 
-    double da = (a.col(0) - hp.apex).dot(hp.unit_normal);
-    double db = (b.col(0) - hp.apex).dot(hp.unit_normal);
+    double da =
+        (a.col(0) - hp.apex).dot(hp.unit_normal);
 
-    // Prefer the non-positive (minor) side
-    if (le_tolerance(da, 0.0))
+    double db =
+        (b.col(0) - hp.apex).dot(hp.unit_normal);
+
+    // Minor side rule
+    if (le_tolerance(da, db))
         return a;
-
-    if (le_tolerance(db, 0.0))
+    else
         return b;
-
-    // Boundary case fallback
-    return a;
 }
 
 Chord Chord::eRPTI(double range, int opt_sector) const {
