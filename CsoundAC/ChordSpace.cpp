@@ -3116,8 +3116,11 @@ SILENCE_PUBLIC Chord reflect_in_inversion_flat(const Chord &chord, int opt_secto
         return reflect_continuous(x);
     };
 
-    Chord y = discrete_involutive_map(chord, g, induced, sector_ok);
+    auto accept_all = [](const Chord&, const Chord&) {
+        return true;
+    };
 
+    Chord y = discrete_involutive_map(chord, g, induced, accept_all);
     // Preserve non-pitch data from original chord in the return value.
     Chord result = chord;
     for (int v = 0; v < n; ++v)
