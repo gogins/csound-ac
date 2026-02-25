@@ -927,31 +927,29 @@ equate<EQUIVALENCE_RELATION_RPTg>(
         g = 1.0;
     }
 
-    // 1) Reduce once into the RP prism.
+    // 1) Reduce once into RP prism
     Chord rp = chord.eRP(range);
 
-    // 2) Tile the RP prism by octavewise voicings.
+    // 2) Tile RP prism by octavewise voicings
     const std::vector<Chord> rp_voicings = rp.voicings();
 
-    // 3) For each tile, apply Tg normalization.
-    //    We enforce permutation normalization AFTER Tg,
-    //    but we DO NOT re-apply RP (that would disturb sectoring).
     for (const Chord &v : rp_voicings)
     {
-        Chord candidate = v.eTT(g);   // Tg-normal representative
+        // Sector test MUST be done in RP/T base BEFORE Tg
+        if (!v.eT().is_in_rpt_sector_base(rpt_sector, range))
+            continue;
 
-        // Enforce permutation normalization only (P),
-        // do NOT re-run RP(range).
+        // Now apply Tg inside the chosen tile
+        Chord candidate = v.eTT(g);
+
+        // Do NOT re-run RP.
+        // Do NOT re-test sector.
+        // Just enforce permutation ordering.
         candidate = candidate.eP();
 
-        // Sectoring is defined in RP/T base.
-        if (candidate.eT().is_in_rpt_sector_base(rpt_sector, range))
-        {
-            return candidate;
-        }
+        return candidate;
     }
 
-    // Defensive fallback (should never happen if geometry is correct)
     System::error(
         "Error: Chord equate<EQUIVALENCE_RELATION_RPTg>: "
         "no RPTg representative in sector %d.\n",
@@ -1062,32 +1060,36 @@ Chord Chord::eRPTI(double range, int opt_sector) const {
     return csound::equate<EQUIVALENCE_RELATION_RPTI>(*this, range, 1.0, opt_sector);
 }
 
-//	EQUIVALENCE_RELATION_RPTgI
+// EQUIVALENCE_RELATION_RPTgI
 
 template<>
 SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTgI>(
-    const Chord &chord, double range, double g, int opt_sector)
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
 {
-    if (!predicate<EQUIVALENCE_RELATION_R>(chord, range, g, opt_sector)) return false;
-    if (!predicate<EQUIVALENCE_RELATION_P>(chord, range, g, opt_sector)) return false;
+    if (g <= 0.0)
+    {
+        g = 1.0;
+    }
 
-    // Must already be in the Tg base.
-    if (!predicate<EQUIVALENCE_RELATION_Tg>(chord, range, g, opt_sector)) return false;
+    // RPTgI-normal means: chord is exactly the canonical representative
+    // selected by equate<RPTgI> (minor-half preference + induced involution).
+    const Chord canonical =
+        equate<EQUIVALENCE_RELATION_RPTgI>(chord, range, g, opt_sector);
 
-    // Now sector membership and inversion tests are meaningful.
-    if (!chord.is_in_rpt_sector(opt_sector, range)) return false;
-    if (!predicate<EQUIVALENCE_RELATION_I>(chord, range, g, opt_sector)) return false;
-
-    return true;
+    return chord == canonical;
 }
 
 bool Chord::iseRPTTI(double range, double g, int opt_sector) const {
     return predicate<EQUIVALENCE_RELATION_RPTgI>(*this, range, g, opt_sector);
 }
 
+// EQUIVALENCE_RELATION_RPTgI
+
 template<>
-SILENCE_PUBLIC Chord
-equate<EQUIVALENCE_RELATION_RPTgI>(
+SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(
     const Chord &chord,
     double range,
     double g,
@@ -1098,34 +1100,22 @@ equate<EQUIVALENCE_RELATION_RPTgI>(
         g = 1.0;
     }
 
-    // 1. Canonical RPTg representative
-    Chord a =
-        equate<EQUIVALENCE_RELATION_RPTg>(
-            chord, range, g, rpt_sector);
+    // 1) Canonical RPTg representative
+    Chord a = equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, rpt_sector);
 
-    // 2. Determine which half of the sector a lies in
-    //    using signed distance to the inversion hyperplane.
-    HyperplaneEquation hp =
-        a.hyperplane_equation(rpt_sector);
+    // 2) Decide which half of the sector we're in (minor side is canonical).
+    const HyperplaneEquation hp = a.hyperplane_equation(rpt_sector);
+    const double signed_distance = (a.col(0) - hp.apex).dot(hp.unit_normal);
 
-    double signed_distance =
-        (a.col(0) - hp.apex).dot(hp.unit_normal);
-
-    // Define negative side as canonical "minor" side.
-    if (signed_distance <= 0.0 ||
-        eq_tolerance(signed_distance, 0.0))
+    // Canonical side = minor half-space (boundary included).
+    if (le_tolerance(signed_distance, 0.0))
     {
         return a;
     }
 
-    // 3. Otherwise reflect discretely and re-canonicalize.
-    Chord b =
-        reflect_in_inversion_flat(a, rpt_sector, g);
-
-    b =
-        equate<EQUIVALENCE_RELATION_RPTg>(
-            b, range, g, rpt_sector);
-
+    // 3) Otherwise reflect discretely and re-canonicalize.
+    Chord b = reflect_in_inversion_flat(a, rpt_sector, g);
+    b = equate<EQUIVALENCE_RELATION_RPTg>(b, range, g, rpt_sector);
     return b;
 }
 
@@ -3740,12 +3730,17 @@ bool Chord::is_compact(double range) const {
     return true;
 }
 
-void Chord::clamp(double g) {
-    double divisions_per_octave = std::round(OCTAVE() / g);
-    for (int voice_i = 0, voice_n = voices(); voice_i < voice_n; ++voice_i) {
-        auto pitch = getPitch(voice_i);
-        auto divisions = std::round(pitch * divisions_per_octave);
-        pitch = divisions / divisions_per_octave;
+void Chord::clamp(double g)
+{
+    if (!(g > 0.0))
+    {
+        return;
+    }
+
+    for (int voice_i = 0, voice_n = voices(); voice_i < voice_n; ++voice_i)
+    {
+        double pitch = getPitch(voice_i);
+        pitch = std::round(pitch / g) * g;
         setPitch(voice_i, pitch);
     }
 }
