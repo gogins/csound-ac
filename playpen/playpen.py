@@ -77,6 +77,7 @@ various formats.
 
 '''
 import configparser
+from pathlib import Path
 try:
     import ctcsound
 except:
@@ -484,15 +485,16 @@ def html_localhost():
   try:
     print(f"html_localhost: {composition_filename}...")
 
-    # Copy the composition file into the web root before opening the browser.
+    # Copy the composition file into the Web root before opening the browser.
     composition_destpath = os.path.join(cloud5_web_root, composition_filename)
     print(f"Copying composition to web root: {composition_filepath} -> {composition_destpath}")
     shutil.copy2(composition_filepath, composition_destpath)
 
     # If this is an HTML composition, also copy the optional JSON state file.
     if composition_filename.lower().endswith(".html"):
-      piece_basename, _ = os.path.splitext(composition_filename)
-      state_filename = f"{piece_basename}.state.json"
+      basename_ = os.path.split(composition_filename)[-1]
+      filename_ = os.path.splitext(basename_)[0]
+      state_filename = f"{filename_}.state.json"
       state_srcpath = os.path.join(os.path.dirname(composition_filepath), state_filename)
       state_destpath = os.path.join(cloud5_web_root, state_filename)
       if os.path.exists(state_srcpath):
