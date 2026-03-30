@@ -1,20 +1,16 @@
-# GEOMETRY OF CHORD SPACE EQUIVALENCE RELATIONS
+# GEOMETRY OF CHORD SPACE
 
 Michael Gogins
 Irreducible Productions
 
 
-Here I clarify and define the relationship in chord space between the equivalence relations OP (octave equivalence plus permutational equivalence), OPT (OP plus transpositional equivalence), and OPTI (OPT plus inversional equivalence). I also consider OPTg (OPT quantized by equal temperament) and OPTgI (OPTI quantized by equal temperament).
+Here I clarify and define the relationship in chord space between the equivalence relations OP (octave equivalence plus permutational equivalence), OPT (OP plus transpositional equivalence), and OPTI (OPT plus inversional equivalence). These are defined on a continuous N-dimensonal space with one voice per chord. I also clarify and define analagous equivalence relations that are induced in an N-dimensonal chord space as a lattice, in which the pitches of chords can take on any integral number of steps in any system of equal temperament. In continuous chord space, the generator of transposition (g) defaults to 1, but can take on any value including fractions. In discrete chord space, the generator of transposition is always the integer 1, and the octave is defined as any number of these steps. When the octave is 12, the continous space and the discrete space coincide, and chords can inter-operate between these spaces. Thus the voices of chords are always floating point numbers, but these are quantized to exact integer values in the discrete space.
 
-Pitch is represented as MIDI key numbers and may be fractional. The octave is therefore 12. The generator of transposition is g, which in 12-tone equal temperament is 1, but may be any integral or real fraction of 12.
+Let N be the dimensionality of a chord space. Under OP equivalence, chord space is an equilateral hyperprism with N side facets and height Octave / N. Under the action of transposition, a chord rises (or falls) parallel to the unison axis, and when it passes the top (or bottom) base of the prism, it folds anti-sectorwise (or sectorwise) back into the bottom (or top) base of the adjacent sector. This defines a cyclical region that divides the OP prism into N sectors. Each sector is an isosceles hyperprism.
 
-We are concerned with defining the vertices of simplexes that can be used to test membership in representative regions of chord space, and thus to determine representatives of equivalence classes.
+Each OP sector is divided in half by a hyperplane defined by the center of the cylical region and the centroid of that sector’s base face. This hyperplane is the inversion flat. Under the action of inversion, a chord in OP reflects from one half of the OP sector to the other.
 
-Let N be the dimensionality of a chord space. Under OP equivalence, chord space is an equilateral hyperprism with N side facets and height 12 / N. Under the action of transposition, a chord rises (or falls) parallel to the unison axis, and when it passes the top (or bottom) base of the prism, it folds anti-sectorwise (or sectorwise) back into the bottom (or top) base of the adjacent sector. This defines a cyclical region that divides the OP prism into N sectors. Each sector is an isosceles hyperprism.
-
-Each OP sector is divided in half by a hyperplane defined by the center of the cylical region and the midpoint of that sector’s base face. This hyperplane is the inversion flat. Under the action of inversion, a chord in OP reflects from one half of the OP sector to the other.
-
-To identify the sector to which a chord in OP belongs, we project the chord onto OPT. Then we measure the Euclidean distance of the midpoint of each sector's base face to the chord, and the closest midpoint belongs to that chord's sector.
+To identify the sector to which a chord in OP belongs, we project the chord onto OPT. Then we measure the Euclidean distance of the centroid of each sector's base face to the chord, and the closest midpoint belongs to that chord's sector.
 
 Chords falling on shared boundaries of these polytopes belong to all adjacent polytopes. Thus chords on boundaries may satisfy predicates for multiple equivalence domains. Since this API supports sector-indexed operations, `equate<R>(chord, sector)` uses sector as a target selector and must return a representative in the target domain. Tie-breaking is not required for counting under global scans; it is only needed if an ownership notion is introduced.
 
