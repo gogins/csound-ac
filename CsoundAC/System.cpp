@@ -272,7 +272,7 @@ namespace csound {
     }
 
     SILENCE_PUBLIC void System::message(int error_level, const char *format, va_list valist) {
-        char buffer[0x2000];
+        char buffer[0x10000];
         std::vsnprintf(buffer, 0x2000, format, valist);
         if(message_callback() == emscripten::val::undefined() || message_callback() == emscripten::val::null()) {
             emscripten_log(EM_LOG_CONSOLE, buffer);
