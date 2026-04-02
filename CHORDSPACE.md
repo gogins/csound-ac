@@ -1,18 +1,16 @@
-# CHORDSPACE
+# CHORD SPACE
 
 Michael Gogins  
 Irreducible Productions
 
 ## Purpose
 
-This document consolidates and clarifies the geometry and API of chord space as currently implemented in CsoundAC. It separates:
+The chord space library in CsoundAC, declared in `ChordSpace.hpp`, provides mathematically based code for wworking with chords, scales, neo-Riemannian transformations of chords, and voice-leading in the context of algorithmic composition. The CsoundAC library, including the chord space code, has interfaces in C++, Python, and JavaScript.
+
+The chord space code has recently been changed to cleanly separate:
 
 - **continuous geometry**, defined in chord spaces whose coordinates are real-valued pitches; from
-- **discrete geometry induced on a lattice**, defined by quantizing continuous pitches to an equally tempered lattice with step size `g` that evenly divides the octave.
-
-This separation is necessary because the continuous geometry implemented by `Chord` appears to be substantially correct, while the current implementation of lattice-induced geometry is inconsistent.
-
-The objective is to preserve the existing member-function style of the API while making the semantics of predicates and projections explicit, consistent, and testable.
+- **discrete geometry induced on a lattice**, defined by quantizing continuous pitches to an equally tempered lattice with step size `g` that evenly divides the period (usually the octave) of pitch equivalence.
 
 ---
 
@@ -20,9 +18,9 @@ The objective is to preserve the existing member-function style of the API while
 
 ### Pitches
 
-Pitches and intervals are represented as real numbers. Middle C is `60`. The octave is fixed at `12`, consistent with MIDI key numbers and with the existing continuous chord-space geometry.
+Pitches and intervals are represented as real numbers. Middle C is `60`. The perid of octave equivalence defined as `12` semitones. Thus pitches in chord space are consistent with the MIDI specification, with the exception that pitches in chord space may take fractional values.
 
-Whole numbers represent ordinary 12-tone equal temperament. Fractions represent microtonal or otherwise continuous pitch values.
+Whole numbers represent equal temperament. Fractions represent microtonal or otherwise continuous pitch values.
 
 ### Voices and chords
 
@@ -30,17 +28,15 @@ A **voice** is a distinct pitched sound.
 
 A **chord** is an ordered tuple of voices, represented as a point in an `N`-dimensional chord space, one dimension per voice.
 
-### Fixed octave
+### Pitch equivalence
 
-The octave remains fixed at `12`.
+The period of pitch equivalence is defined as `12.0` semitones, i.e., the octave.
 
 This is not merely a convenience for MIDI compatibility. It is a foundational assumption of the current theory and implementation:
 
 - octave equivalence is defined modulo `12`;
-- OP, OPT, and OPTI geometry are constructed in octave-periodic space;
-- voice-leading, sector structure, and inversion flats all assume octave periodicity.
-
-Accordingly, this document does **not** generalize the octave period.
+- OP, OPT, and OPTI geometry are constructed in octave-equivalence space;
+- voice-leading, sector structure, and inversion flats all assume octave equivalence.
 
 ---
 
@@ -54,7 +50,7 @@ Continuous chord space is the real-valued space `R^N` modulo whichever equivalen
 
 Discrete chord space is **not** a separate storage type. It is the subset of continuous chord space whose coordinates lie on an equally tempered lattice.
 
-Let `g > 0` be the lattice step size. Then a chord lies on the `g`-lattice if each voice is an integer multiple of `g`, within tolerance. To be musically well-formed in this library, `g` must evenly divide the octave:
+Let `g > 0` be the lattice step size. Then a chord lies on the `g`-lattice if each voice is an integer multiple of `g`, within tolerance. To be musically well-formed in this library, `g` must evenly divide the the octave (12 semitones):
 
 ```text
 12 / g ∈ N
@@ -89,7 +85,7 @@ A scale is a chord whose first and lowest voice is a tonic pitch-class and whose
 
 ### Score
 
-For algorithmic composition, a score may be treated as a sequence of fleeting chords.
+For algorithmic composition, a score may be treated as a sequence of more or less fleeting chords.
 
 ---
 
@@ -143,7 +139,7 @@ Examples:
 
 - `OPTg`: OPT representatives that also lie on the `g`-lattice.
 - `Ig`: inversional representatives constrained to the `g`-lattice.
-- `OPTgI`: OPTI representatives constrained to the `g`-lattice.
+- `OPTIg`: OPTI representatives constrained to the `g`-lattice.
 
 These are **not** separate spaces with separate storage types. They are induced by predicates and projections defined on `Chord`.
 
@@ -223,7 +219,7 @@ For lattice-induced equivalence classes, the implementation rule is:
 3. accept boundary points that lie in more than one sector;
 4. require the result to be idempotent and to satisfy the corresponding predicate.
 
-This rule applies in particular to `Ig`, `OPTg`, and `OPTgI`.
+This rule applies in particular to `Ig`, `OPTg`, and `OPTIg`.
 
 ---
 
@@ -367,33 +363,5 @@ Examples:
 - `OPT`: the chord lies in any OPT sector.
 - `OPTg`: OPT membership and lattice membership on `g`.
 - `OPTI`: the chord lies in the chosen inversion half of any OPT sector.
-- `OPTgI`: OPTI membership and lattice membership on `g`.
+- `OPTIg`: OPTI membership and lattice membership on `g`.
 
-### 6. Correct cardinality
-
-The counts of `OPTg` and `OPTgI` representatives must agree with Tymoczko, and visualizations must show the expected cyclical regions and inversional subdivisions.
-
----
-
-## Implementation guidance
-
-1. Keep the continuous geometry as the reference model.
-2. Implement lattice-induced geometry by explicit projection onto the `g`-lattice.
-3. Add `Chord::iseLattice`, `Chord::eLattice`, `Chord::iseIg`, and `Chord::eIg`.
-4. Refactor all `ise<EC>g` and `e<EC>g` functions to use the same semantics.
-5. Remove dead code.
-6. Improve diagnostics using string streams.
-7. Write and maintain real unit tests for the invariants above.
-
----
-
-## Summary
-
-This API is based on a single `Chord` type with real-valued voices.
-
-- Continuous geometry is primary.
-- Discrete geometry is induced by the `g`-lattice.
-- The octave remains fixed at `12`.
-- Boundary points may belong to multiple sectors.
-- `iseIg` and `eIg` are added as the lattice-induced inversion predicate and projection.
-- All lattice-induced predicates and projections must be consistent, geometric, and idempotent.
