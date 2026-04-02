@@ -5,6 +5,10 @@ sudo rm -rfd build-macos
 sudo rm -rfd dependencies/libmusicxml/build/lib/*
 sudo rm -rfd dependencies/libmusicxml/build/bin/*
 sudo find . -wholename "*_pycache_*" -delete
+
+# Ensure no root-owned doc artifacts remain.
+sudo chown -R michaelgogins:staff doc/latex doc/html 2>/dev/null || true
+
 sudo -k
 bash build-macos.sh "$@"
 unzip -l build-macos/csound-ac-0.6.1-Darwin.zip 

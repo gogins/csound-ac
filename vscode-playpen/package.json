@@ -78,6 +78,18 @@
       {
         "command": "playpen.pythonReference",
         "title": "Python reference"
+      },
+      {
+        "command": "playpen.remove",
+        "title": "Remove"
+      },
+      {
+        "command": "playpen.attic",
+        "title": "Attic"
+      },
+      {
+        "command": "playpen.protect",
+        "title": "Protect"
       }
     ],
     "menus": {
@@ -126,6 +138,37 @@
           "command": "playpen.cpp_soundfile",
           "group": "CXX",
           "when": "editorTextFocus"
+        },
+        { "command": "playpen.remove", "group": "navigation", "when": "editorTextFocus" },
+        { "command": "playpen.attic", "group": "navigation", "when": "editorTextFocus" },
+        { "command": "playpen.protect", "group": "navigation", "when": "editorTextFocus" }
+      ],
+      "explorer/context": [
+        { "command": "playpen.remove", "group": "navigation" },
+        { "command": "playpen.attic", "group": "navigation" },
+        { "command": "playpen.protect", "group": "navigation" }
+      ],
+    "keybindings": [
+        {
+          "command": "playpen.remove",
+          "key": "cmd+alt+r",
+          "mac": "cmd+alt+r",
+          "linux": "ctrl+alt+r",
+          "win": "ctrl+alt+r"
+        },
+        {
+          "command": "playpen.attic",
+          "key": "cmd+alt+a",
+          "mac": "cmd+alt+a",
+          "linux": "ctrl+alt+a",
+          "win": "ctrl+alt+a"
+        },
+        {
+          "command": "playpen.protect",
+          "key": "cmd+alt+p",
+          "mac": "cmd+alt+p",
+          "linux": "ctrl+alt+p",
+          "win": "ctrl+alt+p"
         }
       ]
     }

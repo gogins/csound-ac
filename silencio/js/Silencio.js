@@ -905,13 +905,36 @@ if (typeof console === 'undefined') {
     /**
      * Looks at a full fixed score.
      */
-    Score.prototype.lookAtFullScore3D = function() {
+    Score.prototype.lookAtFullScore3D = function()
+    {
         var bounding_box = new THREE.Box3().setFromObject(this.scene);
-        this.camera.lookAt(bounding_box.getCenter());
-        this.camera.fov = 2 * Math.atan((bounding_box.getSize().x / (this.canvas.width / this.canvas.height)) / (2 * bounding_box.getSize().y)) * (180 / Math.PI);
-        this.camera.position.copy(bounding_box.getCenter());
-        this.camera.position.z = 1.125 * Math.min(bounding_box.getSize().x, bounding_box.getSize().y);
-        this.controls.target.copy(bounding_box.getCenter());
+        var center = bounding_box.getCenter(new THREE.Vector3());
+        var size = bounding_box.getSize(new THREE.Vector3());
+        if (size.x === 0) {
+            size.x = 1;
+        }
+        if (size.y === 0) {
+            size.y = 1;
+        }
+        if (size.z === 0) {
+            size.z = 1;
+        }
+        var margin_factor = 1.10;
+        var half_width = (size.x * margin_factor) / 2;
+        var half_height = (size.y * margin_factor) / 2;
+        var half_depth = (size.z * margin_factor) / 2;
+        var aspect = this.canvas.width / this.canvas.height;
+        this.camera.aspect = aspect;
+        var vertical_fov_radians = this.camera.fov * Math.PI / 180;
+        var horizontal_fov_radians = 2 * Math.atan(Math.tan(vertical_fov_radians / 2) * aspect);
+        var distance_for_height = half_height / Math.tan(vertical_fov_radians / 2);
+        var distance_for_width = half_width / Math.tan(horizontal_fov_radians / 2);
+        var distance = Math.max(distance_for_height, distance_for_width);
+        this.camera.position.set(center.x, center.y, center.z + distance + half_depth);
+        this.camera.lookAt(center);
+        this.controls.target.copy(center);
+        this.camera.near = Math.max(0.1, distance / 100);
+        this.camera.far = Math.max(this.camera.near + 1, distance + half_depth * 4);
         this.controls.update();
         this.camera.updateProjectionMatrix();
         this.renderer.render(this.scene, this.camera);
