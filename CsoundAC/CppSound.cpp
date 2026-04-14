@@ -53,14 +53,23 @@ int CppSound::compile(int argc, const char **argv_)
 /*   csound->orcname_mode = 1;
   // Changed to use only internally stored Csound orchestra and score.
  */  
+#if CSOUND_AC_CSOUND_VERSION_MAJOR >= 7
+  returnValue = CompileOrc(getOrchestra().c_str(), 0);
+  EventString(getScore().c_str(), 0);
+#else
   returnValue = csoundCompileOrc(csound, getOrchestra().c_str());
   returnValue = csoundReadScore(csound, getScore().c_str());
+#endif
   for (int i = 0; (size_t) i < argv.size(); ++i) {
       Message("arg %3d: %s\n", i, argv[i]);
       csoundSetOption(csound, argv[i]);
   }
   returnValue = csoundStart(csound);
+#if CSOUND_AC_CSOUND_VERSION_MAJOR >= 7
+  spoutSize = GetKsmps() * Csound::GetChannels() * sizeof(MYFLT);
+#else
   spoutSize = GetKsmps() * GetNchnls() * sizeof(MYFLT);
+#endif
   if(returnValue)
     {
       isCompiled = false;

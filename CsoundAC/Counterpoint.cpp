@@ -208,15 +208,15 @@ Counterpoint::Counterpoint() : LowestSemitone(24), HighestSemitone(72)
 Counterpoint::~Counterpoint()
 {
 }
-int Counterpoint::ABS(int i) {
+int Counterpoint::ABS_(int i) {
     if (i < 0) return(-i);
     else return(i);
 }
-int Counterpoint::MIN(int a, int b) {
+int Counterpoint::MIN_(int a, int b) {
     if (a < b) return(a);
     else return(b);
 }
-int Counterpoint::MAX(int a, int b) {
+int Counterpoint::MAX_(int a, int b) {
     if (a > b) return(a);
     else return(b);
 }
@@ -259,14 +259,14 @@ int Counterpoint::InMode(int Pitch, int Mode)
 }
 
 int Counterpoint::BadMelody(int Intv) {
-    return( ((ABS(Intv)>Octave) || BadMelodyInterval[ABS(Intv)]) || (Intv == -MinorSixth));
+    return( ((ABS_(Intv)>Octave) || BadMelodyInterval[ABS_(Intv)]) || (Intv == -MinorSixth));
 }
 
 int Counterpoint::ASkip(int Interval) {
-    return(ABS(Interval)>MajorSecond);
+    return(ABS_(Interval)>MajorSecond);
 }
 int Counterpoint::AStep(int Interval) {
-    return((ABS(Interval) == MinorSecond) || (ABS(Interval) == MajorSecond));
+    return((ABS_(Interval) == MinorSecond) || (ABS_(Interval) == MajorSecond));
 }
 
 int Counterpoint::AThird(int Interval) {
@@ -276,10 +276,10 @@ int Counterpoint::ASeventh(int Interval) {
     return((Interval == MinorSeventh) || (Interval == MajorSeventh));
 }
 int Counterpoint::AnOctave(int Interval) {
-    return((Interval != Unison) && ((ABS(Interval) % 12) == 0));
+    return((Interval != Unison) && ((ABS_(Interval) % 12) == 0));
 }
 int Counterpoint::ATenth(int Interval) {
-    return((ABS(Interval)>14) && (AThird((ABS(Interval) % 12))));
+    return((ABS_(Interval)>14) && (AThird((ABS_(Interval) % 12))));
 }
 
 int Counterpoint::MotionType(int Pitch1, int Pitch2, int Pitch3, int Pitch4)
@@ -300,7 +300,7 @@ int Counterpoint::MotionType(int Pitch1, int Pitch2, int Pitch3, int Pitch4)
 
 int Counterpoint::DirectMotionToPerfectConsonance(int Pitch1, int Pitch2, int Pitch3, int Pitch4)
 {
-    return(PerfectConsonance[ABS(Pitch4-Pitch2) % 12] && (MotionType(Pitch1,Pitch2,Pitch3,Pitch4) == DirectMotion));
+    return(PerfectConsonance[ABS_(Pitch4-Pitch2) % 12] && (MotionType(Pitch1,Pitch2,Pitch3,Pitch4) == DirectMotion));
 }
 
 int Counterpoint::ConsecutiveSkipsInSameDirection(int Pitch1, int Pitch2, int Pitch3)
@@ -340,8 +340,8 @@ int Counterpoint::TotalRange(int Cn, int Cp, int v)
     for (i=1; i<Cn; i++)
     {
         pit=Us(i,v);
-        Minp=MIN(Minp,pit);
-        Maxp=MAX(Maxp,pit);
+        Minp=MIN_(Minp,pit);
+        Maxp=MAX_(Maxp,pit);
     }
     return(Maxp-Minp);
 }
@@ -366,7 +366,7 @@ int Counterpoint::Bass(int Cn, int v)
 {
     int j,LowestPitch;
     LowestPitch=Cantus(Cn,v);
-    for (j=1; j<v; j++) LowestPitch=MIN(LowestPitch,Other(Cn,v,j));
+    for (j=1; j<v; j++) LowestPitch=MIN_(LowestPitch,Other(Cn,v,j));
     return(LowestPitch);
 }
 
@@ -394,7 +394,7 @@ int Counterpoint::Size(int MelInt)
 {
     int ActInt = 0;
     int IntTyp = 0;
-    ActInt=ABS(MelInt);
+    ActInt=ABS_(MelInt);
     switch (ActInt)
     {
     case Unison:
@@ -541,7 +541,7 @@ int Counterpoint::SpecialSpeciesCheck(int Cn, int Cp, int v, int Other0, int Oth
             if ((UpBeat(Cn,v)) && (Dissonance[LastIntClass]))
             {
                 if ((MelInt != (-MinorSecond)) && (MelInt != (-MajorSecond))) Val += UnresolvedLigaturePenalty;
-                if ((ActInt == Unison) && ((Interval<0) || (((ABS(Us(Cn-2,v)-Other2)) % 12) == Unison))) Val += NoTimeForaLigaturePenalty;
+                if ((ActInt == Unison) && ((Interval<0) || (((ABS_(Us(Cn-2,v)-Other2)) % 12) == Unison))) Val += NoTimeForaLigaturePenalty;
                 if ((ActInt == Fifth) || (ActInt == Tritone)) Val += NoTimeForaLigaturePenalty;
             }
         }
@@ -564,15 +564,15 @@ int Counterpoint::SpecialSpeciesCheck(int Cn, int Cp, int v, int Other0, int Oth
                         while ((i>0) && ((Beat8(Onset(i,v))) != 0)) i--;
                     }
                     else i=(Cn-4);
-                    if (((ABS(Us(i,v)-Bass(i,v))) % 12) == ActInt) Val += DownBeatUnisonPenalty;
+                    if (((ABS_(Us(i,v)-Bass(i,v))) % 12) == ActInt) Val += DownBeatUnisonPenalty;
                 }
             }
 
             /* check for cambiata not resolved correctly (on 4th beat) */
             if ((Beat8(Onset(Cn,v)) == 6) &&
-                    ((AThird(ABS(LastMelInt))) &&
-                     ((Dissonance[(ABS(Us(Cn-2,v)-Other2)) % 12]) &&
-                      ((MelInt<0) || ((ABS(MelInt) != MajorSecond) && (ABS(MelInt) != MinorSecond))))))
+                    ((AThird(ABS_(LastMelInt))) &&
+                     ((Dissonance[(ABS_(Us(Cn-2,v)-Other2)) % 12]) &&
+                      ((MelInt<0) || ((ABS_(MelInt) != MajorSecond) && (ABS_(MelInt) != MinorSecond))))))
                 Val += NotaCambiataPenalty;
             if (Val >= CurLim) return(Val);
 
@@ -588,7 +588,7 @@ int Counterpoint::SpecialSpeciesCheck(int Cn, int Cp, int v, int Other0, int Oth
                     Val += DissonancePenalty;
                     break;
                 case 4:
-                    if ((!(AStep(LastMelInt))) || ((ABS(MelInt)>MajorThird) || ((MelInt == 0) || ((LastMelInt*MelInt)<0))))
+                    if ((!(AStep(LastMelInt))) || ((ABS_(MelInt)>MajorThird) || ((MelInt == 0) || ((LastMelInt*MelInt)<0))))
                         Val += DissonancePenalty;
                     else
                     {
@@ -619,7 +619,7 @@ int Counterpoint::SpecialSpeciesCheck(int Cn, int Cp, int v, int Other0, int Oth
                     Val += DissonancePenalty;
                 if (Val >= CurLim) return(Val);
                 if (Cn>1) {
-                    LastDisInt = ((ABS(Us(Cn-1,v)-Other1)) % 12);
+                    LastDisInt = ((ABS_(Us(Cn-1,v)-Other1)) % 12);
                 }
                 if ((Cn>1) && (Dissonance[LastDisInt]))
                 {
@@ -648,11 +648,11 @@ int Counterpoint::SpecialSpeciesCheck(int Cn, int Cp, int v, int Other0, int Oth
                         if ((MelInt != (-MinorSecond)) && (MelInt != (-MajorSecond))) Val += UnresolvedLigaturePenalty;
                         if ((ActInt == Fourth) || (ActInt == Tritone)) Val += NoTimeForaLigaturePenalty;
                         if ((ActInt == Fifth) && (Interval<0)) Val += NoTimeForaLigaturePenalty;
-                        if ((ActInt == 0) && (((ABS(Us(Cn-2,v)-Other2)) % 12) == 0)) Val += NoTimeForaLigaturePenalty;
+                        if ((ActInt == 0) && (((ABS_(Us(Cn-2,v)-Other2)) % 12) == 0)) Val += NoTimeForaLigaturePenalty;
                         if (LastMelInt != Unison) Val += DissonancePenalty;
                         break;
                     case 2:
-                        if ((!(AStep(LastMelInt))) || ((ABS(MelInt)>MajorThird) ||
+                        if ((!(AStep(LastMelInt))) || ((ABS_(MelInt)>MajorThird) ||
                                                        ((MelInt == 0) || ((Dur(Cn-1,v) == EighthNote) || ((LastMelInt*MelInt)<0)))))
                             Val += DissonancePenalty;
                         else
@@ -747,17 +747,17 @@ int Counterpoint::OtherVoiceCheck(int Cn, int Cp, int v, int NumParts, int Speci
         if ((!(LastNote(Cn,v))) && (Other0 == Cp)) Val += UnisonPenalty;
 
         /* keep upper voices closer together than lower */
-        if ((Other0 != CurBass) && ((ABS(Cp-Other0)) >= (Octave+Fifth))) Val += UpperVoicesTooFarApartPenalty;
+        if ((Other0 != CurBass) && ((ABS_(Cp-Other0)) >= (Octave+Fifth))) Val += UpperVoicesTooFarApartPenalty;
 
         /* check for direct motion to perfect consonance between these two voices */
-        Int0=((ABS(Other0-Cp)) % 12);
-        Int1=((ABS(Other1-LastCp)) % 12);
+        Int0=((ABS_(Other0-Cp)) % 12);
+        Int1=((ABS_(Other1-LastCp)) % 12);
         if (Int1 == Int0)
         {
             if (Int0 == Unison) Val += ParallelUnisonPenalty;
             else if (Int0 == Fifth) Val += ParallelFifthPenalty;
         }
-        if ((Cn>2) && ((Int0 == Unison) && (((ABS(Us(Cn-2,v)-Other(Cn-2,v,k))) % 12) == Unison)))
+        if ((Cn>2) && ((Int0 == Unison) && (((ABS_(Us(Cn-2,v)-Other(Cn-2,v,k))) % 12) == Unison)))
             Val += ParallelUnisonPenalty;
 
         if (Val >= CurLim) return(Val);
@@ -885,7 +885,7 @@ int Counterpoint::Check(int Cn, int Cp, int v, int NumParts, int Species, int Cu
     LastCp3=0;
     LastCp4=0;
     Interval=(Cp-Other0);
-    IntClass=(ABS(Interval)) % 12;
+    IntClass=(ABS_(Interval)) % 12;
     MelInt=(Cp-LastCp);
     Pitch=(Cp % 12);
 
@@ -949,7 +949,7 @@ int Counterpoint::Check(int Cn, int Cp, int v, int NumParts, int Species, int Cu
         SameDir=((MelInt*LastMelInt) >= 0);
     }
     if (Cn>1) {
-        LastIntClass=((ABS(LastCp-Other1)) % 12);
+        LastIntClass=((ABS_(LastCp-Other1)) % 12);
     }
     if (ADissonance(IntClass,Cn,Cp,v,Species)) Val += DissonancePenalty;
     if (Val >= CurLim) return(Val);
@@ -999,13 +999,13 @@ int Counterpoint::Check(int Cn, int Cp, int v, int NumParts, int Species, int Cu
     }
 
     /* penalize compound intervals (close position is favored) */
-    if ((ABS(Interval))>Octave) Val += CompoundPenalty;
+    if ((ABS_(Interval))>Octave) Val += CompoundPenalty;
 
     /* penalize consecutive skips in the same direction */
     if ((Cn>2) && (ConsecutiveSkipsInSameDirection(LastCp2,LastCp,Cp)))
     {
         Val += TwoSkipsPenalty;
-        totalJump=ABS(Cp-LastCp2);
+        totalJump=ABS_(Cp-LastCp2);
 
         /* do not let these skips traverse more than an octave, nor a seventh */
         if ((totalJump > MajorSixth) && (totalJump < Octave)) Val += TwoSkipsNotInTriadPenalty;
@@ -1021,20 +1021,20 @@ int Counterpoint::Check(int Cn, int Cp, int v, int NumParts, int Species, int Cu
     if ((Cn>2) && ((ASkip(MelInt)) && SameDir))
     {
         /* especially penalize fifths, sixths, and octaves of this sort */
-        if ((ABS(MelInt)) < Fifth) Val += SkipPrecededBySameDirectionPenalty;
+        if ((ABS_(MelInt)) < Fifth) Val += SkipPrecededBySameDirectionPenalty;
         else
         {
-            if (((ABS(MelInt)) == Fifth) || ((ABS(MelInt)) == Octave))
+            if (((ABS_(MelInt)) == Fifth) || ((ABS_(MelInt)) == Octave))
                 Val += FifthPrecededBySameDirectionPenalty;
             else Val += SixthPrecededBySameDirectionPenalty;
         }
     }
     if ((Cn>2) && ((ASkip(LastMelInt)) && SameDir))
     {
-        if ((ABS(LastMelInt)) < Fifth) Val += SkipFollowedBySameDirectionPenalty;
+        if ((ABS_(LastMelInt)) < Fifth) Val += SkipFollowedBySameDirectionPenalty;
         else
         {
-            if (((ABS(LastMelInt)) == Fifth) || ((ABS(LastMelInt)) == Octave))
+            if (((ABS_(LastMelInt)) == Fifth) || ((ABS_(LastMelInt)) == Octave))
                 Val += FifthFollowedBySameDirectionPenalty;
             else Val += SixthFollowedBySameDirectionPenalty;
         }
@@ -1044,7 +1044,7 @@ int Counterpoint::Check(int Cn, int Cp, int v, int NumParts, int Species, int Cu
     if ((Cn>4) && ((ASkip(MelInt)) && ((ASkip(LastMelInt)) && (ASkip(LastCp2-LastCp3))))) Val += MelodicBoredomPenalty;
 
     /* avoid tritones melodically */
-    if ((Cn>4) && (((ABS(Cp-LastCp2)) == Tritone) || (((ABS(Cp-LastCp3)) == Tritone) || ((ABS(Cp-LastCp4)) == Tritone))))
+    if ((Cn>4) && (((ABS_(Cp-LastCp2)) == Tritone) || (((ABS_(Cp-LastCp3)) == Tritone) || ((ABS_(Cp-LastCp4)) == Tritone))))
         Val += MelodicTritonePenalty;
 
     /* do not allow movement from a tenth to an octave by contrary motion */
@@ -1054,7 +1054,7 @@ int Counterpoint::Check(int Cn, int Cp, int v, int NumParts, int Species, int Cu
     }
 
     /* more range checks -- did we go over an octave recently */
-    if ((Cn>2) && ((ABS(Cp-LastCp2)) > Octave)) Val += OverOctavePenalty;
+    if ((Cn>2) && ((ABS_(Cp-LastCp2)) > Octave)) Val += OverOctavePenalty;
 
     /* same for a twelfth */
     if (((Cn>30) || (Species != 5)) && (TotalRange(Cn,Cp,v) > (Octave+Fifth))) Val += OverTwelfthPenalty;
@@ -1103,12 +1103,12 @@ int Counterpoint::Check(int Cn, int Cp, int v, int NumParts, int Species, int Cu
     /* slightly frown upon leap back in the opposite direction */
     if ((Cn>2) && ((ASkip(MelInt)) && ((ASkip(LastMelInt)) && (!(SameDir)))))
     {
-        Val += (MAX(0,((ABS(MelInt)+ABS(LastMelInt))-8)));
+        Val += (MAX_(0,((ABS_(MelInt)+ABS_(LastMelInt))-8)));
         if ((Cn>3) && (ASkip(LastCp2-LastCp3))) Val += ThreeSkipsPenalty;
     }
 
     /* try to approach cadential passages by step */
-    if ((NumParts == 1) && ((Cn >= (TotalNotes[v]-4)) && ((ABS(MelInt)) > 4))) Val += LeapAtCadencePenalty;
+    if ((NumParts == 1) && ((Cn >= (TotalNotes[v]-4)) && ((ABS_(MelInt)) > 4))) Val += LeapAtCadencePenalty;
 
     /* check for entangled voices */
     Cross=0;
@@ -1119,7 +1119,7 @@ int Counterpoint::Check(int Cn, int Cp, int v, int NumParts, int Species, int Cu
             if ((Us(k,v)-Cantus(k,v))*(Us(k-1,v)-Cantus(k-1,v)) < 0) Cross++;
         }
     }
-    if (Cross > 0) Val += (MAX(0,((Cross-2)*3)));
+    if (Cross > 0) Val += (MAX_(0,((Cross-2)*3)));
 
     /* don't repeat note on upbeat */
     if (UpBeat(Cn,v) && (MelInt == Unison)) Val += RepetitionOnUpbeatPenalty;
@@ -1139,7 +1139,7 @@ int Counterpoint::Check(int Cn, int Cp, int v, int NumParts, int Species, int Cu
         }
 
         /* check for Direct 8ve or 5 where the intervening interval is less than a fourth */
-        if ((DirectMotionToPerfectConsonance(LastCp2,Cp,Other2,Other0)) && ((ABS(LastMelInt)) < Fourth))
+        if ((DirectMotionToPerfectConsonance(LastCp2,Cp,Other2,Other0)) && ((ABS_(LastMelInt)) < Fourth))
             Val += DirectPerfectOnDownbeatPenalty;
     }
 
@@ -1197,7 +1197,7 @@ void Counterpoint::SaveResults(int CurrentPenalty, int Penalty, int v1, int Spec
                 if (((Pitch<8) && (Pitch != 0)) ||      /* not 6-7-1 scale degree anymore */
                         (ASkip(Us(Cn-k+1,v)-Us(Cn-k,v))))     /* skip breaks drive to cadence */
                     break;
-                Pitch=ABS(Us(Cn-k,v)-Us(Cn-k-1,v));       /* interval with raised leading tone */
+                Pitch=ABS_(Us(Cn-k,v)-Us(Cn-k-1,v));       /* interval with raised leading tone */
                 if ((Pitch == Fourth) || ((Pitch == Fifth) || ((Pitch == Unison) || (Pitch == Octave)))) break;
                 /* don't create illegal melody */
                 done = 0;
@@ -1219,7 +1219,7 @@ void Counterpoint::SaveResults(int CurrentPenalty, int Penalty, int v1, int Spec
         }
     }
     BestFitPenalty=CurrentPenalty+Penalty;
-    MaxPenalty=MIN(int(BestFitPenalty*PenaltyRatio),MaxPenalty);
+    MaxPenalty=MIN_(int(BestFitPenalty*PenaltyRatio),MaxPenalty);
     /*  AllDone=1; */
     Fits[2]=Fits[1];
     Fits[1]=Fits[0];
@@ -1279,7 +1279,7 @@ int Counterpoint::Look(int CurPen, int CurVoice, int NumParts, int Species, int 
                 {
                     for (i=1; i<=NumParts; i++) Pens[x-i]=Is[i];
                 }
-                else NewLim=MIN(NewLim,penalty);
+                else NewLim=MIN_(NewLim,penalty);
             }
         }
     }
@@ -1314,7 +1314,7 @@ void Counterpoint::BestFitFirst(int CurTime, int CurrentPenalty, int NumParts, i
     for (i=0; i<=NumParts; i++)
     {
         OurTime=Onset(VIndex(CurTime,i)+1,i);
-        if (OurTime != 0) NextTime=MIN(NextTime,OurTime);
+        if (OurTime != 0) NextTime=MIN_(NextTime,OurTime);
     }
     for (i=1; i<=NumParts; i++)
     {
@@ -1447,8 +1447,8 @@ int Counterpoint::GoodRhy()
 {
     int i;
     i=(int)(RANDOM(10.0));
-    if (CurRhy(i) >  CurRhy(MAX(1,(i-1)))) return(MAX(1,(i-1)));
-    if (CurRhy(i) <= CurRhy(MIN(9,(i+1)))) return(MIN(9,(i+1)));
+    if (CurRhy(i) >  CurRhy(MAX_(1,(i-1)))) return(MAX_(1,(i-1)));
+    if (CurRhy(i) <= CurRhy(MIN_(9,(i+1)))) return(MIN_(9,(i+1)));
     return(i);
 }
 
