@@ -96,7 +96,9 @@ static bool pythonFuncWarning(void **pythonLibrary,
 {
     csound::System::warn("Failed to find '%s' function. "
                          "Python scripting is not enabled.\n", funcName);
-    csoundCloseLibrary(*pythonLibrary);
+#if CSOUND_AC_CSOUND_VERSION_MAJOR >= 7 
+    csound::System::closeLibrary(*pythonLibrary);
+#endif
     *pythonLibrary = (void *) 0;
     return false;
 }
@@ -113,7 +115,7 @@ void Shell::open()
     SetErrorMode((unsigned int) SEM_NOOPENFILEERRORBOX);
 #endif
     for (const char **sp = &(pythonLibraryPathList[0]); *sp != (char*) 0; sp++) {
-        if ((result = csoundOpenLibrary(&pythonLibrary, *sp)) == CSOUND_SUCCESS) {
+        if ((result = csound::System::openLibrary(&pythonLibrary, *sp)) == CSOUND_SUCCESS) {
             break;
         }
     }
@@ -128,28 +130,28 @@ void Shell::open()
     }
     Py_Initialize_ =
         (void (*)(void))
-        csoundGetLibrarySymbol(pythonLibrary, "Py_Initialize");
+        csound::System::getSymbol(pythonLibrary, "Py_Initialize");
     if (!Py_Initialize_) {
         pythonFuncWarning(&pythonLibrary, "Py_Initialize");
         return;
     }
     Py_Finalize_ =
         (void (*)(void))
-        csoundGetLibrarySymbol(pythonLibrary, "Py_Finalize");
+        csound::System::getSymbol(pythonLibrary, "Py_Finalize");
     if (!Py_Finalize_) {
         pythonFuncWarning(&pythonLibrary, "Py_Finalize");
         return;
     }
     PySys_SetArgv_ =
         (void (*)(int, char **))
-        csoundGetLibrarySymbol(pythonLibrary, "PySys_SetArgv");
+        csound::System::getSymbol(pythonLibrary, "PySys_SetArgv");
     if (!PySys_SetArgv_) {
         pythonFuncWarning(&pythonLibrary, "PySys_SetArgv");
         return;
     }
     PyImport_ImportModule_ =
         (PyObject_* (*)(char *))
-        csoundGetLibrarySymbol(pythonLibrary, "PyImport_ImportModule");
+        csound::System::getSymbol(pythonLibrary, "PyImport_ImportModule");
     if (!PyImport_ImportModule_) {
         pythonFuncWarning(&pythonLibrary,
                           "PyImport_ImportModule");
@@ -157,28 +159,28 @@ void Shell::open()
     }
     PyRun_SimpleFileEx_ =
         (int (*)(FILE *, const char *, int))
-        csoundGetLibrarySymbol(pythonLibrary, "PyRun_SimpleFileEx");
+        csound::System::getSymbol(pythonLibrary, "PyRun_SimpleFileEx");
     if (!PyRun_SimpleFileEx_) {
         pythonFuncWarning(&pythonLibrary, "PyRun_SimpleFileEx");
         return;
     }
     PyRun_SimpleString_ =
         (int (*)(const char *))
-        csoundGetLibrarySymbol(pythonLibrary, "PyRun_SimpleString");
+        csound::System::getSymbol(pythonLibrary, "PyRun_SimpleString");
     if (!PyRun_SimpleString_) {
         pythonFuncWarning(&pythonLibrary, "PyRun_SimpleString");
         return;
     }
     PyErr_Print_ =
         (void (*)(void))
-        csoundGetLibrarySymbol(pythonLibrary, "PyErr_Print");
+        csound::System::getSymbol(pythonLibrary, "PyErr_Print");
     if (!PyErr_Print_) {
         pythonFuncWarning(&pythonLibrary, "PyErr_Print");
         return;
     }
     PyObject_GetAttrString_ =
         (PyObject_ *(*)(PyObject_ *, char *))
-        csoundGetLibrarySymbol(pythonLibrary, "PyObject_GetAttrString");
+        csound::System::getSymbol(pythonLibrary, "PyObject_GetAttrString");
     if (!PyObject_GetAttrString_) {
         pythonFuncWarning(&pythonLibrary,
                           "PyObject_GetAttrString");
@@ -186,14 +188,14 @@ void Shell::open()
     }
     PyObject_CallMethod_ =
         (PyObject_ * (*)(PyObject_ *, char *, char *, ...))
-        csoundGetLibrarySymbol(pythonLibrary, "PyObject_CallMethod");
+        csound::System::getSymbol(pythonLibrary, "PyObject_CallMethod");
     if (!PyObject_CallMethod_) {
         pythonFuncWarning(&pythonLibrary, "PyObject_CallMethod");
         return;
     }
     PyLong_AsLong_ =
         (long (*)(PyObject_ *))
-        csoundGetLibrarySymbol(pythonLibrary, "PyLong_AsLong");
+        csound::System::getSymbol(pythonLibrary, "PyLong_AsLong");
     if (!PyLong_AsLong_) {
         pythonFuncWarning(&pythonLibrary, "PyLong_AsLong");
         return;
@@ -249,7 +251,7 @@ std::string Shell::getOutputSoundfileName() const
 {
     std::string outputFilename = getFilename();
     outputFilename.append(".wav");
-    return filename;
+    return outputFilename;
 }
 
 std::string Shell::getMidiFilename() const
