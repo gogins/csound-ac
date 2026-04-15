@@ -24,8 +24,16 @@
 #ifdef SWIG
     %module CsoundAC
     %{
-        #if !defined(__EMSCRIPTEN__)
-        #include "CppSound.hpp"
+        #if defined(__EMSCRIPTEN__)
+            #include <dlfcn.h>
+            #include <emscripten/emscripten.h>
+            #include <emscripten/val.h>
+        #elif defined(_WIN32)
+            #include <windows.h>
+            #include "CppSound.hpp"
+        #else
+            #include <dlfcn.h>
+            #include "CppSound.hpp"
         #endif
         #include <string.h>
         #include <string>
@@ -34,12 +42,16 @@
         #include <ctime>
     %}
 #else
-    #if !defined(__EMSCRIPTEN__)
-        #include "CppSound.hpp"
-    #else
+    #if defined(__EMSCRIPTEN__)
         #include <dlfcn.h>
         #include <emscripten/emscripten.h>
         #include <emscripten/val.h>
+    #elif defined(_WIN32)
+        #include <windows.h>
+        #include "CppSound.hpp"
+    #else
+        #include <dlfcn.h>
+        #include "CppSound.hpp"
     #endif
     #include <string.h>
     #include <string>
@@ -47,6 +59,7 @@
     #include <cstdarg>
     #include <ctime>
 #endif
+
 
 namespace csound {
     

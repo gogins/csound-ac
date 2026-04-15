@@ -76,7 +76,15 @@ int CppSound::compile(int argc, const char **argv_)
     }
   else
     {
-      const char *outfilename = GetOutputName();
+      const char *outfilename = nullptr;
+#if CSOUND_AC_CSOUND_VERSION_MAJOR >= 7 
+      const OPARMS *oparms = GetParams();
+       if (oparms->outfilename) {
+          outfilename = oparms->outfilename;
+      } 
+#else
+      outfilename = GetOutputName();
+#endif
       if (outfilename) {
         renderedSoundfile = outfilename;
       }
@@ -154,7 +162,9 @@ void CppSound::stop()
   isCompiled = false;
   isPerforming = false;
   go = false;
+#if CSOUND_AC_CSOUND_VERSION_MAJOR < 7
   Stop();
+#endif
 }
 
 CSOUND *CppSound::getCsound()
@@ -169,7 +179,9 @@ int CppSound::performKsmps()
 
 void CppSound::cleanup()
 {
+#if CSOUND_AC_CSOUND_VERSION_MAJOR < 7
   Cleanup();
+#endif
   Reset();
 }
 
@@ -185,7 +197,11 @@ std::string CppSound::getOutputSoundfileName() const
 
 void CppSound::inputMessage(const char *istatement)
 {
+#if CSOUND_AC_CSOUND_VERSION_MAJOR >= 7
+  EventString(istatement, 0);
+#else 
   InputMessage(istatement);
+#endif
 }
 
 void CppSound::write(const char *text)

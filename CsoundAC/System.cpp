@@ -316,31 +316,54 @@ namespace csound {
     SILENCE_PUBLIC void System::yieldThread() {
     }
 
-    SILENCE_PUBLIC int System::openLibrary(void **library, std::string filename) {
-#if !defined(__EMSCRIPTEN__)
-        return csoundOpenLibrary(library, filename.c_str());
-#else
+    SILENCE_PUBLIC int System::openLibrary(void **library, std::string filename)
+    {
+        if (library == nullptr)
+        {
+            return -1;
+        }
+
+    #if defined(__EMSCRIPTEN__)
         *library = dlopen(filename.c_str(), RTLD_NOW | RTLD_GLOBAL);
-        return (int) *library;
-#endif
+    #elif defined(_WIN32)
+        *library = static_cast<void *>(LoadLibraryA(filename.c_str()));
+    #else
+        *library = dlopen(filename.c_str(), RTLD_NOW | RTLD_GLOBAL);
+    #endif
+
+        return (*library != nullptr) ? 0 : -1;
     }
 
-    SILENCE_PUBLIC void *System::getSymbol(void *library, std::string name) {
-        void *procedureAddress = 0;
-#if !defined(__EMSCRIPTEN__)
-        procedureAddress = csoundGetLibrarySymbol(library, name.c_str());
-#else
-        procedureAddress = dlsym(library, name.c_str());
-#endif
-        return procedureAddress;
-    }
+    SILENCE_PUBLIC void *System::getSymbol(void *library, std::string name)
+    {
+        if (library == nullptr)
+        {
+            return nullptr;
+        }
 
-    SILENCE_PUBLIC void System::closeLibrary(void *library) {
-#if !defined(__EMSCRIPTEN__)
-        csoundCloseLibrary(library);
-#else
+    #if defined(__EMSCRIPTEN__)
+        return dlsym(library, name.c_str());
+    #elif defined(_WIN32)
+        return reinterpret_cast<void *>(
+            GetProcAddress(static_cast<HMODULE>(library), name.c_str()));
+    #else
+        return dlsym(library, name.c_str());
+    #endif
+    }
+    SILENCE_PUBLIC void System::closeLibrary(void *library)
+    {
+        if (library == nullptr)
+        {
+            return;
+        }
+
+    #if defined(__EMSCRIPTEN__)
         dlclose(library);
-#endif
+    #elif defined(_WIN32)
+        FreeLibrary(static_cast<HMODULE>(library));
+    #else
+        dlclose(library);
+    #endif
     }
 
     SILENCE_PUBLIC void System::setLogfile(FILE *logfile_) {
