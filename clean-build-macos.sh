@@ -11,5 +11,5 @@ sudo chown -R michaelgogins:staff doc/latex doc/html 2>/dev/null || true
 
 sudo -k
 bash build-macos.sh "$@"
-unzip -l build-macos/csound-ac-0.6.1-Darwin.zip 
+unzip -l build-macos/csound-ac-8.0.0-Darwin.zip 
 echo "Finished cleaning and rebuilding all macOS artifacts from `pwd`."

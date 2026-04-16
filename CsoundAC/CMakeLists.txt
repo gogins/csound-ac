@@ -259,6 +259,10 @@ if(BUILD_CSOUND_AC)
         if(APPLE)
             set_target_properties(${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTIES
                 LINK_FLAGS "-undefined dynamic_lookup"
+                BUILD_WITH_INSTALL_RPATH FALSE
+                BUILD_RPATH "$ENV{HOME}/Library/Frameworks;/Library/Frameworks;/opt/homebrew/lib;/usr/local/lib"
+                INSTALL_RPATH "$ENV{HOME}/Library/Frameworks;/Library/Frameworks;/opt/homebrew/lib;/usr/local/lib"
+                INSTALL_RPATH_USE_LINK_PATH TRUE
             )
         endif()
 

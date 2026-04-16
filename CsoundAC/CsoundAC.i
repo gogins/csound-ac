@@ -90,5 +90,6 @@
 
 %template(vectorScale) std::vector<csound::Scale>;
 %template(vectorChord) std::vector<csound::Chord>;
+%template(vectorString) std::vector<std::string>;
 
 #endif

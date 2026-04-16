@@ -23,10 +23,10 @@
 #include "Platform.hpp"
 #ifdef SWIG
 %module CsoundAC
-    %include "std_string.i"
-    %include "std_vector.i"
-    %include "std_map.i"
-    %{
+%include "std_string.i"
+%include "std_vector.i"
+%include "std_map.i"
+%{
 #include "ChordSpace.hpp"
 #include "Conversions.hpp"
 #include "Event.hpp"
@@ -41,7 +41,7 @@
 #include <map>
 #include <vector>
 #include <Eigen/Dense>
-    %}
+%}
 #else
 #include "ChordSpace.hpp"
 #include "Conversions.hpp"
@@ -355,6 +355,7 @@ public:
     virtual Scale getTurtleScale() const;
     virtual int getTurtleScaleDegree() const;
     virtual void initialize();
+    virtual void interpret(const std::vector<std::string> &command);
     virtual void setAngle(double angle);
     virtual void setAxiom(std::string axiom);
     virtual void setIterationCount(int count);
@@ -390,7 +391,6 @@ protected:
     virtual void fixStatus();
     virtual void tieOverlappingNotes();
     virtual void applyVoiceleadingOperations();
-    virtual void interpret(std::vector<std::string> command);
     virtual Eigen::MatrixXd createRotation (int dimension1, int dimension2, double angle) const;
     virtual void turtleOperation(const std::string &operation, const std::string &target, const std::vector<std::string> &command);
     virtual void noteOperation(const std::string &operation, const std::string &target, const std::vector<std::string> &command);
