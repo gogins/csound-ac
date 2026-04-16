@@ -2,9 +2,10 @@ import CsoundAC
 score = CsoundAC.Score()
 score.load("oblivion.xml")
 sco = score.getCsoundScore()
+sco = sco.replace("\r\n", "\n").replace("\r", "\n").replace("\x00", "")
 print("sco:\n" + sco)
 
-csd = '''
+csd = f'''
 <CsoundSynthesizer>
 <CsLicense>
 "Oblivion," by Astor Piazzola
@@ -553,17 +554,19 @@ endin
 
 </CsInstruments>
 <CsScore>
-{}
+{sco}
 e 5
 </CsScore>
 </CsoundSynthesizer>
-'''.format(sco)
+'''
+print(csd)
 with open("oblivion.csd", "w")  as  file:
 	file.write(csd)
 import ctcsound
 csound = ctcsound.Csound()
-csound.compileCsdText(csd)
+csound.compile_csd(csd, 1)
 csound.start()
-csound.perform()
-
-
+while True:
+    finished = csound.perform_ksmps()
+    if finished:
+        break

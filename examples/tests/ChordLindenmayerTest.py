@@ -73,6 +73,11 @@ import sys
 import time
 import traceback
 
+print("sys.executable =", sys.executable)
+print("sys.path =")
+for p in sys.path:
+    print("  ", p)
+
 class CsoundComposition(object):
     def __init__(self):
         # Set "renderingMode" to:  "cd", "preview" (default), "master", "test" (virtual keyboard orc test) or "audio".
@@ -401,7 +406,7 @@ aright 	   JackoAudioIn 	"rightin"
         if reinitialize == True:
             self.lindenmayer.turtle.initialize()
         print(self.lindenmayer.turtle)
-        self.lindenmayer.interpret(command)
+        self.lindenmayer.interpret([str(command)])
         print(self.lindenmayer.turtle)
         print()
     def createMusicModel(self):

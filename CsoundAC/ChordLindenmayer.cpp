@@ -700,7 +700,7 @@ void ChordLindenmayer::scoreOperation(const std::string &operation,
  * parameters. The logic switches first on target, then on
  * operation, then on any remaining parameters of the command.
  */
-void ChordLindenmayer::interpret(std::vector<std::string> tokens) {
+void ChordLindenmayer::interpret(const std::vector<std::string> &tokens) {
     const std::string &operation = tokens[0];
     std::string target;
     std::string switchTarget;

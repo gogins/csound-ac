@@ -16,5 +16,5 @@ cmake -DCSOUND_AC_PREFER_LOCAL_DEPS:BOOL=ON -DCMAKE_INSTALL_PREFIX:PATH=/opt/hom
 # cmake -DCMAKE_CXX_FLAGS="-O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" -DCMAKE_INSTALL_PREFIX:PATH=/opt/homebrew -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -Wno-dev .. "$@"
 make -j6 VERBOSE=1
 cpack -V -G ZIP
-sudo make install
+sudo cmake --install . 
 echo "Finished building all for macOS."

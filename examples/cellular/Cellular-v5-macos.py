@@ -30,7 +30,7 @@ import traceback
 
 print('Set "rendering" to:     "soundfile" or "audio".')
 print
-rendering = "soundfile"
+rendering = "audio"
 
 model = CsoundAC.MusicModel()
 model.thisown = 0
@@ -906,7 +906,7 @@ for i, event in reverse_enumeration(score):
     if len(sounding) == total_instruments:
         break
 score.save(model.getMidifileFilepath())
-## print("score again:\n", score.toString())
+print("score again:\n", score.toString())
 model.performMaster()
 if rendering == 'soundfile':
     model.translateMaster()
