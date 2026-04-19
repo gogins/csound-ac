@@ -266,7 +266,7 @@ nchnls = 2
 
 seed 38493
 
-gi_Pianoteq vst3init "/Library/Audio/Plug-Ins/VST3/Pianoteq 7.vst3", "Pianoteq 7", 1
+gi_Pianoteq vst3init "/Library/Audio/Plug-Ins/VST3/Pianoteq 9.vst3", "Pianoteq 9", 1
 vst3info gi_Pianoteq
 
 alwayson "PianoOutPianoteq"
