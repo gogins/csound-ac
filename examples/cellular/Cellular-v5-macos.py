@@ -869,6 +869,7 @@ filename_exists:
 prints sprintf("Output filename: %s\\n", gS_MasterOutput_filename)
 fout gS_MasterOutput_filename, 18, aleft * i_amplitude_adjustment, aright * i_amplitude_adjustment
 filename_endif:
+outs aleft * k_gain, aright * k_gain
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 
@@ -906,7 +907,7 @@ for i, event in reverse_enumeration(score):
     if len(sounding) == total_instruments:
         break
 score.save(model.getMidifileFilepath())
-print("score again:\n", score.toString())
+print("score again:\n", score.getCsoundScore())
 model.performMaster()
 if rendering == 'soundfile':
     model.translateMaster()

@@ -108,8 +108,8 @@ int MusicModel::perform()
     stream.write(csd.c_str(), csd.size());
     stream.close();
     //System::message("MusicModel::perform using csd: %s\n", csd.c_str());
-#if CSOUND_AC_CSOUND_VERSION_MAJOR >= 7
-    errorStatus = cppSound->CompileCSD(csd.c_str(), 0);
+#if defined(CSOUND_VERSION_MAJOR) && (CSOUND_VERSION_MAJOR >= 7)
+    errorStatus = cppSound->CompileCSD(csd.c_str(), 1, 0);
 #else   
     errorStatus = csoundCompileCsdText(cppSound->getCsound(), csd.c_str());
 #endif
