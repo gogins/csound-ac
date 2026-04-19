@@ -114,50 +114,7 @@ endif()
 
 message("CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 
-# ------------------------------------------------------------------------------
-# Canonical Csound (hardcoded location preserved)
-# ------------------------------------------------------------------------------
-
-# Keep this as a canonical installed Csound; do not attempt to pick up local builds.
-find_package(Csound REQUIRED)
-
-find_program(CSOUND_EXECUTABLE csound REQUIRED)
-
-execute_process(
-    COMMAND ${CSOUND_EXECUTABLE} --version
-    OUTPUT_VARIABLE CSOUND_VERSION_STDOUT
-    ERROR_VARIABLE CSOUND_VERSION_STDERR
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    ERROR_STRIP_TRAILING_WHITESPACE
-)
-
-set(CSOUND_VERSION_TEXT "${CSOUND_VERSION_STDOUT}\n${CSOUND_VERSION_STDERR}")
-
-# Extract full version "7.0"
-string(REGEX MATCH "Csound version[ ]+([0-9]+)\\.([0-9]+)" _match "${CSOUND_VERSION_TEXT}")
-
-if(NOT _match)
-    message(FATAL_ERROR "Could not determine Csound version from: ${CSOUND_VERSION_TEXT}")
-endif()
-
-# Capture groups
-set(_csound_major "${CMAKE_MATCH_1}")
-set(_csound_minor "${CMAKE_MATCH_2}")
-
-# Store as numeric cache variables
-set(CSOUND_VERSION_MAJOR "${_csound_major}" CACHE STRING "Csound major version" FORCE)
-set(CSOUND_VERSION_MINOR "${_csound_minor}" CACHE STRING "Csound minor version" FORCE)
-
-add_compile_definitions(
-    CSOUND_AC_CSOUND_VERSION_MAJOR=${CSOUND_VERSION_MAJOR}
-    CSOUND_AC_CSOUND_VERSION_MINOR=${CSOUND_VERSION_MINOR}
-)
-message(STATUS "Csound version detected: ${CSOUND_AC_CSOUND_VERSION_MAJOR}.${CSOUND_AC_CSOUND_VERSION_MINOR}")
-message("CSOUND_LIBRARIES: ${CSOUND_LIBRARIES}")
-message("CSOUND_INCLUDE_DIRS: ${CSOUND_INCLUDE_DIRS}")
-message("CSOUND_INCLUDE_PATH: ${CSOUND_INCLUDE_PATH}")
-
-include_directories("${CSOUND_INCLUDE_DIRS}")
+include("cmake/FindCsoundHomeFirst.cmake")
 
 # ------------------------------------------------------------------------------
 # Other dependencies (prefer local copies if present)
