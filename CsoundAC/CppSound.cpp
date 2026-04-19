@@ -53,7 +53,7 @@ int CppSound::compile(int argc, const char **argv_)
 /*   csound->orcname_mode = 1;
   // Changed to use only internally stored Csound orchestra and score.
  */  
-#if CSOUND_AC_CSOUND_VERSION_MAJOR >= 7
+#if defined(CSOUND_VERSION_MAJOR) && (CSOUND_VERSION_MAJOR >= 7)
   returnValue = CompileOrc(getOrchestra().c_str(), 0);
   EventString(getScore().c_str(), 0);
 #else
@@ -65,7 +65,7 @@ int CppSound::compile(int argc, const char **argv_)
       csoundSetOption(csound, argv[i]);
   }
   returnValue = csoundStart(csound);
-#if CSOUND_AC_CSOUND_VERSION_MAJOR >= 7
+#if defined(CSOUND_VERSION_MAJOR) && (CSOUND_VERSION_MAJOR >= 7)
   spoutSize = GetKsmps() * Csound::GetChannels() * sizeof(MYFLT);
 #else
   spoutSize = GetKsmps() * GetNchnls() * sizeof(MYFLT);
@@ -77,7 +77,7 @@ int CppSound::compile(int argc, const char **argv_)
   else
     {
       const char *outfilename = nullptr;
-#if CSOUND_AC_CSOUND_VERSION_MAJOR >= 7 
+#if CSOUND_VERSION_MAJOR >= 7 
       const OPARMS *oparms = GetParams();
        if (oparms->outfilename) {
           outfilename = oparms->outfilename;
@@ -162,7 +162,7 @@ void CppSound::stop()
   isCompiled = false;
   isPerforming = false;
   go = false;
-#if CSOUND_AC_CSOUND_VERSION_MAJOR < 7
+#if CSOUND_VERSION_MAJOR < 7
   Stop();
 #endif
 }
@@ -179,7 +179,7 @@ int CppSound::performKsmps()
 
 void CppSound::cleanup()
 {
-#if CSOUND_AC_CSOUND_VERSION_MAJOR < 7
+#if CSOUND_VERSION_MAJOR < 7
   Cleanup();
 #endif
   Reset();
@@ -197,7 +197,7 @@ std::string CppSound::getOutputSoundfileName() const
 
 void CppSound::inputMessage(const char *istatement)
 {
-#if CSOUND_AC_CSOUND_VERSION_MAJOR >= 7
+#if CSOUND_VERSION_MAJOR >= 7
   EventString(istatement, 0);
 #else 
   InputMessage(istatement);
