@@ -187,7 +187,7 @@ public:
     virtual int processArgs(const std::vector<std::string> &args);
 
     virtual int cppsoundCleanup() {
-#if CSOUND_AC_CSOUND_VERSION_MAJOR >= 7
+#if CSOUND_VERSION_MAJOR >= 7
         return 0;
 #else
         return cppSound->Cleanup();
@@ -197,7 +197,7 @@ public:
         return cppSound->Compile(argc, argv);
     }
     virtual int cppsoundCompileCsdText(const std::string &csd_text) {
-#if CSOUND_AC_CSOUND_VERSION_MAJOR >= 7
+#if CSOUND_VERSION_MAJOR >= 7
         return cppSound->CompileCSD(csd_text.c_str(), 0);
 #else       
 return cppSound->CompileCsdText(csd_text.c_str());

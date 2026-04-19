@@ -138,6 +138,25 @@ if(BUILD_CSOUND_AC)
         add_library(libCsoundAC SHARED ${libcsoundac_SRCS})
     endif()
 
+    target_compile_definitions(libCsoundAC
+    PRIVATE
+        USE_DOUBLE
+
+        CSOUND_FOUND=$<BOOL:${CSOUND_FOUND}>
+
+        CSOUND_EXECUTABLE="${CSOUND_EXECUTABLE}"
+        CSOUND_LIBRARY="${CSOUND_LIBRARY}"
+        CSOUND_LIBRARIES="${CSOUND_LIBRARIES}"
+
+        CSOUND_INCLUDE_DIR="${CSOUND_INCLUDE_DIR}"
+        CSOUND_INCLUDE_DIRS="${CSOUND_INCLUDE_DIRS}"
+        CSOUND_FRAMEWORK_DIR="${CSOUND_FRAMEWORK_DIR}"
+
+        CSOUND_VERSION="${CSOUND_VERSION}"
+        CSOUND_VERSION_MAJOR=${CSOUND_VERSION_MAJOR}
+        CSOUND_VERSION_MINOR=${CSOUND_VERSION_MINOR}
+    )
+
     # Ensure the libmusicxml build happens before we try to link against it.
     if(MUSICXML2_TARGET)
         add_dependencies(libCsoundAC ${MUSICXML2_TARGET})
@@ -167,6 +186,13 @@ if(BUILD_CSOUND_AC)
     # Standalone test program (from: c++ ChordSpaceTest.cpp ... -o ChordSpaceTest)
     # User requested target name: ChordSpaceTests; adjust OUTPUT_NAME if desired.
     add_executable(ChordSpaceTests ChordSpaceTests.cpp)
+
+    target_compile_definitions(ChordSpaceTests
+    PRIVATE
+        USE_DOUBLE
+        CSOUND_VERSION_MAJOR=${CSOUND_VERSION_MAJOR}
+        CSOUND_VERSION_MINOR=${CSOUND_VERSION_MINOR}
+    )
 
     target_include_directories(ChordSpaceTests PRIVATE .)
     target_include_directories(ChordSpaceTests SYSTEM PRIVATE ${CSOUND_INCLUDE_DIRS})
@@ -255,6 +281,13 @@ if(BUILD_CSOUND_AC)
         set(SWIG_USE_TARGET_INCLUDE_DIRECTORIES True)
         target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/stb ${CMAKE_SOURCE_DIR}/dependencies/CImg ${LIBSNDFILE_INCLUDE_DIR})
         set_property(TARGET ${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTY SWIG_INCLUDE_DIRECTORIES ${EIGEN3_INCLUDE_DIRS} ${Boost_INCLUDE_DIR})
+
+        target_compile_definitions(${SWIG_MODULE_CsoundAC_REAL_NAME}
+            PRIVATE
+                USE_DOUBLE
+                CSOUND_VERSION_MAJOR=${CSOUND_VERSION_MAJOR}
+                CSOUND_VERSION_MINOR=${CSOUND_VERSION_MINOR}
+        )
 
         if(APPLE)
             set_target_properties(${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTIES
