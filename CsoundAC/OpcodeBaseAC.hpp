@@ -73,6 +73,14 @@ static inline int csound_opcode_tie_flag(CSOUND *csound)
 }
 #endif
 
+inline const char *csoundac_string_arg(const STRINGDAT *s, const char *default_value = "")
+{
+    if (s && s->data && s->data[0] != '\0') {
+        return s->data;
+    }
+    return default_value;
+}
+
 /**
  * Template base class, or pseudo-virtual base class,
  * for writing Csound opcodes in C++.
