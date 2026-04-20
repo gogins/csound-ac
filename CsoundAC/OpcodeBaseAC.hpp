@@ -45,6 +45,12 @@
 #include <string>
 #include <vector>
 
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
+
 #include <csound.h>
 #include <interlocks.h>
 #include <csdl.h>
