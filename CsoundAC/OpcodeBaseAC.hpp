@@ -82,6 +82,63 @@ inline const char *csoundac_string_arg(const STRINGDAT *s, const char *default_v
 }
 
 /**
+ *  Opens a shared library; useful for loading plugins.
+ */
+inline int csoundac_open_library(void **library, std::string filename)
+{
+    if (library == nullptr)
+    {
+        return -1;
+    }
+#if defined(__EMSCRIPTEN__)
+    *library = dlopen(filename.c_str(), RTLD_NOW | RTLD_GLOBAL);
+#elif defined(_WIN32)
+    *library = static_cast<void *>(LoadLibraryA(filename.c_str()));
+#else
+    *library = dlopen(filename.c_str(), RTLD_NOW | RTLD_GLOBAL);
+#endif
+    return (*library != nullptr) ? 0 : -1;
+}
+
+/**
+ *  Returns the address of a symbol (function or object) in a shared library;
+ *  useful for loading plugin functions.
+ */
+inline void *csoundac_get_symbol(void *library, std::string name)
+{
+    if (library == nullptr)
+    {
+        return nullptr;
+    }
+#if defined(__EMSCRIPTEN__)
+    return dlsym(library, name.c_str());
+#elif defined(_WIN32)
+    return reinterpret_cast<void *>(
+        GetProcAddress(static_cast<HMODULE>(library), name.c_str()));
+#else
+    return dlsym(library, name.c_str());
+#endif
+}
+
+/**
+ *  Closes a shared library.
+ */
+inline void csoundac_close_library(void *library)
+{
+    if (library == nullptr)
+    {
+        return;
+    }
+#if defined(__EMSCRIPTEN__)
+    dlclose(library);
+#elif defined(_WIN32)
+    FreeLibrary(static_cast<HMODULE>(library));
+#else
+    dlclose(library);
+#endif
+}
+ 
+/**
  * Template base class, or pseudo-virtual base class,
  * for writing Csound opcodes in C++.
  * Derive opcode implementation classes like this:
