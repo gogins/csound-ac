@@ -191,6 +191,9 @@ protected:
     void (*kperiod_callback)(CSOUND *, void *);
     void *kperiod_callback_user_data;
     concurrent_queue<CsoundEvent *> input_queue;
+    std::string output_type;
+    std::string output_format;      
+    std::string output_name;
 
     void ClearQueue()
     {
@@ -289,6 +292,58 @@ public:
         return ScoreEventNow(opcode, pfields, pfield_count);
     }
 #endif
+
+    virtual int SetOutput(const char *name, const char *type, const char *format)
+    {
+#if defined(CSOUND_VERSION_MAJOR) && CSOUND_VERSION_MAJOR  >= 7
+        int result = 0;
+        output_name = name;
+        output_type = type;
+        output_format = format;
+        if (name != nullptr && name[0] != '\0')
+        {
+            std::string option = "--output=";
+            option += name;
+            result = SetOption(option.c_str());
+            if (result != 0)
+            {
+                return result;
+            }
+        }
+        if ((type != nullptr && type[0] != '\0') ||
+            (format != nullptr && format[0] != '\0'))
+        {
+            std::string option = "--format=";
+
+            if (type != nullptr && type[0] != '\0' &&
+                format != nullptr && format[0] != '\0')
+            {
+                option += type;
+                option += ":";
+                option += format;
+            }
+            else if (type != nullptr && type[0] != '\0')
+            {
+                option += type;
+            }
+            else
+            {
+                option += format;
+            }
+
+            result = SetOption(option.c_str());
+            if (result != 0)
+            {
+                return result;
+            }
+        }
+        std::fprintf(stderr, "CsoundThreaded::SetOutput: name:  %s type: %s format: %s...\n", name, type, format);
+        return 0;
+#else
+        csoundSetOutput(csound_, name, type, format);
+        return 0;
+#endif
+    }
 
     virtual void SetKperiodCallback(void (*kperiod_callback_)(CSOUND *, void *), void *kperiod_callback_user_data_)
     {

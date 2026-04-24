@@ -117,25 +117,29 @@ namespace csound {
             /**
              * Override to not only set but also save type and format.
              */
-            virtual void SetOutput(const char *name, const char *type, const char *format) {
-                output_type = type;
-                output_format = format;
-                Csound::SetOutput(name, type, format);
+            virtual int SetOutput(const char *name, const char *type, const char *format) {
+                return CsoundThreaded::SetOutput(name, type, format);
             }
             /**
              * Override to set output filename from metadata in this. Not 
              * implemented for real-time rendering.
              */        
             virtual int Start() {
-                std::string output = GetOutputName();
-                if (output.find("dac") != 0) {
-                    output = GetFilenameBase();
-                    output.append(".");
-                    output.append(output_type);
-                    Csound::SetOutput(output.c_str(), output_type.c_str(), output_format.c_str());
+                std::fprintf(stderr, "CsoundProducer::Start...\n");
+                // We default to the csd. Also, if the output is not set to 
+                // the dac, we set it to a filename.
+                if (output_name.empty() == false) {
+                     if (std::string::npos == output_name.find("dac")) {
+                        output_name = GetFilenameBase();
+                        output_name.append(".");
+                        output_name.append(output_type);
+                        CsoundThreaded::SetOutput(output_name.c_str(), output_type.c_str(), output_format.c_str());
+                    }
                 }
-                return CsoundThreaded::Start();
-            }
+                int result = CsoundThreaded::Start();
+                std::fprintf(stderr, "CsoundProducer::Start.\n");
+                return result;
+           }
             virtual int PerformAndPostProcessRoutine() {
                 // We do our own performance benchmarks.
                 auto clock_started = startTiming();
@@ -214,8 +218,6 @@ namespace csound {
             bool do_git_commit = false;
             std::map<std::string, std::string> tags;        
             std::string git_hash;
-            std::string output_type = "wav";
-            std::string output_format = "float";
     };
     
 };
