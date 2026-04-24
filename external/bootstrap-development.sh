@@ -4,18 +4,32 @@ set -euo pipefail
 brew update
 
 brew install \
-    git cmake ninja pkg-config \
-    bison flex \
-    python@3.12 swig \
-    boost eigen \
+    bison \
+    boost \
+    cmake \
     doxygen \
+    eigen \
+    fftw \
+    flex \
+    fluidsynth \
+    git \
     googletest \
     graphviz \
     jack \
-    libsndfile portaudio portmidi \
-    liblo fftw fluidsynth
+    liblo \
+    libsndfile \
+    ninja \
+    node \
+    pkg-config \
+    portaudio \
+    portmidi \
+    python@3.12 \
+    swig 
 
 cd "$HOME"
+
+npm install -g node-addon-api
+npm install -g cmake-js
 
 clone_if_missing()
 {
@@ -38,10 +52,5 @@ clone_if_missing https://github.com/gogins/csound-wasm.git csound-wasm
 clone_if_missing https://github.com/gogins/gogins.github.io.git gogins.github.io
 
 echo "Bootstrap complete."
-echo "Next:"
-echo "  1. Build Csound 6 into ~/opt/csound6"
-echo "  2. Build Csound 7 into ~/opt/csound7"
-echo "  3. source ~/.zshrc"
-echo "  4. use_csound6" only in new shell for Csound 6 compatbility.
 
 
