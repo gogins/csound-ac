@@ -252,7 +252,7 @@ public:
         ClearQueue();
     }
 
-#if CSOUND_VERSION_MAJOR >= 7
+#if defined(CSOUND_VERSION_MAJOR) && CSOUND_VERSION_MAJOR >= 7
     /**
      * Compatibility wrappers for methods that existed in the Csound 6 C++
      * wrapper but were removed from the Csound 7 C++ wrapper.
@@ -291,7 +291,86 @@ public:
     {
         return ScoreEventNow(opcode, pfields, pfield_count);
     }
+
+
+    virtual int SetInput(const char *input)
+    {
+        std::string option = "--input=";
+        option += input;
+        return SetOption(option.c_str());
+    }
+
 #endif
+
+
+
+    /**
+     * Compatibility wrappers for Csound 6 C++ wrapper methods that are
+     * absent from the Csound 7 C++ wrapper. Keep these in CsoundThreaded
+     * so embind and other clients can call one stable C++ API.
+     */
+    virtual void SetHostImplementedAudioIO(int state)
+    {
+#if defined(CSOUND_VERSION_MAJOR) && CSOUND_VERSION_MAJOR >= 7
+        csoundSetHostImplementedAudioIO(csound, state, 0);
+#else
+        Csound::SetHostImplementedAudioIO(state);
+#endif
+    }
+
+    virtual void SetHostImplementedMIDIIO(int state)
+    {
+#if defined(CSOUND_VERSION_MAJOR) && CSOUND_VERSION_MAJOR >= 7
+        csoundSetHostImplementedMIDIIO(csound, state);
+#else
+        Csound::SetHostImplementedMIDIIO(state);
+#endif
+    }
+
+    virtual void SetExternalMidiInOpenCallback(int (*callback)(CSOUND *, void **, const char *))
+    {
+#if defined(CSOUND_VERSION_MAJOR) && CSOUND_VERSION_MAJOR >= 7
+        csoundSetExternalMidiInOpenCallback(csound, callback);
+#else
+        Csound::SetExternalMidiInOpenCallback(callback);
+#endif
+    }
+
+    virtual void SetExternalMidiReadCallback(int (*callback)(CSOUND *, void *, unsigned char *, int))
+    {
+#if defined(CSOUND_VERSION_MAJOR) && CSOUND_VERSION_MAJOR >= 7
+        csoundSetExternalMidiReadCallback(csound, callback);
+#else
+        Csound::SetExternalMidiReadCallback(callback);
+#endif
+    }
+
+    virtual void SetExternalMidiInCloseCallback(int (*callback)(CSOUND *, void *))
+    {
+#if defined(CSOUND_VERSION_MAJOR) && CSOUND_VERSION_MAJOR >= 7
+        csoundSetExternalMidiInCloseCallback(csound, callback);
+#else
+        Csound::SetExternalMidiInCloseCallback(callback);
+#endif
+    }
+
+    virtual MYFLT TableGet(int table, int index)
+    {
+#if defined(CSOUND_VERSION_MAJOR) && CSOUND_VERSION_MAJOR >= 7
+        return csoundTableGet(csound, table, index);
+#else
+        return Csound::TableGet(table, index);
+#endif
+    }
+
+    virtual void TableSet(int table, int index, MYFLT value)
+    {
+#if defined(CSOUND_VERSION_MAJOR) && CSOUND_VERSION_MAJOR >= 7
+        csoundTableSet(csound, table, index, value);
+#else
+        Csound::TableSet(table, index, value);
+#endif
+    }
 
     virtual int SetOutput(const char *name, const char *type, const char *format)
     {
@@ -340,7 +419,7 @@ public:
         std::fprintf(stderr, "CsoundThreaded::SetOutput: name:  %s type: %s format: %s...\n", name, type, format);
         return 0;
 #else
-        csoundSetOutput(csound_, name, type, format);
+        csoundSetOutput(csound, name, type, format);
         return 0;
 #endif
     }
