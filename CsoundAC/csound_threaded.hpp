@@ -312,7 +312,13 @@ public:
     virtual void SetHostImplementedAudioIO(int state)
     {
 #if defined(CSOUND_VERSION_MAJOR) && CSOUND_VERSION_MAJOR >= 7
-        csoundSetHostImplementedAudioIO(csound, state, 0);
+        // Csound 7 removed csoundSetHostImplementedAudioIO(CSOUND *, int, int)
+        // and replaced it with one-way host audio I/O selection. There is no
+        // C API call to disable host audio I/O again, so state == 0 is a no-op.
+        if (state != 0)
+        {
+            csoundSetHostAudioIO(csound);
+        }
 #else
         Csound::SetHostImplementedAudioIO(state);
 #endif
@@ -321,7 +327,13 @@ public:
     virtual void SetHostImplementedMIDIIO(int state)
     {
 #if defined(CSOUND_VERSION_MAJOR) && CSOUND_VERSION_MAJOR >= 7
-        csoundSetHostImplementedMIDIIO(csound, state);
+        // Csound 7 removed csoundSetHostImplementedMIDIIO(CSOUND *, int)
+        // and replaced it with one-way host MIDI I/O selection. There is no
+        // C API call to disable host MIDI I/O again, so state == 0 is a no-op.
+        if (state != 0)
+        {
+            csoundSetHostMIDIIO(csound);
+        }
 #else
         Csound::SetHostImplementedMIDIIO(state);
 #endif
@@ -357,7 +369,15 @@ public:
     virtual MYFLT TableGet(int table, int index)
     {
 #if defined(CSOUND_VERSION_MAJOR) && CSOUND_VERSION_MAJOR >= 7
-        return csoundTableGet(csound, table, index);
+        // Csound 7 removed csoundTableGet(). Use csoundGetTable() and
+        // index directly into the returned table memory.
+        MYFLT *table_data = nullptr;
+        int table_length = csoundGetTable(csound, &table_data, table);
+        if (table_data == nullptr || index < 0 || index >= table_length)
+        {
+            return static_cast<MYFLT>(0);
+        }
+        return table_data[index];
 #else
         return Csound::TableGet(table, index);
 #endif
@@ -366,7 +386,15 @@ public:
     virtual void TableSet(int table, int index, MYFLT value)
     {
 #if defined(CSOUND_VERSION_MAJOR) && CSOUND_VERSION_MAJOR >= 7
-        csoundTableSet(csound, table, index, value);
+        // Csound 7 removed csoundTableSet(). Use csoundGetTable() and
+        // write directly into the returned table memory.
+        MYFLT *table_data = nullptr;
+        int table_length = csoundGetTable(csound, &table_data, table);
+        if (table_data == nullptr || index < 0 || index >= table_length)
+        {
+            return;
+        }
+        table_data[index] = value;
 #else
         Csound::TableSet(table, index, value);
 #endif
