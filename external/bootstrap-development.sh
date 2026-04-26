@@ -24,7 +24,8 @@ brew install \
     portaudio \
     portmidi \
     python@3.12 \
-    swig 
+    swig \
+    wget 
 
 cd "$HOME"
 
