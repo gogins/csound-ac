@@ -1482,26 +1482,43 @@ SILENCE_PUBLIC std::string print_chord(const Chord &chord) {
     return result;
 }
 
-SILENCE_PUBLIC std::string print_opti_sectors(const Chord &chord) {
+SILENCE_PUBLIC std::string print_opti_sectors(const Chord &chord)
+{
     std::string result;
-    char buffer[0x8000];
-    for (int sector = 0; sector < chord.voices(); ++sector) {
+    char buffer[256];
+
+    auto appendf = [&](const char *format, auto... args)
+    {
+        std::snprintf(buffer, sizeof(buffer), format, args...);
+        result.append(buffer);
+    };
+
+    for (int sector = 0; sector < chord.voices(); ++sector)
+    {
         bool belongs = chord.is_in_rpt_sector(sector);
         std::string membership;
-        if (belongs == true) {  
+
+        if (belongs == true)
+        {
             bool minor = chord.is_in_minor_rpti_sector(sector);
-            if (minor == true) {
+            if (minor == true)
+            {
                 membership = "minor";
-            } else {
-                membership = "major";     
             }
-        } else {
+            else
+            {
+                membership = "major";
+            }
+        }
+        else
+        {
             membership = "     ";
         }
-        snprintf(buffer, sizeof(buffer), "RPT sector %3d: %s\n", sector, membership.c_str());
-        result.append(buffer);
+
+        appendf("RPT sector %3d: %s\n", sector, membership.c_str());
     }
-    return result;    
+
+    return result;
 }
 
 std::string Chord::information_debug(int sector_) const {
@@ -1513,20 +1530,30 @@ std::string Chord::information() const {
     return information_sector(-1);
 }
 
-std::string Chord::information_sector(int opt_sector_) const {
-    // FIXME: This is a hack to avoid having to pass g through all the 
-    // information printing functions. The value of g is not relevant for the 
-    //information printed, so it is safe to set it to 1.0 here.
+std::string Chord::information_sector(int opt_sector_) const
+{
     const double g = 1.0;
-    std::string result;
-    char buffer[0x10000];
-    if (voices() < 1) {
+
+    if (voices() < 1)
+    {
         return "Empty chord.";
     }
-    snprintf(buffer, sizeof(buffer), "\nCHORD:\n");
+
+    std::string result;
+    char buffer[0x1000];
+
+    auto appendf = [&](const char *format, auto... args)
+    {
+        std::snprintf(buffer, sizeof(buffer), format, args...);
+        result.append(buffer);
+    };
+
+    std::snprintf(buffer, sizeof(buffer), "\nCHORD:\n");
     result.append(buffer);
+
     int opt_sector = 0;
-    if (opt_sector_ == -1) {
+    if (opt_sector_ == -1)
+    {
         auto sectors = opt_domain_sectors();
         if (sectors.empty() == false)
         {
@@ -1534,77 +1561,68 @@ std::string Chord::information_sector(int opt_sector_) const {
         }
         else
         {
-            opt_sector = 0; // or -1, but 0 avoids later indexing crashes in info printing
-        }    
+            opt_sector = 0;
+        }
     }
-    snprintf(buffer, sizeof(buffer), "%-19s %s\n", name().c_str(), print_chord(*this).c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "Pitch-class set:    %s\n", epcs().eP().toString().c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "Normal order:       %s\n", normal_order().toString().c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "Normal form:        %s\n", normal_form().toString().c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "Prime form:         %s\n", prime_form().toString().c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "Inverse prime form: %s\n", inverse_prime_form().toString().c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "Sum:                %12.7f\n", layer());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "O:           %3d => %s\n", iseO(), print_chord(eO()).c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "P:           %3d => %s\n", iseP(), print_chord(eP()).c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "T:           %3d => %s\n", iseT(), print_chord(eT()).c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "TT:          %3d => %s\n", iseTT(), print_chord(eTT()).c_str());
-    result.append(buffer);
+
+    appendf("%-19s %s\n", name().c_str(), print_chord(*this).c_str());
+    appendf("Pitch-class set:    %s\n", epcs().eP().toString().c_str());
+    appendf("Normal order:       %s\n", normal_order().toString().c_str());
+    appendf("Normal form:        %s\n", normal_form().toString().c_str());
+    appendf("Prime form:         %s\n", prime_form().toString().c_str());
+    appendf("Inverse prime form: %s\n", inverse_prime_form().toString().c_str());
+    appendf("Sum:                %12.7f\n", layer());
+
+    appendf("O:           %3d => %s\n", iseO(), print_chord(eO()).c_str());
+    appendf("P:           %3d => %s\n", iseP(), print_chord(eP()).c_str());
+    appendf("T:           %3d => %s\n", iseT(), print_chord(eT()).c_str());
+    appendf("TT:          %3d => %s\n", iseTT(), print_chord(eTT()).c_str());
+
     auto isei = iseI(opt_sector);
     auto ei = eI(opt_sector);
-    snprintf(buffer, sizeof(buffer), "I:           %3d => %s\n", isei, print_chord(ei).c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "OP:          %3d => %s\n", iseOP(), print_chord(eOP()).c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "OT:          %3d => %s\n", iseOT(), print_chord(eOT()).c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "OTT:         %3d => %s\n", iseOTT(1.0), print_chord(eOTT()).c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "OPT:         %3d => %s\n", iseOPT(opt_sector), print_chord(eOPT(opt_sector)).c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "OPTT:        %3d => %s\n", iseOPTT(1.0, opt_sector), print_chord(eOPTT(opt_sector)).c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "OPI:         %3d => %s\n", iseOPI(opt_sector), print_chord(eOPI(opt_sector)).c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "OPTI:        %3d => %s\n", iseOPTI(opt_sector), print_chord(eOPTI(opt_sector)).c_str());
-    result.append(buffer);
-    snprintf(buffer, sizeof(buffer), "OPTTI:       %3d => %s\n", iseOPTTI(1.0, opt_sector), print_chord(eOPTTI(opt_sector)).c_str());
-    result.append(buffer);
+    appendf("I:           %3d => %s\n", isei, print_chord(ei).c_str());
+
+    appendf("OP:          %3d => %s\n", iseOP(), print_chord(eOP()).c_str());
+    appendf("OT:          %3d => %s\n", iseOT(), print_chord(eOT()).c_str());
+    appendf("OTT:         %3d => %s\n", iseOTT(1.0), print_chord(eOTT()).c_str());
+    appendf("OPT:         %3d => %s\n", iseOPT(opt_sector), print_chord(eOPT(opt_sector)).c_str());
+    appendf("OPTT:        %3d => %s\n", iseOPTT(1.0, opt_sector), print_chord(eOPTT(opt_sector)).c_str());
+    appendf("OPI:         %3d => %s\n", iseOPI(opt_sector), print_chord(eOPI(opt_sector)).c_str());
+    appendf("OPTI:        %3d => %s\n", iseOPTI(opt_sector), print_chord(eOPTI(opt_sector)).c_str());
+    appendf("OPTTI:       %3d => %s\n", iseOPTTI(1.0, opt_sector), print_chord(eOPTTI(opt_sector)).c_str());
+
     auto &hyperplane_equations = hyperplane_equations_for_dimensionalities()[voices()];
     auto &opt_sectors = opt_sectors_for_dimensionalities()[voices()];
-    for (int sector = 0, n = opt_sectors.size(); sector < n; ++sector) {
-        snprintf(buffer, sizeof(buffer), "OPT sector:  %3d\n", sector);
-        result.append(buffer);
-        for (int vertex = 0; vertex < voices(); ++vertex) {
-            snprintf(buffer, sizeof(buffer), "    vertex:  %3d:   %s\n", vertex, opt_sectors[sector][vertex].toString().c_str());
-            result.append(buffer);
-        }    
+
+    for (int sector = 0, n = opt_sectors.size(); sector < n; ++sector)
+    {
+        appendf("OPT sector:  %3d\n", sector);
+
+        for (int vertex = 0; vertex < voices(); ++vertex)
+        {
+            appendf("    vertex:  %3d:   %s\n",
+                vertex,
+                opt_sectors[sector][vertex].toString().c_str());
+        }
+
         const auto &hyperplane_equation_ = hyperplane_equation(sector);
         auto text = hyperplane_equation_.toString();
-        snprintf(buffer, sizeof(buffer), "    hyperplane equation:\n       %s\n", text.c_str());
-        result.append(buffer);
+        appendf("    hyperplane equation:\n       %s\n", text.c_str());
+
         auto sector_text = print_opti_sectors(*this);
-        snprintf(buffer, sizeof(buffer), "    this:           %s\n", print_chord(*this).c_str());
-        result.append(buffer);      
+        appendf("    this:           %s\n", print_chord(*this).c_str());
+
         auto reflected = reflect_in_inversion_flat(*this, sector, g);
         sector_text = print_opti_sectors(reflected);
-        snprintf(buffer, sizeof(buffer), "    reflected:      %s\n", print_chord(reflected).c_str());
-        result.append(buffer);      
+        appendf("    reflected:      %s\n", print_chord(reflected).c_str());
+
         auto rereflected = reflect_in_inversion_flat(reflected, sector, g);
         sector_text = print_opti_sectors(rereflected);
-        snprintf(buffer, sizeof(buffer), "    re-reflected:   %s\n", print_chord(rereflected).c_str());
-        result.append(buffer);      
+        appendf("    re-reflected:   %s\n", print_chord(rereflected).c_str());
+
         result.append("\n");
     }
+
     return result;
 }
 
@@ -1998,25 +2016,23 @@ bool Chord::test(const char *label) const {
     return passed;
 }
 
-/**
- * Returns a string representation of the chord's pitches (only).
- * Quadratic complexity, but short enough not to matter.
- */
-std::string Chord::toString() const {
-    char buffer[0x1000];
-    std::stringstream stream;
-    for (size_t voice = 0; voice < voices(); ++voice) {
-        std::snprintf(buffer, 0x100, "%12.7f", getPitch(voice));
-        if (voice > 0) {
-            stream << " ";
+std::string Chord::toString() const
+{
+    std::string result;
+    char buffer[64];
+    for (size_t voice = 0; voice < voices(); ++voice)
+    {
+        if (voice > 0)
+        {
+            result.push_back(' ');
         }
-        stream << buffer;
+
+        std::snprintf(buffer, sizeof(buffer), "%12.7f", getPitch(voice));
+        result += buffer;
     }
-    auto text = stream.str();
-    // This string representation may be used as a key. In such cases, ensure 
-    // that -0 == 0 (as it does for numeric comparisons).
-    boost::replace_all(text, " -0.", "  0.");
-    return text;
+
+    boost::replace_all(result, " -0.", "  0.");
+    return result;
 }
 
 /**
