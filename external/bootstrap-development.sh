@@ -20,7 +20,9 @@ brew install \
     libsndfile \
     ninja \
     node \
+    pandoc \
     pkg-config \
+    pnpm \
     portaudio \
     portmidi \
     python@3.12 \
