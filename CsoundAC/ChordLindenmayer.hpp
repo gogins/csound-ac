@@ -374,7 +374,6 @@ public:
     clock_t beganAt;
     clock_t endedAt;
     clock_t elapsed;
-protected:
     virtual double equivalence(const double &value, const std::string &equivalenceClass) const;
     /**
      * Iterates the replacement rules on the axiom and subsequent productions

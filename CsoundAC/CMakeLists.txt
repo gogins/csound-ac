@@ -162,6 +162,14 @@ if(BUILD_CSOUND_AC)
         add_dependencies(libCsoundAC ${MUSICXML2_TARGET})
     endif()
 
+    # Always prefer headers from this source tree over installed headers.
+    target_include_directories(libCsoundAC
+        BEFORE PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_SOURCE_DIR}
+            ${CMAKE_SOURCE_DIR}/CsoundAC
+    )
+
     target_include_directories(libCsoundAC SYSTEM PRIVATE ${Python3_INCLUDE_DIRS})
     target_include_directories(libCsoundAC SYSTEM PRIVATE ${CSOUND_INCLUDE_DIRS})
     target_include_directories(libCsoundAC PRIVATE ${EIGEN3_INCLUDE_DIRS})
@@ -194,7 +202,13 @@ if(BUILD_CSOUND_AC)
         CSOUND_VERSION_MINOR=${CSOUND_VERSION_MINOR}
     )
 
-    target_include_directories(ChordSpaceTests PRIVATE .)
+    # Always prefer headers from this source tree over installed headers.
+    target_include_directories(ChordSpaceTests
+        BEFORE PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_SOURCE_DIR}
+            ${CMAKE_SOURCE_DIR}/CsoundAC
+    )
     target_include_directories(ChordSpaceTests SYSTEM PRIVATE ${CSOUND_INCLUDE_DIRS})
     target_include_directories(ChordSpaceTests PRIVATE ${EIGEN3_INCLUDE_DIRS})
     target_include_directories(ChordSpaceTests PRIVATE ${Boost_INCLUDE_DIR})
@@ -256,8 +270,21 @@ if(BUILD_CSOUND_AC)
         message(STATUS "SWIG_USE_FILE: " ${SWIG_USE_FILE})
         include(${SWIG_USE_FILE})
         set(CMAKE_SWIG_OUTDIR ${BUILD_LIB_DIR})
-        include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-        list(APPEND CMAKE_SWIG_FLAGS "-includeall" "-verbose")
+
+        # SWIG also needs the local headers before any installed headers.
+        include_directories(BEFORE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_SOURCE_DIR}
+            ${CMAKE_SOURCE_DIR}/CsoundAC
+        )
+
+        list(APPEND CMAKE_SWIG_FLAGS
+            "-includeall"
+            "-verbose"
+            "-I${CMAKE_CURRENT_SOURCE_DIR}"
+            "-I${CMAKE_SOURCE_DIR}"
+            "-I${CMAKE_SOURCE_DIR}/CsoundAC"
+        )
     endif()
 
     if(BUILD_CSOUND_AC_PYTHON_INTERFACE)
@@ -266,6 +293,10 @@ if(BUILD_CSOUND_AC)
         message(STATUS "Python3_SITEARCH: ${Python3_SITEARCH}")
         message(STATUS "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
         include_directories(${Python3_INCLUDE_DIRS})
+
+        # This variable must be set before swig_add_library.
+        set(SWIG_USE_TARGET_INCLUDE_DIRECTORIES TRUE)
+
         # Had: SWIG_FLAGS "-threads"
         set_source_files_properties(CsoundAC.i
             PROPERTIES CPLUSPLUS ON
@@ -276,12 +307,31 @@ if(BUILD_CSOUND_AC)
             LANGUAGE python
             SOURCES CsoundAC.i
         )
-        swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_TARGET} ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
-        target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} PRIVATE ${EIGEN3_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${CSOUND_SOURCE_HOME}/include)
-        set(SWIG_USE_TARGET_INCLUDE_DIRECTORIES True)
-        target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/stb ${CMAKE_SOURCE_DIR}/dependencies/CImg ${LIBSNDFILE_INCLUDE_DIR})
-        set_property(TARGET ${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTY SWIG_INCLUDE_DIRECTORIES ${EIGEN3_INCLUDE_DIRS} ${Boost_INCLUDE_DIR})
+        target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME}
+            BEFORE PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}
+                ${CMAKE_SOURCE_DIR}
+                ${CMAKE_SOURCE_DIR}/CsoundAC
+        )
 
+        swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_TARGET} ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
+
+        target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME}
+            PRIVATE
+                ${EIGEN3_INCLUDE_DIRS}
+                ${Boost_INCLUDE_DIR}
+                ${CSOUND_SOURCE_HOME}/include
+        )
+        target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/stb ${CMAKE_SOURCE_DIR}/dependencies/CImg ${LIBSNDFILE_INCLUDE_DIR})
+        set_property(TARGET ${SWIG_MODULE_CsoundAC_REAL_NAME}
+            PROPERTY SWIG_INCLUDE_DIRECTORIES
+                ${CMAKE_CURRENT_SOURCE_DIR}
+                ${CMAKE_SOURCE_DIR}
+                ${CMAKE_SOURCE_DIR}/CsoundAC
+                ${EIGEN3_INCLUDE_DIRS}
+                ${Boost_INCLUDE_DIR}
+                ${CSOUND_SOURCE_HOME}/include
+        )
         target_compile_definitions(${SWIG_MODULE_CsoundAC_REAL_NAME}
             PRIVATE
                 USE_DOUBLE
@@ -299,7 +349,7 @@ if(BUILD_CSOUND_AC)
             )
         endif()
 
-        target_include_directories(libCsoundAC SYSTEM PRIVATE . ${CSOUND_INCLUDE_PATH})
+        target_include_directories(libCsoundAC SYSTEM PRIVATE ${CSOUND_INCLUDE_PATH})
 
         set_target_properties(${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"

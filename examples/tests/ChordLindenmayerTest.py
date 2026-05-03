@@ -59,7 +59,7 @@ processing is automatically performed:
 '''
 print(__doc__)
 print('IMPORTING REQUIRED MODULES...')
-print
+print()
 import CsoundAC
 import datetime
 import math
@@ -175,7 +175,7 @@ class CsoundComposition(object):
         print('Finished rendering at               %s' % time.strftime('%Y-%b-%d %A %H:%M:%S'))
         print('Elapsed time:                        %-9.2f seconds.' % self.elapsed)
         self.csound.perform()
-        print
+        print()
         self.ended = time.perf_counter()
         self.elapsed = self.ended - self.began
         print('Finished rendering at                %s' % time.strftime('%Y-%b-%d %A %H:%M:%S'))
@@ -223,7 +223,7 @@ class CsoundComposition(object):
         self.createCsoundOrchestra()
         self.createCsoundArrangement()
         self.model.createCsoundScore()
-        print
+        print()
         print('Saving MIDI file %s...' % self.midiFilename)
         print()
         self.score.save(self.midiFilename)
@@ -235,7 +235,7 @@ class CsoundComposition(object):
             status = subprocess.call(self.midifilePlayerCommand, shell=True)
         except:
             traceback.print_exc()
-        print
+        print()
     def normalizeOutputSoundfile(self):
         print('NORMALIZING OUTPUT SOUNDFILE...')
         print()
@@ -244,7 +244,7 @@ class CsoundComposition(object):
             os.remove(self.csoundOutputSoundfile)
         except:
             traceback.print_exc()
-        print
+        print()
     def createCdAudioTrack(self):
         print('PREPARING CD-AUDIO TRACK...')
         print()
@@ -252,7 +252,7 @@ class CsoundComposition(object):
             status = subprocess.call(self.cdTrackCommand, shell=True)
         except:
             traceback.print_exc()
-        print
+        print()
     def createMp3Soundfile(self):
         print('ENCODING TO MP3...')
         print()
@@ -260,7 +260,7 @@ class CsoundComposition(object):
             status = subprocess.call(self.encoderCommand, shell=True)
         except:
             traceback.print_exc()
-        print
+        print()
     def openOutputSoundfile(self):
         print('OPENING OUTPUT SOUNDFILE...')
         print()
@@ -268,7 +268,7 @@ class CsoundComposition(object):
             popen = subprocess.call(self.playerCommand, shell=True)
         except:
             traceback.print_exc()
-        print
+        print()
     def render(self):
         print('RENDERING OPTIONS...')
         print()
@@ -395,18 +395,24 @@ aright 	   JackoAudioIn 	"rightin"
         instruments = self.model.getCppSound().getCsoundFile().getInstrumentNames()
         for number, name in instruments.items():
             print('Instr %4d: %s' % (number, name))
-        print
+        print()
     def createCsoundArrangement(self):
         print('CREATING CSOUND ARRANGEMENT...')
         #~ #                 CsoundAC,   Csound,                                                       level (+-dB),  pan (-1.0 through +1.0)
         self.score.setDuration(5 * 60)        
-        print
+        print()
+    def makeStringVector(self, strings):
+        vector = CsoundAC.vectorString()
+        for value in strings:
+            vector.push_back(str(value))
+        return vector
+
     def testCommand(self, command, reinitialize = True):
         print('Testing command: %s' % command)
         if reinitialize == True:
             self.lindenmayer.turtle.initialize()
         print(self.lindenmayer.turtle)
-        self.lindenmayer.interpret([str(command)])
+        self.lindenmayer.interpret(self.makeStringVector([command]))
         print(self.lindenmayer.turtle)
         print()
     def createMusicModel(self):
@@ -465,7 +471,7 @@ aright 	   JackoAudioIn 	"rightin"
         self.testCommand('+NNt1', False)
         self.testCommand('WN', False)
         print(self.lindenmayer.score.toString())
-        self.lindenmayer.tieOverlappingNotes()
+        self.lindenmayer.score.tieOverlappingNotes()
         self.lindenmayer.fixStatus()
         print(self.lindenmayer.score.toString())
         print()
@@ -494,7 +500,7 @@ aright 	   JackoAudioIn 	"rightin"
         print('TESTING CHORD VOICING...')
         print()
         self.testCommand('=CO"CM9"')
-        for i in xrange(20):
+        for i in range(20):
             self.testCommand('+NNt2', False)
             self.testCommand('+V1', False)
             self.testCommand('WCV', False)
@@ -506,25 +512,25 @@ aright 	   JackoAudioIn 	"rightin"
         print('TESTING APPLICATION OPERATIONS...')
         print()
         self.testCommand('=CO"CM9"')
-        for i in xrange(20):
+        for i in range(20):
             self.testCommand('+NNt2', False)
             self.testCommand('+V1', False)
             self.testCommand('WCV', False)
         self.testCommand('AC', False)
-        for i in xrange(20):
+        for i in range(20):
             self.testCommand('+NNt2', False)
             self.testCommand('+V1', False)
             self.testCommand('WCV', False)
         self.testCommand('A0', False)
-        for i in xrange(20):
+        for i in range(20):
             self.testCommand('+NNt2', False)
             self.testCommand('+V1', False)
             self.testCommand('WCV', False)
         self.lindenmayer.fixStatus()
         print(self.lindenmayer.score.toString())
-        self.lindenmayer.tieOverlappingNotes()
+        self.lindenmayer.score.tieOverlappingNotes()
         self.lindenmayer.applyVoiceleadingOperations()
-        self.lindenmayer.tieOverlappingNotes()
+        self.lindenmayer.score.tieOverlappingNotes()
         print(self.lindenmayer.score.toString())
         print()
         print('TESTING STEP AND ORIENTATION...')
@@ -549,7 +555,7 @@ aright 	   JackoAudioIn 	"rightin"
         self.lindenmayer.generateLocally()
         print(self.lindenmayer.score.toString())
         print()
-        self.aeolus = subprocess.Popen(string.split('aeolus -t'))
+        self.aeolus = subprocess.Popen('aeolus -t'.split())
         time.sleep(1.0)
         self.rescale = CsoundAC.Rescale()
         #self.rescale.setRescale( CsoundAC.Event.TIME,       True, False, (1.0 / 40.0), 120     )
