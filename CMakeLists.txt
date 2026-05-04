@@ -4,7 +4,7 @@ project(csound-ac)
 find_package(Doxygen REQUIRED)
 
 message("CMAKE BUILD SYSTEM FOR CSOUND-AC")
-message("For a fresh build, run 'bash fresh-build-linux.sh'")
+message("For a fresh build, run 'bash fresh-build-<platform>.sh'")
 include("Custom.cmake" OPTIONAL RESULT_VARIABLE CSOUND_AC_CUSTOM_CONFIGURATION)
 message("CSOUND_AC_CUSTOM_CONFIGURATION: ${CSOUND_AC_CUSTOM_CONFIGURATION}")
 
@@ -377,12 +377,19 @@ install(FILES "playpen/README.md"
     DESTINATION share/doc/${CPACK_PACKAGE_NAME}
     RENAME "README-PLAYPEN.md")
 
-# Make CPack stage installation into the package directory via DESTDIR,
-# instead of installing into the real CMAKE_INSTALL_PREFIX during packaging.
-set(CPACK_SET_DESTDIR ON)
+ # Make CPack stage installation into the package directory via DESTDIR,
+ # instead of installing into the real CMAKE_INSTALL_PREFIX during packaging.
+ set(CPACK_SET_DESTDIR ON)
+ # Package contents should be rooted at the staging area (not at /opt/homebrew).
+ # This makes the ZIP contain "csound-ac/..." rather than trying to write into /opt/homebrew.
+ set(CPACK_PACKAGING_INSTALL_PREFIX "csound-ac")
 
-# Package contents should be rooted at the staging area (not at /opt/homebrew).
-# This makes the ZIP contain "csound-ac/..." rather than trying to write into /opt/homebrew.
-set(CPACK_PACKAGING_INSTALL_PREFIX "csound-ac")
+# Local and CI release target stack:
+#   stage_dist    -> install into ./dist/csound-ac
+#   sign_dist     -> codesign staged macOS Mach-O binaries when enabled
+#   package_dist  -> create ./dist/csound-ac-<version>-<platform>.zip
+#   notarize_dist -> submit that ZIP to Apple notarytool when enabled
+#   release_dist  -> full release target
+include("${CMAKE_SOURCE_DIR}/cmake/CsoundACRelease.cmake")
 
 include(CPack)
