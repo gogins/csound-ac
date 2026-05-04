@@ -1,281 +1,128 @@
-name: CMake
+name: build-and-release
 
 on:
   push:
-    branches: 
-      - master
-      - internal_cppsound
-  pull_request:
-    branches: 
-      - master
-      - develop
+    tags:
+      - "v*"
+  workflow_dispatch:
 
-env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
-  BUILD_TYPE: RelWithDebInfo
-  # This will change for later macOS versions, to /opt/homebrew.
-  HOMEBREW_PREFIX: /usr/local
 jobs:
   build:
-    runs-on: ${{ matrix.config.os }} 
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+
     strategy:
       fail-fast: false
       matrix:
-        config:
-        - name: "macOS Latest Clang"
-          os: "macos-15"
-          cc: "clang"
-          cxx: "clang++"
-        - name: "Ubuntu Latest GCC"
-          os: ubuntu-latest
-          cc: "gcc"
-          cxx: "g++"
-        #~ - name: "Windows Latest MSVC"
-          #~ os: windows-latest
-          #~ cc: "cl"
-          #~ cxx: "cl"
-          #~ environment_script: "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
+        include:
+          - name: macOS
+            os_name: macos
+            runner: macos-latest
+            build_dir: build-macos
+            archive_name: csound-ac-macos.zip
+
+          - name: Linux
+            os_name: linux
+            runner: ubuntu-latest
+            build_dir: build-linux
+            archive_name: csound-ac-linux.zip
+
+          - name: Windows
+            os_name: windows
+            runner: windows-latest
+            build_dir: build-windows
+            archive_name: csound-ac-windows.zip
+
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Install SWIG on macOS
-        if: runner.os == 'macOS'
+      - name: Install dependencies - macOS
+        if: matrix.os_name == 'macos'
         run: |
-          brew install swig
-
-      - name: Install SWIG on Linux
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y swig
-                
-      - name: Install boost on macOS
-        uses: MarkusJx/install-boost@v2.5.0
-        id: install-boost-macos
-        if: runner.os == 'macOS' 
-        with:
-          # REQUIRED: Specify the required boost version
-          # A list of supported versions can be found here: 
-          # https://github.com/actions/boost-versions/blob/main/versions-manifest.json
-          boost_version: 1.84.0
-          # OPTIONAL: Specify a platform version
-          platform_version: 11
-          # OPTIONAL: Specify a custom install location
-          # Should be $GITHUB_WORKSPACE
-          # boost_install_dir: ${{ env.GITHUB_WORKSPACE }}
-          # OPTIONAL: Specify a toolset
-          toolset: clang    
-
-      - name: Install boost on Linux
-        uses: MarkusJx/install-boost@v2.4.5
-        id: install-boost-linux
-        if: runner.os == 'Linux' 
-        with:
-          # REQUIRED: Specify the required boost version
-          # A list of supported versions can be found here: 
-          # https://github.com/actions/boost-versions/blob/main/versions-manifest.json
-          boost_version: 1.87.0
-          # OPTIONAL: Specify a platform version
-          platform_version: 20.04
-          # OPTIONAL: Specify a custom install location
-          # boost_install_dir: /home/runner/work/csound-ac/csound-ac
-          # OPTIONAL: Specify a toolset
-          toolset: gcc    
-
-      - name: Install boost on Windows
-        uses: MarkusJx/install-boost@v2.4.5
-        id: install-boost-windows
-        if: runner.os == 'Windows' 
-        with:
-          # REQUIRED: Specify the required boost version
-          # A list of supported versions can be found here: 
-          # https://github.com/actions/boost-versions/blob/main/versions-manifest.json
-          boost_version: 1.79.0
-          # OPTIONAL: Specify a platform version
-          platform_version: 2022
-          # OPTIONAL: Specify a custom install location
-          # boost_install_dir: D:\a\csound-ac\csound-ac
-          # OPTIONAL: Specify a toolset
-          toolset: msvc    
-          link: shared      
-
-      - name: Build on Mac OS
-        # Most homebrew packages can be found in ${HOMEBREW_PREFIX}/opt.
-        if: runner.os == 'macOS'
-        run: |
-          echo "Installing tools..."
           brew update
-          brew install python@3.12 --overwrite
-          brew upgrade
-          brew install graphviz
-          brew install doxygen
-          brew install texlive
-          echo "Installing dependencies..."
-          brew install libsndfile
-          brew install csound
-          ls -ll
-          echo "Updating all git submodules..."
-          git submodule update --init --recursive
-          git submodule status --recursive
-          echo "Environment:"
-          env
-          echo "Finished updating all git submodules."
-          echo "brew list csound:"
-          brew list csound
-          echo "brew list libsndfile:"
-          brew list libsndfile
-          # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-          cmake -B ${{github.workspace}}/build -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBOOST_ROOT=${{ steps.install-boost-macos.outputs.BOOST_ROOT }} -DCSOUND_INCLUDE_DIR=/opt/homebrew/Cellar/csound/6.18.1_11/Frameworks/CsoundLib64.framework/Headers -DCSOUND_LIBRARY=/opt/homebrew/Cellar/csound/6.18.1_11/Frameworks/CsoundLib64.framework -DLIBSNDFILE_INCLUDE_DIR=/opt/homebrew/Cellar/libsndfile/1.2.2_1/include -DLIBSNDFILE_LIBRARY=/opt/homebrew/Cellar/libsndfile/1.2.2_1/lib/libsndfile.dylib -DCMAKE_INCLUDE_PATH="/opt/homebrew/include;${CMAKE_SOURCE_DIR}/dependencies/stb;${CMAKE_SOURCE_DIR}/dependencies/CImg;" -DCMAKE_LIBRARY_PATH=/opt/homebrew/lib -DBOOST_HAS_UNISTD_H=0 -DGENERATE_DOCUMENTATION=NO
-          # Build with CMake.
-          cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
-          echo "Documenting..."
-          cd ${{github.workspace}}/doc
-          doxygen
-          cd ..
-          echo "Packaging..."
-          cd build
-          pwd
-          sudo cpack -V -G ZIP
-          ls -ll
+          brew install cmake ninja swig boost eigen libsndfile
 
-      - name: Build on Linux
-        if: runner.os == 'Linux'
+      - name: Install dependencies - Linux
+        if: matrix.os_name == 'linux'
         run: |
-          echo "Installing tools..."
           sudo apt-get update
-          sudo apt-get install python3.12
-          sudo apt-get install graphviz
-          sudo apt-get install doxygen
-          sudo apt-get install texlive
-          echo "Installing dependencies..."
-          sudo apt-get install libsndfile1-dev
-          sudo apt-get install libcsound64-dev
-          sudo apt-get install libcsnd6-6.0v5
-          sudo apt-get install libcsnd-dev
-          ls -ll
-          echo "Environment:"
-          env
-          echo "Trying to find csdl.h..."
-          #find /opt/runner . -name "csdl.h" -ls 2>/dev/null
-          find /home/runner . -name "csdl.h" -ls 2>/dev/null
-          find /usr . -name "csdl.h" -ls 2>/dev/null
-          echo "Trying to find csnd6 library..."
-          #find /opt/runner . -name "*csnd*" -ls 2>/dev/null
-          find /home/runner . -name "*csnd*" -ls 2>/dev/null
-          find /usr . -name "*csnd*" -ls 2>/dev/null
-          echo "Trying to find all CMake package config files..."
-          find /home/runner . -name "*onfig.cmake" -ls 2>/dev/null
-          find /usr . -name "*onfig.cmake" -ls 2>/dev/null
-          echo "Updating all git submodules..."
-          git submodule update --init --recursive
-          git submodule status --recursive
-          find /usr . -name "*csnd*" -ls 2>/dev/null
-          echo "Finished updating all git submodules."
-          # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-          cmake -B ${{github.workspace}}/build -Wno-dev -DCMAKE_PREFIX_PATH=/usr/local:/usr -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBOOST_ROOT=${{ steps.install-boost-linux.outputs.BOOST_ROOT }} -DCSND6_LIBRARY=/usr/lib/libcsnd6.so.6.0 -DGENERATE_DOCUMENTATION=NO
-          # Build with CMake.
-          cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} 
-          echo "Documenting..."
-          cd ${{github.workspace}}/doc
-          doxygen
-          cd ..
-          echo "Packaging..."
-          cd build
-          pwd
-          sudo cpack -V -G ZIP
-          ls -ll
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            swig \
+            python3-dev \
+            libboost-all-dev \
+            libeigen3-dev \
+            libsndfile1-dev \
+            zip
 
-      - name: Build on Windows
-        if: runner.os == 'Windows'
+      - name: Install dependencies - Windows
+        if: matrix.os_name == 'windows'
+        shell: pwsh
         run: |
-          echo "Installing tools..."
-          choco install wget -y
-          choco install graphviz -y
-          choco install doxygen -y
-          echo "Installing dependencies..."
-          choco install libsndfile -y
-          echo "Refreshing env..."
-          refreshenv
-          echo "Current env..."
-          env
-          echo "dir..."
-          dir "${{github.workspace}}"
-          #ls -r "C:\tools"
-          echo "info libsndfile..."
-          choco info libsndfile
-          #ls -r "C:\Program Files\libsndfile"
-          # The Windows installer doesn't seem to do anything on the Windows 
-          # GitHub runner, so we download a consistent set of binaries and 
-          # headers from the Csound repository.
-          echo "Downloading Csound binaries..."
-          wget -v https://github.com/csound/csound/releases/download/6.17.0/csound-6.17.0-windows-x64-binaries.zip
-          unzip csound-6.17.0-windows-x64-binaries.zip -dCsound6
-          wget -v https://github.com/csound/csound/archive/refs/tags/6.17.0.zip
-          unzip 6.17.0.zip -dcsound
-          refreshenv
-          ls -r Csound6
-          ls -r csound
-          echo "Current environment:"
-          env
-          echo "Current PATH:"
-          echo "${PATH}"
-          pwd
-          refreshenv
-          echo "Updating all git submodules..."
-          git submodule update --init --recursive
-          git submodule status --recursive
-          echo "Finished updating all git submodules."
-          # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBOOST_ROOT=${{ steps.install-boost-windows.outputs.BOOST_ROOT }} -DCSOUND_INCLUDE_DIR=${{github.workspace}}/Csound6/include -DCSOUND_LIBRARY=${{github.workspace}}/Csound6/build/Release/csound64.lib -DLIBSNDFILE_LIBRARY="C:\Program Files\libsndfile\lib\sndfile.lib" -DCSND6_LIBRARY=${{github.workspace}}/Csound6/build/Release/csnd6.dll -DOpenCV_DIR="C:\tools\opencv\build" -DCSOUND_SOURCE_HOME="${{github.workspace}}/csound/csound-6.17.0" -DLIBSNDFILE_INCLUDE_DIR="C:\Program Files\libsndfile\include" -DUNISTD_WIN32_INCLUDE_DIR="${{github.workspace}}/unistd_win32"
-          # Build with CMake.
-          cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
-          # dir ${{github.workspace}}/build/Release
-          echo "Documenting..."
-          cd ${{github.workspace}}/doc
-          doxygen
-          cd ..
-          echo "Packaging..."
-          cd build
-          pwd
-          cpack -V -G TGZ
-          dir
+          choco install cmake ninja swig -y
 
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        if: runner.os == 'macOS'
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -S . -B "${{ matrix.build_dir }}" \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        shell: bash
+        run: |
+          cmake --build "${{ matrix.build_dir }}" --config Release
+
+      - name: Stage dist
+        shell: bash
+        run: |
+          cmake --build "${{ matrix.build_dir }}" --target stage_dist --config Release
+
+      - name: Sign dist - macOS
+        if: matrix.os_name == 'macos'
+        shell: bash
+        env:
+          APPLE_CODESIGN_IDENTITY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
+        run: |
+          cmake --build "${{ matrix.build_dir }}" --target sign_dist --config Release
+
+      - name: Package dist
+        shell: bash
+        run: |
+          cmake --build "${{ matrix.build_dir }}" --target package_dist --config Release
+
+      - name: Notarize dist - macOS
+        if: matrix.os_name == 'macos'
+        shell: bash
+        env:
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+        run: |
+          cmake --build "${{ matrix.build_dir }}" --target notarize_dist --config Release
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "macos-latest"
-          prerelease: true
-          title: "Mac OS Development Release"
-          files: |
-            LICENSE
-            README.md
-            ${{github.workspace}}/build/*.zip
- 
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        if: runner.os == 'Linux'
+          name: ${{ matrix.archive_name }}
+          path: dist/*.zip
+
+  release:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "linux-latest"
-          prerelease: true
-          title: "Linux Development Release"
-          files: |
-            LICENSE
-            README.md
-            ${{github.workspace}}/build/*.zip
-          
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        if: runner.os == 'Windows'
+          path: release-artifacts
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "windows-latest"
-          prerelease: true
-          title: "Windows Development Release"
-          files: |
-            LICENSE
-            README.md
-            build/*.zip
-
-
-
+          files: release-artifacts/**/*.zip
