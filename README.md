@@ -8,12 +8,13 @@ http://michaelgogins.tumblr.com
 
 This repository contains:
 
-1.  CsoundAC, an algorithmic composition library, designed to be used with 
-    Csound. CsoundAC is written in C++, and has both C++ and Python 
-    interfaces. CsoundAC implements _music models_, which are kind of like 
-    scene graphs for pieces. CsoundAC has sophisticated facilities for 
-    working with tonal and non-tonal chords, progressions, and scales, and 
-    for implementing classical-style voice-leading in generated scores.
+1.  CsoundAC, an algorithmic composition library designed to be used with 
+    Csound 7 (but can also be used without Csound). CsoundAC is written in 
+    C++, and has both C++ and Python interfaces. CsoundAC implements 
+    _music models_, which are kind of like scene graphs for pieces. CsoundAC 
+    has sophisticated facilities for working with tonal and non-tonal chords, 
+    progressions, and scales, and for implementing classical-style 
+    voice-leading in generated scores.
     
 2.  My computer music playpen, designed to facilitate algorithmic composition 
     with Csound and CsoundAC by extending standard text editors. The playpen 
@@ -36,23 +37,19 @@ This repository contains:
 6.  ac_reaper, a utility that supports doing algorithmic composition within 
     the Reaper digital audio workstation, using Python ReaScripts.
 
-Currently, CsoundAC is supported on macOS and Linux.
+Currently, CsoundAC is developed and tested on macOS, and built and released 
+on macOS, Linux, and Windows.
 
 Please log any bug reports or requests for enhancements at 
 https://github.com/gogins/csound-ac/issues.
 
-## Changes
-
-See https://github.com/gogins/csound-ac/commits/develop for the commit
-log.
-
 ## Using
 
-CsoundAC can be used both as a C++ library, as a Python extension module, 
-and as a WebAssembly kodue. Python is easier to use, but C++ offers 
-considerably more power and speed. The WebAssembly build of CsoundAC in 
-[csound-wasm](https://github.com/gogins/csound-wasm) has the same power 
-as the C++ library and somewhat less speed.
+CsoundAC can be used as a C++ library, as a Python extension module, and (in 
+the csound-wasm project) as a WebAssembly module. Python is easier to use, but 
+C++ offers considerably more power and speed. The WebAssembly build of 
+CsoundAC in [csound-wasm](https://github.com/gogins/csound-wasm) has the same 
+power as the C++ library and somewhat less speed.
 
 Examples (some of which can also serve as tests) for the various aspects of 
 csound-ac are maintained in my separate 
@@ -63,23 +60,13 @@ https://gogins.github.io/csound-examples.
 
 ## Installation
 
-1.  You must first install the following pre-requisites on your system:
-
-    1.1  [Libsndfile](http://libsndfile.github.io/libsndfile/) for reading and 
-         writing most any format of soundfile.
-
-    1.2  [Csound](https://github.com/csound/csound) for sound synthesis.
+1.  You must first install [Csound 7](https://github.com/csound/csound) on 
+    your system for sound synthesis.
     
-    1.3  The [Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page) 
-         header-file-only library for linear algebra.
-         
-    1.4  The [Boost C++ Libraries](https://www.boost.org/). Only the header 
-         files are used.
+2.  You normally should install the [Python](https://www.python.org/) 
+    programming language, version 3.12 or higher.
     
-    1.5  The [Python](https://www.python.org/) programming language, version 
-         3.12 or higher.
-    
-2.  There are prebuilt binary releases for this package available at 
+3.  There are prebuilt binary releases for this package available at 
     https://github.com/gogins/csound-ac/releases. These can be downloaded,
     unzipped to `/usr/local` (or even `~/usr/local`), and used from there. 
     The binary files are archives, not installers. They should be installed in 
@@ -142,38 +129,40 @@ better to build Csound from source code.
 
 1.  Clone this Git repository.
 
-2.  Install prerequisites as follows from the repository root directory:
-```
-    brew update
-    brew upgrade
-    brew install graphviz
-    brew install doxygen
-    brew install csound
-    brew install bwfmetaedit
-    brew install sox
-    brew install ffmpeg
-    brew install lame
-    brew install sndfile
-    brew install imagemagick
-    git clone "https://gitlab.com/libeigen/eigen.git"
-```
+2.  On macOS, run the `externals/bootstrap-development.sh` on macOS to 
+    install binary and library dependencies.
 
 3.  Execute `bash update-dependencies.sh`.
  
-4.  Build like this:
-```
-    mkdir -p build-linux
-    cd build-linux
-    rm -f CMakeCache.txt
-    cmake -Wno-dev .. -DCMAKE_PREFIX_PATH=/usr/local:/usr 
-    make -j6 VERBOSE=1
-    sudo make install
-```
+4.  Execute `clean-build-<your platform>.sh` to build CsoundAC. This will also 
+    install CsoundAC.
 
 To uninstall, change to the build directory and execute 
 "xargs rm -v < install_manifest.txt".
 
 ## Release Notes
+
+### [v8.0.0-beta](https://github.com/gogins/csound-ac/releases/tag/v8.0.0-beta)
+
+- This release has been ported to, and requires, Csound version 7.
+
+- The main interface to Csound in this library is the CsoundThreaded 
+  class in the `CsoundAC/csound_threaded.hpp` file. It is designed 
+  to provide APIs that are consistent with both Csound 6 and Csound 7, 
+  so that older pieces that used the Csound 6 API will now also run using 
+  the Csound 7 API; but coding in the style of the Csound 7 API also will 
+  work.
+
+- The build system has been re-organized, simplified, and otherwise improved.
+
+- Releases are automatically packaged and made available on GitHub for macOS, 
+  Linux, and Windows using GitHub Actions.
+
+- I discovered a serious bug in the chord space code in this library; quotients 
+  and reflections work perfectly only in continuous chord spaces, not in discrete 
+  (e.g. 12-tone equal temperament) chord spaces. I am working to fix this. The 
+  code for functional harmony, voice-leading, and neo-Riemannian transformations 
+  was and remains correct.
 
 ### [v7.0](https://github.com/gogins/csound-ac/releases/tag/v7.0-darwin)
 
