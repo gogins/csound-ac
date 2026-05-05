@@ -186,6 +186,7 @@ jobs:
           cmake -S . -B "${{ matrix.build_dir }}" -G Ninja \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DGENERATE_DOCUMENTATION=OFF \
             -DCMAKE_PREFIX_PATH="/usr/local;/usr;/Library/Frameworks" \
             -DPython3_EXECUTABLE="$(brew --prefix python@3.12)/bin/python3.12" \
             -DCSOUND_AC_ENABLE_CODESIGN=ON \
