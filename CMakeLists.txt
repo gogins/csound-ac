@@ -1,4 +1,12 @@
-cmake_minimum_required(VERSION 3.28+)
+cmake_minimum_required(VERSION 3.28)
+
+# Allow older vendored dependencies, especially libmusicxml, whose
+# CMakeLists.txt may still declare cmake_minimum_required(VERSION < 3.5).
+# This must be set before add_subdirectory(...) reaches dependencies.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING
+    "Minimum CMake policy compatibility version for vendored dependencies."
+)
+
 project(csound-ac)
 
 find_package(Doxygen REQUIRED)
