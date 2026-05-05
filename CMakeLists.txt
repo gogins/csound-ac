@@ -215,15 +215,39 @@ else()
         )
     endif()
 
-    if(_libsndfile_resolved)
-        set(LIBSNDFILE_LIBRARY "${_libsndfile_resolved}")
-    else()
-        message(FATAL_ERROR
-            "libsndfile not found as a file path. "
-            "pkg-config libs='${SNDFILE_LIBRARIES}', libdirs='${SNDFILE_LIBRARY_DIRS}'. "
-            "Tried also /opt/homebrew/opt/libsndfile/lib and /opt/homebrew/lib."
-        )
+    # Resolve libsndfile from pkg-config's bare library name to a real file path.
+    if(LIBSNDFILE_LIBRARY MATCHES "^-l.+" OR
+    LIBSNDFILE_LIBRARY STREQUAL "sndfile" OR
+    LIBSNDFILE_LIBRARY STREQUAL "-lsndfile")
+
+        set(_libsndfile_resolved "")
+
+        if(LIBSNDFILE_LIBRARY_DIRS)
+            find_library(_libsndfile_resolved
+                NAMES sndfile libsndfile
+                HINTS ${LIBSNDFILE_LIBRARY_DIRS}
+                NO_DEFAULT_PATH
+            )
+        endif()
+
+        if(NOT _libsndfile_resolved)
+            find_library(_libsndfile_resolved
+                NAMES sndfile libsndfile
+            )
+        endif()
+
+        if(_libsndfile_resolved)
+            set(LIBSNDFILE_LIBRARY "${_libsndfile_resolved}")
+        else()
+            message(FATAL_ERROR
+                "Could not resolve libsndfile to a file path. "
+                "pkg-config libs='${LIBSNDFILE_LIBRARY}', "
+                "libdirs='${LIBSNDFILE_LIBRARY_DIRS}'"
+            )
+        endif()
     endif()
+
+message(STATUS "LIBSNDFILE_LIBRARY resolved to: ${LIBSNDFILE_LIBRARY}")
 
     message(STATUS "[PKG-CONFIG] Using libsndfile from:")
     message(STATUS "  LIBSNDFILE_INCLUDE_DIR: ${LIBSNDFILE_INCLUDE_DIR}")
