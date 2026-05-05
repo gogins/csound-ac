@@ -92,6 +92,12 @@ jobs:
             flex \
             doxygen \
             graphviz \
+            texlive-latex-base \
+            texlive-latex-extra \
+            texlive-fonts-recommended \
+            texlive-fonts-extra \
+            texlive-science \
+            latexmk \
             zip \
             p7zip-full
 
@@ -165,6 +171,7 @@ jobs:
           p12-file-base64: ${{ secrets.MACOS_CODESIGN_CERTIFICATE_BASE64 }}
           p12-password: ${{ secrets.MACOS_CODESIGN_CERTIFICATE_PASSWORD }}
 
+
       - name: Decode App Store Connect API key
         if: matrix.os_name == 'macos'
         shell: bash
@@ -180,6 +187,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DCMAKE_PREFIX_PATH="/usr/local;/usr;/Library/Frameworks" \
             -DPython3_EXECUTABLE="$(which python3)" \
+            -DCSOUND_AC_ENABLE_CODESIGN=ON \
+            -DCSOUND_AC_ENABLE_NOTARIZATION=ON \
             -DAPPLE_CODESIGN_IDENTITY="${{ secrets.APPLE_CODESIGN_IDENTITY }}" \
             -DAPPLE_NOTARY_KEY="$RUNNER_TEMP/private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8" \
             -DAPPLE_NOTARY_KEY_ID="${{ secrets.APPLE_API_KEY_ID }}" \
