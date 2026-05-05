@@ -130,138 +130,68 @@ include("cmake/FindCsoundHomeFirst.cmake")
 
 find_package(PkgConfig REQUIRED)
 
-# libsndfile: prefer locally provided headers/libs if present.
-set(LIBSNDFILE_INCLUDE_DIR "")
+find_package(PkgConfig REQUIRED)
+
+pkg_check_modules(SNDFILE REQUIRED sndfile)
+
+set(LIBSNDFILE_INCLUDE_DIR "${SNDFILE_INCLUDE_DIRS}")
 set(LIBSNDFILE_LIBRARY "")
 
-if(CSOUND_AC_PREFER_LOCAL_DEPS)
-    set(_sndfile_include_candidates
-        "${CMAKE_SOURCE_DIR}/dependencies/libsndfile/include"
-        "${CMAKE_SOURCE_DIR}/dependencies/sndfile/include"
-        "${CMAKE_BINARY_DIR}/dependencies/libsndfile/include"
-        "${CMAKE_BINARY_DIR}/dependencies/sndfile/include"
-        "${CMAKE_SOURCE_DIR}/local/include"
-        "${CMAKE_BINARY_DIR}/local/include"
-    )
-    foreach(dir IN LISTS _sndfile_include_candidates)
-        if(EXISTS "${dir}/sndfile.h")
-            set(LIBSNDFILE_INCLUDE_DIR "${dir}")
-            break()
-        endif()
-    endforeach()
+set(_libsndfile_search_dirs
+    ${SNDFILE_LIBRARY_DIRS}
+    /opt/homebrew/lib
+    /opt/homebrew/opt/libsndfile/lib
+    /usr/local/lib
+    /usr/lib
+    /usr/lib/x86_64-linux-gnu
+)
 
-    set(_sndfile_lib_candidates
-        "${CMAKE_SOURCE_DIR}/dependencies/libsndfile/lib"
-        "${CMAKE_SOURCE_DIR}/dependencies/libsndfile/lib64"
-        "${CMAKE_BINARY_DIR}/dependencies/libsndfile/lib"
-        "${CMAKE_BINARY_DIR}/dependencies/libsndfile/lib64"
-        "${CMAKE_SOURCE_DIR}/local/lib"
-        "${CMAKE_SOURCE_DIR}/local/lib64"
-        "${CMAKE_BINARY_DIR}/local/lib"
-        "${CMAKE_BINARY_DIR}/local/lib64"
+foreach(_dir IN LISTS _libsndfile_search_dirs)
+    if(EXISTS "${_dir}/libsndfile.dylib")
+        set(LIBSNDFILE_LIBRARY "${_dir}/libsndfile.dylib")
+        break()
+    elseif(EXISTS "${_dir}/libsndfile.so")
+        set(LIBSNDFILE_LIBRARY "${_dir}/libsndfile.so")
+        break()
+    elseif(EXISTS "${_dir}/libsndfile.a")
+        set(LIBSNDFILE_LIBRARY "${_dir}/libsndfile.a")
+        break()
+    elseif(EXISTS "${_dir}/libsndfile.1.dylib")
+        set(LIBSNDFILE_LIBRARY "${_dir}/libsndfile.1.dylib")
+        break()
+    elseif(EXISTS "${_dir}/libsndfile.so.1")
+        set(LIBSNDFILE_LIBRARY "${_dir}/libsndfile.so.1")
+        break()
+    endif()
+endforeach()
+
+if(NOT LIBSNDFILE_LIBRARY)
+    find_library(LIBSNDFILE_LIBRARY
+        NAMES sndfile libsndfile
+        HINTS ${_libsndfile_search_dirs}
+        REQUIRED
     )
-    foreach(dir IN LISTS _sndfile_lib_candidates)
-        if(EXISTS "${dir}/libsndfile.a")
-            set(LIBSNDFILE_LIBRARY "${dir}/libsndfile.a")
-            break()
-        endif()
-        if(EXISTS "${dir}/libsndfile.dylib")
-            set(LIBSNDFILE_LIBRARY "${dir}/libsndfile.dylib")
-            break()
-        endif()
-        if(EXISTS "${dir}/libsndfile.so")
-            set(LIBSNDFILE_LIBRARY "${dir}/libsndfile.so")
-            break()
-        endif()
-    endforeach()
 endif()
 
-if(LIBSNDFILE_INCLUDE_DIR AND LIBSNDFILE_LIBRARY)
-    message(STATUS "[LOCAL] Using libsndfile from:")
-    message(STATUS "  LIBSNDFILE_INCLUDE_DIR: ${LIBSNDFILE_INCLUDE_DIR}")
-    message(STATUS "  LIBSNDFILE_LIBRARY:     ${LIBSNDFILE_LIBRARY}")
-else()
-    pkg_check_modules(SNDFILE REQUIRED sndfile)
-
-    # Preserve original variable names used by subprojects, but ensure we end up
-    # with a real library *path* (not just 'sndfile' / '-lsndfile'), so link lines work on macOS.
-    set(LIBSNDFILE_INCLUDE_DIR "${SNDFILE_INCLUDE_DIRS}")
-    set(LIBSNDFILE_LIBRARY_DIRS "${SNDFILE_LIBRARY_DIRS}")
-
-    # Homebrew sometimes returns "sndfile" (not "-lsndfile", not a path).
-    # Resolve explicitly using the directories we know contain the actual files.
-    set(LIBSNDFILE_LIBRARY "")
-    set(_libsndfile_resolved "")
-
-    # Add stable Homebrew paths as additional fallbacks.
-    list(APPEND LIBSNDFILE_LIBRARY_DIRS
-        "/opt/homebrew/opt/libsndfile/lib"
-        "/opt/homebrew/lib"
+if(NOT LIBSNDFILE_INCLUDE_DIR)
+    find_path(LIBSNDFILE_INCLUDE_DIR
+        NAMES sndfile.h
+        HINTS
+            ${SNDFILE_INCLUDE_DIRS}
+            /opt/homebrew/include
+            /opt/homebrew/opt/libsndfile/include
+            /usr/local/include
+            /usr/include
+        REQUIRED
     )
-
-    # First: explicit filename checks (works with your actual Homebrew layout).
-    foreach(_d IN LISTS LIBSNDFILE_LIBRARY_DIRS)
-        if(EXISTS "${_d}/libsndfile.dylib")
-            set(_libsndfile_resolved "${_d}/libsndfile.dylib")
-            break()
-        endif()
-        if(EXISTS "${_d}/libsndfile.1.dylib")
-            set(_libsndfile_resolved "${_d}/libsndfile.1.dylib")
-            break()
-        endif()
-        if(EXISTS "${_d}/libsndfile.a")
-            set(_libsndfile_resolved "${_d}/libsndfile.a")
-            break()
-        endif()
-    endforeach()
-
-    # Second: find_library fallback.
-    if(NOT _libsndfile_resolved)
-        find_library(_libsndfile_resolved
-            NAMES sndfile libsndfile
-            PATHS ${LIBSNDFILE_LIBRARY_DIRS}
-        )
-    endif()
-
-    # Resolve libsndfile from pkg-config's bare library name to a real file path.
-    if(LIBSNDFILE_LIBRARY MATCHES "^-l.+" OR
-    LIBSNDFILE_LIBRARY STREQUAL "sndfile" OR
-    LIBSNDFILE_LIBRARY STREQUAL "-lsndfile")
-
-        set(_libsndfile_resolved "")
-
-        if(LIBSNDFILE_LIBRARY_DIRS)
-            find_library(_libsndfile_resolved
-                NAMES sndfile libsndfile
-                HINTS ${LIBSNDFILE_LIBRARY_DIRS}
-                NO_DEFAULT_PATH
-            )
-        endif()
-
-        if(NOT _libsndfile_resolved)
-            find_library(_libsndfile_resolved
-                NAMES sndfile libsndfile
-            )
-        endif()
-
-        if(_libsndfile_resolved)
-            set(LIBSNDFILE_LIBRARY "${_libsndfile_resolved}")
-        else()
-            message(FATAL_ERROR
-                "Could not resolve libsndfile to a file path. "
-                "pkg-config libs='${LIBSNDFILE_LIBRARY}', "
-                "libdirs='${LIBSNDFILE_LIBRARY_DIRS}'"
-            )
-        endif()
-    endif()
-
-message(STATUS "LIBSNDFILE_LIBRARY resolved to: ${LIBSNDFILE_LIBRARY}")
-
-    message(STATUS "[PKG-CONFIG] Using libsndfile from:")
-    message(STATUS "  LIBSNDFILE_INCLUDE_DIR: ${LIBSNDFILE_INCLUDE_DIR}")
-    message(STATUS "  LIBSNDFILE_LIBRARY:     ${LIBSNDFILE_LIBRARY}")
-    message(STATUS "  LIBSNDFILE_LIBRARY_DIRS:${LIBSNDFILE_LIBRARY_DIRS}")
 endif()
+
+message(STATUS "LIBSNDFILE_INCLUDE_DIR: ${LIBSNDFILE_INCLUDE_DIR}")
+message(STATUS "LIBSNDFILE_LIBRARY:     ${LIBSNDFILE_LIBRARY}")
+message(STATUS "Using libsndfile:")
+message(STATUS "  LIBSNDFILE_INCLUDE_DIR:  ${LIBSNDFILE_INCLUDE_DIR}")
+message(STATUS "  LIBSNDFILE_LIBRARY:      ${LIBSNDFILE_LIBRARY}")
+message(STATUS "  LIBSNDFILE_LIBRARY_DIRS: ${LIBSNDFILE_LIBRARY_DIRS}")
 
 set(EIGEN3_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/dependencies/eigen")
 message("[DEBUG] EIGEN3_INCLUDE_DIRS: ${EIGEN3_INCLUDE_DIRS}")
