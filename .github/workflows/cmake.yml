@@ -200,9 +200,11 @@ jobs:
         if: matrix.os_name == 'linux'
         shell: bash
         run: |
-          cmake -S . -B "${{ matrix.build_dir }}" -G Ninja \
+           cmake -S . -B "${{ matrix.build_dir }}" -G Ninja \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DCMAKE_PREFIX_PATH="/usr/local;/usr" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DGENERATE_DOCUMENTATION=OFF \
+            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/csound-ac" \
             -DPython3_EXECUTABLE="$(which python3)"
 
       - name: Configure - Windows
@@ -222,7 +224,7 @@ jobs:
       - name: Stage dist
         shell: bash
         run: |
-          cmake --build "${{ matrix.build_dir }}" --target stage_dist --config Release --verbose
+          cmake --build "${{ matrix.build_dir }}" --target stage_dist --prefix "${CSOUND_AC_DIST_ROOT}" --config Release --verbose
 
       - name: Sign dist - macOS
         if: matrix.os_name == 'macos'
