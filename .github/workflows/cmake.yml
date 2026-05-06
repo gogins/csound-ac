@@ -245,7 +245,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.archive_name }}
-          path: dist/*.zip
+          path: ${{ matrix.build_dir }}/*.zip
           if-no-files-found: error
 
   release:
