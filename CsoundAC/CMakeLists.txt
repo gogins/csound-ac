@@ -53,28 +53,45 @@ if(LIBSNDFILE_LIBRARY MATCHES "^-l.+" OR LIBSNDFILE_LIBRARY STREQUAL "sndfile" O
 endif()
 message(STATUS "LIBSNDFILE_LIBRARY (resolved): ${LIBSNDFILE_LIBRARY}")
 
-# Link libmusicxml2 statically from the in-tree libmusicxml build.
-# Do not link against libmusicxml shared-library targets: release ZIPs should
-# not depend on a system libmusicxml ABI, and they should not install the
-# libmusicxml schema/tools tree.
+# Link against the in-tree MusicXML library and explicitly bundle its runtime
+# library in the csound-ac release layout. Do not run libmusicxml's own install
+# rules, because those install schemas/tools outside the csound-ac layout.
 set(MUSICXML2_LIBRARY "")
 set(MUSICXML2_TARGET "")
 set(MUSICXML2_LINK_LIBRARIES "")
+set(MUSICXML2_RUNTIME_TARGET "")
+set(MUSICXML2_RUNTIME_FILE "")
 
-foreach(tgt IN ITEMS libmusicxml2 musicxml2)
+# Prefer a CMake target from the libmusicxml subproject. In current libmusicxml
+# builds this may be a shared library target; if so, bundle that exact runtime.
+foreach(tgt IN ITEMS libmusicxml2 musicxml2 libmusicxml musicxml)
     if(TARGET ${tgt})
-        get_target_property(_musicxml2_target_type ${tgt} TYPE)
-        if(_musicxml2_target_type STREQUAL "STATIC_LIBRARY")
         set(MUSICXML2_TARGET "${tgt}")
+        get_target_property(_musicxml2_target_type ${tgt} TYPE)
+        if(_musicxml2_target_type STREQUAL "SHARED_LIBRARY" OR
+           _musicxml2_target_type STREQUAL "MODULE_LIBRARY" OR
+           _musicxml2_target_type STREQUAL "UNKNOWN_LIBRARY")
+            set(MUSICXML2_RUNTIME_TARGET "${tgt}")
+        endif()
         break()
-    endif()
     endif()
 endforeach()
 
 if(MUSICXML2_TARGET)
     list(APPEND MUSICXML2_LINK_LIBRARIES ${MUSICXML2_TARGET})
 else()
-    set(_musicxml2_static_candidates
+    # Fall back to a library file in the repo/build tree. Prefer shared runtime
+    # libraries so they can be bundled; static archives are accepted only if no
+    # shared runtime is available.
+    set(_musicxml2_candidates
+        "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/lib/liblibmusicxml.dylib"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/lib/liblibmusicxml.dylib"
+        "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/lib/liblibmusicxml.so"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/lib/liblibmusicxml.so"
+        "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/bin/libmusicxml.dll"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/bin/libmusicxml.dll"
+        "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/lib/libmusicxml.dll"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/lib/libmusicxml.dll"
         "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.a"
         "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.a"
         "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/libmusicxml2.a"
@@ -85,7 +102,7 @@ else()
         "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.lib"
     )
 
-    foreach(p IN LISTS _musicxml2_static_candidates)
+    foreach(p IN LISTS _musicxml2_candidates)
         if(EXISTS "${p}")
             set(MUSICXML2_LIBRARY "${p}")
             break()
@@ -96,8 +113,12 @@ else()
         if(WIN32)
             set(MUSICXML2_LIBRARY "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/Release/libmusicxml2.lib")
         else()
-            set(MUSICXML2_LIBRARY "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.a")
+            set(MUSICXML2_LIBRARY "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/lib/liblibmusicxml${CMAKE_SHARED_LIBRARY_SUFFIX}")
         endif()
+    endif()
+
+    if(MUSICXML2_LIBRARY MATCHES "\.(dylib|so|dll)$")
+        set(MUSICXML2_RUNTIME_FILE "${MUSICXML2_LIBRARY}")
     endif()
 
     list(APPEND MUSICXML2_LINK_LIBRARIES "${MUSICXML2_LIBRARY}")
@@ -105,6 +126,8 @@ endif()
 
 message(STATUS "MUSICXML2_TARGET:         ${MUSICXML2_TARGET}")
 message(STATUS "MUSICXML2_LIBRARY:        ${MUSICXML2_LIBRARY}")
+message(STATUS "MUSICXML2_RUNTIME_TARGET: ${MUSICXML2_RUNTIME_TARGET}")
+message(STATUS "MUSICXML2_RUNTIME_FILE:   ${MUSICXML2_RUNTIME_FILE}")
 message(STATUS "MUSICXML2_LINK_LIBRARIES: ${MUSICXML2_LINK_LIBRARIES}")
 
 list(APPEND CMAKE_SWIG_FLAGS
@@ -210,6 +233,19 @@ if(BUILD_CSOUND_AC)
         ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
     )
 
+    if(APPLE)
+        set_target_properties(libCsoundAC PROPERTIES
+            BUILD_RPATH "$ENV{HOME}/Library/Frameworks;/Library/Frameworks;/opt/homebrew/lib;/usr/local/lib"
+            INSTALL_RPATH "@loader_path;$ENV{HOME}/Library/Frameworks;/Library/Frameworks;/opt/homebrew/lib;/usr/local/lib"
+            INSTALL_RPATH_USE_LINK_PATH TRUE
+        )
+    elseif(UNIX)
+        set_target_properties(libCsoundAC PROPERTIES
+            BUILD_RPATH "$ORIGIN"
+            INSTALL_RPATH "$ORIGIN"
+        )
+    endif()
+
     target_link_libraries(libCsoundAC PRIVATE ${MUSICXML2_LINK_LIBRARIES} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY})
 
     # Standalone test program (from: c++ ChordSpaceTest.cpp ... -o ChordSpaceTest)
@@ -241,8 +277,7 @@ if(BUILD_CSOUND_AC)
 
     target_link_libraries(ChordSpaceTests PRIVATE
         libCsoundAC
-        ${MUSICXML2_TARGET}
-        ${MUSICXML2_LIBRARY}
+        ${MUSICXML2_LINK_LIBRARIES}
         ${CSOUND_LIBRARIES}
         ${LIBSNDFILE_LIBRARY}
     )
@@ -283,9 +318,21 @@ if(BUILD_CSOUND_AC)
     )
 
     install(TARGETS libCsoundAC
+        RUNTIME DESTINATION "${LIBRARY_INSTALL_DIR}"
         LIBRARY DESTINATION "${LIBRARY_INSTALL_DIR}"
         ARCHIVE DESTINATION "${LIBRARY_INSTALL_DIR}"
     )
+
+    if(MUSICXML2_RUNTIME_TARGET)
+        install(TARGETS ${MUSICXML2_RUNTIME_TARGET}
+            RUNTIME DESTINATION "${LIBRARY_INSTALL_DIR}"
+            LIBRARY DESTINATION "${LIBRARY_INSTALL_DIR}"
+        )
+    elseif(MUSICXML2_RUNTIME_FILE)
+        install(FILES "${MUSICXML2_RUNTIME_FILE}"
+            DESTINATION "${LIBRARY_INSTALL_DIR}"
+        )
+    endif()
 
     if(SWIG_FOUND)
         message(STATUS "SWIG_USE_FILE: " ${SWIG_USE_FILE})
@@ -364,9 +411,14 @@ if(BUILD_CSOUND_AC)
             set_target_properties(${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTIES
                 LINK_FLAGS "-undefined dynamic_lookup"
                 BUILD_WITH_INSTALL_RPATH FALSE
-                BUILD_RPATH "$ENV{HOME}/Library/Frameworks;/Library/Frameworks;/opt/homebrew/lib;/usr/local/lib"
-                INSTALL_RPATH "$ENV{HOME}/Library/Frameworks;/Library/Frameworks;/opt/homebrew/lib;/usr/local/lib"
+                BUILD_RPATH "$ENV{HOME}/Library/Frameworks;/Library/Frameworks;/opt/homebrew/lib;/usr/local/lib;${BUILD_LIB_DIR}"
+                INSTALL_RPATH "@loader_path/../..;@loader_path;$ENV{HOME}/Library/Frameworks;/Library/Frameworks;/opt/homebrew/lib;/usr/local/lib"
                 INSTALL_RPATH_USE_LINK_PATH TRUE
+            )
+        elseif(UNIX)
+            set_target_properties(${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTIES
+                BUILD_RPATH "${BUILD_LIB_DIR}"
+                INSTALL_RPATH "$ORIGIN/../..;$ORIGIN"
             )
         endif()
 

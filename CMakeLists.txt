@@ -262,10 +262,11 @@ function(check_deps option)
     endif()
 endfunction(check_deps)
 
-# libmusicxml is used only to provide the static libmusicxml2 library for
-# libCsoundAC. Keep its targets available for dependency builds, but do not let
-# its own install rules stage schemas/tools/shared libraries into csound-ac
-# release archives.
+# libmusicxml is used by libCsoundAC, but its own install rules install
+# schemas/tools/shared libraries outside the csound-ac release layout. Keep its
+# targets available for dependency builds while excluding those install rules;
+# CsoundAC/CMakeLists.txt explicitly installs only the MusicXML runtime library
+# needed by libCsoundAC into the csound-ac lib directory.
     add_subdirectory(dependencies/libmusicxml/build EXCLUDE_FROM_ALL)
 
 add_subdirectory(CsoundAC)
