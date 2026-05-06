@@ -128,17 +128,21 @@ include("cmake/FindCsoundHomeFirst.cmake")
 # Other dependencies (prefer local copies if present)
 # ------------------------------------------------------------------------------
 
-find_package(PkgConfig REQUIRED)
+if(PkgConfig_FOUND)
+    pkg_check_modules(SNDFILE sndfile)
+endif()
 
-find_package(PkgConfig REQUIRED)
-
-pkg_check_modules(SNDFILE REQUIRED sndfile)
-
-set(LIBSNDFILE_INCLUDE_DIR "${SNDFILE_INCLUDE_DIRS}")
+set(LIBSNDFILE_INCLUDE_DIR "")
 set(LIBSNDFILE_LIBRARY "")
 
-set(_libsndfile_search_dirs
-    ${SNDFILE_LIBRARY_DIRS}
+if(SNDFILE_FOUND)
+    set(LIBSNDFILE_INCLUDE_DIR "${SNDFILE_INCLUDE_DIRS}")
+    set(_libsndfile_search_dirs ${SNDFILE_LIBRARY_DIRS})
+else()
+    set(_libsndfile_search_dirs "")
+endif()
+
+list(APPEND _libsndfile_search_dirs
     /opt/homebrew/lib
     /opt/homebrew/opt/libsndfile/lib
     /usr/local/lib
@@ -146,45 +150,31 @@ set(_libsndfile_search_dirs
     /usr/lib/x86_64-linux-gnu
 )
 
-foreach(_dir IN LISTS _libsndfile_search_dirs)
-    if(EXISTS "${_dir}/libsndfile.dylib")
-        set(LIBSNDFILE_LIBRARY "${_dir}/libsndfile.dylib")
-        break()
-    elseif(EXISTS "${_dir}/libsndfile.so")
-        set(LIBSNDFILE_LIBRARY "${_dir}/libsndfile.so")
-        break()
-    elseif(EXISTS "${_dir}/libsndfile.a")
-        set(LIBSNDFILE_LIBRARY "${_dir}/libsndfile.a")
-        break()
-    elseif(EXISTS "${_dir}/libsndfile.1.dylib")
-        set(LIBSNDFILE_LIBRARY "${_dir}/libsndfile.1.dylib")
-        break()
-    elseif(EXISTS "${_dir}/libsndfile.so.1")
-        set(LIBSNDFILE_LIBRARY "${_dir}/libsndfile.so.1")
-        break()
-    endif()
-endforeach()
-
-if(NOT LIBSNDFILE_LIBRARY)
-    find_library(LIBSNDFILE_LIBRARY
-        NAMES sndfile libsndfile
-        HINTS ${_libsndfile_search_dirs}
-        REQUIRED
+# Windows-specific search paths
+if(WIN32)
+    list(APPEND _libsndfile_search_dirs
+        "C:/Program Files/libsndfile/lib"
+        "C:/Program Files (x86)/libsndfile/lib"
     )
 endif()
 
-if(NOT LIBSNDFILE_INCLUDE_DIR)
-    find_path(LIBSNDFILE_INCLUDE_DIR
-        NAMES sndfile.h
-        HINTS
-            ${SNDFILE_INCLUDE_DIRS}
-            /opt/homebrew/include
-            /opt/homebrew/opt/libsndfile/include
-            /usr/local/include
-            /usr/include
-        REQUIRED
-    )
-endif()
+find_library(LIBSNDFILE_LIBRARY
+    NAMES sndfile libsndfile
+    HINTS ${_libsndfile_search_dirs}
+    REQUIRED
+)
+
+find_path(LIBSNDFILE_INCLUDE_DIR
+    NAMES sndfile.h
+    HINTS
+        ${SNDFILE_INCLUDE_DIRS}
+        /opt/homebrew/include
+        /usr/local/include
+        /usr/include
+        "C:/Program Files/libsndfile/include"
+        "C:/Program Files (x86)/libsndfile/include"
+    REQUIRED
+)
 
 message(STATUS "LIBSNDFILE_INCLUDE_DIR: ${LIBSNDFILE_INCLUDE_DIR}")
 message(STATUS "LIBSNDFILE_LIBRARY:     ${LIBSNDFILE_LIBRARY}")
@@ -269,7 +259,18 @@ function(check_deps option)
     endif()
 endfunction(check_deps)
 
-add_subdirectory(dependencies/libmusicxml/build)
+# On Linux CI, libmusicxml's own install rules try to install schema files
+# under /usr/local during our staged release install.  We still need the
+# libmusicxml target for linking, but we do not want libmusicxml's install
+# rules to participate in csound-ac's stage_dist/package install graph.
+# add_subdirectory(... EXCLUDE_FROM_ALL) keeps the target available for
+# dependency builds while excluding that subdirectory's install rules.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_subdirectory(dependencies/libmusicxml/build EXCLUDE_FROM_ALL)
+else()
+    add_subdirectory(dependencies/libmusicxml/build)
+endif()
+
 add_subdirectory(CsoundAC)
 
 if(GENERATE_DOCUMENTATION)
