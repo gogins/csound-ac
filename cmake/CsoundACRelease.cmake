@@ -43,15 +43,15 @@ add_custom_target(stage_dist
 
 if(APPLE)
     add_custom_target(sign_dist
-        COMMAND "${CMAKE_COMMAND}"
-            -DCSOUND_AC_DIST_ROOT="${CSOUND_AC_DIST_ROOT}"
-            -DCSOUND_AC_ENABLE_CODESIGN:BOOL="${CSOUND_AC_ENABLE_CODESIGN}"
-            -DAPPLE_CODESIGN_IDENTITY="${APPLE_CODESIGN_IDENTITY}"
-            -P "${CMAKE_SOURCE_DIR}/cmake/SignDist.cmake"
         DEPENDS stage_dist
-        COMMENT "Codesigning staged csound-ac binaries"
+        COMMAND "${CMAKE_COMMAND}"
+            "-DCSOUND_AC_DIST_ROOT=${CSOUND_AC_DIST_ROOT}"
+            "-DCSOUND_AC_ENABLE_CODESIGN:BOOL=${CSOUND_AC_ENABLE_CODESIGN}"
+            "-DAPPLE_CODESIGN_IDENTITY=${APPLE_CODESIGN_IDENTITY}"
+            -P "${CMAKE_SOURCE_DIR}/cmake/SignDist.cmake"
         VERBATIM
-    )
+        COMMENT "Signing staged macOS binaries"
+    )   
 else()
     add_custom_target(sign_dist
         DEPENDS stage_dist
@@ -71,14 +71,13 @@ add_custom_target(package_dist
 
 if(APPLE)
     add_custom_target(notarize_dist
-        COMMAND "${CMAKE_COMMAND}"
-            -DCSOUND_AC_RELEASE_ZIP="${CSOUND_AC_RELEASE_ZIP}"
-            -DCSOUND_AC_ENABLE_NOTARIZATION:BOOL="${CSOUND_AC_ENABLE_NOTARIZATION}"
-            -DAPPLE_NOTARYTOOL_PROFILE="${APPLE_NOTARYTOOL_PROFILE}"
-            -DAPPLE_NOTARY_KEY="${APPLE_NOTARY_KEY}"
-            -DAPPLE_NOTARY_KEY_ID="${APPLE_NOTARY_KEY_ID}"
-            -DAPPLE_NOTARY_ISSUER_ID="${APPLE_NOTARY_ISSUER_ID}"
-            -P "${CMAKE_SOURCE_DIR}/cmake/NotarizeZip.cmake"
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCSOUND_AC_ARCHIVE=${CSOUND_AC_ARCHIVE}"
+        "-DCSOUND_AC_ENABLE_NOTARIZATION:BOOL=${CSOUND_AC_ENABLE_NOTARIZATION}"
+        "-DAPPLE_NOTARY_KEY=${APPLE_NOTARY_KEY}"
+        "-DAPPLE_NOTARY_KEY_ID=${APPLE_NOTARY_KEY_ID}"
+        "-DAPPLE_NOTARY_ISSUER_ID=${APPLE_NOTARY_ISSUER_ID}"
+        -P "${CMAKE_SOURCE_DIR}/cmake/NotarizeZip.cmake"
         DEPENDS package_dist
         COMMENT "Notarizing ${CSOUND_AC_RELEASE_ZIP}"
         VERBATIM
