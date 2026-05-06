@@ -14,6 +14,9 @@ jobs:
     name: Build ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
 
+    env:
+      CSOUND_INSTALL_PREFIX: ${{ github.workspace }}/.cache/csound-install
+
     strategy:
       fail-fast: false
       matrix:
@@ -42,6 +45,12 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
       - name: Install dependencies - macOS
         if: matrix.os_name == 'macos'
         run: |
@@ -59,6 +68,7 @@ jobs:
             doxygen \
             graphviz \
             python@3.12 \
+            ccache \
             zip
           echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
           echo "$(brew --prefix flex)/bin" >> "$GITHUB_PATH"
@@ -98,6 +108,7 @@ jobs:
             texlive-fonts-extra \
             texlive-science \
             latexmk \
+            ccache \
             zip \
             p7zip-full
 
@@ -114,25 +125,52 @@ jobs:
             doxygen.install `
             graphviz `
             winflexbison3 `
+            ccache `
             7zip
+          C:\msys64\usr\bin\pacman.exe -S --noconfirm --needed mingw-w64-x86_64-boost mingw-w64-x86_64-pkgconf mingw-w64-x86_64-libsndfile
           echo "C:\ProgramData\chocolatey\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.ccache
+            ~/Library/Caches/ccache
+            C:\Users\runneradmin\AppData\Local\ccache
+          key: ${{ runner.os }}-ccache-${{ github.repository }}-${{ github.ref_name }}-${{ hashFiles('**/CMakeLists.txt', '**/*.cmake', '**/*.hpp', '**/*.cpp', '**/*.h') }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-${{ github.repository }}-${{ github.ref_name }}-
+            ${{ runner.os }}-ccache-${{ github.repository }}-
+            ${{ runner.os }}-ccache-
+
+      - name: Cache Csound install
+        id: cache-csound
+        uses: actions/cache@v4
+        with:
+          path: .cache/csound-install
+          key: ${{ runner.os }}-csound7-${{ hashFiles('.github/workflows/cmake.yml', '.github/workflows/cmake.yaml') }}
 
       - name: Install Csound 7 from GitHub - Linux
-        if: matrix.os_name == 'linux'
+        if: matrix.os_name == 'linux' && steps.cache-csound.outputs.cache-hit != 'true'
         run: |
           git clone --depth 1 https://github.com/csound/csound.git
           cmake -S csound -B csound/build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_TESTS=OFF \
             -DBUILD_JAVA_INTERFACE=OFF \
-            -DBUILD_PYTHON_INTERFACE=OFF
+            -DBUILD_PYTHON_INTERFACE=OFF \
+            -DCMAKE_INSTALL_PREFIX="$CSOUND_INSTALL_PREFIX" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build csound/build --parallel
-          sudo cmake --install csound/build
-          echo "/usr/local/lib" | sudo tee /etc/ld.so.conf.d/csound.conf
+          cmake --install csound/build
+          echo "$CSOUND_INSTALL_PREFIX/lib" | sudo tee /etc/ld.so.conf.d/csound.conf
+          echo "$CSOUND_INSTALL_PREFIX/lib64" | sudo tee -a /etc/ld.so.conf.d/csound.conf
           sudo ldconfig
 
       - name: Install Csound 7 from GitHub - macOS
-        if: matrix.os_name == 'macos'
+        if: matrix.os_name == 'macos' && steps.cache-csound.outputs.cache-hit != 'true'
         run: |
           git clone --depth 1 https://github.com/csound/csound.git
           BISON_EXECUTABLE="$(brew --prefix bison)/bin/bison"
@@ -144,12 +182,14 @@ jobs:
             -DBUILD_TESTS=OFF \
             -DBUILD_JAVA_INTERFACE=OFF \
             -DBUILD_PYTHON_INTERFACE=OFF \
-            -DCMAKE_INSTALL_PREFIX=/usr/local
+            -DCMAKE_INSTALL_PREFIX="$CSOUND_INSTALL_PREFIX" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build csound/build --parallel
-          sudo cmake --install csound/build
+          cmake --install csound/build
 
       - name: Install Csound 7 from GitHub - Windows
-        if: matrix.os_name == 'windows'
+        if: matrix.os_name == 'windows' && steps.cache-csound.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           git clone --depth 1 --recurse-submodules https://github.com/csound/csound.git
@@ -160,9 +200,11 @@ jobs:
             -DBUILD_JAVA_INTERFACE=OFF `
             -DBUILD_PYTHON_INTERFACE=OFF `
             -DUSE_VCPKG=1 `
-            -DCUSTOM_CMAKE="./platform/windows/Custom-vs.cmake"
+            -DCUSTOM_CMAKE="./platform/windows/Custom-vs.cmake" `
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache `
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build build --config Release
-          cmake --install build --prefix build\install --config Release
+          cmake --install build --prefix "$env:CSOUND_INSTALL_PREFIX" --config Release
 
       - name: Import macOS signing certificate
         if: matrix.os_name == 'macos'
@@ -170,7 +212,6 @@ jobs:
         with:
           p12-file-base64: ${{ secrets.MACOS_CODESIGN_CERTIFICATE_BASE64 }}
           p12-password: ${{ secrets.MACOS_CODESIGN_CERTIFICATE_PASSWORD }}
-
 
       - name: Decode App Store Connect API key
         if: matrix.os_name == 'macos'
@@ -188,8 +229,11 @@ jobs:
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/csound-ac" \
             -DGENERATE_DOCUMENTATION=OFF \
-            -DCMAKE_PREFIX_PATH="/usr/local;/usr;/Library/Frameworks" \
-            -DPython3_EXECUTABLE="$(brew --prefix python@3.12)/bin/python3.12" \
+            -DCMAKE_PREFIX_PATH="$CSOUND_INSTALL_PREFIX;/usr/local;/usr;/Library/Frameworks" \
+            -DPython3_EXECUTABLE="$(python -c 'import sys; print(sys.executable)')" \
+            -DCSOUND_AC_INSTALL_PYTHON_TO_SITEARCH=OFF \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCSOUND_AC_ENABLE_CODESIGN=ON \
             -DCSOUND_AC_ENABLE_NOTARIZATION=ON \
             -DAPPLE_CODESIGN_IDENTITY="${{ secrets.APPLE_CODESIGN_IDENTITY }}" \
@@ -206,7 +250,11 @@ jobs:
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/csound-ac" \
             -DGENERATE_DOCUMENTATION=OFF \
-            -DPython3_EXECUTABLE="$(which python3)"
+            -DCMAKE_PREFIX_PATH="$CSOUND_INSTALL_PREFIX;/usr/local;/usr" \
+            -DPython3_EXECUTABLE="$(python -c 'import sys; print(sys.executable)')" \
+            -DCSOUND_AC_INSTALL_PYTHON_TO_SITEARCH=OFF \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Configure - Windows
         if: matrix.os_name == 'windows'
@@ -215,9 +263,14 @@ jobs:
           cmake -S . -B "${{ matrix.build_dir }}" -G Ninja `
             -DCMAKE_BUILD_TYPE=RelWithDebInfo `
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 `
-            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/csound-ac" `
-            -DCMAKE_PREFIX_PATH="${{ github.workspace }}\csound\build\install" `
-            -DCSOUND_ROOT_HINT="${{ github.workspace }}\csound\build\install"
+            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\dist\csound-ac" `
+            -DGENERATE_DOCUMENTATION=OFF `
+            -DCMAKE_PREFIX_PATH="$env:CSOUND_INSTALL_PREFIX;C:\msys64\mingw64" `
+            -DCSOUND_ROOT_HINT="$env:CSOUND_INSTALL_PREFIX" `
+            -DPython3_EXECUTABLE="$(python -c 'import sys; print(sys.executable)')" `
+            -DCSOUND_AC_INSTALL_PYTHON_TO_SITEARCH=OFF `
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache `
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build
         shell: bash

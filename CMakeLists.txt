@@ -24,6 +24,7 @@ message("CSOUND_AC_CUSTOM_CONFIGURATION: ${CSOUND_AC_CUSTOM_CONFIGURATION}")
 include(ExternalProject)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "MSVC")
     add_compile_options(/WX-)
 else()
@@ -127,6 +128,8 @@ include("cmake/FindCsoundHomeFirst.cmake")
 # ------------------------------------------------------------------------------
 # Other dependencies (prefer local copies if present)
 # ------------------------------------------------------------------------------
+
+find_package(PkgConfig)
 
 if(PkgConfig_FOUND)
     pkg_check_modules(SNDFILE sndfile)
@@ -259,17 +262,11 @@ function(check_deps option)
     endif()
 endfunction(check_deps)
 
-# On Linux CI, libmusicxml's own install rules try to install schema files
-# under /usr/local during our staged release install.  We still need the
-# libmusicxml target for linking, but we do not want libmusicxml's install
-# rules to participate in csound-ac's stage_dist/package install graph.
-# add_subdirectory(... EXCLUDE_FROM_ALL) keeps the target available for
-# dependency builds while excluding that subdirectory's install rules.
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+# libmusicxml is used only to provide the static libmusicxml2 library for
+# libCsoundAC. Keep its targets available for dependency builds, but do not let
+# its own install rules stage schemas/tools/shared libraries into csound-ac
+# release archives.
     add_subdirectory(dependencies/libmusicxml/build EXCLUDE_FROM_ALL)
-else()
-    add_subdirectory(dependencies/libmusicxml/build)
-endif()
 
 add_subdirectory(CsoundAC)
 
