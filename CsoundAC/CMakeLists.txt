@@ -360,27 +360,42 @@ if(BUILD_CSOUND_AC)
         message(STATUS "SWIG_MODULE_CsoundAC_REAL_NAME: ${SWIG_MODULE_CsoundAC_REAL_NAME}")
 
         # For make install.
+        #
+        # On macOS, preserve the historical behavior: install the SWIG module
+        # and Python files into the active interpreter's site-packages directory.
+        #
+        # On Linux and Windows, do not install into Python3_SITEARCH here. On CI
+        # runners that expands to a real system interpreter directory such as
+        # /usr/local/lib/python3.12/dist-packages, which is not writable and is
+        # also not appropriate for release staging. The relative install rules
+        # below place the Python interface inside the staged distribution tree.
 
-        install(TARGETS ${SWIG_MODULE_CsoundAC_REAL_NAME}
-            LIBRARY DESTINATION "${Python3_SITEARCH}"
-        )
+        if(APPLE)
+            install(TARGETS ${SWIG_MODULE_CsoundAC_REAL_NAME}
+                LIBRARY DESTINATION "${Python3_SITEARCH}"
+            )
 
-        install(FILES "${BUILD_DIR}/CsoundAC.py"
-            DESTINATION "${Python3_SITEARCH}"
-        )
+            install(FILES "${BUILD_DIR}/CsoundAC.py"
+                DESTINATION "${Python3_SITEARCH}"
+            )
 
-        install(FILES "${CMAKE_SOURCE_DIR}/silencio/python/GeneralizedContextualGroup.py"
-            DESTINATION "${Python3_SITEARCH}"
-        )
+            install(FILES "${CMAKE_SOURCE_DIR}/silencio/python/GeneralizedContextualGroup.py"
+                DESTINATION "${Python3_SITEARCH}"
+            )
 
-        install(FILES "${CMAKE_SOURCE_DIR}/reaper/ac_reaper.py"
-            DESTINATION "${Python3_SITEARCH}"
-        )
+            install(FILES "${CMAKE_SOURCE_DIR}/reaper/ac_reaper.py"
+                DESTINATION "${Python3_SITEARCH}"
+            )
+        endif()
 
-        # For CPack to ZIP.
+        # For CPack/release ZIP staging on all platforms. These paths are
+        # relative to CMAKE_INSTALL_PREFIX or to the --prefix supplied by
+        # stage_dist, so they work in CI without writing to system locations.
 
         install(TARGETS "${SWIG_MODULE_CsoundAC_REAL_NAME}"
-            DESTINATION "lib/python/site-packages"
+            RUNTIME DESTINATION "lib/python/site-packages"
+            LIBRARY DESTINATION "lib/python/site-packages"
+            ARCHIVE DESTINATION "lib/python/site-packages"
         )
 
         install(FILES "${BUILD_DIR}/CsoundAC.py"
