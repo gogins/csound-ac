@@ -186,6 +186,7 @@ jobs:
           cmake -S . -B "${{ matrix.build_dir }}" -G Ninja \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/csound-ac" \
             -DGENERATE_DOCUMENTATION=OFF \
             -DCMAKE_PREFIX_PATH="/usr/local;/usr;/Library/Frameworks" \
             -DPython3_EXECUTABLE="$(brew --prefix python@3.12)/bin/python3.12" \
@@ -203,8 +204,8 @@ jobs:
            cmake -S . -B "${{ matrix.build_dir }}" -G Ninja \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DGENERATE_DOCUMENTATION=OFF \
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/csound-ac" \
+            -DGENERATE_DOCUMENTATION=OFF \
             -DPython3_EXECUTABLE="$(which python3)"
 
       - name: Configure - Windows
@@ -212,7 +213,9 @@ jobs:
         shell: pwsh
         run: |
           cmake -S . -B "${{ matrix.build_dir }}" -G Ninja `
-            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo `
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 `
+            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/csound-ac" `
             -DCMAKE_PREFIX_PATH="${{ github.workspace }}\csound\build\install" `
             -DCSOUND_ROOT_HINT="${{ github.workspace }}\csound\build\install"
 
@@ -224,7 +227,7 @@ jobs:
       - name: Stage dist
         shell: bash
         run: |
-          cmake --build "${{ matrix.build_dir }}" --target stage_dist --prefix "${CSOUND_AC_DIST_ROOT}" --config Release --verbose
+          cmake --build "${{ matrix.build_dir }}" --target stage_dist --config Release --verbose
 
       - name: Sign dist - macOS
         if: matrix.os_name == 'macos'
