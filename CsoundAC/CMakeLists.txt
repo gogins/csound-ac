@@ -1,6 +1,7 @@
 # Build CsoundAC
 cmake_minimum_required(VERSION 3.28+)
 include(CheckIncludeFiles)
+include(GNUInstallDirs)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_CXX_STANDARD 17)
@@ -15,6 +16,16 @@ option(BUILD_CSOUND_AC_PYTHON_INTERFACE "Build the Csound AC Python interface" O
 # Prefer local dependencies (from repo/build tree) when available.
 # Canonical Csound is handled in the top-level CMakeLists.txt and is not overridden here.
 option(CSOUND_AC_PREFER_LOCAL_DEPS "Prefer dependencies from the repo/build tree when available (except Csound)." ON)
+
+set(CSOUND_AC_INSTALL_PYTHON_TO_SITEARCH_DEFAULT OFF)
+if(APPLE)
+    set(CSOUND_AC_INSTALL_PYTHON_TO_SITEARCH_DEFAULT ON)
+endif()
+option(CSOUND_AC_INSTALL_PYTHON_TO_SITEARCH
+    "Install Python interface into the active interpreter site-packages in addition to the portable release layout."
+    ${CSOUND_AC_INSTALL_PYTHON_TO_SITEARCH_DEFAULT}
+)
+
 
 find_package(SWIG)
 
@@ -42,49 +53,59 @@ if(LIBSNDFILE_LIBRARY MATCHES "^-l.+" OR LIBSNDFILE_LIBRARY STREQUAL "sndfile" O
 endif()
 message(STATUS "LIBSNDFILE_LIBRARY (resolved): ${LIBSNDFILE_LIBRARY}")
 
-# Prefer the static MusicXML library (built from the repo subproject).
-#
-# IMPORTANT: When you link a target to a *file path* that does not exist at build
-# start, Make may error with "No rule to make target ...libmusicxml2.a".
-# Therefore, if the libmusicxml subproject exposes a CMake target, link to the
-# target instead of a path. If no target is available, fall back to a path under
-# the repo's in-tree libmusicxml build directory.
+# Link libmusicxml2 statically from the in-tree libmusicxml build.
+# Do not link against libmusicxml shared-library targets: release ZIPs should
+# not depend on a system libmusicxml ABI, and they should not install the
+# libmusicxml schema/tools tree.
 set(MUSICXML2_LIBRARY "")
 set(MUSICXML2_TARGET "")
+set(MUSICXML2_LINK_LIBRARIES "")
 
-# If the libmusicxml subproject provides a target, prefer it.
-foreach(tgt IN ITEMS libmusicxml2 musicxml2 libmusicxml musicxml)
+foreach(tgt IN ITEMS libmusicxml2 musicxml2)
     if(TARGET ${tgt})
+        get_target_property(_musicxml2_target_type ${tgt} TYPE)
+        if(_musicxml2_target_type STREQUAL "STATIC_LIBRARY")
         set(MUSICXML2_TARGET "${tgt}")
         break()
     endif()
+    endif()
 endforeach()
 
-if(NOT MUSICXML2_TARGET)
-    # Fall back to a static library path in the repo/build tree.
-    set(_musicxml2_candidates
-        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.a"
+if(MUSICXML2_TARGET)
+    list(APPEND MUSICXML2_LINK_LIBRARIES ${MUSICXML2_TARGET})
+else()
+    set(_musicxml2_static_candidates
         "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.a"
-        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/libmusicxml2.a"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.a"
         "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/libmusicxml2.a"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/libmusicxml2.a"
+        "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/Release/libmusicxml2.lib"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/Release/libmusicxml2.lib"
+        "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.lib"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.lib"
     )
 
-    foreach(p IN LISTS _musicxml2_candidates)
+    foreach(p IN LISTS _musicxml2_static_candidates)
         if(EXISTS "${p}")
             set(MUSICXML2_LIBRARY "${p}")
             break()
         endif()
     endforeach()
 
-    # If it still doesn't exist at configure time, keep the canonical in-tree output
-    # path so that a later build of the subproject can satisfy it.
     if(NOT MUSICXML2_LIBRARY)
-        set(MUSICXML2_LIBRARY "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.a")
+        if(WIN32)
+            set(MUSICXML2_LIBRARY "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/Release/libmusicxml2.lib")
+        else()
+            set(MUSICXML2_LIBRARY "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.a")
+        endif()
     endif()
+
+    list(APPEND MUSICXML2_LINK_LIBRARIES "${MUSICXML2_LIBRARY}")
 endif()
 
-message(STATUS "MUSICXML2_TARGET:  ${MUSICXML2_TARGET}")
-message(STATUS "MUSICXML2_LIBRARY: ${MUSICXML2_LIBRARY}")
+message(STATUS "MUSICXML2_TARGET:         ${MUSICXML2_TARGET}")
+message(STATUS "MUSICXML2_LIBRARY:        ${MUSICXML2_LIBRARY}")
+message(STATUS "MUSICXML2_LINK_LIBRARIES: ${MUSICXML2_LINK_LIBRARIES}")
 
 list(APPEND CMAKE_SWIG_FLAGS
     "-I${CMAKE_SOURCE_DIR}/dependencies/csound/interfaces"
@@ -189,7 +210,7 @@ if(BUILD_CSOUND_AC)
         ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
     )
 
-    target_link_libraries(libCsoundAC PRIVATE ${MUSICXML2_TARGET} ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY})
+    target_link_libraries(libCsoundAC PRIVATE ${MUSICXML2_LINK_LIBRARIES} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY})
 
     # Standalone test program (from: c++ ChordSpaceTest.cpp ... -o ChordSpaceTest)
     # User requested target name: ChordSpaceTests; adjust OUTPUT_NAME if desired.
@@ -314,7 +335,7 @@ if(BUILD_CSOUND_AC)
                 ${CMAKE_SOURCE_DIR}/CsoundAC
         )
 
-        swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_TARGET} ${MUSICXML2_LIBRARY} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
+        swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_LINK_LIBRARIES} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
 
         target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME}
             PRIVATE
@@ -361,7 +382,7 @@ if(BUILD_CSOUND_AC)
 
         # For make install.
         #
-        # On macOS, preserve the historical behavior: install the SWIG module
+        # When enabled, preserve the historical behavior: install the SWIG module
         # and Python files into the active interpreter's site-packages directory.
         #
         # On Linux and Windows, do not install into Python3_SITEARCH here. On CI
@@ -370,7 +391,7 @@ if(BUILD_CSOUND_AC)
         # also not appropriate for release staging. The relative install rules
         # below place the Python interface inside the staged distribution tree.
 
-        if(APPLE)
+        if(CSOUND_AC_INSTALL_PYTHON_TO_SITEARCH)
             install(TARGETS ${SWIG_MODULE_CsoundAC_REAL_NAME}
                 LIBRARY DESTINATION "${Python3_SITEARCH}"
             )

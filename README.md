@@ -146,6 +146,9 @@ To uninstall, change to the build directory and execute
 
 - This release has been ported to, and requires, Csound version 7.
 
+- On Windows, computers must support the AVX2 CPU architecture (typical for 
+  Intel chips since 2013 and for AMD chips since 2017).
+
 - The main interface to Csound in this library is the CsoundThreaded 
   class in the `CsoundAC/csound_threaded.hpp` file. It is designed 
   to provide APIs that are consistent with both Csound 6 and Csound 7, 
