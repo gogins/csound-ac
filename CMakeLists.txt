@@ -352,6 +352,11 @@ install(FILES "playpen/README.md"
 #   package_dist  -> create ./dist/csound-ac-<version>-<platform>.zip
 #   notarize_dist -> submit that ZIP to Apple notarytool when enabled
 #   release_dist  -> full release target
+set(CSOUND_AC_ARCHIVE
+    "${CMAKE_BINARY_DIR}/${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_SYSTEM_NAME}.zip"
+    CACHE FILEPATH "Full path to the csound-ac release ZIP archive."
+)
+message(STATUS "CSOUND_AC_ARCHIVE: ${CSOUND_AC_ARCHIVE}")
 include("${CMAKE_SOURCE_DIR}/cmake/CsoundACRelease.cmake")
 
 include(CPack)
