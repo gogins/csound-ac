@@ -16,6 +16,7 @@ jobs:
 
     env:
       CSOUND_INSTALL_PREFIX: ${{ github.workspace }}/.cache/csound-install
+      CSOUND_CACHE_VERSION: csound7-v2
 
     strategy:
       fail-fast: false
@@ -143,15 +144,78 @@ jobs:
             ${{ runner.os }}-ccache-${{ github.repository }}-
             ${{ runner.os }}-ccache-
 
-      - name: Cache Csound install
+      - name: Restore Csound install cache
         id: cache-csound
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: .cache/csound-install
-          key: ${{ runner.os }}-csound7-${{ hashFiles('.github/workflows/cmake.yml', '.github/workflows/cmake.yaml') }}
+          key: ${{ runner.os }}-${{ env.CSOUND_CACHE_VERSION }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.CSOUND_CACHE_VERSION }}-
+
+      - name: Validate cached Csound install
+        id: validate-csound-cache
+        shell: pwsh
+        run: |
+          $prefix = $env:CSOUND_INSTALL_PREFIX
+          $bin = Join-Path $prefix "bin"
+          $exe = if ($IsWindows) { Join-Path $bin "csound.exe" } else { Join-Path $bin "csound" }
+          $ok = Test-Path $exe
+
+          if ($IsWindows) {
+              $ok = $ok -and (Test-Path (Join-Path $bin "csound64.dll"))
+          } elseif ($IsMacOS) {
+              $frameworks = @(
+                  (Join-Path $prefix "Library/Frameworks/CsoundLib64.framework/CsoundLib64"),
+                  (Join-Path $HOME "Library/Frameworks/CsoundLib64.framework/CsoundLib64"),
+                  "/Library/Frameworks/CsoundLib64.framework/CsoundLib64"
+              )
+              $libs = @(
+                  (Join-Path $prefix "lib/libcsound64.dylib"),
+                  (Join-Path $prefix "lib64/libcsound64.dylib")
+              )
+              $ok = $ok -and (($frameworks + $libs | Where-Object { Test-Path $_ }).Count -gt 0)
+          } else {
+              $libs = @(
+                  (Join-Path $prefix "lib/libcsound64.so"),
+                  (Join-Path $prefix "lib64/libcsound64.so")
+              )
+              $ok = $ok -and (($libs | Where-Object { Test-Path $_ }).Count -gt 0)
+          }
+
+          if ($ok) {
+              "valid=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+              Write-Host "Using cached Csound install at $prefix"
+              & $exe --version
+          } else {
+              Write-Host "Cached Csound install is missing or incomplete; deleting $prefix so it will be rebuilt."
+              Remove-Item -Recurse -Force $prefix -ErrorAction SilentlyContinue
+              "valid=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          }
+
+      - name: Add Csound install to environment
+        shell: pwsh
+        run: |
+          $prefix = $env:CSOUND_INSTALL_PREFIX
+          $bin = Join-Path $prefix "bin"
+          $lib = Join-Path $prefix "lib"
+          $lib64 = Join-Path $prefix "lib64"
+          $frameworks = Join-Path $prefix "Library/Frameworks"
+          $home_frameworks = Join-Path $HOME "Library/Frameworks"
+
+          $bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $lib | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $lib64 | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+          if ($IsLinux) {
+              "LD_LIBRARY_PATH=$lib`:$lib64`:$env:LD_LIBRARY_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          } elseif ($IsMacOS) {
+              "DYLD_LIBRARY_PATH=$lib`:$lib64`:$env:DYLD_LIBRARY_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+              "CMAKE_FRAMEWORK_PATH=$frameworks`:$home_frameworks`:$env:CMAKE_FRAMEWORK_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          }
 
       - name: Install Csound 7 from GitHub - Linux
-        if: matrix.os_name == 'linux' && steps.cache-csound.outputs.cache-hit != 'true'
+        if: matrix.os_name == 'linux' && steps.validate-csound-cache.outputs.valid != 'true'
         run: |
           git clone --depth 1 https://github.com/csound/csound.git
           cmake -S csound -B csound/build -G Ninja \
@@ -169,7 +233,7 @@ jobs:
           sudo ldconfig
 
       - name: Install Csound 7 from GitHub - macOS
-        if: matrix.os_name == 'macos' && steps.cache-csound.outputs.cache-hit != 'true'
+        if: matrix.os_name == 'macos' && steps.validate-csound-cache.outputs.valid != 'true'
         run: |
           git clone --depth 1 https://github.com/csound/csound.git
           BISON_EXECUTABLE="$(brew --prefix bison)/bin/bison"
@@ -188,7 +252,7 @@ jobs:
           cmake --install csound/build
 
       - name: Install Csound 7 from GitHub - Windows
-        if: matrix.os_name == 'windows' && steps.cache-csound.outputs.cache-hit != 'true'
+        if: matrix.os_name == 'windows' && steps.validate-csound-cache.outputs.valid != 'true'
         shell: pwsh
         run: |
           git clone --depth 1 --recurse-submodules https://github.com/csound/csound.git
@@ -204,6 +268,13 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build build --config Release
           cmake --install build --prefix "$env:CSOUND_INSTALL_PREFIX" --config Release
+
+      - name: Save repaired Csound install cache
+        if: steps.validate-csound-cache.outputs.valid != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/csound-install
+          key: ${{ runner.os }}-${{ env.CSOUND_CACHE_VERSION }}-${{ github.run_id }}
 
       - name: Import macOS signing certificate
         if: matrix.os_name == 'macos'
@@ -228,7 +299,8 @@ jobs:
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/csound-ac" \
             -DGENERATE_DOCUMENTATION=OFF \
-            -DCMAKE_PREFIX_PATH="$CSOUND_INSTALL_PREFIX;/usr/local;/usr;/Library/Frameworks" \
+            -DCMAKE_PREFIX_PATH="$CSOUND_INSTALL_PREFIX;$HOME/Library/Frameworks;/usr/local;/usr;/Library/Frameworks" \
+            -DCSOUND_ROOT_HINT="$CSOUND_INSTALL_PREFIX" \
             -DPython3_EXECUTABLE="$(python -c 'import sys; print(sys.executable)')" \
             -DCSOUND_AC_INSTALL_PYTHON_TO_SITEARCH=OFF \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
@@ -250,6 +322,7 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/csound-ac" \
             -DGENERATE_DOCUMENTATION=OFF \
             -DCMAKE_PREFIX_PATH="$CSOUND_INSTALL_PREFIX;/usr/local;/usr" \
+            -DCSOUND_ROOT_HINT="$CSOUND_INSTALL_PREFIX" \
             -DPython3_EXECUTABLE="$(python -c 'import sys; print(sys.executable)')" \
             -DCSOUND_AC_INSTALL_PYTHON_TO_SITEARCH=OFF \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
