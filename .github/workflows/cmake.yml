@@ -299,9 +299,11 @@ jobs:
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/csound-ac" \
             -DGENERATE_DOCUMENTATION=OFF \
-            -DCMAKE_PREFIX_PATH="$CSOUND_INSTALL_PREFIX;$HOME/Library/Frameworks;/usr/local;/usr;/Library/Frameworks" \
+            -DCMAKE_PREFIX_PATH="$CSOUND_INSTALL_PREFIX;$HOME/Library/Frameworks;/Library/Frameworks;/opt/homebrew;/usr/local;/usr" \
             -DCSOUND_ROOT_HINT="$CSOUND_INSTALL_PREFIX" \
+            -DCSOUND_EXECUTABLE="$CSOUND_INSTALL_PREFIX/bin/csound" \
             -DPython3_EXECUTABLE="$(python -c 'import sys; print(sys.executable)')" \
+            -DGENERATE_DOCUMENTATION=OFF \
             -DCSOUND_AC_INSTALL_PYTHON_TO_SITEARCH=OFF \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
