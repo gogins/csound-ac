@@ -343,6 +343,9 @@ jobs:
             "-DCMAKE_INSTALL_PREFIX=${{ github.workspace }}\dist\csound-ac" `
             "-DGENERATE_DOCUMENTATION=OFF" `
             "-DCMAKE_PREFIX_PATH=$env:CSOUND_INSTALL_PREFIX;C:\msys64\mingw64" `
+            "-DCSOUND_EXECUTABLE=$env:CSOUND_INSTALL_PREFIX/bin/csound.exe" `
+            "-DCSOUND_LIBRARY=$env:CSOUND_INSTALL_PREFIX/lib64/libcsound64.lib" `
+            "-DCSOUND_LIBRARIES=$env:CSOUND_INSTALL_PREFIX/lib64/libcsound64.lib" `
             "-DCSOUND_ROOT_HINT=$env:CSOUND_INSTALL_PREFIX" `
             "-DPython3_EXECUTABLE=$(python -c 'import sys; print(sys.executable)')" `
             "-DCSOUND_AC_INSTALL_PYTHON_TO_SITEARCH=OFF" `
