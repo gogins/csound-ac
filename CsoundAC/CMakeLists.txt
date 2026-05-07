@@ -185,6 +185,8 @@ if(BUILD_CSOUND_AC)
     target_compile_definitions(libCsoundAC
     PRIVATE
         USE_DOUBLE
+        CSOUNDAC_BUILDING_LIBRARY
+        $<$<STREQUAL:$<TARGET_PROPERTY:libCsoundAC,TYPE>,STATIC_LIBRARY>:CSOUNDAC_STATIC>
 
         CSOUND_FOUND=$<BOOL:${CSOUND_FOUND}>
 
@@ -255,6 +257,7 @@ if(BUILD_CSOUND_AC)
     target_compile_definitions(ChordSpaceTests
     PRIVATE
         USE_DOUBLE
+        $<$<STREQUAL:$<TARGET_PROPERTY:libCsoundAC,TYPE>,STATIC_LIBRARY>:CSOUNDAC_STATIC>
         CSOUND_VERSION_MAJOR=${CSOUND_VERSION_MAJOR}
         CSOUND_VERSION_MINOR=${CSOUND_VERSION_MINOR}
     )
@@ -403,6 +406,7 @@ if(BUILD_CSOUND_AC)
         target_compile_definitions(${SWIG_MODULE_CsoundAC_REAL_NAME}
             PRIVATE
                 USE_DOUBLE
+                $<$<STREQUAL:$<TARGET_PROPERTY:libCsoundAC,TYPE>,STATIC_LIBRARY>:CSOUNDAC_STATIC>
                 CSOUND_VERSION_MAJOR=${CSOUND_VERSION_MAJOR}
                 CSOUND_VERSION_MINOR=${CSOUND_VERSION_MINOR}
         )
