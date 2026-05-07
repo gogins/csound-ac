@@ -1,5 +1,4 @@
-#ifndef PLATFORM_HPP_INCLUDED
-#define PLATFORM_HPP_INCLUDED
+#pragma once
 /*
 * C S O U N D
 *
@@ -19,45 +18,51 @@
 * License along with this software; if not, write to the Free Software
 * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
-namespace csound {
-    
-#if defined(__APPLE__) && defined(__MACH__)
-#  if defined(__clang__)
-#    pragma message "Platform.hpp: macOS with Clang." 
-#    if !defined(SWIG)
-#      define SILENCE_PUBLIC //__attribute__ ( (visibility("default")) )
-#    else
-#      define SILENCE_PUBLIC
+#ifndef PLATFORM_HPP_INCLUDED
+#define PLATFORM_HPP_INCLUDED
+
+#if defined(_WIN32)
+#    if !defined(_USE_MATH_DEFINES)
+#        define _USE_MATH_DEFINES
 #    endif
-#  endif
+#    if !defined(PATH_MAX) && defined(_MAX_PATH)
+#        define PATH_MAX _MAX_PATH
+#    endif
+#    if !defined(_CRT_SECURE_NO_WARNINGS)
+#        define _CRT_SECURE_NO_WARNINGS
+#    endif
+#endif
+/*
+    SILENCE_PUBLIC controls symbol visibility/export.
+
+    Cases:
+
+        SWIG:
+            No export/import attributes.
+
+        Static library:
+            No export/import attributes.
+
+        Windows shared library:
+            __declspec(dllexport) when building the DLL.
+            __declspec(dllimport) when consuming the DLL.
+
+        macOS/Linux/Emscripten:
+            Use ELF/Mach-O visibility attributes.
+*/
+#if defined(SWIG)
+#    define SILENCE_PUBLIC
+#elif defined(CSOUNDAC_STATIC)
+#    define SILENCE_PUBLIC
 #elif defined(_WIN32)
-#  if defined(_MSC_VER)
-#    pragma message "Platform.hpp: Windows with MSVC." 
-#    define _USE_MATH_DEFINES
-#    if !defined(PATH_MAX)
-#      define PATH_MAX _MAX_PATH
-#    endif
-#    define _CRT_SECURE_NO_WARNINGS
-#    if !defined(SWIG)
-#      define SILENCE_PUBLIC __declspec(dllexport)
+#    if defined(CSOUNDAC_BUILDING_LIBRARY)
+#        define SILENCE_PUBLIC __declspec(dllexport)
 #    else
-#      define SILENCE_PUBLIC 
+#        define SILENCE_PUBLIC __declspec(dllimport)
 #    endif
-#  endif
-#elif defined(__linux__)
-#  if defined(__GNUC__)
-#    pragma message "Platform.hpp: Linux with gcc." 
-#    define SILENCE_PUBLIC __attribute__ ( (visibility("default")) )
-#  endif
-#elif defined(__EMSCRIPTEN__)
-#    pragma message "Platform.hpp: Emscripten." 
-#    define SILENCE_PUBLIC __attribute__ ( (visibility("default")) )
+#elif defined(__GNUC__) || defined(__clang__)
+#    define SILENCE_PUBLIC __attribute__((visibility("default")))
 #else
-#    pragma message "Platform.hpp: No platform was detected." 
 #    define SILENCE_PUBLIC
 #endif
-
-};
-
 #endif
-
