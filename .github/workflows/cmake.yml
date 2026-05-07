@@ -134,6 +134,7 @@ jobs:
             mingw-w64-x86_64-libsndfile `
             mingw-w64-x86_64-libpng `
             mingw-w64-x86_64-libjpeg-turbo `
+            mingw-w64-x86_64-libtiff `
             mingw-w64-x86_64-zlib `
             mingw-w64-x86_64-tools
 
