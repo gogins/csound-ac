@@ -1,467 +1,508 @@
-name: build-and-release
+# Build CsoundAC
+cmake_minimum_required(VERSION 3.28+)
+include(CheckIncludeFiles)
+include(GNUInstallDirs)
 
-on:
-  push:
-    tags:
-      - "v*"
-  workflow_dispatch:
+set(CMAKE_VERBOSE_MAKEFILE ON)
+set(CMAKE_CXX_STANDARD 17)
 
-permissions:
-  contents: write
+add_definitions(-fPIC)
 
-jobs:
-  build:
-    name: Build ${{ matrix.name }}
-    runs-on: ${{ matrix.runner }}
+set(CMAKE_INCLUDE_CURRENT_DIR "On")
 
-    env:
-      CSOUND_INSTALL_PREFIX: ${{ github.workspace }}/.cache/csound-install
-      CSOUND_CACHE_VERSION: csound7-v2
+option(BUILD_CSOUND_AC "Build CsoundAC extension module for Csound with algorithmic composition (needs C++ interface)" ON)
+option(BUILD_CSOUND_AC_PYTHON_INTERFACE "Build the Csound AC Python interface" ON)
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: macOS
-            os_name: macos
-            runner: macos-latest
-            build_dir: build-macos
-            archive_name: csound-ac-macos.zip
+# Prefer local dependencies (from repo/build tree) when available.
+# Canonical Csound is handled in the top-level CMakeLists.txt and is not overridden here.
+option(CSOUND_AC_PREFER_LOCAL_DEPS "Prefer dependencies from the repo/build tree when available (except Csound)." ON)
 
-          - name: Linux
-            os_name: linux
-            runner: ubuntu-latest
-            build_dir: build-linux
-            archive_name: csound-ac-linux.zip
+set(CSOUND_AC_INSTALL_PYTHON_TO_SITEARCH_DEFAULT OFF)
+if(APPLE)
+    set(CSOUND_AC_INSTALL_PYTHON_TO_SITEARCH_DEFAULT ON)
+endif()
+option(CSOUND_AC_INSTALL_PYTHON_TO_SITEARCH
+    "Install Python interface into the active interpreter site-packages in addition to the portable release layout."
+    ${CSOUND_AC_INSTALL_PYTHON_TO_SITEARCH_DEFAULT}
+)
 
-          - name: Windows
-            os_name: windows
-            runner: windows-latest
-            build_dir: build-windows
-            archive_name: csound-ac-windows.zip
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
+find_package(SWIG)
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          
-      - name: Install dependencies - macOS
-        if: matrix.os_name == 'macos'
-        run: |
-          brew update
-          brew install \
-            cmake \
-            ninja \
-            swig \
-            boost \
-            eigen \
-            libsndfile \
-            portaudio \
-            bison \
-            flex \
-            doxygen \
-            graphviz \
-            python@3.12 \
-            ccache \
-            zip
-          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
-          echo "$(brew --prefix flex)/bin" >> "$GITHUB_PATH"
+# /opt/homebrew/Cellar/python@3.12/3.12.7_1/Frameworks/Python.framework/Versions/3.12/lib/libpython3.12.dylib -> ../Python)
+find_package(Python3 3.12 EXACT COMPONENTS Interpreter Development)
+message(STATUS "Python libraries:  ${PYTHONLIBS_VERSION_STRING}")
 
-      - name: Install dependencies - Linux
-        if: matrix.os_name == 'linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            git \
-            build-essential \
-            cmake \
-            ninja-build \
-            pkg-config \
-            swig \
-            python3 \
-            python3-dev \
-            python3-pip \
-            libboost-all-dev \
-            libeigen3-dev \
-            libsndfile1-dev \
-            libasound2-dev \
-            libjack-jackd2-dev \
-            libpulse-dev \
-            portaudio19-dev \
-            libportaudio2 \
-            liblo-dev \
-            libffi-dev \
-            libcurl4-openssl-dev \
-            bison \
-            flex \
-            doxygen \
-            graphviz \
-            texlive-latex-base \
-            texlive-latex-extra \
-            texlive-fonts-recommended \
-            texlive-fonts-extra \
-            texlive-science \
-            latexmk \
-            ccache \
-            zip \
-            p7zip-full
+# Ensure LIBSNDFILE_LIBRARY is a resolvable library path (not just '-lsndfile').
+# The top-level CMake provides LIBSNDFILE_LIBRARY_DIRS when discovered via pkg-config.
+if(LIBSNDFILE_LIBRARY MATCHES "^-l.+" OR LIBSNDFILE_LIBRARY STREQUAL "sndfile" OR LIBSNDFILE_LIBRARY STREQUAL "-lsndfile")
+    set(_libsndfile_resolved "")
+    if(LIBSNDFILE_LIBRARY_DIRS)
+        find_library(_libsndfile_resolved
+            NAMES sndfile libsndfile
+            HINTS ${LIBSNDFILE_LIBRARY_DIRS}
+            NO_DEFAULT_PATH
+        )
+    endif()
+    if(NOT _libsndfile_resolved)
+        find_library(_libsndfile_resolved NAMES sndfile libsndfile)
+    endif()
+    if(_libsndfile_resolved)
+        set(LIBSNDFILE_LIBRARY "${_libsndfile_resolved}")
+    endif()
+endif()
+message(STATUS "LIBSNDFILE_LIBRARY (resolved): ${LIBSNDFILE_LIBRARY}")
 
-      - name: Install dependencies - Windows
-        if: matrix.os_name == 'windows'
-        shell: pwsh
-        run: |
-          choco install -y `
-            cmake `
-            ninja `
-            swig `
-            python `
-            curl `
-            doxygen.install `
-            graphviz `
-            winflexbison3 `
-            ccache `
-            7zip
+# Link against the in-tree MusicXML library and explicitly bundle its runtime
+# library in the csound-ac release layout. Do not run libmusicxml's own install
+# rules, because those install schemas/tools outside the csound-ac layout.
+set(MUSICXML2_LIBRARY "")
+set(MUSICXML2_TARGET "")
+set(MUSICXML2_LINK_LIBRARIES "")
+set(MUSICXML2_RUNTIME_TARGET "")
+set(MUSICXML2_RUNTIME_FILE "")
 
-          C:\msys64\usr\bin\pacman.exe -S --noconfirm --needed `
-            mingw-w64-x86_64-boost `
-            mingw-w64-x86_64-pkgconf `
-            mingw-w64-x86_64-libsndfile `
-            mingw-w64-x86_64-libpng `
-            mingw-w64-x86_64-libjpeg-turbo `
-            mingw-w64-x86_64-libtiff `
-            mingw-w64-x86_64-zlib `
-            mingw-w64-x86_64-tools
+# Prefer a CMake target from the libmusicxml subproject. In current libmusicxml
+# builds this may be a shared library target; if so, bundle that exact runtime.
+foreach(tgt IN ITEMS libmusicxml2 musicxml2 libmusicxml musicxml)
+    if(TARGET ${tgt})
+        set(MUSICXML2_TARGET "${tgt}")
+        get_target_property(_musicxml2_target_type ${tgt} TYPE)
+        if(_musicxml2_target_type STREQUAL "SHARED_LIBRARY" OR
+           _musicxml2_target_type STREQUAL "MODULE_LIBRARY" OR
+           _musicxml2_target_type STREQUAL "UNKNOWN_LIBRARY")
+            set(MUSICXML2_RUNTIME_TARGET "${tgt}")
+        endif()
+        break()
+    endif()
+endforeach()
 
-          echo "C:\ProgramData\chocolatey\bin" `
-            | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+if(MUSICXML2_TARGET)
+    list(APPEND MUSICXML2_LINK_LIBRARIES ${MUSICXML2_TARGET})
+else()
+    # Fall back to a library file in the repo/build tree. Prefer shared runtime
+    # libraries so they can be bundled; static archives are accepted only if no
+    # shared runtime is available.
+    set(_musicxml2_candidates
+        "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/lib/liblibmusicxml.dylib"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/lib/liblibmusicxml.dylib"
+        "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/lib/liblibmusicxml.so"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/lib/liblibmusicxml.so"
+        "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/bin/libmusicxml.dll"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/bin/libmusicxml.dll"
+        "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/lib/libmusicxml.dll"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/lib/libmusicxml.dll"
+        "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.a"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.a"
+        "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/libmusicxml2.a"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/libmusicxml2.a"
+        "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/Release/libmusicxml2.lib"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/Release/libmusicxml2.lib"
+        "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.lib"
+        "${CMAKE_SOURCE_DIR}/dependencies/libmusicxml/build/lib/libmusicxml2.lib"
+    )
 
-          echo "C:\msys64\mingw64\bin" `
-            | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+    foreach(p IN LISTS _musicxml2_candidates)
+        if(EXISTS "${p}")
+            set(MUSICXML2_LIBRARY "${p}")
+            break()
+        endif()
+    endforeach()
 
-      - name: Cache ccache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.ccache
-            ~/Library/Caches/ccache
-            C:\Users\runneradmin\AppData\Local\ccache
-          key: ${{ runner.os }}-ccache-${{ github.repository }}-${{ github.ref_name }}-${{ hashFiles('**/CMakeLists.txt', '**/*.cmake', '**/*.hpp', '**/*.cpp', '**/*.h') }}
-          restore-keys: |
-            ${{ runner.os }}-ccache-${{ github.repository }}-${{ github.ref_name }}-
-            ${{ runner.os }}-ccache-${{ github.repository }}-
-            ${{ runner.os }}-ccache-
+    if(NOT MUSICXML2_LIBRARY)
+        if(WIN32)
+            set(MUSICXML2_LIBRARY "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/Release/libmusicxml2.lib")
+        else()
+            set(MUSICXML2_LIBRARY "${CMAKE_BINARY_DIR}/dependencies/libmusicxml/build/lib/liblibmusicxml${CMAKE_SHARED_LIBRARY_SUFFIX}")
+        endif()
+    endif()
 
-      - name: Restore Csound install cache
-        id: cache-csound
-        uses: actions/cache/restore@v4
-        with:
-          path: .cache/csound-install
-          key: ${{ runner.os }}-${{ env.CSOUND_CACHE_VERSION }}-${{ github.run_id }}
-          restore-keys: |
-            ${{ runner.os }}-${{ env.CSOUND_CACHE_VERSION }}-
+    if(MUSICXML2_LIBRARY MATCHES "\.(dylib|so|dll)$")
+        set(MUSICXML2_RUNTIME_FILE "${MUSICXML2_LIBRARY}")
+    endif()
 
-      - name: Validate cached Csound install
-        id: validate-csound-cache
-        shell: pwsh
-        run: |
-          $prefix = $env:CSOUND_INSTALL_PREFIX
-          $bin = Join-Path $prefix "bin"
-          $exe = if ($IsWindows) { Join-Path $bin "csound.exe" } else { Join-Path $bin "csound" }
-          $ok = Test-Path $exe
+    list(APPEND MUSICXML2_LINK_LIBRARIES "${MUSICXML2_LIBRARY}")
+endif()
 
-          if ($IsWindows) {
-              $import_libraries = @(
-                  (Join-Path $prefix "lib/libcsound64.dll.a"),
-                  (Join-Path $prefix "lib64/libcsound64.dll.a"),
-                  (Join-Path $prefix "lib/csound64.lib"),
-                  (Join-Path $prefix "lib64/csound64.lib"),
-                  (Join-Path $prefix "lib/libcsound64.lib"),
-                  (Join-Path $prefix "lib64/libcsound64.lib")
-              )
-              $ok = $ok -and (Test-Path (Join-Path $bin "csound64.dll"))
-              $ok = $ok -and (($import_libraries | Where-Object { Test-Path $_ }).Count -gt 0)
-          } elseif ($IsMacOS) {
-              $frameworks = @(
-                  (Join-Path $prefix "Library/Frameworks/CsoundLib64.framework/CsoundLib64"),
-                  (Join-Path $HOME "Library/Frameworks/CsoundLib64.framework/CsoundLib64"),
-                  "/Library/Frameworks/CsoundLib64.framework/CsoundLib64"
-              )
-              $libs = @(
-                  (Join-Path $prefix "lib/libcsound64.dylib"),
-                  (Join-Path $prefix "lib64/libcsound64.dylib")
-              )
-              $ok = $ok -and (($frameworks + $libs | Where-Object { Test-Path $_ }).Count -gt 0)
-          } else {
-              $libs = @(
-                  (Join-Path $prefix "lib/libcsound64.so"),
-                  (Join-Path $prefix "lib64/libcsound64.so")
-              )
-              $ok = $ok -and (($libs | Where-Object { Test-Path $_ }).Count -gt 0)
-          }
+message(STATUS "MUSICXML2_TARGET:         ${MUSICXML2_TARGET}")
+message(STATUS "MUSICXML2_LIBRARY:        ${MUSICXML2_LIBRARY}")
+message(STATUS "MUSICXML2_RUNTIME_TARGET: ${MUSICXML2_RUNTIME_TARGET}")
+message(STATUS "MUSICXML2_RUNTIME_FILE:   ${MUSICXML2_RUNTIME_FILE}")
+message(STATUS "MUSICXML2_LINK_LIBRARIES: ${MUSICXML2_LINK_LIBRARIES}")
 
-          if ($ok) {
-              "valid=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-              Write-Host "Using cached Csound install at $prefix"
-              & $exe --version
-          } else {
-              Write-Host "Cached Csound install is missing or incomplete; deleting $prefix so it will be rebuilt."
-              Remove-Item -Recurse -Force $prefix -ErrorAction SilentlyContinue
-              "valid=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-          }
+list(APPEND CMAKE_SWIG_FLAGS
+    "-I${CMAKE_SOURCE_DIR}/dependencies/csound/interfaces"
+)
 
-      - name: Add Csound install to environment
-        shell: pwsh
-        run: |
-          $prefix = $env:CSOUND_INSTALL_PREFIX
-          $bin = Join-Path $prefix "bin"
-          $lib = Join-Path $prefix "lib"
-          $lib64 = Join-Path $prefix "lib64"
-          $frameworks = Join-Path $prefix "Library/Frameworks"
-          $home_frameworks = Join-Path $HOME "Library/Frameworks"
+if(BUILD_CSOUND_AC)
+    set(libcsoundac_SRCS
+        Cell.cpp
+        ChordLindenmayer.cpp
+        ChordSpace.cpp
+        Composition.cpp
+        Conversions.cpp
+        Counterpoint.cpp
+        CounterpointMain.cpp
+        CounterpointNode.cpp
+        CppSound.cpp
+        CsoundFile.cpp
+        Event.cpp
+        Lindenmayer.cpp
+        MCRM.cpp
+        Midifile.cpp
+        MusicModel.cpp
+        Node.cpp
+        Random.cpp
+        Rescale.cpp
+        Score.cpp
+        ScoreModel.cpp
+        ScoreNode.cpp
+        Sequence.cpp
+        Shell.cpp
+        StrangeAttractor.cpp
+        System.cpp
+        Voicelead.cpp
+        VoiceleadingNode.cpp
+        ImageToScore.cpp
+        ../dependencies/portsmf/allegro.cpp
+        ../dependencies/portsmf/allegrord.cpp
+        ../dependencies/portsmf/allegroserial.cpp
+        ../dependencies/portsmf/allegrosmfrd.cpp
+        ../dependencies/portsmf/allegrosmfwr.cpp
+        ../dependencies/portsmf/allegrowr.cpp
+        ../dependencies/portsmf/mfmidi.cpp
+        ../dependencies/portsmf/strparse.cpp
+        trace.cpp
+    )
+    message(STATUS "libcsoundac_SRCS: " ${libcsoundac_SRCS})
 
-          $bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          $lib | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          $lib64 | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+    if(MSVC)
+        add_library(libCsoundAC STATIC ${libcsoundac_SRCS})
+    else()
+        add_library(libCsoundAC SHARED ${libcsoundac_SRCS})
+    endif()
 
-          if ($IsLinux) {
-              "LD_LIBRARY_PATH=$lib`:$lib64`:$env:LD_LIBRARY_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          } elseif ($IsMacOS) {
-              "DYLD_LIBRARY_PATH=$lib`:$lib64`:$env:DYLD_LIBRARY_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-              "CMAKE_FRAMEWORK_PATH=$frameworks`:$home_frameworks`:$env:CMAKE_FRAMEWORK_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          }
+    if(WIN32)
+        set(_csound_ac_windows_cimg_options
+            -Dcimg_display=0
+            -Dcimg_verbosity=0
+            -Dcimg_OS=2
+        )
+    endif()
 
-      - name: Install Csound 7 from GitHub - Linux
-        if: matrix.os_name == 'linux' && steps.validate-csound-cache.outputs.valid != 'true'
-        run: |
-          git clone --depth 1 https://github.com/csound/csound.git
-          cmake -S csound -B csound/build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_TESTS=OFF \
-            -DBUILD_JAVA_INTERFACE=OFF \
-            -DBUILD_PYTHON_INTERFACE=OFF \
-            -DINSTALL_PYTHON_INTERFACE=OFF \
-            -DBUILD_PYTHON_OPCODES=OFF \
-            -DUSE_PYTHON=OFF \
-            -DCMAKE_INSTALL_PREFIX="$CSOUND_INSTALL_PREFIX" \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-          cmake --build csound/build --parallel
-          cmake --install csound/build
-          echo "$CSOUND_INSTALL_PREFIX/lib" | sudo tee /etc/ld.so.conf.d/csound.conf
-          echo "$CSOUND_INSTALL_PREFIX/lib64" | sudo tee -a /etc/ld.so.conf.d/csound.conf
-          sudo ldconfig
+    target_compile_definitions(libCsoundAC
+    PRIVATE
+        USE_DOUBLE
+        CSOUNDAC_BUILDING_LIBRARY
+        $<$<STREQUAL:$<TARGET_PROPERTY:libCsoundAC,TYPE>,STATIC_LIBRARY>:CSOUNDAC_STATIC>
 
-      - name: Install Csound 7 from GitHub - macOS
-        if: matrix.os_name == 'macos' && steps.validate-csound-cache.outputs.valid != 'true'
-        run: |
-          git clone --depth 1 https://github.com/csound/csound.git
-          BISON_EXECUTABLE="$(brew --prefix bison)/bin/bison"
-          FLEX_EXECUTABLE="$(brew --prefix flex)/bin/flex"
-          cmake -S csound -B csound/build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DBISON_EXECUTABLE="$BISON_EXECUTABLE" \
-            -DFLEX_EXECUTABLE="$FLEX_EXECUTABLE" \
-            -DBUILD_TESTS=OFF \
-            -DBUILD_JAVA_INTERFACE=OFF \
-            -DBUILD_PYTHON_INTERFACE=OFF \
-            -DCMAKE_INSTALL_PREFIX="$CSOUND_INSTALL_PREFIX" \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-          cmake --build csound/build --parallel
-          cmake --install csound/build
+        CSOUND_FOUND=$<BOOL:${CSOUND_FOUND}>
 
-      - name: Install Csound 7 from GitHub - Windows
-        if: matrix.os_name == 'windows' && steps.validate-csound-cache.outputs.valid != 'true'
-        shell: pwsh
-        run: |
-          git clone --depth 1 --recurse-submodules https://github.com/csound/csound.git
-          cd csound
-          .\vcpkg\bootstrap-vcpkg.bat
-          cmake -B build -S . `
-            "-DBUILD_TESTS=OFF" `
-            "-DBUILD_JAVA_INTERFACE=OFF" `
-            "-DBUILD_PYTHON_INTERFACE=OFF" `
-            "-DUSE_VCPKG=1" `
-            "-DCUSTOM_CMAKE=./platform/windows/Custom-vs.cmake" `
-            "-DCMAKE_C_COMPILER_LAUNCHER=ccache" `
-            "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
-          cmake --build build --config Release
-          cmake --install build --prefix "$env:CSOUND_INSTALL_PREFIX" --config Release
+        CSOUND_EXECUTABLE="${CSOUND_EXECUTABLE}"
+        CSOUND_LIBRARY="${CSOUND_LIBRARY}"
+        CSOUND_LIBRARIES="${CSOUND_LIBRARIES}"
 
-      - name: Ensure Csound import library - Windows
-        if: matrix.os_name == 'windows'
-        shell: pwsh
-        run: |
-          $prefix = $env:CSOUND_INSTALL_PREFIX
-          $lib_dir = Join-Path $prefix "lib"
-          New-Item -ItemType Directory -Force -Path $lib_dir | Out-Null
+        CSOUND_INCLUDE_DIR="${CSOUND_INCLUDE_DIR}"
+        CSOUND_INCLUDE_DIRS="${CSOUND_INCLUDE_DIRS}"
+        CSOUND_FRAMEWORK_DIR="${CSOUND_FRAMEWORK_DIR}"
 
-          $import_library = Get-ChildItem -Recurse $prefix `
-            -Include "libcsound64.dll.a","csound64.lib","libcsound64.lib" `
-            -ErrorAction SilentlyContinue |
-            Select-Object -First 1
+        CSOUND_VERSION="${CSOUND_VERSION}"
+        CSOUND_VERSION_MAJOR=${CSOUND_VERSION_MAJOR}
+        CSOUND_VERSION_MINOR=${CSOUND_VERSION_MINOR}
+    )
 
-          if (-not $import_library) {
-              $dll = Get-ChildItem -Recurse $prefix `
-                -Include "csound64.dll" `
-                -ErrorAction SilentlyContinue |
-                Select-Object -First 1
+    # Ensure the libmusicxml build happens before we try to link against it.
+    if(MUSICXML2_TARGET)
+        add_dependencies(libCsoundAC ${MUSICXML2_TARGET})
+    endif()
 
-              if (-not $dll) {
-                  throw "Could not find csound64.dll under $prefix."
-              }
+    # Always prefer headers from this source tree over installed headers.
+    target_include_directories(libCsoundAC
+        BEFORE PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_SOURCE_DIR}
+            ${CMAKE_SOURCE_DIR}/CsoundAC
+    )
 
-              Write-Host "No Csound import library was found; generating libcsound64.dll.a from $($dll.FullName)."
-              Push-Location $lib_dir
-              & gendef "$($dll.FullName)"
-              & dlltool -d "csound64.def" -l "libcsound64.dll.a" -D "csound64.dll"
-              Pop-Location
+    target_include_directories(libCsoundAC SYSTEM PRIVATE ${Python3_INCLUDE_DIRS})
+    target_include_directories(libCsoundAC SYSTEM PRIVATE ${CSOUND_INCLUDE_DIRS})
+    target_include_directories(libCsoundAC PRIVATE ${EIGEN3_INCLUDE_DIRS})
+    target_include_directories(libCsoundAC PRIVATE ${Boost_INCLUDE_DIR})
+    target_include_directories(libCsoundAC PRIVATE ../dependencies/portsmf)
+    target_include_directories(libCsoundAC PRIVATE ../dependencies/stb)
+    target_include_directories(libCsoundAC PRIVATE ../dependencies/CImg)
+    if(MUSICXML_FOUND)
+        target_include_directories(libCsoundAC PRIVATE ${MUSICXML_INCLUDE_DIRS})
+    endif()
 
-              $import_library = Get-Item (Join-Path $lib_dir "libcsound64.dll.a")
-          } else {
-              Write-Host "Using existing Csound import library: $($import_library.FullName)"
-          }
+    set_target_properties(libCsoundAC PROPERTIES
+        SOVERSION "${APIVERSION}"
+        OUTPUT_NAME CsoundAC
+        RUNTIME_OUTPUT_DIRECTORY "${BUILD_BIN_DIR}"
+        LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
+        ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
+    )
 
-          "CSOUND_IMPORT_LIBRARY=$($import_library.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          Get-ChildItem -Recurse $prefix -Include "*csound*.dll","*csound*.dll.a","*csound*.lib" | Select-Object FullName
+    if(APPLE)
+        set_target_properties(libCsoundAC PROPERTIES
+            BUILD_RPATH "$ENV{HOME}/Library/Frameworks;/Library/Frameworks;/opt/homebrew/lib;/usr/local/lib"
+            INSTALL_RPATH "@loader_path;$ENV{HOME}/Library/Frameworks;/Library/Frameworks;/opt/homebrew/lib;/usr/local/lib"
+            INSTALL_RPATH_USE_LINK_PATH TRUE
+        )
+    elseif(UNIX)
+        set_target_properties(libCsoundAC PROPERTIES
+            BUILD_RPATH "$ORIGIN"
+            INSTALL_RPATH "$ORIGIN"
+        )
+    endif()
 
-      - name: Save repaired Csound install cache
-        if: steps.validate-csound-cache.outputs.valid != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: .cache/csound-install
-          key: ${{ runner.os }}-${{ env.CSOUND_CACHE_VERSION }}-${{ github.run_id }}
+    target_link_libraries(libCsoundAC PRIVATE ${MUSICXML2_LINK_LIBRARIES} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY})
 
-      - name: Import macOS signing certificate
-        if: matrix.os_name == 'macos'
-        uses: apple-actions/import-codesign-certs@v3
-        with:
-          p12-file-base64: ${{ secrets.MACOS_CODESIGN_CERTIFICATE_BASE64 }}
-          p12-password: ${{ secrets.MACOS_CODESIGN_CERTIFICATE_PASSWORD }}
+    # Standalone test program (from: c++ ChordSpaceTest.cpp ... -o ChordSpaceTest)
+    # User requested target name: ChordSpaceTests; adjust OUTPUT_NAME if desired.
+    add_executable(ChordSpaceTests ChordSpaceTests.cpp)
 
-      - name: Decode App Store Connect API key
-        if: matrix.os_name == 'macos'
-        shell: bash
-        run: |
-          mkdir -p "$RUNNER_TEMP/private_keys"
-          echo "${{ secrets.APPLE_API_KEY_P8_BASE64 }}" | base64 --decode > "$RUNNER_TEMP/private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8"
+    target_compile_definitions(ChordSpaceTests
+    PRIVATE
+        USE_DOUBLE
+        $<$<STREQUAL:$<TARGET_PROPERTY:libCsoundAC,TYPE>,STATIC_LIBRARY>:CSOUNDAC_STATIC>
+        CSOUND_VERSION_MAJOR=${CSOUND_VERSION_MAJOR}
+        CSOUND_VERSION_MINOR=${CSOUND_VERSION_MINOR}
+    )
 
-      - name: Configure - macOS
-        if: matrix.os_name == 'macos'
-        shell: bash
-        run: |
-          cmake -S . -B "${{ matrix.build_dir }}" -G Ninja \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/csound-ac" \
-            -DGENERATE_DOCUMENTATION=OFF \
-            -DCMAKE_PREFIX_PATH="$CSOUND_INSTALL_PREFIX;$HOME/Library/Frameworks;/Library/Frameworks;/opt/homebrew;/usr/local;/usr" \
-            -DCSOUND_ROOT_HINT="$CSOUND_INSTALL_PREFIX" \
-            -DCSOUND_EXECUTABLE="$CSOUND_INSTALL_PREFIX/bin/csound" \
-            -DPython3_EXECUTABLE="$(python -c 'import sys; print(sys.executable)')" \
-            -DGENERATE_DOCUMENTATION=OFF \
-            -DCSOUND_AC_INSTALL_PYTHON_TO_SITEARCH=OFF \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DCSOUND_AC_ENABLE_CODESIGN=ON \
-            -DCSOUND_AC_ENABLE_NOTARIZATION=ON \
-            -DAPPLE_CODESIGN_IDENTITY="${{ secrets.APPLE_CODESIGN_IDENTITY }}" \
-            -DAPPLE_NOTARY_KEY="$RUNNER_TEMP/private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8" \
-            -DAPPLE_NOTARY_KEY_ID="${{ secrets.APPLE_API_KEY_ID }}" \
-            -DAPPLE_NOTARY_ISSUER_ID="${{ secrets.APPLE_API_ISSUER_ID }}"
+    # Always prefer headers from this source tree over installed headers.
+    target_include_directories(ChordSpaceTests
+        BEFORE PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_SOURCE_DIR}
+            ${CMAKE_SOURCE_DIR}/CsoundAC
+    )
+    target_include_directories(ChordSpaceTests SYSTEM PRIVATE ${CSOUND_INCLUDE_DIRS})
+    target_include_directories(ChordSpaceTests PRIVATE ${EIGEN3_INCLUDE_DIRS})
+    target_include_directories(ChordSpaceTests PRIVATE ${Boost_INCLUDE_DIR})
+    if(MUSICXML_FOUND)
+        target_include_directories(ChordSpaceTests PRIVATE ${MUSICXML_INCLUDE_DIRS})
+    endif()
 
-      - name: Configure - Linux
-        if: matrix.os_name == 'linux'
-        shell: bash
-        run: |
-           cmake -S . -B "${{ matrix.build_dir }}" -G Ninja \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/csound-ac" \
-            -DGENERATE_DOCUMENTATION=OFF \
-            -DCMAKE_PREFIX_PATH="$CSOUND_INSTALL_PREFIX;/usr/local;/usr" \
-            -DCSOUND_ROOT_HINT="$CSOUND_INSTALL_PREFIX" \
-            -DPython3_EXECUTABLE="$(python -c 'import sys; print(sys.executable)')" \
-            -DCSOUND_AC_INSTALL_PYTHON_TO_SITEARCH=OFF \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+    target_compile_options(ChordSpaceTests PRIVATE -Wno-write-strings)
 
-      - name: Configure - Windows
-        if: matrix.os_name == 'windows'
-        shell: pwsh
-        run: |
-          Get-ChildItem -Recurse "$env:CSOUND_INSTALL_PREFIX" `
-            -Include "*.dll","*.dll.a","*.lib" |
-            Select-Object FullName
-          cmake -S . -B "${{ matrix.build_dir }}" -G Ninja `
-            "-DCMAKE_BUILD_TYPE=RelWithDebInfo" `
-            "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" `
-            "-DCMAKE_INSTALL_PREFIX=${{ github.workspace }}\dist\csound-ac" `
-            "-DGENERATE_DOCUMENTATION=OFF" `
-            "-DCMAKE_PREFIX_PATH=$env:CSOUND_INSTALL_PREFIX;C:\msys64\mingw64" `
-            "-DCSOUND_EXECUTABLE=$env:CSOUND_INSTALL_PREFIX/bin/csound.exe" `
-            "-DCSOUND_LIBRARY=$env:CSOUND_IMPORT_LIBRARY" `
-            "-DCSOUND_LIBRARIES=$env:CSOUND_IMPORT_LIBRARY" `
-            "-DCSOUND_ROOT_HINT=$env:CSOUND_INSTALL_PREFIX" `
-            "-DPython3_EXECUTABLE=$(python -c 'import sys; print(sys.executable)')" `
-            "-DCSOUND_AC_INSTALL_PYTHON_TO_SITEARCH=OFF" `
-            "-DCMAKE_C_COMPILER_LAUNCHER=ccache" `
-            "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
+    target_link_libraries(ChordSpaceTests PRIVATE
+        libCsoundAC
+        ${MUSICXML2_LINK_LIBRARIES}
+        ${CSOUND_LIBRARIES}
+        ${LIBSNDFILE_LIBRARY}
+    )
 
-      - name: Build
-        shell: bash
-        run: |
-          cmake --build "${{ matrix.build_dir }}" --config Release --verbose
+    if(APPLE)
+        set_target_properties(ChordSpaceTests PROPERTIES
+            MACOSX_RPATH ON
 
-      - name: Stage dist
-        shell: bash
-        run: |
-          cmake --build "${{ matrix.build_dir }}" --target stage_dist --config Release --verbose
+            # Build tree layout:
+            #   build-macos/CsoundAC/ChordSpaceTests
+            #   build-macos/libCsoundAC.7.1.dylib
+            BUILD_RPATH "@executable_path/.."
 
-      - name: Sign dist - macOS
-        if: matrix.os_name == 'macos'
-        shell: bash
-        run: |
-          cmake --build "${{ matrix.build_dir }}" --target sign_dist --config Release --verbose
+            # Install layout:
+            #   <prefix>/bin/ChordSpaceTests
+            #   <prefix>/lib/libCsoundAC.7.1.dylib
+            INSTALL_RPATH "@executable_path/../lib"
+        )
+    endif()
 
-      - name: Package dist
-        shell: bash
-        run: |
-          cmake --build "${{ matrix.build_dir }}" --target package_dist --config Release --verbose
+    if(WIN32) # for MSYS2/mingw64
+        # mingw64 needs this to create a valid .pyd.
+        if(NOT MSVC AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+            target_compile_definitions(libCsoundAC PRIVATE -DMS_WIN64)
+        endif()
+        target_compile_options(libCsoundAC PRIVATE ${_csound_ac_windows_cimg_options})
+        target_link_libraries(libCsoundAC PRIVATE ${JPEG_LIBRARY} ${PNG_LIBRARY} ${Z_LIBRARY})
+    endif()
 
-      - name: Notarize dist - macOS
-        if: matrix.os_name == 'macos'
-        shell: bash
-        run: |
-          cmake --build "${{ matrix.build_dir }}" --target notarize_dist --config Release --verbose
+    if(HAVE_UNISTD_H)
+        set_target_properties(libCsoundAC PROPERTIES
+            COMPILE_FLAGS "-DHAVE_UNISTD_H"
+        )
+    endif()
 
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.archive_name }}
-          path: ${{ matrix.build_dir }}/*.zip
-          if-no-files-found: error
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIRECTORY}"
+        DESTINATION "include/csound"
+        FILES_MATCHING PATTERN "*.hpp"
+    )
 
-  release:
-    name: Publish GitHub release
-    needs: build
-    runs-on: ubuntu-latest
+    install(TARGETS libCsoundAC
+        RUNTIME DESTINATION "${LIBRARY_INSTALL_DIR}"
+        LIBRARY DESTINATION "${LIBRARY_INSTALL_DIR}"
+        ARCHIVE DESTINATION "${LIBRARY_INSTALL_DIR}"
+    )
 
-    if: startsWith(github.ref, 'refs/tags/')
+    if(MUSICXML2_RUNTIME_TARGET)
+        install(TARGETS ${MUSICXML2_RUNTIME_TARGET}
+            RUNTIME DESTINATION "${LIBRARY_INSTALL_DIR}"
+            LIBRARY DESTINATION "${LIBRARY_INSTALL_DIR}"
+        )
+    elseif(MUSICXML2_RUNTIME_FILE)
+        install(FILES "${MUSICXML2_RUNTIME_FILE}"
+            DESTINATION "${LIBRARY_INSTALL_DIR}"
+        )
+    endif()
 
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-artifacts
+    if(SWIG_FOUND)
+        message(STATUS "SWIG_USE_FILE: " ${SWIG_USE_FILE})
+        include(${SWIG_USE_FILE})
+        set(CMAKE_SWIG_OUTDIR ${BUILD_LIB_DIR})
 
-      - name: Publish release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release-artifacts/**/*.zip
+        # SWIG also needs the local headers before any installed headers.
+        include_directories(BEFORE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_SOURCE_DIR}
+            ${CMAKE_SOURCE_DIR}/CsoundAC
+        )
+
+        list(APPEND CMAKE_SWIG_FLAGS
+            "-includeall"
+            "-verbose"
+            "-I${CMAKE_CURRENT_SOURCE_DIR}"
+            "-I${CMAKE_SOURCE_DIR}"
+            "-I${CMAKE_SOURCE_DIR}/CsoundAC"
+        )
+    endif()
+
+    if(BUILD_CSOUND_AC_PYTHON_INTERFACE)
+        message(STATUS "Building CsoundAC Python interface.")
+        message(STATUS "CMAKE_INSTALL_LIBDIR: ${CMAKE_INSTALL_LIBDIR}")
+        message(STATUS "Python3_SITEARCH: ${Python3_SITEARCH}")
+        message(STATUS "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
+        include_directories(${Python3_INCLUDE_DIRS})
+
+        # This variable must be set before swig_add_library.
+        set(SWIG_USE_TARGET_INCLUDE_DIRECTORIES TRUE)
+
+        # Had: SWIG_FLAGS "-threads"
+        set_source_files_properties(CsoundAC.i
+            PROPERTIES CPLUSPLUS ON
+            SWIG_USE_TARGET_INCLUDE_DIRECTORIES ON
+            SWIG_MODULE_NAME CsoundAC
+        )
+        swig_add_library(CsoundAC
+            LANGUAGE python
+            SOURCES CsoundAC.i
+        )
+        target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME}
+            BEFORE PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}
+                ${CMAKE_SOURCE_DIR}
+                ${CMAKE_SOURCE_DIR}/CsoundAC
+        )
+
+        swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_LINK_LIBRARIES} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
+
+        target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME}
+            PRIVATE
+                ${EIGEN3_INCLUDE_DIRS}
+                ${Boost_INCLUDE_DIR}
+                ${CSOUND_SOURCE_HOME}/include
+        )
+        target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME} SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/stb ${CMAKE_SOURCE_DIR}/dependencies/CImg ${LIBSNDFILE_INCLUDE_DIR})
+        set_property(TARGET ${SWIG_MODULE_CsoundAC_REAL_NAME}
+            PROPERTY SWIG_INCLUDE_DIRECTORIES
+                ${CMAKE_CURRENT_SOURCE_DIR}
+                ${CMAKE_SOURCE_DIR}
+                ${CMAKE_SOURCE_DIR}/CsoundAC
+                ${EIGEN3_INCLUDE_DIRS}
+                ${Boost_INCLUDE_DIR}
+                ${CSOUND_SOURCE_HOME}/include
+        )
+        target_compile_definitions(${SWIG_MODULE_CsoundAC_REAL_NAME}
+            PRIVATE
+                USE_DOUBLE
+                $<$<STREQUAL:$<TARGET_PROPERTY:libCsoundAC,TYPE>,STATIC_LIBRARY>:CSOUNDAC_STATIC>
+                CSOUND_VERSION_MAJOR=${CSOUND_VERSION_MAJOR}
+                CSOUND_VERSION_MINOR=${CSOUND_VERSION_MINOR}
+        )
+
+        if(WIN32)
+            target_compile_options(${SWIG_MODULE_CsoundAC_REAL_NAME}
+                PRIVATE
+                    ${_csound_ac_windows_cimg_options}
+            )
+        endif()
+
+        if(APPLE)
+            set_target_properties(${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTIES
+                LINK_FLAGS "-undefined dynamic_lookup"
+                BUILD_WITH_INSTALL_RPATH FALSE
+                BUILD_RPATH "$ENV{HOME}/Library/Frameworks;/Library/Frameworks;/opt/homebrew/lib;/usr/local/lib;${BUILD_LIB_DIR}"
+                INSTALL_RPATH "@loader_path/../..;@loader_path;$ENV{HOME}/Library/Frameworks;/Library/Frameworks;/opt/homebrew/lib;/usr/local/lib"
+                INSTALL_RPATH_USE_LINK_PATH TRUE
+            )
+        elseif(UNIX)
+            set_target_properties(${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTIES
+                BUILD_RPATH "${BUILD_LIB_DIR}"
+                INSTALL_RPATH "$ORIGIN/../..;$ORIGIN"
+            )
+        endif()
+
+        target_include_directories(libCsoundAC SYSTEM PRIVATE ${CSOUND_INCLUDE_PATH})
+
+        set_target_properties(${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
+            LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
+            ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB_DIR}"
+        )
+
+        message(STATUS "SWIG_MODULE_CsoundAC_REAL_NAME: ${SWIG_MODULE_CsoundAC_REAL_NAME}")
+
+        # For make install.
+        #
+        # When enabled, preserve the historical behavior: install the SWIG module
+        # and Python files into the active interpreter's site-packages directory.
+        #
+        # On Linux and Windows, do not install into Python3_SITEARCH here. On CI
+        # runners that expands to a real system interpreter directory such as
+        # /usr/local/lib/python3.12/dist-packages, which is not writable and is
+        # also not appropriate for release staging. The relative install rules
+        # below place the Python interface inside the staged distribution tree.
+
+        if(CSOUND_AC_INSTALL_PYTHON_TO_SITEARCH)
+            install(TARGETS ${SWIG_MODULE_CsoundAC_REAL_NAME}
+                LIBRARY DESTINATION "${Python3_SITEARCH}"
+            )
+
+            install(FILES "${BUILD_DIR}/CsoundAC.py"
+                DESTINATION "${Python3_SITEARCH}"
+            )
+
+            install(FILES "${CMAKE_SOURCE_DIR}/silencio/python/GeneralizedContextualGroup.py"
+                DESTINATION "${Python3_SITEARCH}"
+            )
+
+            install(FILES "${CMAKE_SOURCE_DIR}/reaper/ac_reaper.py"
+                DESTINATION "${Python3_SITEARCH}"
+            )
+        endif()
+
+        # For CPack/release ZIP staging on all platforms. These paths are
+        # relative to CMAKE_INSTALL_PREFIX or to the --prefix supplied by
+        # stage_dist, so they work in CI without writing to system locations.
+
+        install(TARGETS "${SWIG_MODULE_CsoundAC_REAL_NAME}"
+            RUNTIME DESTINATION "lib/python/site-packages"
+            LIBRARY DESTINATION "lib/python/site-packages"
+            ARCHIVE DESTINATION "lib/python/site-packages"
+        )
+
+        install(FILES "${BUILD_DIR}/CsoundAC.py"
+            DESTINATION "lib/python/site-packages"
+        )
+
+        install(FILES "${CMAKE_SOURCE_DIR}/silencio/python/GeneralizedContextualGroup.py"
+            DESTINATION "lib/python/site-packages"
+        )
+
+        install(FILES "${CMAKE_SOURCE_DIR}/reaper/ac_reaper.py"
+            DESTINATION "lib/python/site-packages"
+        )
+
+    endif()
+
+endif()
