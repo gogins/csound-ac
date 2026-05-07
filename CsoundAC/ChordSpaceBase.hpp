@@ -284,7 +284,7 @@ P, L, and R have been extended as follows, see Fiore and Satyendra,
                 
 */
 
-static SILENCE_PUBLIC std::string chord_space_version() {
+SILENCE_PUBLIC std::string chord_space_version() {
     char buffer[0x500];
     std::snprintf(buffer, sizeof(buffer), "ChordSpaceBase version 2.1.1. Compiled from %s on %s at %s.", __FILE__, __DATE__, __TIME__);
     return buffer;
@@ -294,12 +294,12 @@ static SILENCE_PUBLIC std::string chord_space_version() {
  * Returns the current state of the chord space debugging flag as a 
  * reference, which can be an lvalue or an rvalue.
  */
-static SILENCE_PUBLIC bool &CHORD_SPACE_DEBUGGING() {
+SILENCE_PUBLIC bool &CHORD_SPACE_DEBUGGING() {
     static bool CHORD_SPACE_DEBUGGING_ = false;
     return CHORD_SPACE_DEBUGGING_;
 }
 
-static SILENCE_PUBLIC bool SET_CHORD_SPACE_DEBUGGING(bool enabled) {
+SILENCE_PUBLIC bool SET_CHORD_SPACE_DEBUGGING(bool enabled) {
     bool prior_value = CHORD_SPACE_DEBUGGING();
     CHORD_SPACE_DEBUGGING() = enabled;
     return prior_value;
@@ -309,12 +309,12 @@ static SILENCE_PUBLIC bool SET_CHORD_SPACE_DEBUGGING(bool enabled) {
  * Returns the current state of the chord space _scoped_ debugging flag as a 
  * reference, which can be an lvalue or an rvalue.
  */
-static SILENCE_PUBLIC bool &SCOPED_DEBUGGING_FLAG() {
+SILENCE_PUBLIC bool &SCOPED_DEBUGGING_FLAG() {
     static bool SCOPED_DEBUGGING_ = false;
     return SCOPED_DEBUGGING_;
 }
 
-static SILENCE_PUBLIC bool SET_SCOPED_DEBUGGING(bool enabled) {
+SILENCE_PUBLIC bool SET_SCOPED_DEBUGGING(bool enabled) {
     bool prior_value = SCOPED_DEBUGGING_FLAG();
     SCOPED_DEBUGGING_FLAG() = enabled;
     return prior_value;
