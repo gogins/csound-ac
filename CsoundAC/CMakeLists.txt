@@ -182,6 +182,19 @@ if(BUILD_CSOUND_AC)
         add_library(libCsoundAC SHARED ${libcsoundac_SRCS})
     endif()
 
+    if(WIN32)
+        set(_csound_ac_windows_cimg_definitions
+            cimg_display=0
+            cimg_use_jpeg=0
+            cimg_use_png=0
+            cimg_use_tiff=0
+            cimg_use_fftw3=0
+            cimg_verbosity=0
+            cimg_OS=2
+            cimg_use_fnmatch=0
+        )
+    endif()
+
     target_compile_definitions(libCsoundAC
     PRIVATE
         USE_DOUBLE
@@ -306,6 +319,7 @@ if(BUILD_CSOUND_AC)
         if(NOT MSVC AND CMAKE_SIZEOF_VOID_P EQUAL 8)
             target_compile_definitions(libCsoundAC PRIVATE -DMS_WIN64)
         endif()
+        target_compile_definitions(libCsoundAC PRIVATE ${_csound_ac_windows_cimg_definitions})
         target_link_libraries(libCsoundAC PRIVATE ${JPEG_LIBRARY} ${PNG_LIBRARY} ${Z_LIBRARY})
     endif()
 
@@ -410,6 +424,13 @@ if(BUILD_CSOUND_AC)
                 CSOUND_VERSION_MAJOR=${CSOUND_VERSION_MAJOR}
                 CSOUND_VERSION_MINOR=${CSOUND_VERSION_MINOR}
         )
+
+        if(WIN32)
+            target_compile_definitions(${SWIG_MODULE_CsoundAC_REAL_NAME}
+                PRIVATE
+                    ${_csound_ac_windows_cimg_definitions}
+            )
+        endif()
 
         if(APPLE)
             set_target_properties(${SWIG_MODULE_CsoundAC_REAL_NAME} PROPERTIES
