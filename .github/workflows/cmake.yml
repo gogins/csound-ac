@@ -262,13 +262,13 @@ jobs:
           cd csound
           .\vcpkg\bootstrap-vcpkg.bat
           cmake -B build -S . `
-            -DBUILD_TESTS=OFF `
-            -DBUILD_JAVA_INTERFACE=OFF `
-            -DBUILD_PYTHON_INTERFACE=OFF `
-            -DUSE_VCPKG=1 `
-            -DCUSTOM_CMAKE="./platform/windows/Custom-vs.cmake" `
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache `
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            "-DBUILD_TESTS=OFF" `
+            "-DBUILD_JAVA_INTERFACE=OFF" `
+            "-DBUILD_PYTHON_INTERFACE=OFF" `
+            "-DUSE_VCPKG=1" `
+            "-DCUSTOM_CMAKE=./platform/windows/Custom-vs.cmake" `
+            "-DCMAKE_C_COMPILER_LAUNCHER=ccache" `
+            "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
           cmake --build build --config Release
           cmake --install build --prefix "$env:CSOUND_INSTALL_PREFIX" --config Release
 
@@ -338,16 +338,16 @@ jobs:
         shell: pwsh
         run: |
           cmake -S . -B "${{ matrix.build_dir }}" -G Ninja `
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo `
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 `
-            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\dist\csound-ac" `
-            -DGENERATE_DOCUMENTATION=OFF `
-            -DCMAKE_PREFIX_PATH="$env:CSOUND_INSTALL_PREFIX;C:\msys64\mingw64" `
-            -DCSOUND_ROOT_HINT="$env:CSOUND_INSTALL_PREFIX" `
-            -DPython3_EXECUTABLE="$(python -c 'import sys; print(sys.executable)')" `
-            -DCSOUND_AC_INSTALL_PYTHON_TO_SITEARCH=OFF `
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache `
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            "-DCMAKE_BUILD_TYPE=RelWithDebInfo" `
+            "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" `
+            "-DCMAKE_INSTALL_PREFIX=${{ github.workspace }}\dist\csound-ac" `
+            "-DGENERATE_DOCUMENTATION=OFF" `
+            "-DCMAKE_PREFIX_PATH=$env:CSOUND_INSTALL_PREFIX;C:\msys64\mingw64" `
+            "-DCSOUND_ROOT_HINT=$env:CSOUND_INSTALL_PREFIX" `
+            "-DPython3_EXECUTABLE=$(python -c 'import sys; print(sys.executable)')" `
+            "-DCSOUND_AC_INSTALL_PYTHON_TO_SITEARCH=OFF" `
+            "-DCMAKE_C_COMPILER_LAUNCHER=ccache" `
+            "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
 
       - name: Build
         shell: bash
