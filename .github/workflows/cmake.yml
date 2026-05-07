@@ -127,7 +127,7 @@ jobs:
             winflexbison3 `
             ccache `
             7zip
-          C:\msys64\usr\bin\pacman.exe -S --noconfirm --needed mingw-w64-x86_64-boost mingw-w64-x86_64-pkgconf mingw-w64-x86_64-libsndfile
+          C:\msys64\usr\bin\pacman.exe -S --noconfirm --needed mingw-w64-x86_64-boost mingw-w64-x86_64-pkgconf mingw-w64-x86_64-libsndfile mingw-w64-x86_64-tools
           echo "C:\ProgramData\chocolatey\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
@@ -163,7 +163,16 @@ jobs:
           $ok = Test-Path $exe
 
           if ($IsWindows) {
+              $import_libraries = @(
+                  (Join-Path $prefix "lib/libcsound64.dll.a"),
+                  (Join-Path $prefix "lib64/libcsound64.dll.a"),
+                  (Join-Path $prefix "lib/csound64.lib"),
+                  (Join-Path $prefix "lib64/csound64.lib"),
+                  (Join-Path $prefix "lib/libcsound64.lib"),
+                  (Join-Path $prefix "lib64/libcsound64.lib")
+              )
               $ok = $ok -and (Test-Path (Join-Path $bin "csound64.dll"))
+              $ok = $ok -and (($import_libraries | Where-Object { Test-Path $_ }).Count -gt 0)
           } elseif ($IsMacOS) {
               $frameworks = @(
                   (Join-Path $prefix "Library/Frameworks/CsoundLib64.framework/CsoundLib64"),
@@ -272,6 +281,43 @@ jobs:
           cmake --build build --config Release
           cmake --install build --prefix "$env:CSOUND_INSTALL_PREFIX" --config Release
 
+      - name: Ensure Csound import library - Windows
+        if: matrix.os_name == 'windows'
+        shell: pwsh
+        run: |
+          $prefix = $env:CSOUND_INSTALL_PREFIX
+          $lib_dir = Join-Path $prefix "lib"
+          New-Item -ItemType Directory -Force -Path $lib_dir | Out-Null
+
+          $import_library = Get-ChildItem -Recurse $prefix `
+            -Include "libcsound64.dll.a","csound64.lib","libcsound64.lib" `
+            -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+
+          if (-not $import_library) {
+              $dll = Get-ChildItem -Recurse $prefix `
+                -Include "csound64.dll" `
+                -ErrorAction SilentlyContinue |
+                Select-Object -First 1
+
+              if (-not $dll) {
+                  throw "Could not find csound64.dll under $prefix."
+              }
+
+              Write-Host "No Csound import library was found; generating libcsound64.dll.a from $($dll.FullName)."
+              Push-Location $lib_dir
+              & gendef "$($dll.FullName)"
+              & dlltool -d "csound64.def" -l "libcsound64.dll.a" -D "csound64.dll"
+              Pop-Location
+
+              $import_library = Get-Item (Join-Path $lib_dir "libcsound64.dll.a")
+          } else {
+              Write-Host "Using existing Csound import library: $($import_library.FullName)"
+          }
+
+          "CSOUND_IMPORT_LIBRARY=$($import_library.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Get-ChildItem -Recurse $prefix -Include "*csound*.dll","*csound*.dll.a","*csound*.lib" | Select-Object FullName
+
       - name: Save repaired Csound install cache
         if: steps.validate-csound-cache.outputs.valid != 'true'
         uses: actions/cache/save@v4
@@ -347,8 +393,8 @@ jobs:
             "-DGENERATE_DOCUMENTATION=OFF" `
             "-DCMAKE_PREFIX_PATH=$env:CSOUND_INSTALL_PREFIX;C:\msys64\mingw64" `
             "-DCSOUND_EXECUTABLE=$env:CSOUND_INSTALL_PREFIX/bin/csound.exe" `
-            "-DCSOUND_LIBRARY=$env:CSOUND_INSTALL_PREFIX/lib64/libcsound64.lib" `
-            "-DCSOUND_LIBRARIES=$env:CSOUND_INSTALL_PREFIX/lib64/libcsound64.lib" `
+            "-DCSOUND_LIBRARY=$env:CSOUND_IMPORT_LIBRARY" `
+            "-DCSOUND_LIBRARIES=$env:CSOUND_IMPORT_LIBRARY" `
             "-DCSOUND_ROOT_HINT=$env:CSOUND_INSTALL_PREFIX" `
             "-DPython3_EXECUTABLE=$(python -c 'import sys; print(sys.executable)')" `
             "-DCSOUND_AC_INSTALL_PYTHON_TO_SITEARCH=OFF" `
