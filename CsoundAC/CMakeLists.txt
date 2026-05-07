@@ -185,13 +185,8 @@ if(BUILD_CSOUND_AC)
     if(WIN32)
         set(_csound_ac_windows_cimg_options
             -Dcimg_display=0
-            -Dcimg_use_jpeg=0
-            -Dcimg_use_png=0
-            -Dcimg_use_tiff=0
-            -Dcimg_use_fftw3=0
             -Dcimg_verbosity=0
             -Dcimg_OS=2
-            -Dcimg_use_fnmatch=0
         )
     endif()
 
