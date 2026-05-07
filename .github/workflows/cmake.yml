@@ -337,6 +337,9 @@ jobs:
         if: matrix.os_name == 'windows'
         shell: pwsh
         run: |
+          Get-ChildItem -Recurse "$env:CSOUND_INSTALL_PREFIX" `
+            -Include "*.dll","*.dll.a","*.lib" |
+            Select-Object FullName
           cmake -S . -B "${{ matrix.build_dir }}" -G Ninja `
             "-DCMAKE_BUILD_TYPE=RelWithDebInfo" `
             "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" `
