@@ -223,6 +223,8 @@ jobs:
             -DBUILD_TESTS=OFF \
             -DBUILD_JAVA_INTERFACE=OFF \
             -DBUILD_PYTHON_INTERFACE=OFF \
+            -DBUILD_PYTHON_OPCODES=OFF \
+            -DUSE_PYTHON=OFF \
             -DCMAKE_INSTALL_PREFIX="$CSOUND_INSTALL_PREFIX" \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
