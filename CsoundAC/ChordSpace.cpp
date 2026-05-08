@@ -1235,7 +1235,7 @@ SILENCE_PUBLIC std::vector<std::string> split(std::string string_) {
     return tokens;
 }
 
-void fill(std::string rootName, double rootPitch, std::string typeName, std::string typePitches, bool is_scale) {
+SILENCE_PUBLIC void fill(std::string rootName, double rootPitch, std::string typeName, std::string typePitches, bool is_scale) {
     Chord chord;
     std::string chordName = rootName + typeName;
     std::vector<std::string> splitPitches = split(typePitches);

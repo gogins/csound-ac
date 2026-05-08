@@ -1732,12 +1732,12 @@ static const char* namesForEquivalenceRelations[] = {
 
 SILENCE_PUBLIC double factorial(double n);
 
-void fill(std::string rootName, double rootPitch, std::string typeName, std::string typePitches, bool is_scale = false);
+SILENCE_PUBLIC void fill(std::string rootName, double rootPitch, std::string typeName, std::string typePitches, bool is_scale = false);
 
 /**
  * Returns a set of chords in one sector of the cyclical region.
  */
-template<int EQUIVALENCE_RELATION> SILENCE_PUBLIC std::vector<Chord> fundamentalDomainByPredicate(int voiceN, double range, double g = 1., int sector=0, bool printme=false);
+template<int EQUIVALENCE_RELATION> std::vector<Chord> fundamentalDomainByPredicate(int voiceN, double range, double g = 1., int sector=0, bool printme=false);
 
 /**
  * Returns a set of chords in the union of all sectors of the cyclical region,
@@ -1747,7 +1747,7 @@ template<int EQUIVALENCE_RELATION> SILENCE_PUBLIC std::vector<Chord> fundamental
  * This avoids scanning an ambient box and therefore prevents pathological
  * growth in candidate counts for higher voice counts.
  */
-template<int EQUIVALENCE_RELATION> SILENCE_PUBLIC std::vector<Chord> fundamentalDomainByGeneration(int voiceN, double range, double g = 1., int sector=0, bool printme=false);
+template<int EQUIVALENCE_RELATION> std::vector<Chord> fundamentalDomainByGeneration(int voiceN, double range, double g = 1., int sector=0, bool printme=false);
 
 /**
  * Returns the pitch reflected in the center, which may be any pitch.
