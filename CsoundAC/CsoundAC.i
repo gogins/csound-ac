@@ -48,7 +48,9 @@
 /* Don't export this to avoid build failures on amd64 */
 %ignore Counterpoint::message(const char*, va_list);
 %ignore csound::print(const char*, va_list);
-
+#ifdef _WIN32
+%ignore csound::message_callback;
+#endif
 %module(directors="1") CsoundAC
 %{
     #include <algorithm>
