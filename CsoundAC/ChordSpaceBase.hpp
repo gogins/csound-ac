@@ -1770,7 +1770,7 @@ SILENCE_PUBLIC int indexForOctavewiseRevoicing(const Chord &origin, const Chord 
  */
 SILENCE_PUBLIC int indexForOctavewiseRevoicing(const Chord &chord, double range);
 
-void initializeNames();
+SILENCE_PUBLIC void initializeNames();
 
 /**
  * Template function returning whether or not the chord is within the 
