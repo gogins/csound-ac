@@ -2253,7 +2253,7 @@ SILENCE_PUBLIC Chord voiceleadingSimpler(const Chord &source, const Chord &d1, c
 //////////////////////////////////////////////////////////////////////////////
 
 template<int EQUIVALENCE_RELATION>
-SILENCE_PUBLIC std::vector<csound::Chord>
+std::vector<csound::Chord>
 fundamentalDomainByPredicate(int voiceN, double range, double g, int sector, bool printme)
 {
     const char *name_ = namesForEquivalenceRelations[EQUIVALENCE_RELATION];
@@ -2319,7 +2319,7 @@ fundamentalDomainByPredicate(int voiceN, double range, double g, int sector, boo
 }   
 
 template<int EQUIVALENCE_RELATION>
-SILENCE_PUBLIC std::vector<csound::Chord>
+std::vector<csound::Chord>
 fundamentalDomainByGeneration(int voiceN, double range, double g, int sector, bool printme)
 {
     const char *name_ = namesForEquivalenceRelations[EQUIVALENCE_RELATION];
