@@ -102,12 +102,6 @@ jobs:
             flex \
             doxygen \
             graphviz \
-            texlive-latex-base \
-            texlive-latex-extra \
-            texlive-fonts-recommended \
-            texlive-fonts-extra \
-            texlive-science \
-            latexmk \
             ccache \
             zip \
             p7zip-full

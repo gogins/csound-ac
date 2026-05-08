@@ -298,8 +298,6 @@ install(FILES ${CMAKE_SOURCE_DIR}/copyright.txt
     DESTINATION share/doc/${CPACK_PACKAGE_NAME}
     RENAME copyright)
 if(GENERATE_DOCUMENTATION)
-    install(FILES ${CMAKE_SOURCE_DIR}/doc/latex/csound-ac.pdf
-        DESTINATION share/doc/${CPACK_PACKAGE_NAME})
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/doc/html
         DESTINATION share/doc/${CPACK_PACKAGE_NAME})
 endif()
