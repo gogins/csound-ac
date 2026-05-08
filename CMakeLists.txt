@@ -345,6 +345,32 @@ install(FILES "playpen/README.md"
  # This makes the ZIP contain "csound-ac/..." rather than trying to write into /opt/homebrew.
  set(CPACK_PACKAGING_INSTALL_PREFIX "csound-ac")
 
+# macOS signing/notarization defaults for local builds.
+#
+# Local developer builds are unsigned by default and require no Apple
+# credentials.  Official release builds may opt in with:
+#
+#   source ~/.csound-release-signing.env
+#   cmake -DCSOUND_AC_ENABLE_CODESIGN=ON -DCSOUND_AC_ENABLE_NOTARIZATION=ON ...
+#
+# The Apple credential variables are read from the environment only when not
+# supplied explicitly on the CMake command line.
+option(CSOUND_AC_ENABLE_CODESIGN "Codesign macOS release artifacts" OFF)
+option(CSOUND_AC_ENABLE_NOTARIZATION "Notarize macOS release archive" OFF)
+
+if(NOT DEFINED APPLE_CODESIGN_IDENTITY AND DEFINED ENV{APPLE_CODESIGN_IDENTITY})
+    set(APPLE_CODESIGN_IDENTITY "$ENV{APPLE_CODESIGN_IDENTITY}")
+endif()
+if(NOT DEFINED APPLE_NOTARY_KEY AND DEFINED ENV{APPLE_NOTARY_KEY})
+    set(APPLE_NOTARY_KEY "$ENV{APPLE_NOTARY_KEY}")
+endif()
+if(NOT DEFINED APPLE_NOTARY_KEY_ID AND DEFINED ENV{APPLE_NOTARY_KEY_ID})
+    set(APPLE_NOTARY_KEY_ID "$ENV{APPLE_NOTARY_KEY_ID}")
+endif()
+if(NOT DEFINED APPLE_NOTARY_ISSUER_ID AND DEFINED ENV{APPLE_NOTARY_ISSUER_ID})
+    set(APPLE_NOTARY_ISSUER_ID "$ENV{APPLE_NOTARY_ISSUER_ID}")
+endif()
+
 # Local and CI release target stack:
 #   stage_dist    -> install into ./dist/csound-ac
 #   sign_dist     -> codesign staged macOS Mach-O binaries when enabled

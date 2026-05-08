@@ -11,31 +11,30 @@ This repository contains:
 1.  CsoundAC, an algorithmic composition library designed to be used with 
     Csound 7 (but can also be used without Csound). CsoundAC is written in 
     C++, and has both C++ and Python interfaces. CsoundAC implements 
-    _music models_, which are kind of like scene graphs for pieces. CsoundAC 
-    has sophisticated facilities for working with tonal and non-tonal chords, 
-    progressions, and scales, and for implementing classical-style 
-    voice-leading in generated scores.
+    _music models_, which are kind of like scene graphs for musical 
+    compositions. CsoundAC has sophisticated facilities for working with tonal 
+    and non-tonal chords, progressions, and scales, and for implementing 
+    classical-style voice-leading in generated scores.
     
 2.  My computer music playpen, designed to facilitate algorithmic composition 
-    with Csound and CsoundAC by extending standard text editors. The playpen 
-    makes it possible to run various kinds of Csound pieces, and even to build 
-    C++ pieces and plugin opcodes, from the editor. For more information, see 
-    `playpen/README.md`.
+    with Csound and CsoundAC. The playpen makes it possible to run various 
+    kinds of Csound pieces, and even to build C++ pieces and plugin opcodes, 
+    using a Python script. For more information, see `playpen/README.md`.
     
-3.  My Visual Studio Code extension that implements the computer music 
-    playpen. Consider working in this environment. For more information, see 
-    `vscode-playpen/README.md`
+3.  My Visual Studio Code extension that runs all the computer music playpen 
+    commands from the editor. Consider working in this environment. For more 
+    information, see `vscode-playpen/README.md`
     
-4.  silencio, a JavaScript library for algorithmic composition similar to 
+4.  `patches`, a library of Csound instrument definitions, developed over many 
+    years and used in many of my pieces.
+
+5.  ac_reaper, a utility that supports doing algorithmic composition within 
+    the Reaper digital audio workstation, using Python ReaScripts.
+
+6.  silencio, a JavaScript library for algorithmic composition similar to 
     CsoundAC. However, using the WebAssembly build of CsoundAC in 
     [csound-wasm](https://github.com/gogins/csound-wasm) is now recommended in 
     place of silencio.
-    
-5.  patches, a library of Csound instrument definitions, developed over many 
-    years and used in many of my pieces.
-
-6.  ac_reaper, a utility that supports doing algorithmic composition within 
-    the Reaper digital audio workstation, using Python ReaScripts.
 
 Currently, CsoundAC is developed and tested on macOS, and built and released 
 on macOS, Linux, and Windows.
@@ -84,7 +83,7 @@ https://gogins.github.io/csound-examples.
         to the operating system `PATH` environment variable.
 
     4.  To uninstall, you can list the contents of the archive to a file, 
-        e.g. `unzip unzip csound-ac-0.5.0-Darwin.zip -l > listing.txt`. You 
+        e.g. `unzip unzip csound-ac-8.0.0-Darwin.zip -l > listing.txt`. You 
         can use this to identify files to remove, and you could even write 
         a script to parse `listing.txt` and remove all files listed therein.
 
@@ -123,22 +122,46 @@ these files to your home directory or other places.
 
 ## Building On Your Local Computer
 
-The following instructions are for macOS. Linux is similar. For 
-more information, look at `./github/cmake.yaml`. However, on Linux it may be 
-better to build Csound from source code.
+The following instructions are for macOS. The other platforms are simiilar. 
+For more information, look at `./github/cmake.yaml`. 
 
-1.  Clone this Git repository.
+1.  Build Csound 7 locally from source code, or install the official Csound 7 
+    release for your platform.
 
-2.  On macOS, run the `externals/bootstrap-development.sh` on macOS to 
+2.  Clone this Git repository.
+
+3.  On macOS, run the `externals/bootstrap-development.sh` on macOS to 
     install binary and library dependencies.
 
-3.  Execute `bash update-dependencies.sh`.
+4.  Execute `bash update-dependencies.sh`.
  
-4.  Execute `clean-build-<your platform>.sh` to build CsoundAC. This will also 
+5.  Execute `clean-build-<your platform>.sh` to build CsoundAC. This will also 
     install CsoundAC.
 
+On macOS, local builds are by default not signed or notarized. If you need to 
+build signed or notarized releases, export environment variables for the 
+required secrets using a shell script such as:
+```
+# ~/csound-release-signing.env
+# This file is used to set environment variables for code signing and 
+# notarization when locally building Csound-based projects. It should be 
+# sourced before running such builds.
+export APPLE_CODESIGN_IDENTITY="Developer ID Application: My Name (9999999999)"
+export APPLE_NOTARY_KEY="$HOME$/private-keys/AuthKey_9999999999.p8"
+export APPLE_NOTARY_KEY_ID="9999999999"
+export APPLE_NOTARY_ISSUER_ID="a9a9a9a9-a9a9-a9a9-a9a9-a9a9a9a9a9a9"
+```
+Then:
+```
+source ~/csound-release-signing.env
+cmake -DCSOUND_AC_ENABLE_CODESIGN=ON -DCSOUND_AC_ENABLE_NOTARIZATION=ON ...
+```
 To uninstall, change to the build directory and execute 
 "xargs rm -v < install_manifest.txt".
+
+If you want to contribute to the development of CsoundAC, fork this 
+repository, make your contributions in that repository, and issue a 
+pull request for your contributions.
 
 ## Release Notes
 
