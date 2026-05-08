@@ -82,7 +82,7 @@ namespace csound {
 
     SILENCE_PUBLIC int message_level(int verbosity) ;
 
-    MessageCallbackType &message_callback();
+    SILENCE_PUBLIC MessageCallbackType &message_callback();
 
     SILENCE_PUBLIC FILE* &log_file() ;
 
