@@ -5,6 +5,10 @@
 #include <cstdlib>
 #include <cstdio>
 #include <string>
+#ifdef _WIN32
+#include <windows.h>
+#include <intrin.h>
+#endif
 
 // g++ -Dlinux -m32 --std=gnu++17 -lstdc++fs -Wno-write-strings -I. -I/usr/include -I/usr/include/eigen3 -O2 -g ChordSpaceTest.cpp -oChordSpaceTest 
 // c++ ChordSpaceTest.cpp -v --std=gnu++17 -lstdc++ -O3 -g -Wno-write-strings -I.  -I/Library/Frameworks/CsoundLib64.framework/Versions/6.0/Headers -I/usr/local/include -I/usr/local/include/csound -I/opt/homebrew/Cellar/eigen/3.4.0_1/include/eigen3 -I/opt/homebrew/Cellar/boost/1.78.0_1/include -I/opt/local/include /Library/Frameworks/CsoundLib64.framework/Versions/6.0/CsoundLib64 -lCsoundAC -L/opt/homebrew/lib -lsndfile -lgc -lpthread -ldl -lm -oChordSpaceTest
@@ -400,8 +404,15 @@ int main(int argc, char **argv) {
     auto pid = getpid();
     std::fprintf(stderr, "Raising SIGSTOP for pid %d to allow attaching a debugger;\n", pid);
     std::fprintf(stderr, "execute 'fg' in terminal to resume, or attach debugger with 'lldb -p %d'\n", pid);
+#ifdef _WIN32
+    while (!IsDebuggerPresent())
+    {
+        Sleep(100);
+    }
+    __debugbreak();
+#else
     raise(SIGSTOP);
-
+#endif
     std::cerr << csound::chord_space_version() << std::endl;
     csound::Chord CM = csound::chordForName("C+");
     CM = CM.T(-4.);
