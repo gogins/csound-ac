@@ -382,4 +382,61 @@ set(CSOUND_AC_ARCHIVE
 message(STATUS "CSOUND_AC_ARCHIVE: ${CSOUND_AC_ARCHIVE}")
 include("${CMAKE_SOURCE_DIR}/cmake/CsoundACRelease.cmake")
 
+
+# ------------------------------------------------------------------------------
+# Gatekeeper/signing verification for macOS release archives
+# ------------------------------------------------------------------------------
+#
+# codesign_check is created only for macOS builds explicitly configured for both
+# signing and notarization. Local unsigned builds do not run this check.
+#
+# When enabled, codesign_check depends on notarize_dist, so it runs after the
+# archive has been signed, packaged, and notarized. If codesign-check.bash returns
+# nonzero, the CMake build fails. release_dist depends on codesign_check so the
+# normal release build path fails as well.
+if(APPLE AND CSOUND_AC_ENABLE_CODESIGN AND CSOUND_AC_ENABLE_NOTARIZATION)
+    set(CSOUND_AC_CODESIGN_CHECK_SCRIPT_DEFAULT
+        "${CMAKE_SOURCE_DIR}/external/codesign-check.bash"
+    )
+
+    if(NOT EXISTS "${CSOUND_AC_CODESIGN_CHECK_SCRIPT_DEFAULT}")
+        set(CSOUND_AC_CODESIGN_CHECK_SCRIPT_DEFAULT
+            "${CMAKE_SOURCE_DIR}/codesign-check.bash"
+        )
+    endif()
+
+    set(CSOUND_AC_CODESIGN_CHECK_SCRIPT
+        "${CSOUND_AC_CODESIGN_CHECK_SCRIPT_DEFAULT}"
+        CACHE FILEPATH "Script used to validate the signed/notarized macOS release ZIP."
+    )
+
+    if(EXISTS "${CSOUND_AC_CODESIGN_CHECK_SCRIPT}")
+        add_custom_target(codesign_check
+            DEPENDS notarize_dist
+            COMMAND /bin/bash
+                "${CSOUND_AC_CODESIGN_CHECK_SCRIPT}"
+                "${CSOUND_AC_ARCHIVE}"
+            VERBATIM
+            COMMENT "Checking signed macOS release archive with codesign-check.bash"
+        )
+
+        if(TARGET release_dist)
+            add_dependencies(release_dist codesign_check)
+        endif()
+    else()
+        message(WARNING
+            "codesign-check.bash was not found. "
+            "Expected ${CMAKE_SOURCE_DIR}/external/codesign-check.bash or "
+            "${CMAKE_SOURCE_DIR}/codesign-check.bash. "
+            "The codesign_check target will not be created."
+        )
+    endif()
+else()
+    message(STATUS
+        "codesign-check.bash validation is disabled. "
+        "Enable it with -DCSOUND_AC_ENABLE_CODESIGN=ON "
+        "-DCSOUND_AC_ENABLE_NOTARIZATION=ON on macOS."
+    )
+endif()
+
 include(CPack)
