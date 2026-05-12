@@ -1,5 +1,5 @@
 # Build CsoundAC
-cmake_minimum_required(VERSION 3.28+)
+cmake_minimum_required(VERSION 3.28)
 include(CheckIncludeFiles)
 include(GNUInstallDirs)
 
@@ -29,9 +29,15 @@ option(CSOUND_AC_INSTALL_PYTHON_TO_SITEARCH
 
 find_package(SWIG)
 
-# /opt/homebrew/Cellar/python@3.12/3.12.7_1/Frameworks/Python.framework/Versions/3.12/lib/libpython3.12.dylib -> ../Python)
-find_package(Python3 3.12 EXACT COMPONENTS Interpreter Development)
-message(STATUS "Python libraries:  ${PYTHONLIBS_VERSION_STRING}")
+# Python 3.12+ from PATH or -DPython3_EXECUTABLE / Python3_ROOT_DIR (Homebrew, python.org,
+# pyenv, GitHub actions/setup-python, etc.). Development.Module + Python3::Module avoids
+# linking libpython; on macOS we also use -undefined dynamic_lookup so symbols resolve from
+# the interpreter that imports _CsoundAC. The extension ABI still matches the Python *minor*
+# used at compile time (e.g. a wheel built with 3.12 is for 3.12.x). A single .so for all
+# minors would need Py_LIMITED_API and is incompatible with SWIG %feature("director").
+find_package(Python3 3.12 REQUIRED COMPONENTS Interpreter Development.Module)
+message(STATUS "Python3_EXECUTABLE: ${Python3_EXECUTABLE}")
+message(STATUS "Python3_VERSION: ${Python3_VERSION}")
 
 # Ensure LIBSNDFILE_LIBRARY is a resolvable library path (not just '-lsndfile').
 # The top-level CMake provides LIBSNDFILE_LIBRARY_DIRS when discovered via pkg-config.
@@ -394,7 +400,7 @@ if(BUILD_CSOUND_AC)
                 ${CMAKE_SOURCE_DIR}/CsoundAC
         )
 
-        swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_LINK_LIBRARIES} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY} ${Python3_LIBRARIES})
+        swig_link_libraries(CsoundAC libCsoundAC ${MUSICXML2_LINK_LIBRARIES} ${CSOUND_LIBRARIES} ${LIBSNDFILE_LIBRARY} Python3::Module)
 
         target_include_directories(${SWIG_MODULE_CsoundAC_REAL_NAME}
             PRIVATE

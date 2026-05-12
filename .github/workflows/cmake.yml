@@ -46,6 +46,7 @@ jobs:
         with:
           submodules: recursive
 
+      # CsoundAC requires Python >= 3.12; CMake uses this interpreter (not only Homebrew/apt python).
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:

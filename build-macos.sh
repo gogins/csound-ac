@@ -28,5 +28,7 @@ cmake --build "$build_dir" --target release_dist --verbose
 
 sudo cmake --install "$build_dir"
 
-echo "Finished building csound-ac for macOS."
 echo "Archive: $archive"
+./external/codesign-check.bash ./build-macos/csound-ac-8.0.0-Darwin.zip
+echo "Finished building csound-ac for macOS."
+

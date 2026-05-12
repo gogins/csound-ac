@@ -209,7 +209,7 @@ endif()
 find_package(Boost 1.65 REQUIRED)
 message("[DEBUG] Boost_INCLUDE_DIR: ${Boost_INCLUDE_DIR}")
 
-find_package(Python3 3.12 EXACT COMPONENTS Interpreter Development)
+find_package(Python3 3.12 REQUIRED COMPONENTS Interpreter Development.Module)
 find_package(SWIG)
 include(UseSWIG)
 find_package(SWIG)
