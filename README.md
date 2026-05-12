@@ -62,13 +62,7 @@ https://gogins.github.io/csound-examples.
 1.  You must first install [Csound 7](https://github.com/csound/csound) on 
     your system for sound synthesis.
     
-2.  Install [Python](https://www.python.org/) **3.12 or newer** (Homebrew, python.org,
-    `actions/setup-python`, etc.). Configure with `-DPython3_EXECUTABLE=...` pointing at
-    the interpreter you want to load the module. The `_CsoundAC` extension is built as a
-    normal module (**no** hard link to a vendor `libpython` on macOS/Linux), so it installs
-    and runs with that same class of Python (3.12+). It is still tied to the **minor**
-    version used at build time (e.g. a build with 3.12 is for 3.12.x; rebuild with 3.13 for
-    3.13.x).
+2.  Install [Python](https://www.python.org/) **3.12**. 
     
 3.  There are prebuilt binary releases for this package available at 
     https://github.com/gogins/csound-ac/releases. These can be downloaded,
