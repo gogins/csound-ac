@@ -52,37 +52,64 @@
 %module(directors="1") CsoundAC
 %{
     #include <algorithm>
+    #include <cstring>
     #include "Silence.hpp"
 %}
 %apply int { size_t };
 
+/* Python 3.12+: PyString_* are gone; use str (Unicode) + heap copy for each element. */
 %typemap(in) char ** {
-  /* Check if is a list */
-  if (PyList_Check($input)) {
-    int size = PyList_Size($input);
-    int i = 0;
-    $1 = (char **) malloc((size+1)*sizeof(char *));
-    for (i = 0; i < size; i++) {
-      PyObject *o = PyList_GetItem($input,i);
-      if (PyString_Check(o))
-        $1[i] = PyString_AsString(PyList_GetItem($input,i));
-      else {
-        PyErr_SetString(PyExc_TypeError,"list must contain strings");
-        free($1);
-        return NULL;
-      }
-    }
-    $1[i] = 0;
-  } else {
-    PyErr_SetString(PyExc_TypeError,"not a list");
+  if (!PyList_Check($input)) {
+    PyErr_SetString(PyExc_TypeError, "not a list");
     return NULL;
   }
+  const Py_ssize_t size = PyList_GET_SIZE($input);
+  $1 = (char **) malloc((size + 1) * sizeof(char *));
+  if (!$1) {
+    PyErr_NoMemory();
+    return NULL;
+  }
+  for (Py_ssize_t i = 0; i < size; ++i) {
+    PyObject *o = PyList_GET_ITEM($input, i);
+    if (!o || !PyUnicode_Check(o)) {
+      PyErr_SetString(PyExc_TypeError, "list must contain str");
+      for (Py_ssize_t j = 0; j < i; ++j) free($1[j]);
+      free($1);
+      $1 = NULL;
+      return NULL;
+    }
+    const char *utf8 = PyUnicode_AsUTF8(o);
+    if (!utf8) {
+      for (Py_ssize_t j = 0; j < i; ++j) free($1[j]);
+      free($1);
+      $1 = NULL;
+      return NULL;
+    }
+    const size_t len = std::strlen(utf8);
+    $1[i] = (char *) malloc(len + 1u);
+    if (!$1[i]) {
+      for (Py_ssize_t j = 0; j < i; ++j) free($1[j]);
+      free($1);
+      $1 = NULL;
+      PyErr_NoMemory();
+      return NULL;
+    }
+    std::memcpy($1[i], utf8, len + 1u);
+  }
+  $1[size] = NULL;
 }
 
 %typemap(freearg) char ** {
-  free((char *) $1);
+  if ($1) {
+    for (char **p = $1; *p; ++p) {
+      free(*p);
+    }
+    free($1);
+  }
 }
 
+/* Directors need the full Python C API; Py_LIMITED_API (stable ABI across minors) is not a
+   practical combination with SWIG directors—prefer separate builds per Python minor (e.g. wheels). */
 %feature("director") Node;
 %include <Silence.hpp>
 %include <Conversions.hpp>
