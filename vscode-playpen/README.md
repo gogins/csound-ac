@@ -75,9 +75,9 @@ routines for rendering and post-processing .csd files, .cpp files, and
 so that the gedit menu will have convenient commands for working with 
 algorithmic composition.
 
-1.  Make a symbolic link in your home directory to csound-extended/playpen/
+1.  Make a symbolic link in your home directory to csound-ac/playpen/
     playpen.py.
-2.  Copy csound-extended/playpen/playpen.ini to your home directory and 
+2.  Copy csound-ac/playpen/playpen.ini to your home directory and 
     customize it for your system and your personal metadata.
 3.  Install the `playpen.vsix` extension in Visual Studio Code.
     
@@ -123,11 +123,11 @@ environment.
 Requirements for composing with CsoundAC (usable from C++, Python, or 
 JavaScript). These requirements also apply to composing with C++:
 
-9.  CsoundAC is part of this [csound-ac](https://github.com/gogins/csound-extended)
+9.  CsoundAC is part of this [csound-ac](https://github.com/gogins/csound-ac)
     repository. CsoundAC has advanced features for algorithmic composition, 
     including support for tonal harmony and counterpoint. Install if you can 
     or build if you must, according to instructions 
-    [here](https://github.com/gogins/csound-extended).
+    [here](https://github.com/gogins/csound-ac).
     
 Requirements for composing with HTML5:
 
@@ -148,7 +148,7 @@ Additional useful things:
     Ubuntu linux, [here](https://href.li/?https://drive.google.com/file/d/1mYHyjoD7RUrPpST3ISa9CsxIg5wTspXc/view?usp=sharing).
 18. [csound-vst3-opcodes](https://github.com/gogins/csound-vst3-opcodes) 
     enables Csound to use VST3 plugins.
-19. [csound-extended-nudruz](https://github.com/gogins/csound-extended-nudruz) 
+19. [csound-nudruz](https://github.com/gogins/csound-nudruz) 
     provides Csound suppport for composing in 
     Common Lisp using Drew Krause's extensions to Common Music.
 20. [musx](https://github.com/musx-admin/musx) is Rick Taube's translation of 
