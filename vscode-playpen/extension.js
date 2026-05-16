@@ -9,18 +9,52 @@ const vscode = require('vscode');
 
 function get_python_interpreter() {
 	const configuration = vscode.workspace.getConfiguration('python');
-	const python_interpreter = configuration.get('defaultInterpreterPath');
-   	vscode.window.setStatusBarMessage("Using python interpreter: " + python_interpreter);
+	let python_interpreter = configuration.get('defaultInterpreterPath');
+	if (!python_interpreter) {
+		python_interpreter = 'python3';
+	}
+	vscode.window.setStatusBarMessage("Using python interpreter: " + python_interpreter);
 	return python_interpreter;
 }
 
-async function spawner(command, filepath) {
+/** Single-quoted POSIX shell escaping for paths that may contain spaces. */
+function shSingleQuote(s) {
+	return "'" + String(s).replace(/'/g, "'\\''") + "'";
+}
+
+/** Run terminal in the directory containing `filepath`; do not rely on workspace cwd. */
+function spawner(shellCommandLine, filepath) {
+	const cwd = path.dirname(filepath);
 	let terminal_options = {"name": "Playpen",
-		"cwd": path.dirname(filepath)};	
+		cwd};	
 	let terminal = vscode.window.createTerminal(terminal_options);
 	terminal.show(false);
-	terminal.sendText("cd "  + path.dirname(filepath), true);
-	terminal.sendText(command, true);
+	terminal.sendText(shellCommandLine, true);
+}
+
+function activatePythonPiece(uri) {
+	let filepath = null;
+	if (uri && uri.fsPath) {
+		filepath = uri.fsPath;
+	} else if (vscode.window.activeTextEditor) {
+		filepath = vscode.window.activeTextEditor.document.uri.fsPath;
+	}
+	if (!filepath) {
+		vscode.window.showErrorMessage('No Python file selected.');
+		return;
+	}
+	if (!filepath.toLowerCase().endsWith('.py')) {
+		vscode.window.showErrorMessage('Not a Python (.py) file: ' + filepath);
+		return;
+	}
+	const python_interpreter = get_python_interpreter();
+	let line;
+	if (process.platform === 'win32') {
+		line = '"' + python_interpreter.replace(/"/g, '\\"') + '" "' + filepath.replace(/"/g, '\\"') + '"';
+	} else {
+		line = `${shSingleQuote(python_interpreter)} ${shSingleQuote(filepath)}`;
+	}
+	spawner(line, filepath);
 }
 
 function activate(context) {
@@ -87,6 +121,10 @@ function activate(context) {
 		console.log(`Rendering "${filepath}..."`)
 		const python_interpreter = get_python_interpreter();
 		spawner(`${python_interpreter} ~/playpen.py cpp-play ${filepath}`, filepath);
+	});
+	context.subscriptions.push(disposable);
+	disposable = vscode.commands.registerCommand('playpen.python_piece', function (uri) {
+		activatePythonPiece(uri || null);
 	});
 	context.subscriptions.push(disposable);
 	disposable = vscode.commands.registerCommand('playpen.html5Reference', function () {

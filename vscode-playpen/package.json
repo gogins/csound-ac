@@ -60,6 +60,10 @@
         "title": "Compile .cpp as CsoundAC application, render soundfile, post-process, edit"
       },
       {
+        "command": "playpen.python_piece",
+        "title": "Run .py piece (cwd = file directory)"
+      },
+      {
         "command": "playpen.csoundReference",
         "title": "Csound reference"
       },
@@ -139,15 +143,22 @@
           "group": "CXX",
           "when": "editorTextFocus"
         },
+        {
+          "command": "playpen.python_piece",
+          "group": "Python",
+          "when": "editorLangId == python && editorTextFocus"
+        },
         { "command": "playpen.remove", "group": "navigation", "when": "editorTextFocus" },
         { "command": "playpen.attic", "group": "navigation", "when": "editorTextFocus" },
         { "command": "playpen.protect", "group": "navigation", "when": "editorTextFocus" }
       ],
       "explorer/context": [
+        { "command": "playpen.python_piece", "when": "resourceExtname =~ /\\.py$/i", "group": "Python" },
         { "command": "playpen.remove", "group": "navigation" },
         { "command": "playpen.attic", "group": "navigation" },
         { "command": "playpen.protect", "group": "navigation" }
-      ],
+      ]
+    },
     "keybindings": [
         {
           "command": "playpen.remove",
@@ -171,7 +182,6 @@
           "win": "ctrl+alt+p"
         }
       ]
-    }
   },
   "scripts": {
     "lint": "eslint .",
