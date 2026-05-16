@@ -132,7 +132,11 @@ Opcodes/stk/*/
 ## Others
 TAGS
 po/old_*
+
+# WAV / AIFF binaries are usually large; git cannot ignore by size. Use `git add -f` only for intentional tiny assets.
 *.wav
+*.aif
+*.aiff
 ##Release_Notes/*
 
 .DS_Store
