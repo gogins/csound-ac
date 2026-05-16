@@ -50,12 +50,17 @@ C++ offers considerably more power and speed. The WebAssembly build of
 CsoundAC in [csound-wasm](https://github.com/gogins/csound-wasm) has the same 
 power as the C++ library and somewhat less speed.
 
-Examples (some of which can also serve as tests) for the various aspects of 
-csound-ac are maintained in my separate 
-[csound-examples](https://github.com/gogins/csound-examples) 
-repository. Some of the examples there will run in WebBrowsers using 
-WebAssembly, and these can be viewed at 
-https://gogins.github.io/csound-examples.
+## Examples and Tests
+
+I have not created very many unit tests for CsoundAC. Instead, functionality 
+can be verified by running the following test programs and compositions, as 
+they exercise much of the functionality of CsoundAC.
+
+ - The [ChordSpaceTests](CsoundAC/ChordSpaceTests.cpp) program in this release does run unit tests, but 
+   only for the chord space code.
+ - [Blue Leaves](https://github.com/gogins/michael.gogins.studio/tree/master/music/finished/Blue_Leaves-2.0.0) tests the C++ interface to CsoundAC.
+ - [Cellular-5.2.0](https://github.com/gogins/michael.gogins.studio/tree/master/music/finished/Cellular-5.0.0) tests the Python interface to CsoundAC.
+ - [Pianissimo](https://github.com/gogins/michael.gogins.studio/tree/master/music/finished/Pianissimo-1.0.0) tests the Reaper ReaScript addon.
 
 ## Installation
 
