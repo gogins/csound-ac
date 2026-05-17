@@ -330,7 +330,7 @@ if(BUILD_CSOUND_AC)
         )
     endif()
 
-    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIRECTORY}"
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
         DESTINATION "include/csound"
         FILES_MATCHING PATTERN "*.hpp"
     )

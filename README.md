@@ -56,9 +56,9 @@ I have not created very many unit tests for CsoundAC. Instead, functionality
 can be verified by running the following test programs and compositions, as 
 they exercise much of the functionality of CsoundAC.
 
- - The [ChordSpaceTests](CsoundAC/ChordSpaceTests.cpp) program in this release does run unit tests, but 
-   only for the chord space code.
- - [Blue Leaves](https://github.com/gogins/michael.gogins.studio/tree/master/music/finished/Blue_Leaves-2.0.0) tests the C++ interface to CsoundAC.
+ - The [ChordSpaceTests](CsoundAC/ChordSpaceTests.cpp) program in this release 
+   does run unit tests, but only for the chord space code.
+ - [Blue Leaves](https://github.com/gogins-dev/csound-ac/blob/master/examples/blue_leaves/Blue_Leaves_von_Ruesner-2.cpp) tests the C++ interface to CsoundAC.
  - [Cellular-5.2.0](https://github.com/gogins/michael.gogins.studio/tree/master/music/finished/Cellular-5.0.0) tests the Python interface to CsoundAC.
  - [Pianissimo](https://github.com/gogins/michael.gogins.studio/tree/master/music/finished/Pianissimo-1.0.0) tests the Reaper ReaScript addon.
 
