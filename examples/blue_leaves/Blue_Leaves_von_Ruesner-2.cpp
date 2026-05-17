@@ -322,6 +322,9 @@ gkMasterLevel                   init                    1.5
 
 ;; Original Instruments
 
+giBanchoffKleinBottle_sine_1    ftgen                   0, 0, 65536, 10, 1
+giBanchoffKleinBottle_cosine_2  ftgen                   0, 0, 65536, 11, 1
+
                                 instr                   BanchoffKleinBottle
                                 //////////////////////////////////////////////
                                 // Original by Hans Mikelson.
@@ -356,8 +359,8 @@ iu                              init                    5 ; p6
 iv                              init                    0.5 ; p7
 irt2                            init                    sqrt(2)
 aampenv                         linseg                  0, 0.02, ip4,  p3 - 0.04, ip4, 0.02, 0
-isine                  	        ftgenonce               0, 0, 65536, 10, 1
-icosine                  	    ftgenonce               0, 0, 65536, 11, 1
+isine                           =                       giBanchoffKleinBottle_sine_1
+icosine                         =                       giBanchoffKleinBottle_cosine_2
                                 ; Cosines
 acosu                           oscili                  1, iu * ifqc, icosine
 acosu2                          oscili                  1, iu * ifqc / 2, icosine
@@ -456,6 +459,8 @@ aoutleft, aoutright             pan2                    asignal * iamplitude * a
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin                                
 
+giChebyshevDrone_sinetable_1    ftgen                   0, 0, 65536, 10, 1, 0, .02
+
                                 instr                   ChebyshevDrone
                                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                                 ; By Michael Gogins.
@@ -485,7 +490,7 @@ iattack                         init                    p3 / 4.0
 idecay                          init                    p3 / 4.0
 isustain                        init                    p3 / 2.0
 aenvelope                       transeg                 0.0, iattack / 2.0, 2.5, iamp / 2.0, iattack / 2.0, -2.5, iamp, isustain, 0.0, iamp, idecay / 2.0, 2.5, iamp / 2.0, idecay / 2.0, -2.5, 0.
-isinetable                      ftgenonce               0, 0, 65536, 10, 1, 0, .02
+isinetable                      =                       giChebyshevDrone_sinetable_1
 asignal                         poscil3                 1, ihertz, isinetable
 asignal                         chebyshevpoly           asignal, 0, gkChebyshevDroneCoefficient1, gkChebyshevDroneCoefficient2, gkChebyshevDroneCoefficient3, gkChebyshevDroneCoefficient4, gkChebyshevDroneCoefficient5, gkChebyshevDroneCoefficient6, gkChebyshevDroneCoefficient7, gkChebyshevDroneCoefficient8, gkChebyshevDroneCoefficient9, gkChebyshevDroneCoefficient10
 adeclick                        linsegr                 0, idampingattack, 1, idampingsustain, 1, idampingrelease, 0
@@ -496,6 +501,10 @@ aoutleft, aoutright             pan2                    asignal * adeclick, i_pa
                                 outleta                 "outright", aoutright
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
+
+giChebyshevMelody_sine_1        ftgen                   0, 0, 65536, 10, 1
+giChebyshevMelody_cook3_2       ftgen                   0, 0, 65536,    10,     1, .4, 0.2, 0.1, 0.1, .05
+giChebyshevMelody_p6_3          ftgen                   0, 0, 65536,    -7,    -1, 150, 0.1, 110, 0, 252, 0
 
                                 instr                   ChebyshevMelody
                                 ///////////////////////////////////////////////////////
@@ -525,7 +534,7 @@ kHz                             =                       k(iHz)
 idB                             =                       i_midivelocity
 i1                              =                       iHz
 k100                            randi                   1,0.05
-isine                           ftgenonce               0, 0, 65536, 10, 1
+isine                           =                       giChebyshevMelody_sine_1
 k101                            poscil                  1, 5 + k100, isine
 k102                            linseg                  0, .5, 1, p3, 1
 k100                            =                       i1 + (k101 * k102)
@@ -542,10 +551,10 @@ k10                             =                       (k10 - .0001)
 ; Power to partials.
 k20                             linseg                  1.485, iattack, 1.5, (isustain + irelease), 1.485
 ; a1-3 are for cheby with p6=1-4
-icook3                          ftgenonce               0, 0, 65536,    10,     1, .4, 0.2, 0.1, 0.1, .05
+icook3                          =                       giChebyshevMelody_cook3_2
 a1                              poscil                  k1, k100 - .25, icook3
 ; Tables a1 to fn13, others normalize,
-ip6                             ftgenonce               0, 0, 65536,    -7,    -1, 150, 0.1, 110, 0, 252, 0
+ip6                             =                       giChebyshevMelody_p6_3
 a2                              tablei                  a1, ip6, 1, .5
 a3                              balance                 a2, a1
 ; Try other waveforms as well.
@@ -562,6 +571,9 @@ aoutleft, aoutright		        pan2			        asignal * adeclick, i_pan
                                 outleta                 "outright", aoutright
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
+
+giDelayedPluckedString_sine_1   ftgen                   0, 0, 65536,    10,     1
+giDelayedPluckedString_cosine_2 ftgen                   0, 0, 65536,    11,     1 
 
                                 instr                   DelayedPluckedString
                                 //////////////////////////////////////////////////////
@@ -591,8 +603,8 @@ idetune                         =                       4.0 / 1200.0
 ihertzleft                      =                       cpsmidinn(ikeyin + idetune)
 ihertzright                     =                       cpsmidinn(ikeyin - idetune)
 iamplitude                      =                       ampdb(i_midivelocity)
-isine                          ftgenonce                   0, 0, 65536,    10,     1
-icosine                        ftgenonce                   0, 0, 65536,    11,     1 
+isine                           =                       giDelayedPluckedString_sine_1
+icosine                         =                       giDelayedPluckedString_cosine_2
 igenleft                        =                       isine
 igenright                       =                       icosine
 kvibrato                        oscili                  1.0 / 120.0, 7.0, icosine
@@ -615,6 +627,10 @@ aoutleft, aoutright             pan2                    asignal2 * adeclick, i_p
                                 outleta                 "outright", aoutright
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
+
+giEnhancedFMBell_ffitch1_1      ftgen                   0, 0, 65536,     10,     1
+giEnhancedFMBell_ffitch2_2      ftgen                   0, 0, 8193,     5,      1, 1024, 0.01
+giEnhancedFMBell_ffitch3_3      ftgen                   0, 0, 8193,     5,      1, 1024, 0.001
 
                                 instr                   EnhancedFMBell
                                 //////////////////////////////////////////////////////
@@ -644,9 +660,9 @@ ifrequency                      =                       cpsmidinn(i_midikey)
 iamplitude                      =                       ampdb(i_midivelocity) 
 idur                            =                       50
 iamp                            =                       iamplitude
-iffitch1                        ftgenonce               0, 0, 65536,     10,     1
-iffitch2                        ftgenonce               0, 0, 8193,     5,      1, 1024, 0.01
-iffitch3                        ftgenonce               0, 0, 8193,     5,      1, 1024, 0.001
+iffitch1                        =                       giEnhancedFMBell_ffitch1_1
+iffitch2                        =                       giEnhancedFMBell_ffitch2_2
+iffitch3                        =                       giEnhancedFMBell_ffitch3_3
 ifenv                           =                       iffitch2                       ; BELL SETTINGS:
 ifdyn                           =                       iffitch3                       ; AMP AND INDEX ENV ARE EXPONENTIAL
 ifq1                            =                       cpsmidinn(i_midikey) ;* 5              ; DECREASING, N1:N2 IS 5:7, imax=10
@@ -675,6 +691,10 @@ aoutleft, aoutright             pan2                    asignal * adeclick, i_pa
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
 
+giFenderRhodesModel_sine_1      ftgen                   0, 0, 65536,    10,     1
+giFenderRhodesModel_cosine_2    ftgen                   0, 0, 65536,    11,     1 
+giFenderRhodesModel_cookblank_3 ftgen                   0, 0, 65536,     10,     0 ; Blank wavetable for some Cook FM opcodes.
+
                                 instr                   FenderRhodesModel
                                 //////////////////////////////////////////////////////
                                 // Original by Perry Cook.
@@ -701,9 +721,9 @@ iindex                          =                       4
 icrossfade                      =                       3
 ivibedepth                      =                       0.2
 iviberate                       =                       6
-isine                           ftgenonce               0, 0, 65536,    10,     1
-icosine                         ftgenonce               0, 0, 65536,    11,     1 
-icookblank                      ftgenonce               0, 0, 65536,     10,     0 ; Blank wavetable for some Cook FM opcodes.
+isine                           =                       giFenderRhodesModel_sine_1
+icosine                         =                       giFenderRhodesModel_cosine_2
+icookblank                      =                       giFenderRhodesModel_cookblank_3
 ifn1                            =                       isine
 ifn2                            =                       icosine
 ifn3                            =                       isine
@@ -718,6 +738,8 @@ aoutleft, aoutright		        pan2			        asignal * adeclick, i_pan
                                 outleta                 "outright", aoutright
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
+
+giFilteredSines_bergeman_1      ftgen                   0, 0, 65536,     10,     0.28, 1, 0.74, 0.66, 0.78, 0.48, 0.05, 0.33, 0.12, 0.08, 0.01, 0.54, 0.19, 0.08, 0.05, 0.16, 0.01, 0.11, 0.3, 0.02, 0.2 ; Bergeman f1
 
                                 instr                   FilteredSines
                                 //////////////////////////////////////////////////////
@@ -747,7 +769,7 @@ i_duration                      =                       p3
 adeclick                        linsegr                  0.0, iattack, 1.0, isustain, 1.0, irelease, 0.0
 ip4                             =                       i_midivelocity
 idb                             =                       ampdb(i_midivelocity) * 4
-ibergeman                       ftgenonce               0, 0, 65536,     10,     0.28, 1, 0.74, 0.66, 0.78, 0.48, 0.05, 0.33, 0.12, 0.08, 0.01, 0.54, 0.19, 0.08, 0.05, 0.16, 0.01, 0.11, 0.3, 0.02, 0.2 ; Bergeman f1
+ibergeman                       =                       giFilteredSines_bergeman_1
 ip5                             =                       ibergeman
 ip3                             =                       i_duration
 ip6                             =                       i_duration * 0.25
@@ -795,6 +817,9 @@ aoutright                       =                       a18 * adeclick
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
 
+giFlute_kellyflute_1            ftgen                   0, 0, 65536,     10,     1, 0.25, 0.1 ; Kelley flute.
+giFlute_sine_2                  ftgen                   0, 0, 65536,    10,     1
+
                                 instr                   Flute
                                 //////////////////////////////////////////////////////
                                 // Original by James Kelley.
@@ -812,7 +837,7 @@ i_depth                         =                       p8
 i_height                        =                       p9
 i_pitchclassset                 =                       p10
 i_homogeneity                   =                       p11
-ikellyflute                     ftgenonce               0, 0, 65536,     10,     1, 0.25, 0.1 ; Kelley flute.
+ikellyflute                     =                       giFlute_kellyflute_1
 ; Do some phasing.
 icpsp1                          =                       cpsmidinn(i_midikey - 0.0002)
 icpsp2                          =                       cpsmidinn(i_midikey + 0.0002)
@@ -851,7 +876,7 @@ kvrandamp                       rand                    0.1
 kvamp                           =                       (8 + p4) *.06 + kvrandamp
 kvrandfreq                      rand                    1
 kvfreq                          =                       5.5 + kvrandfreq
-isine                           ftgenonce               0, 0, 65536,    10,     1
+isine                           =                       giFlute_sine_2
 kvbra                           oscili                  kvamp, kvfreq, isine, ireinit
 kfreq1                          =                       icpsp1 + kvbra
 kfreq2                          =                       icpsp2 + kvbra
@@ -869,6 +894,8 @@ aoutleft, aoutright             pan2                    a3 * adeclick, i_pan
                                 outleta                 "outright", aoutright
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
+
+giFMModerateIndex_sine_1        ftgen                   0, 0, 65536,    10,     1
 
                                 instr                   FMModerateIndex
                                 //////////////////////////////////////////////////////
@@ -901,7 +928,7 @@ ifrequencyb                     =                       ifrequency * 1.003
 icarrierb                       =                       icarrier * 1.004
 kindenv                         transeg                 0, iattack, -4, 1,  isustain, -2, 0.125, irelease, -4, 0
 kindex                          =                       kindenv * index * ifmamplitude
-isine                           ftgenonce               0, 0, 65536,    10,     1
+isine                           =                       giFMModerateIndex_sine_1
 aouta                           foscili                 1, ifrequency, icarrier, iratio, index, isine
 aoutb                           foscili                 1, ifrequencyb, icarrierb, iratio, index, isine
 asignal                         =                       (aouta + aoutb) * kindenv
@@ -911,6 +938,8 @@ aoutleft, aoutright		        pan2			        asignal * iamplitude * adeclick, i_p
                                 outleta                 "outright", aoutright
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
+
+giFMModerateIndex2_sine_1       ftgen                   0, 0, 65536,    10,     1
 
                                 instr                   FMModerateIndex2
                                 //////////////////////////////////////////////////////
@@ -943,7 +972,7 @@ ifrequencyb                     =                       ifrequency * 1.003
 icarrierb                       =                       icarrier * 1.004
 kindenv                         expseg                  0.000001, iattack, 1.0, isustain, 0.0125, irelease, 0.000001
 kindex                          =                       kindenv * index * ifmamplitude - 0.000001
-isine                           ftgenonce               0, 0, 65536,    10,     1
+isine                           =                       giFMModerateIndex2_sine_1
 aouta                           foscili                 1, ifrequency, icarrier, iratio, index, isine
 aoutb                           foscili                 1, ifrequencyb, icarrierb, iratio, index, isine
 asignal                         =                       (aouta + aoutb) * kindenv
@@ -953,6 +982,10 @@ aoutleft, aoutright		        pan2			        asignal * iamplitude * adeclick, i_p
                                 outleta                 "outright", aoutright
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
+
+giFMModulatedChorusing_ln_1     ftgen                   0, 0, 65536,     -12,    20.0 ; Unscaled ln(I(x)) from 0 to 20.0.
+giFMModulatedChorusing_cosine_2 ftgen                   0, 0, 65536,    11,     1 ; Cosine wave. Get that noise down on the most widely used table!
+giFMModulatedChorusing_sine_3   ftgen                   2, 0, 65536,    10,     1
 
                                 instr                   FMModulatedChorusing
                                 //////////////////////////////////////////////
@@ -996,14 +1029,14 @@ a1                              =                       kmodi * (kmodr - 1 / kmo
 a1ndx                           =                       abs(a1 * 2 / 20)
 a2                              =                       kmodi * (kmodr + 1 / kmodr) / 2
                                 ; Look up table is in f43, normalized index.
-iln                             ftgenonce               0, 0, 65536,     -12,    20.0 ; Unscaled ln(I(x)) from 0 to 20.0.
+iln                             =                       giFMModulatedChorusing_ln_1
 a3                              tablei                  a1ndx, iln, 1
-icosine                         ftgenonce                   0, 0, 65536,    11,     1 ; Cosine wave. Get that noise down on the most widely used table!
+icosine                         =                       giFMModulatedChorusing_cosine_2
 ao1                             oscili                  a1, ipch, icosine
 a4                              =                       exp(-0.5 * a3 + ao1)
                                 ; Cosine
 ao2                             oscili                  a2 * ipch, ipch, icosine
-isine                          ftgenonce                   2, 0, 65536,    10,     1
+isine                           =                       giFMModulatedChorusing_sine_3
                                 ; Final output left
 aoutl                           oscili                  1 * kadsr * a4, ao2 + cpsmidinn(ioct + ishift), isine
                                 ; Final output right
@@ -1016,6 +1049,8 @@ aoutleft, aoutright		        pan2			        asignal * adeclick, i_pan
                                 outleta                 "outright", aoutright
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
+
+giFMWaterBell_cosine_1          ftgen                   0, 0, 65536, 11, 1
 
                                 instr                   FMWaterBell
                                 //////////////////////////////////////////////
@@ -1062,7 +1097,7 @@ kc1                             =                       5
 kc2                             =                       5
 kvdepth                         =                       0.005
 kvrate                          =                       6
-icosine                  	    ftgenonce               0, 0, 65536, 11, 1
+icosine                         =                       giFMWaterBell_cosine_1
 ifn1                            =                       icosine
 ifn2                            =                       icosine
 ifn3                            =                       icosine
@@ -1080,6 +1115,9 @@ aoutleft, aoutright             pan2                    iamplitude * asignal * a
                                 outleta                 "outright", aoutright
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
+
+giGranularGrainTable            ftgen                   0, 0, 65536,    10,     1, .3, .1, 0, .2, .02, 0, .1, .04
+giGranularWindowTable           ftgen                   0, 0, 65536,    10,     1, 0, .5, 0, .33, 0, .25, 0, .2, 0, .167
 
                                 instr                   Granular
                                 //////////////////////////////////////////////
@@ -1119,8 +1157,8 @@ iamplitude                      =                       iamplitude * 1.5
                                 ; i1  26.5   13.5  1100   6.09  .      4       .121    150   1.5
                                 ; i1  30.7    9.3  900    8.05  .      4       .014    150   2.5
                                 ; i1  34.2    8.8  700   10.02  .      4       .14     150   1.6
-igrtab                          ftgenonce               0, 0, 65536,    10,     1, .3, .1, 0, .2, .02, 0, .1, .04
-iwintab                         ftgenonce               0, 0, 65536,    10,     1, 0, .5, 0, .33, 0, .25, 0, .2, 0, .167
+igrtab                          =                       giGranularGrainTable
+iwintab                         =                       giGranularWindowTable
 iHz                             =                       ifrequency
 ip4                             =                       iamplitude
 ip5                             =                       iHz
@@ -1238,6 +1276,8 @@ aoutleft, aoutright		        pan2			        asignal * iamplitude * adeclick, i_p
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
 
+giHarpsichord_harptable_1       ftgen                   0, 0, 65536,  7, -1, 1024, 1, 1024, -1
+
                                 instr 			        Harpsichord
                                 //////////////////////////////////////////////
                                 // Original by James Kelley.
@@ -1265,7 +1305,7 @@ kHz                             =                       k(iHz)
 iamplitude                      =                       ampdb(ivelocity) * 36
 aenvelope               	    transeg                 1.0, 20.0, -10.0, 0.05
 apluck                  	    pluck                   1, kHz, iHz, 0, 1
-iharptable              	    ftgenonce               0, 0, 65536,  7, -1, 1024, 1, 1024, -1
+iharptable                      =                       giHarpsichord_harptable_1
 aharp                   	    poscil                  1, kHz, iharptable
 aharp2                  	    balance                 apluck, aharp
 asignal			                =                       (apluck + aharp2) * iamplitude * aenvelope * gkHarpsichordGain
@@ -1276,6 +1316,11 @@ aoutleft, aoutright             pan2                    asignal * adeclick, ipan
                                 outleta                 "outright", aoutright
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
+
+giHeavyMetalModel_sine_1        ftgen                   0, 0, 65536,    10,     1
+giHeavyMetalModel_cosine_2      ftgen                   0, 0, 65536,    11,     1 ; Cosine wave. Get that noise down on the most widely used table!
+giHeavyMetalModel_exponentialrise_3 ftgen                   0, 0, 65536,     5,      0.001, 513, 1 ; Exponential rise.
+giHeavyMetalModel_thirteen_4    ftgen                   0, 0, 65536,     9,      1, 0.3, 0
 
                                 instr                   HeavyMetalModel
                                 //////////////////////////////////////////////
@@ -1304,10 +1349,10 @@ iindex                          =                       1
 icrossfade                      =                       3
 ivibedepth                      =                       0.02
 iviberate                       =                       4.8
-isine                           ftgenonce               0, 0, 65536,    10,     1
-icosine                         ftgenonce               0, 0, 65536,    11,     1 ; Cosine wave. Get that noise down on the most widely used table!
-iexponentialrise                ftgenonce               0, 0, 65536,     5,      0.001, 513, 1 ; Exponential rise.
-ithirteen                       ftgenonce               0, 0, 65536,     9,      1, 0.3, 0
+isine                           =                       giHeavyMetalModel_sine_1
+icosine                         =                       giHeavyMetalModel_cosine_2
+iexponentialrise                =                       giHeavyMetalModel_exponentialrise_3
+ithirteen                       =                       giHeavyMetalModel_thirteen_4
 ifn1                            =                       isine
 ifn2                            =                       iexponentialrise
 ifn3                            =                       ithirteen
@@ -1324,6 +1369,9 @@ aoutleft, aoutright             pan2                    asignal * adeclick, i_pa
                                 outleta                 "outright", aoutright
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
+
+giHypocycloid_sine_1            ftgen                   0, 0, 65536, 10, 1
+giHypocycloid_cosine_2          ftgen                   0, 0, 65536, 11, 1
 
                                 instr                   Hypocycloid
                                 //////////////////////////////////////////////
@@ -1365,8 +1413,8 @@ iscale                          =                       (ia < ib ? 1 / ib : 1 / 
 kampenv                         linseg                  0, .1, ip4 * iscale, p3 - .2, ip4 * iscale, .1, 0
 kptchenv                        linseg                  ifqci, .2 * p3, ifqc, .8 * p3, ifqc
 kvibenv                         linseg                  0, .5, 0, .2, 1, .2, 1
-isine                  	        ftgenonce               0, 0, 65536, 10, 1
-icosine                  	    ftgenonce               0, 0, 65536, 11, 1
+isine                           =                       giHypocycloid_sine_1
+icosine                         =                       giHypocycloid_cosine_2
 kvibr                           oscili                  20, 8, icosine
 kfqc                            =                       kptchenv+kvibr*kvibenv
                                 ; Sine and Cosine
@@ -1392,6 +1440,8 @@ aoutright                       =                       aoutright * irightgain
                                 outleta                 "outright", aoutright
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
+
+giModerateFM_sinetable_1        ftgen                   0, 0, 65536, 10, 1, 0, .02
 
                                 instr			        ModerateFM
                                 //////////////////////////////////////////////
@@ -1424,7 +1474,7 @@ ifrequencyb             	    =                       iHz * 1.003
 icarrierb               	    =                       icarrier * 1.004
 aindenv                 	    transeg                 0.0, iattack, -11.0, 1.0, idecay, -7.0, 0.025, isustain, 0.0, 0.025, irelease, -7.0, 0.0
 aindex                  	    =                       aindenv * index * ifmamplitude
-isinetable                      ftgenonce               0, 0, 65536, 10, 1, 0, .02
+isinetable                      =                       giModerateFM_sinetable_1
 ; ares                  	    foscili                 xamp, kcps, xcar, xmod, kndx, ifn [, iphs]
 aouta                   	    foscili                 1.0, iHz, icarrier, imodulator, index / 4., isinetable
 aoutb                   	    foscili                 1.0, ifrequencyb, icarrierb, imodulator, index, isinetable
@@ -1438,6 +1488,10 @@ aoutleft, aoutright             pan2                    asignal * adeclick, i_pa
                                 outleta                 "outright", aoutright
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
+
+giModulatedFM_ln_1              ftgen                   0, 0, 65536, -12, 20.0
+giModulatedFM_cosine_2          ftgen                   0, 0, 65536, 11, 1
+giModulatedFM_sine_3            ftgen                   0, 0, 65536, 10, 1
 
                                 instr 			        ModulatedFM
                                 //////////////////////////////////////////////
@@ -1479,14 +1533,14 @@ a1                      	    =                       amodi * (amodr - 1 / amodr)
 a1ndx                   	    =                       abs(a1 * 2 / 20)
 a2                      	    =                       amodi * (amodr + 1 / amodr) / 2
 ; Unscaled ln(I(x)) from 0 to 20.0.
-iln                    		    ftgenonce               0, 0, 65536, -12, 20.0
+iln                             =                       giModulatedFM_ln_1
 a3                      	    tablei                  a1ndx, iln, 1
-icosine                  	    ftgenonce               0, 0, 65536, 11, 1
+icosine                         =                       giModulatedFM_cosine_2
 ao1                     	    poscil                  a1, kpch, icosine
 a4                      	    =                       exp(-0.5 * a3 + ao1)
 ; Cosine
 ao2                     	    poscil                  a2 * kpch, kpch, icosine
-isine                  		    ftgenonce               0, 0, 65536, 10, 1
+isine                           =                       giModulatedFM_sine_3
 ; Final output left
 aleft                   	    poscil                  a4, ao2 + cpsoct(koct + ishift), isine
 ; Final output right
@@ -1533,6 +1587,8 @@ aoutleft, aoutright		        pan2			        asignal * adeclick, i_pan
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
 
+giStringPad_wave_1              ftgen                   0, 0, 65536,    10,     1, 0.5, 0.33, 0.25,  0.0, 0.1,  0.1, 0.1
+
                                 instr                   StringPad
                                 //////////////////////////////////////////////
                                 // Original by Anthony Kozar.
@@ -1559,7 +1615,7 @@ ipos                            =                       i_pan
                                 ; Slow attack and release
 akctrl                           linsegr                     0, i_duration * 0.5, iamp, i_duration *.5, 0
                                 ; Slight chorus effect
-iwave                           ftgenonce                   0, 0, 65536,    10,     1, 0.5, 0.33, 0.25,  0.0, 0.1,  0.1, 0.1
+iwave                           =                       giStringPad_wave_1
 afund                           oscili                      akctrl, ihz,        iwave       ; audio oscillator
 acel1                           oscili                      akctrl, ihz - 0.1,  iwave       ; audio oscillator - flat
 acel2                           oscili                      akctrl, ihz + 0.1,  iwave       ; audio oscillator - sharp
@@ -1578,6 +1634,14 @@ aoutleft, aoutright             pan2                    asignal * adeclick, i_pa
                                 outleta                 "outright", aoutright
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
+
+giToneWheelOrgan_tonewheel1_1   ftgen                   0, 0, 65536,     10,     1, 0.02, 0.01
+giToneWheelOrgan_tonewheel2_2   ftgen                   0, 0, 65536,     10,     1, 0,    0.2, 0, 0.1, 0, 0.05, 0, 0.02
+giToneWheelOrgan_tonewheel3_3   ftgen                   0, 0, 65536,     7,      0, 110, 0, 18, 1, 18, 0, 110, 0
+giToneWheelOrgan_tonewheel4_4   ftgen                   0, 0, 65536,     7,      0, 80, 0.2, 16, 1, 64, 1, 16, 0.2, 80, 0
+giToneWheelOrgan_tonewheel5_5   ftgen                   0, 0, 65536,     8,      -.8, 336, -.78,  800, -.7, 5920, 0.7,  800, 0.78, 336, 0.8
+giToneWheelOrgan_tonewheel6_6   ftgen                   0, 0, 65536,     8,       -.8, 336, -.76, 3000, -.7, 1520, 0.7, 3000, 0.76, 336, 0.8
+giToneWheelOrgan_cosine_7       ftgen                   0, 0, 65536, 11, 1
 
                                 instr                   ToneWheelOrgan
                                 //////////////////////////////////////////////
@@ -1605,15 +1669,15 @@ i_duration                      =                       iattack + isustain + ire
 p3                              =                       i_duration
 adeclick                        linsegr                 0.0, iattack, 1.0, isustain, 1.0, irelease, 0.0
                                 ; Rotor Tables
-itonewheel1                     ftgenonce               0, 0, 65536,     10,     1, 0.02, 0.01
-itonewheel2                     ftgenonce               0, 0, 65536,     10,     1, 0,    0.2, 0, 0.1, 0, 0.05, 0, 0.02
+itonewheel1                     =                       giToneWheelOrgan_tonewheel1_1
+itonewheel2                     =                       giToneWheelOrgan_tonewheel2_2
                                 ; Rotating Speaker Filter Envelopes
-itonewheel3                     ftgenonce               0, 0, 65536,     7,      0, 110, 0, 18, 1, 18, 0, 110, 0
-itonewheel4                     ftgenonce               0, 0, 65536,     7,      0, 80, 0.2, 16, 1, 64, 1, 16, 0.2, 80, 0
+itonewheel3                     =                       giToneWheelOrgan_tonewheel3_3
+itonewheel4                     =                       giToneWheelOrgan_tonewheel4_4
                                 ; Distortion Tables
-itonewheel5                     ftgenonce               0, 0, 65536,     8,      -.8, 336, -.78,  800, -.7, 5920, 0.7,  800, 0.78, 336, 0.8
-itonewheel6                     ftgenonce               0, 0, 65536,     8,       -.8, 336, -.76, 3000, -.7, 1520, 0.7, 3000, 0.76, 336, 0.8
-icosine                  	    ftgenonce               0, 0, 65536, 11, 1
+itonewheel5                     =                       giToneWheelOrgan_tonewheel5_5
+itonewheel6                     =                       giToneWheelOrgan_tonewheel6_6
+icosine                         =                       giToneWheelOrgan_cosine_7
 iphase                          =                       p2
 ikey                            =                       12 * int(i_midikey - 6) + 100 * (i_midikey - 6)
 ifqc                            =                       ifrequency
@@ -1640,6 +1704,10 @@ aoutleft, aoutright             pan2                    asignal * adeclick, i_pa
                                 outleta                 "outright", aoutright
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
+
+giTubularBellModel_sine_1       ftgen                   0, 0, 65536,    10,     1
+giTubularBellModel_cosine_2     ftgen                   0, 0, 65536,    11,     1 ; Cosine wave. Get that noise down on the most widely used table!
+giTubularBellModel_cook3_3      ftgen                   0, 0, 65536,    10,     1, 0.4, 0.2, 0.1, 0.1, 0.05
 
                                 instr                   TubularBellModel
                                 //////////////////////////////////////////////////////
@@ -1669,9 +1737,9 @@ iindex                          =                       1
 icrossfade                      =                       2
 ivibedepth                      =                       0.2
 iviberate                       =                       6
-isine                           ftgenonce               0, 0, 65536,    10,     1
-icosine                         ftgenonce               0, 0, 65536,    11,     1 ; Cosine wave. Get that noise down on the most widely used table!
-icook3                          ftgenonce               0, 0, 65536,    10,     1, 0.4, 0.2, 0.1, 0.1, 0.05
+isine                           =                       giTubularBellModel_sine_1
+icosine                         =                       giTubularBellModel_cosine_2
+icook3                          =                       giTubularBellModel_cook3_3
 ifn1                            =                       isine
 ifn2                            =                       icook3
 ifn3                            =                       isine
@@ -1684,6 +1752,8 @@ aoutleft, aoutright		        pan2	                asignal * iamplitude * adeclic
                                 outleta                 "outright", aoutright
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
+
+giWaveguideGuitar_cosine_1      ftgen                   0, 0, 65536,    11,     1.0                        
 
                                 instr                   WaveguideGuitar
                                 //////////////////////////////////////////////////////
@@ -1841,7 +1911,7 @@ ainputb                         tone                    aenvstrb, sr * 0.9 / 2
 ainputf                         tone                    ainputf, sr * 0.9 / 2
 ainputb                         tone                    ainputb, sr * 0.9 / 2
                                 ; Vibrato generator
-icosine                         ftgenonce               0, 0, 65536,    11,     1.0                        
+icosine                         =                       giWaveguideGuitar_cosine_1
 avib                            poscil                  ivibDepth, ivibRate, icosine
 avibdl		                    delayr		            (((ivibStDly * 1.1)) > 0.0) ? (ivibStDly * 1.1) : 0.01
 avibrato	                    deltapi	                ivibStDly
@@ -1882,6 +1952,8 @@ aoutleft, aoutright             pan2                    asignal * iamplitude, i_
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
                                 
+giXing_sine_1                   ftgen                   0, 0, 65536,    10,     1
+
                                 instr                   Xing
                                 //////////////////////////////////////////////
                                 // Original by Andrew Horner.
@@ -1912,7 +1984,7 @@ irelease                        =                       .3
 p3                              =                       iattack + isustain + irelease
 iduration                       =                       p3
 iamplitude                      =                       ampdb(ivelocity) * 8.
-isine                           ftgenonce               0, 0, 65536,    10,     1
+isine                           =                       giXing_sine_1
 kfreq                           =                       cpsmidinn(ikey)
 iamp                            =                       1
 inorm                           =                       32310
@@ -1944,26 +2016,41 @@ aoutleft, aoutright		        pan2			        asignal * adeclick, .875;ipan
                                 prints                  "instr %4d t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f\n", p1, p2, p3, p4, p5, p7
                                 endin
 
+giZakianFlute_f1_1              ftgen                   0, 0, 65536,    10,     1
+giZakianFlute_f2_2              ftgen                   0, 0, 16,       -2,     40, 40, 80, 160, 320, 640, 1280, 2560, 5120, 10240, 10240
+giZakianFlute_f26_3             ftgen                   0, 0, 65536,    -10,    2000, 489, 74, 219, 125, 9, 33, 5, 5
+giZakianFlute_f27_4             ftgen                   0, 0, 65536,    -10,    2729, 1926, 346, 662, 537, 110, 61, 29, 7
+giZakianFlute_f28_5             ftgen                   0, 0, 65536,    -10,    2558, 2012, 390, 361, 534, 139, 53, 22, 10, 13, 10
+giZakianFlute_f29_6             ftgen                   0, 0, 65536,    -10,    12318, 8844, 1841, 1636, 256, 150, 60, 46, 11
+giZakianFlute_f30_7             ftgen                   0, 0, 65536,    -10,    1229, 16, 34, 57, 32
+giZakianFlute_f31_8             ftgen                   0, 0, 65536,    -10,    163, 31, 1, 50, 31
+giZakianFlute_f32_9             ftgen                   0, 0, 65536,    -10,    4128, 883, 354, 79, 59, 23
+giZakianFlute_f33_10            ftgen                   0, 0, 65536,    -10,    1924, 930, 251, 50, 25, 14
+giZakianFlute_f34_11            ftgen                   0, 0, 65536,    -10,    94, 6, 22, 8
+giZakianFlute_f35_12            ftgen                   0, 0, 65536,    -10,    2661, 87, 33, 18
+giZakianFlute_f36_13            ftgen                   0, 0, 65536,    -10,    174, 12
+giZakianFlute_f37_14            ftgen                   0, 0, 65536,    -10,    314, 13
+
                                 instr			        ZakianFlute
                                 //////////////////////////////////////////////
                                 // Original by Lee Zakian.
                                 // Adapted by Michael Gogins.
                                 //////////////////////////////////////////////
-if1                    		    ftgenonce               0, 0, 65536,    10,     1
+if1                             =                       giZakianFlute_f1_1
 iwtsin				            init			        if1
-if2                    		    ftgenonce               0, 0, 16,       -2,     40, 40, 80, 160, 320, 640, 1280, 2560, 5120, 10240, 10240
-if26                   		    ftgenonce               0, 0, 65536,    -10,    2000, 489, 74, 219, 125, 9, 33, 5, 5
-if27                   		    ftgenonce               0, 0, 65536,    -10,    2729, 1926, 346, 662, 537, 110, 61, 29, 7
-if28                   		    ftgenonce               0, 0, 65536,    -10,    2558, 2012, 390, 361, 534, 139, 53, 22, 10, 13, 10
-if29                   		    ftgenonce               0, 0, 65536,    -10,    12318, 8844, 1841, 1636, 256, 150, 60, 46, 11
-if30                   		    ftgenonce               0, 0, 65536,    -10,    1229, 16, 34, 57, 32
-if31                   		    ftgenonce               0, 0, 65536,    -10,    163, 31, 1, 50, 31
-if32                   		    ftgenonce               0, 0, 65536,    -10,    4128, 883, 354, 79, 59, 23
-if33                   		    ftgenonce               0, 0, 65536,    -10,    1924, 930, 251, 50, 25, 14
-if34                   		    ftgenonce               0, 0, 65536,    -10,    94, 6, 22, 8
-if35                   		    ftgenonce               0, 0, 65536,    -10,    2661, 87, 33, 18
-if36                   		    ftgenonce               0, 0, 65536,    -10,    174, 12
-if37                   		    ftgenonce               0, 0, 65536,    -10,    314, 13
+if2                             =                       giZakianFlute_f2_2
+if26                            =                       giZakianFlute_f26_3
+if27                            =                       giZakianFlute_f27_4
+if28                            =                       giZakianFlute_f28_5
+if29                            =                       giZakianFlute_f29_6
+if30                            =                       giZakianFlute_f30_7
+if31                            =                       giZakianFlute_f31_8
+if32                            =                       giZakianFlute_f32_9
+if33                            =                       giZakianFlute_f33_10
+if34                            =                       giZakianFlute_f34_11
+if35                            =                       giZakianFlute_f35_12
+if36                            =                       giZakianFlute_f36_13
+if37                            =                       giZakianFlute_f37_14
                                 ;pset                    0, 0, 3600
 i_instrument                    =                       p1
 i_time                          =                       p2

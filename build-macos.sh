@@ -26,9 +26,13 @@ cmake -S "$repo_root" -B "$build_dir" -G "Unix Makefiles" \
 cmake --build "$build_dir" --parallel 6 --verbose
 cmake --build "$build_dir" --target release_dist --verbose
 
-sudo cmake --install "$build_dir"
-
 echo "Archive: $archive"
 ./external/codesign-check.bash ./build-macos/csound-ac-8.0.0-Darwin.zip
+
+echo "Installing csound-ac into standard system locations under /opt/homebrew..."
+echo "sudo is required for installation; enter your password if prompted."
+sudo -v
+sudo cmake --install "$build_dir"
+
 echo "Finished building csound-ac for macOS."
 

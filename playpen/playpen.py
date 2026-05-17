@@ -88,6 +88,7 @@ import os
 import os.path
 import platform
 import random
+import shlex
 import shutil
 import string
 import subprocess
@@ -472,7 +473,11 @@ def html_nw():
     with open(package_json_filepath, "w") as file:
       file.write(package_json)
 
-    command = f"{nwjs_command} {cloud5_web_root}"
+    quoted_web_root = shlex.quote(cloud5_web_root)
+    if "{}" in nwjs_command:
+      command = nwjs_command.format(quoted_web_root)
+    else:
+      command = f"{nwjs_command} {quoted_web_root}"
     print(f"NW.js command: {command}")
     subprocess.run(command, shell=True)
   except:
