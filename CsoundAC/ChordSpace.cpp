@@ -676,7 +676,7 @@ equate<EQUIVALENCE_RELATION_Tg>(
     Chord x = chord;
 
     // 1) Snap to lattice.
-    x.clamp(g);
+    x.eET(g);
 
     // 2) Compute mean (layer).
     double mean = 0.0;
@@ -693,7 +693,7 @@ equate<EQUIVALENCE_RELATION_Tg>(
     }
 
     // 4) Snap again to clean floating error.
-    x.clamp(g);
+    x.eET(g);
 
     return x;
 }
@@ -1674,8 +1674,8 @@ SILENCE_PUBLIC bool equals_in_rpt(
 
     if (g > 0.0)
     {
-        aa.clamp(g);
-        bb.clamp(g);
+        aa.eET(g);
+        bb.eET(g);
     }
 
     for (int v = 0; v < aa.voices(); ++v)
@@ -2208,7 +2208,7 @@ Chord Chord::ceiling(double g) const {
     }
     CHORD_SPACE_DEBUG("Chord::ceiling: %s\n", print_chord(*this).c_str());
     CHORD_SPACE_DEBUG("             => %s\n", print_chord(result).c_str());
-    result.clamp(g);
+    result.eET(g);
     return result;
 }
 #endif
@@ -3756,19 +3756,35 @@ bool Chord::is_compact(double range) const {
     return true;
 }
 
-void Chord::clamp(double g)
+void Chord::eET(double g)
 {
     if (!(g > 0.0))
     {
         return;
     }
-
     for (int voice_i = 0, voice_n = voices(); voice_i < voice_n; ++voice_i)
     {
         double pitch = getPitch(voice_i);
         pitch = std::round(pitch / g) * g;
         setPitch(voice_i, pitch);
     }
+}
+
+bool Chord::iseET(double g) const
+{
+    if (g <= 0.0)
+    {
+        return false;
+    }
+    for (int voice_i = 0, voice_n = voices(); voice_i < voice_n; ++voice_i)
+    {
+        double q = getPitch(voice_i) / g;
+        if (!eq_tolerance(q, std::round(q)))
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 Chord Chord::normal_order() const
@@ -4128,7 +4144,7 @@ SILENCE_PUBLIC void PITV::initialize(int N_, double range_, double g_, bool prin
     while (next(iterator_, origin, upperI, g) == true) {
         chords++;
         Chord clamped = iterator_;
-        clamped.clamp();
+        clamped.eET();
         auto normal_form_ = clamped.normal_form();
         auto prime_form_ = clamped.prime_form();
         // Make a collection to map prime forms to their indices.
