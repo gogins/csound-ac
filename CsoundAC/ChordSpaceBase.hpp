@@ -494,7 +494,11 @@ public:
      * the generator of transposition. This is valid only if g goes evenly 
      * into 12 (the octave), i.e. in 12/g tone equal temperament.
      */
-    virtual void clamp(double g=1.);
+    virtual void eET(double g=1.);
+    /**
+     * Returns whether or not the chord lies on the g-lattice.
+     */
+    virtual bool iseET(double g=1.) const;
     /**
      * Returns whether or not the chord contains the pitch.
      */
@@ -1482,7 +1486,7 @@ inline SILENCE_PUBLIC Chord discrete_involutive_map(
 
     // Reference lattice snap near the continuous image.
     Chord y_lattice = y_cont;
-    y_lattice.clamp(g);
+    y_lattice.eET(g);
     y_lattice = y_lattice.eOP();
 
     // Neighborhood around y_lattice (radius 1 in each coordinate).
@@ -1497,7 +1501,7 @@ inline SILENCE_PUBLIC Chord discrete_involutive_map(
             Chord c = y_lattice;
             c.setPitch(v, c.getPitch(v) + dir * g);
             c = c.eOP();
-            c.clamp(g);
+            c.eET(g);
             c = c.eOP();
             candidates.push_back(c);
         }
@@ -1526,7 +1530,7 @@ inline SILENCE_PUBLIC Chord discrete_involutive_map(
     for (const auto& c : filtered)
     {
         Chord back = R(c);
-        back.clamp(g);
+        back.eET(g);
         back = back.eOP();
 
         if ((back - x).norm() < 1e-9)
