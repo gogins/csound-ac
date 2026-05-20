@@ -220,7 +220,7 @@ with a cyclical structure), or by doubled pitches in a chord.
         even chord, equivalently octavewise revoicing, more or less the same 
         as the musician's sense of "chord inversion."
 
-<dt>OPTT  <dd>The same as OPT, but with chords rounded up within equal 
+<dt>OPTg  <dd>The same as OPT, but with chords rounded up within equal 
         temperament; equivalent to "chord type."
 
 <dt>OPI  <dd>The OP prism modulo inversion, i.e. 1/2 of the OP prism. The
@@ -230,7 +230,7 @@ with a cyclical structure), or by doubled pitches in a chord.
 <dt>OPTI  <dd>The OPT layer modulo inversion, i.e. 1/2 of the OPT layer.
         Set-class. Note that minor and major triads are are the same OPTI.
 
-<dt>OPTTI  <dd>The same as OPTI, but with chords rounded up within equal 
+<dt>OPTIg  <dd>The same as OPTI, but with chords rounded up within equal 
         temperament; equivalent to "set class."
 </dl>
 

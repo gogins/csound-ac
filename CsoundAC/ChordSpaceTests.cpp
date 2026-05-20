@@ -76,7 +76,7 @@ static void printSet(std::string name, const std::vector<csound::Chord> &chords)
     int i = 1;
     for (auto &value : sorted) {
         auto &c = value.second;
-        csound::System::message("normal: %s  chord[%04d]: %s  OPTT: %s  OPTTI: %s\n", c.normal_form().toString().c_str(), i, c.toString().c_str(), c.eOPTT().toString().c_str(), c.eOPTTI().toString().c_str()); 
+        csound::System::message("normal: %s  chord[%04d]: %s  OPTT: %s  OPTTI: %s\n", c.normal_form().toString().c_str(), i, c.toString().c_str(), c.eOPTg().toString().c_str(), c.eOPTIg().toString().c_str()); 
         auto s = print_opti_sectors(c);
         csound::System::message("%s", s.c_str());
         csound::System::message("\n");
@@ -87,7 +87,7 @@ static void printSet(std::string name, const std::vector<csound::Chord> &chords)
 static void test_pitv(const csound::PITV &pitv_, std::string chordName) {
     csound::System::message("BEGAN test PITV for %s...\n", chordName.c_str());
     csound::Chord originalChord = csound::chordForName(chordName);
-    csound::Chord optti = originalChord.eOPTTI();
+    csound::Chord optti = originalChord.eOPTIg();
     csound::System::message("Original chord:\n%s\n", originalChord.information().c_str());
     Eigen::VectorXi pitv = pitv_.fromChord(originalChord, printPitv);
     csound::Chord reconstitutedChord = pitv_.toChord(pitv[0], pitv[1], pitv[2], pitv[3], printPitv)[0];
@@ -308,9 +308,9 @@ static bool testEquivalenceRelations(int voiceCount, double range, double g) {
  */
 static void setDifference(const std::string &a_name, std::vector<csound::Chord> &A, const std::string &b_name,std::vector<csound::Chord> &B, std::vector<csound::Chord> &difference) {
     // auto comparator = [](auto &a, auto &b) {
-    //     auto an = a.eOPTT(0);
+    //     auto an = a.eOPTg(0);
     //     an.clamp();
-    //     auto bn = b.eOPTT(0);
+    //     auto bn = b.eOPTg(0);
     //     bn.clamp();
     //     if ((an < bn) == true) {
     //         ///std::cerr << "less" << std::endl;
@@ -324,12 +324,12 @@ static void setDifference(const std::string &a_name, std::vector<csound::Chord> 
     std::sort(B.begin(), B.end(), csound::ChordTickLess());
     std::multimap<std::string, csound::Chord> map_a;
     for (csound::Chord &chord : A) {
-        std::string key = chord.eOPTT().normal_form().toString();
+        std::string key = chord.eOPTg().normal_form().toString();
         map_a.insert({key, chord});
     }
     std::multimap<std::string, csound::Chord> map_b;
     for (csound::Chord chord : B) {
-        std::string key = chord.eOPTT().normal_form().toString();
+        std::string key = chord.eOPTg().normal_form().toString();
         map_b.insert({key, chord});
     }
     difference.clear();
@@ -345,8 +345,8 @@ static void setDifference(const std::string &a_name, std::vector<csound::Chord> 
             std::fprintf(stderr, "    inverse_prime_form: %s\n", a.inverse_prime_form().toString().c_str());
             std::fprintf(stderr, "    eppcs:              %s\n", a.eppcs().toString().c_str());
             std::fprintf(stderr, "    chord:              %s\n", print_chord(a).c_str());
-            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(a.eOPTT()).c_str());
-            std::fprintf(stderr, "    OPTTI:              %s\n\n\n\n\n\n\n", print_chord(a.eOPTTI()).c_str());
+            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(a.eOPTg()).c_str());
+            std::fprintf(stderr, "    OPTTI:              %s\n\n\n\n\n\n\n", print_chord(a.eOPTIg()).c_str());
             difference.push_back(a_it->second);
             ++a_i;
         } else {
@@ -357,16 +357,16 @@ static void setDifference(const std::string &a_name, std::vector<csound::Chord> 
             std::fprintf(stderr, "    inverse_prime_form: %s\n", a.inverse_prime_form().toString().c_str());
             std::fprintf(stderr, "    eppcs:              %s\n", a.eppcs().toString().c_str());
             std::fprintf(stderr, "    chord:              %s\n", print_chord(a).c_str());
-            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(a.eOPTT()).c_str());
-            std::fprintf(stderr, "    OPTTI:              %s\n", print_chord(a.eOPTTI()).c_str());
+            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(a.eOPTg()).c_str());
+            std::fprintf(stderr, "    OPTTI:              %s\n", print_chord(a.eOPTIg()).c_str());
             std::fprintf(stderr, "  %s[%d]:\n",  b_name.c_str(), b_i);
             std::fprintf(stderr, "    normal_form:        %s\n", b.normal_form().toString().c_str());
             std::fprintf(stderr, "    prime_form:         %s\n", b.prime_form().toString().c_str());
             std::fprintf(stderr, "    inverse_prime_form: %s\n", b.inverse_prime_form().toString().c_str());
             std::fprintf(stderr, "    eppcs:              %s\n", b.eppcs().toString().c_str());
             std::fprintf(stderr, "    chord:              %s\n", print_chord(b).c_str());
-            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(b.eOPTT()).c_str());
-            std::fprintf(stderr, "    OPTTI:              %s\n\n", print_chord(b.eOPTTI()).c_str());
+            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(b.eOPTg()).c_str());
+            std::fprintf(stderr, "    OPTTI:              %s\n\n", print_chord(b.eOPTIg()).c_str());
             ++a_i;
             ++b_i;
         }
@@ -572,22 +572,22 @@ int main(int argc, char **argv) {
     csound::Chord eT= eP.eT();
     std::cerr << "eT = eP.eT(): " << eT.toString() << std::endl;
     std::cerr << "eT.iseT(): " << eT.iseT() << std::endl;
-    csound::Chord eTT= eP.eTT();
-    std::cerr << "eTT = eP.eTT(): " << eTT.toString() << std::endl;
-    std::cerr << "eTT.iseT(): " << eTT.iseTT() << std::endl;
-    std::cerr << "eT.iseTT(): " << eT.iseTT() << std::endl;
-    std::cerr << "eTT: " << eTT.toString() << std::endl;
-    csound::Chord inverse = eTT.I();
-    std::cerr << "csound::Chord inverse = eTT.I(): " << inverse.toString() << std::endl;
+    csound::Chord eTg= eP.eTg();
+    std::cerr << "eTg = eP.eTg(): " << eTg.toString() << std::endl;
+    std::cerr << "eTg.iseT(): " << eTg.iseTg() << std::endl;
+    std::cerr << "eT.iseTg(): " << eT.iseTg() << std::endl;
+    std::cerr << "eTg: " << eTg.toString() << std::endl;
+    csound::Chord inverse = eTg.I();
+    std::cerr << "csound::Chord inverse = eTg.I(): " << inverse.toString() << std::endl;
     csound::Chord inverseOfInverse = inverse.I();
     std::cerr << "csound::Chord inverseOfInverse = inverse.I(): " << inverseOfInverse.toString() << std::endl;
     std::cerr << "inverse.iseI(): " << inverse.iseI() << std::endl;
-    csound::Chord eI = eTT.eI();
-    std::cerr << "csound::Chord eI = eTT.eI(): " << eI.toString() << std::endl;
+    csound::Chord eI = eTg.eI();
+    std::cerr << "csound::Chord eI = eTg.eI(): " << eI.toString() << std::endl;
     std::cerr << "eI.iseI(): " << eI.iseI() << std::endl;
-    std::cerr << "eTT.iseI(): " << eTT.iseI() << std::endl;
-    std::cerr << "(inverse < eTT): " << (inverse < eTT) << std::endl;
-    std::cerr << "(eTT < inverse): " << (eTT < inverse) << std::endl;
+    std::cerr << "eTg.iseI(): " << eTg.iseI() << std::endl;
+    std::cerr << "(inverse < eTg): " << (inverse < eTg) << std::endl;
+    std::cerr << "(eTg < inverse): " << (eTg < inverse) << std::endl;
     std::cerr << "chord: " << chord.toString() << std::endl;
     std::cerr << "chord.cycle(): " << chord.cycle().toString() << std::endl;
     std::cerr << "chord.cycle(2): " << chord.cycle(2).toString() << std::endl;
@@ -950,7 +950,7 @@ int main(int argc, char **argv) {
     reflected = reflect_in_inversion_flat(original, testSector, g);
     std::cerr << "reflected:" << std::endl;
     std::cerr << reflected.information() << std::endl;
-    spun_back = reflected.eOPTT();
+    spun_back = reflected.eOPTg();
     std::cerr << "spun_back:" << std::endl;
     std::cerr << spun_back.information() << std::endl;    
 #endif    
