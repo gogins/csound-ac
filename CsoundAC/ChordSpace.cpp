@@ -513,6 +513,31 @@ bool Chord::is_in_minor_rpti_sector(int opt_sector) const
     return hyperplane_equation_.is_minor(*this);
 }
 
+bool Chord::is_in_rpt_sector_g(int opt_sector, double range, double g) const
+{
+    return eET(g).is_in_rpt_sector(opt_sector, range);
+}
+
+bool Chord::is_in_rpt_sector_base_g(int opt_sector, double range, double g) const
+{
+    if (!iseET(g))
+    {
+        return false;
+    }
+
+    return is_in_rpt_sector_base(opt_sector, range);
+}
+
+bool Chord::is_in_minor_rpti_sector_g(int opt_sector, double range, double g) const
+{
+    if (!iseET(g))
+    {
+        return false;
+    }
+
+    return is_in_minor_rpti_sector(opt_sector);
+}
+
 template<> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_R>(
     const Chord &chord, double range, double g, int opt_sector)
 {
@@ -743,8 +768,8 @@ predicate<EQUIVALENCE_RELATION_Ig>(
     return chord == canonical;
 }
 
-bool Chord::iseIg(double g, int opt_sector) const {
-    return predicate<EQUIVALENCE_RELATION_Ig>(*this, OCTAVE(), g, opt_sector);
+bool Chord::iseIg(double range, double g, int opt_sector) const {
+    return predicate<EQUIVALENCE_RELATION_Ig>(*this, range, g, opt_sector);
 }
 
 template<>
@@ -807,8 +832,8 @@ equate<EQUIVALENCE_RELATION_Ig>(
     return best;
 }
 
-Chord Chord::eIg(double g, int opt_sector) const {
-    return csound::equate<EQUIVALENCE_RELATION_Ig>(*this, OCTAVE(), g, opt_sector);
+Chord Chord::eIg(double range, double g, int opt_sector) const {
+    return csound::equate<EQUIVALENCE_RELATION_Ig>(*this, range, g, opt_sector);
 }
 
 //  EQUIVALENCE_RELATION_RP
@@ -2121,7 +2146,7 @@ bool Chord::test(const char *label) const {
     auto opt_sector = opt_domain_sectors().front();
     // Test idempotency of transformations: 
     // equate<R>(equate<R>(chord, sector), sector) == equate<R>(chord, sector)
-    if (eIg(1.0, opt_sector).eIg(1.0, opt_sector).iseIg(1.0, opt_sector) == false) {
+    if (eIg(OCTAVE(), 1.0, opt_sector).eIg(OCTAVE(), 1.0, opt_sector).iseIg(OCTAVE(), 1.0, opt_sector) == false) {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eIg is not idempotent.\n");
     } else {
@@ -2151,7 +2176,7 @@ bool Chord::test(const char *label) const {
     } else {
         std::fprintf(stderr, "        Chord::eOPTI is idempotent.\n");
     }
-    if (eOPTIg(1.0, opt_sector).eOPTIg(1.0, opt_sector).iseOPTIg(1.0, opt_sector) == false) {
+    if (eOPTIg( 1.0, opt_sector).eOPTIg(1.0, opt_sector).iseOPTIg( 1.0, opt_sector) == false) {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eOPTIg is not idempotent.\n");
     } else {
@@ -2190,8 +2215,8 @@ bool Chord::test(const char *label) const {
     } else {
         std::fprintf(stderr, "        Chord::eI is consistent with Chord::iseI.\n");
     }
-    auto eig = eIg(1.0, opt_sector);
-    if (eig.iseIg(1.0, opt_sector) == false) {
+    auto eig = eIg(OCTAVE(), 1.0, opt_sector);
+    if (eig.iseIg(OCTAVE(), 1.0, opt_sector) == false) {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eIg is not consistent with Chord::iseIg.\n");
     } else {
