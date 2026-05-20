@@ -639,16 +639,8 @@ predicate<EQUIVALENCE_RELATION_Tg>(
     double g,
     int opt_sector)
 {
-    (void)range;
-    (void)opt_sector;
-
-    if (!(g > 0.0))
-    {
-        g = 1.0;
-    }
-
     const Chord canonical =
-        equate<EQUIVALENCE_RELATION_Tg>(chord, OCTAVE(), g, 0);
+        equate<EQUIVALENCE_RELATION_Tg>(chord, range, g, opt_sector);
 
     return chord == canonical;
 }
@@ -673,29 +665,28 @@ equate<EQUIVALENCE_RELATION_Tg>(
         g = 1.0;
     }
 
-    Chord x = chord;
+    Chord x = chord.eET(g);
 
-    // 1) Snap to lattice.
-    x.eET(g);
-
-    // 2) Compute mean (layer).
     double mean = 0.0;
-    for (int v = 0; v < x.voices(); ++v)
+
+    for (int voice = 0; voice < x.voices(); ++voice)
     {
-        mean += x.getPitch(v);
+        mean += x.getPitch(voice);
     }
+
     mean /= x.voices();
 
-    const double shift = std::floor((mean + g/2.0) / g) * g;    
-    for (int v = 0; v < x.voices(); ++v)
+    const double shift =
+        std::floor((mean + (g / 2.0)) / g) * g;
+
+    for (int voice = 0; voice < x.voices(); ++voice)
     {
-        x.setPitch(v, x.getPitch(v) - shift);
+        x.setPitch(
+            voice,
+            x.getPitch(voice) - shift);
     }
 
-    // 4) Snap again to clean floating error.
-    x.eET(g);
-
-    return x;
+    return x.eET(g);
 }
 
 Chord Chord::eTg(double g) const {
@@ -844,6 +835,93 @@ template<> SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &cho
 
 Chord Chord::eRP(double range) const {
     return csound::equate<EQUIVALENCE_RELATION_RP>(*this, range, 1.0, 0);
+}
+
+//  EQUIVALENCE_RELATION_RPg
+
+template<>
+SILENCE_PUBLIC Chord
+equate<EQUIVALENCE_RELATION_RPg>(
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
+{
+    (void)opt_sector;
+
+    if (!(range > 0.0))
+    {
+        range = OCTAVE();
+    }
+
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    Chord result = chord.eET(g);
+
+    result = equate<EQUIVALENCE_RELATION_RP>(
+        result,
+        range,
+        g,
+        opt_sector);
+
+    result = result.eET(g);
+
+    result = equate<EQUIVALENCE_RELATION_RP>(
+        result,
+        range,
+        g,
+        opt_sector);
+
+    return result;
+}
+
+template<>
+SILENCE_PUBLIC bool
+predicate<EQUIVALENCE_RELATION_RPg>(
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
+{
+    if (!(range > 0.0))
+    {
+        range = OCTAVE();
+    }
+
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    const Chord canonical =
+        equate<EQUIVALENCE_RELATION_RPg>(
+            chord,
+            range,
+            g,
+            opt_sector);
+
+    return chord == canonical;
+}
+
+bool Chord::iseRPg(double range, double g, int opt_sector) const
+{
+    return csound::predicate<EQUIVALENCE_RELATION_RPg>(
+        *this,
+        range,
+        g,
+        opt_sector);
+}
+
+Chord Chord::eRPg(double range, double g, int opt_sector) const
+{
+    return csound::equate<EQUIVALENCE_RELATION_RPg>(
+        *this,
+        range,
+        g,
+        opt_sector);
 }
 
 // EQUIVALENCE_RELATION_RT
@@ -1763,8 +1841,8 @@ SILENCE_PUBLIC bool equals_in_rpt(
 
     if (g > 0.0)
     {
-        aa.eET(g);
-        bb.eET(g);
+        aa = aa.eET(g);
+        bb = bb.eET(g);
     }
 
     for (int v = 0; v < aa.voices(); ++v)
@@ -3858,18 +3936,19 @@ bool Chord::is_compact(double range) const {
     return true;
 }
 
-void Chord::eET(double g)
+Chord Chord::eET(double g) const
 {
+    Chord result = *this;
     if (!(g > 0.0))
     {
-        return;
+        g = 1.0;
     }
-    for (int voice_i = 0, voice_n = voices(); voice_i < voice_n; ++voice_i)
+    for (int voice = 0; voice < result.voices(); ++voice)
     {
-        double pitch = getPitch(voice_i);
-        pitch = std::round(pitch / g) * g;
-        setPitch(voice_i, pitch);
+        const double pitch = result.getPitch(voice);
+        result.setPitch(voice, std::round(pitch / g) * g);
     }
+    return result;
 }
 
 bool Chord::iseET(double g) const
@@ -4245,8 +4324,7 @@ SILENCE_PUBLIC void PITV::initialize(int N_, double range_, double g_, bool prin
     int normal_form_n = 0;
     while (next(iterator_, origin, upperI, g) == true) {
         chords++;
-        Chord clamped = iterator_;
-        clamped.eET();
+        Chord clamped = iterator_.eET(g_);
         auto normal_form_ = clamped.normal_form();
         auto prime_form_ = clamped.prime_form();
         // Make a collection to map prime forms to their indices.
