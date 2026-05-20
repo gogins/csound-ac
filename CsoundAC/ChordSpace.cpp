@@ -731,6 +731,60 @@ Chord Chord::eI(int opt_sector) const {
     return csound::equate<EQUIVALENCE_RELATION_I>(*this, OCTAVE(), 1.0, opt_sector);
 }
 
+//	EQUIVALENCE_RELATION_Ig
+
+template<>
+SILENCE_PUBLIC bool
+predicate<EQUIVALENCE_RELATION_Ig>(
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
+{
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    const Chord canonical =
+        equate<EQUIVALENCE_RELATION_Ig>(chord, range, g, opt_sector);
+
+    return chord == canonical;
+}
+
+bool Chord::iseIg(double g, int opt_sector) const {
+    return predicate<EQUIVALENCE_RELATION_Ig>(*this, OCTAVE(), g, opt_sector);
+}
+
+template<>
+SILENCE_PUBLIC Chord
+equate<EQUIVALENCE_RELATION_Ig>(
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
+{
+    (void)range;
+
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    Chord a = equate<EQUIVALENCE_RELATION_Tg>(chord, OCTAVE(), g, opt_sector);
+
+    if (predicate<EQUIVALENCE_RELATION_I>(a, OCTAVE(), g, opt_sector) == true)
+    {
+        return a;
+    }
+
+    return reflect_in_inversion_flat(a, opt_sector, g);
+}
+
+Chord Chord::eIg(double g, int opt_sector) const {
+    return csound::equate<EQUIVALENCE_RELATION_Ig>(*this, OCTAVE(), g, opt_sector);
+}
+
 //  EQUIVALENCE_RELATION_RP
 
 template<> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RP>(const Chord &chord, double range, double g, int opt_sector) {
