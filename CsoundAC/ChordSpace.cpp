@@ -1055,20 +1055,26 @@ predicate<EQUIVALENCE_RELATION_RPTg>(
     const Chord &chord,
     double range,
     double g,
-    int rpt_sector)
+    int opt_sector)
 {
+    if (!(range > 0.0))
+    {
+        range = OCTAVE();
+    }
+
     if (!(g > 0.0))
+    {
         g = 1.0;
+    }
 
     const Chord canonical =
         equate<EQUIVALENCE_RELATION_RPTg>(
-            chord, range, g, rpt_sector);
+            chord,
+            range,
+            g,
+            opt_sector);
 
     return chord == canonical;
-}
-
-bool Chord::iseRPTg(double range, double g, int opt_sector) const {
-    return predicate<EQUIVALENCE_RELATION_RPTg>(*this, range, g, opt_sector);
 }
 
 template<>
@@ -1077,38 +1083,97 @@ equate<EQUIVALENCE_RELATION_RPTg>(
     const Chord &chord,
     double range,
     double g,
-    int rpt_sector)
+    int opt_sector)
 {
-    if (!(g > 0.0))
-        g = 1.0;
+    (void)opt_sector;
 
-    // 1) Tg canonicalization (already idempotent)
-    Chord x =
-        equate<EQUIVALENCE_RELATION_Tg>(chord, range, g, 0);
-
-    // 2) Permutation normalization
-    x = x.eP();
-
-    // 3) Sector selection
-    if (!x.is_in_rpt_sector_base(rpt_sector, range))
+    if (!(range > 0.0))
     {
-        auto vs = x.voicings();
-        for (auto &v : vs)
-        {
-            Chord y =
-                equate<EQUIVALENCE_RELATION_Tg>(v, range, g, 0);
-            y = y.eP();
-
-            if (y.is_in_rpt_sector_base(rpt_sector, range))
-                return y;
-        }
+        range = OCTAVE();
     }
 
-    return x;
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    auto reduce = [&](const Chord &x) -> Chord
+    {
+        Chord y = x.eET(g);
+
+        y = equate<EQUIVALENCE_RELATION_RPg>(
+            y,
+            range,
+            g,
+            opt_sector);
+
+        y = equate<EQUIVALENCE_RELATION_Tg>(
+            y,
+            range,
+            g,
+            opt_sector);
+
+        y = equate<EQUIVALENCE_RELATION_RPg>(
+            y,
+            range,
+            g,
+            opt_sector);
+
+        return y.eET(g);
+    };
+
+    Chord current = reduce(chord);
+    Chord best = current;
+
+    std::vector<Chord> visited;
+
+    for (;;)
+    {
+        bool already_visited = false;
+
+        for (const Chord &previous : visited)
+        {
+            if (current == previous)
+            {
+                already_visited = true;
+                break;
+            }
+        }
+
+        if (already_visited)
+        {
+            break;
+        }
+
+        visited.push_back(current);
+
+        if (current < best)
+        {
+            best = current;
+        }
+
+        current = reduce(current);
+    }
+
+    return best;
 }
 
-Chord Chord::eRPTg(double range, double g, int opt_sector) const {
-    return csound::equate<EQUIVALENCE_RELATION_RPTg>(*this, range, g, opt_sector);
+bool Chord::iseRPTg(double range, double g, int opt_sector) const
+{
+    return csound::predicate<EQUIVALENCE_RELATION_RPTg>(
+        *this,
+        range,
+        g,
+        opt_sector);
+}
+
+Chord Chord::eRPTg(double range, double g, int opt_sector) const
+{
+    return csound::equate<EQUIVALENCE_RELATION_RPTg>(
+        *this,
+        range,
+        g,
+        opt_sector);
 }
 
 std::vector<Chord> Chord::eRPTs(double range) const {
@@ -1122,17 +1187,50 @@ std::vector<Chord> Chord::eRPTs(double range) const {
     return rptts;
 }
 
-std::vector<Chord> Chord::eRPTgs(double range, double g) const {
-    auto rp = eRP(range);
-    std::vector<Chord> rptts;
-    auto rp_vs = rp.voicings();
-    for (auto rp_v : rp_vs) {
-        auto rp_v_tt = rp_v.eTg(g);
-        rptts.push_back(rp_v_tt);
+std::vector<Chord> Chord::eRPTgs(double range, double g) const
+{
+    if (!(range > 0.0))
+    {
+        range = OCTAVE();
     }
-    return rptts;
-}
 
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    std::vector<Chord> candidates;
+
+    Chord rp = eRPg(range, g);
+    std::vector<Chord> voicings = rp.voicings();
+
+    for (const Chord &voicing : voicings)
+    {
+        Chord candidate = voicing.eET(g);
+        candidate = candidate.eTg(g);
+        candidate = candidate.eRPg(range, g);
+
+        bool already_present = false;
+
+        for (const Chord &existing : candidates)
+        {
+            if (candidate == existing)
+            {
+                already_present = true;
+                break;
+            }
+        }
+
+        if (!already_present)
+        {
+            candidates.push_back(candidate);
+        }
+    }
+
+    std::sort(candidates.begin(), candidates.end());
+
+    return candidates;
+}
 //	EQUIVALENCE_RELATION_RPI
 
 template<> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPI>(const Chord &chord, double range, double g, int opt_sector) {
