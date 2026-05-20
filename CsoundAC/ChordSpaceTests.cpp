@@ -290,6 +290,37 @@ static bool testEquivalenceRelation(std::string equivalenceRelation, int voiceCo
     return passes;
 }
 
+static bool test_eIg_involution_on_lattice(double g, int opt_sector) {
+    bool passes = true;
+    csound::System::message("\nTesting eIg involution on Tg-lattice chords (sector %d, g %f)...\n", opt_sector, g);
+
+    auto check = [&](const csound::Chord &chord, const char *label) {
+        const csound::Chord on_lattice = chord.eTg(g);
+        const csound::Chord once = on_lattice.eIg(g, opt_sector);
+        const csound::Chord twice = once.eIg(g, opt_sector);
+        const bool involutive = (on_lattice == twice);
+        csound::System::message(
+            "  %s: lattice %s  eIg %s  eIg(eIg) %s  involutive %d\n",
+            label,
+            on_lattice.toString().c_str(),
+            once.toString().c_str(),
+            twice.toString().c_str(),
+            involutive ? 1 : 0);
+        if (!involutive) {
+            passes = false;
+        }
+    };
+
+    check(csound::Chord({0, 4, 7}), "major triad");
+    check(csound::Chord({0, 3, 7}), "minor triad");
+    check(csound::Chord({0, 3, 6}), "diminished");
+    check(csound::chordForName("C7"), "C7");
+    check(csound::chordForName("CM7"), "CM7");
+
+    test(passes, "eIg is involutive on Tg-lattice chords.");
+    return passes;
+}
+
 static bool testEquivalenceRelations(int voiceCount, double range, double g) {
     bool passes = true;
     csound::System::message("\nTesting equivalence relations for %d voices over range %f with g %f...\n\n", voiceCount, range, g);
@@ -401,18 +432,22 @@ int main(int argc, char **argv) {
     std::fprintf(stderr, "BIN PID=%d\n", getpid());
     std::fprintf(stderr, "BIN argv0=%s\n", argv[0] ? argv[0] : "(null)");
     std::fflush(stderr);
-    auto pid = getpid();
-    std::fprintf(stderr, "Raising SIGSTOP for pid %d to allow attaching a debugger;\n", pid);
-    std::fprintf(stderr, "execute 'fg' in terminal to resume, or attach debugger with 'lldb -p %d'\n", pid);
-#ifdef _WIN32
-    while (!IsDebuggerPresent())
+    const char *wait_for_debugger = std::getenv("CSOUND_AC_WAIT_FOR_DEBUGGER");
+    if (wait_for_debugger != nullptr && wait_for_debugger[0] != '\0' && wait_for_debugger[0] != '0')
     {
-        Sleep(100);
-    }
-    __debugbreak();
+        auto pid = getpid();
+        std::fprintf(stderr, "Raising SIGSTOP for pid %d to allow attaching a debugger;\n", pid);
+        std::fprintf(stderr, "execute 'fg' in terminal to resume, or attach debugger with 'lldb -p %d'\n", pid);
+#ifdef _WIN32
+        while (!IsDebuggerPresent())
+        {
+            Sleep(100);
+        }
+        __debugbreak();
 #else
-    raise(SIGSTOP);
+        raise(SIGSTOP);
 #endif
+    }
     std::cerr << csound::chord_space_version() << std::endl;
     csound::Chord CM = csound::chordForName("C+");
     CM = CM.T(-4.);
@@ -954,6 +989,8 @@ int main(int argc, char **argv) {
     std::cerr << "spun_back:" << std::endl;
     std::cerr << spun_back.information() << std::endl;    
 #endif    
+    test_eIg_involution_on_lattice(g, testSector);
+
     csound::System::message("\nTesting equivalence relations...\n\n");
     for (int voiceCount = 3; voiceCount <= 4; ++voiceCount) {
         testEquivalenceRelations(voiceCount, csound::OCTAVE(), 1.0);

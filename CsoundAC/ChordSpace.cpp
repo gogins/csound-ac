@@ -764,21 +764,56 @@ equate<EQUIVALENCE_RELATION_Ig>(
     double g,
     int opt_sector)
 {
-    (void)range;
-
     if (!(g > 0.0))
     {
         g = 1.0;
     }
 
-    Chord a = equate<EQUIVALENCE_RELATION_Tg>(chord, OCTAVE(), g, opt_sector);
-
-    if (predicate<EQUIVALENCE_RELATION_I>(a, OCTAVE(), g, opt_sector) == true)
+    auto to_optg = [&](const Chord &x) -> Chord
     {
-        return a;
+        return equate<EQUIVALENCE_RELATION_RPTg>(x, range, g, opt_sector);
+    };
+
+    auto invert_then_retract = [&](const Chord &x) -> Chord
+    {
+        Chord y = reflect_in_inversion_flat(x, opt_sector, g);
+        return to_optg(y);
+    };
+
+    Chord current = to_optg(chord);
+    Chord best = current;
+
+    std::vector<Chord> visited;
+
+    for (;;)
+    {
+        bool already_visited = false;
+
+        for (const Chord &previous : visited)
+        {
+            if (current == previous)
+            {
+                already_visited = true;
+                break;
+            }
+        }
+
+        if (already_visited)
+        {
+            break;
+        }
+
+        visited.push_back(current);
+
+        if (current < best)
+        {
+            best = current;
+        }
+
+        current = invert_then_retract(current);
     }
 
-    return reflect_in_inversion_flat(a, opt_sector, g);
+    return best;
 }
 
 Chord Chord::eIg(double g, int opt_sector) const {
@@ -1910,6 +1945,12 @@ bool Chord::test(const char *label) const {
     auto opt_sector = opt_domain_sectors().front();
     // Test idempotency of transformations: 
     // equate<R>(equate<R>(chord, sector), sector) == equate<R>(chord, sector)
+    if (eIg(1.0, opt_sector).eIg(1.0, opt_sector).iseIg(1.0, opt_sector) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eIg is not idempotent.\n");
+    } else {
+        std::fprintf(stderr, "        Chord::eIg is idempotent.\n");
+    }
     if (eOP().eOP().iseOP() == false) {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eOP is not idempotent.\n");
@@ -1969,9 +2010,16 @@ bool Chord::test(const char *label) const {
     auto ei = eI(opt_sector);
     if (ei.iseI(opt_sector) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eI is not consistent with eI::iseI.\n");
+        std::fprintf(stderr, "Failed: Chord::eI is not consistent with Chord::iseI.\n");
     } else {
-        std::fprintf(stderr, "        Chord::eI is consistent with eI::iseI.\n");
+        std::fprintf(stderr, "        Chord::eI is consistent with Chord::iseI.\n");
+    }
+    auto eig = eIg(1.0, opt_sector);
+    if (eig.iseIg(1.0, opt_sector) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eIg is not consistent with Chord::iseIg.\n");
+    } else {
+        std::fprintf(stderr, "        Chord::eIg is consistent with Chord::iseIg.\n");
     }
     if (eOP().iseOP() == false) {
         passed = false;
