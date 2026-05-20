@@ -1683,6 +1683,7 @@ typedef enum {
     EQUIVALENCE_RELATION_T,
     EQUIVALENCE_RELATION_Tg,
     EQUIVALENCE_RELATION_I,
+    EQUIVALENCE_RELATION_Ig,
     EQUIVALENCE_RELATION_RP,
     EQUIVALENCE_RELATION_RT,
     //~ EQUIVALENCE_RELATION_RTg,
@@ -1695,11 +1696,12 @@ typedef enum {
     EQUIVALENCE_RELATION_RPTg,
     EQUIVALENCE_RELATION_RPI,
     EQUIVALENCE_RELATION_RTI,
-    EQUIVALENCE_RELATION_RTgI,
+    EQUIVALENCE_RELATION_RTIg,
     EQUIVALENCE_RELATION_RPTI,
-    EQUIVALENCE_RELATION_RPTgI,
+    EQUIVALENCE_RELATION_RPTIg,
 } EQUIVALENCE_RELATIONS;
 
+/*
 typedef enum {
     DISCRETE_EQUIVALENCE_RELATION_dT,
     DISCRETE_EQUIVALENCE_RELATION_dRP,
@@ -1707,6 +1709,7 @@ typedef enum {
     DISCRETE_EQUIVALENCE_RELATION_dI,
     DISCRETE_EQUIVALENCE_RELATION_dRPTI,
 } DISCRETE_EQUIVALENCE_RELATIONS;
+*/
 
 #if !defined(SWIG)
 static const char* namesForEquivalenceRelations[] = {
@@ -1716,6 +1719,7 @@ static const char* namesForEquivalenceRelations[] = {
     "T",
     "Tg",
     "I",
+    "Ig",
     "RP",
     "RT",
     //~ "RTg",
@@ -1728,9 +1732,9 @@ static const char* namesForEquivalenceRelations[] = {
     "RPTg",
     "RPI",
     "RTI",
-    "RTgI",
+    "RTIg",
     "RPTI",
-    "RPTgI",
+    "RPTIg",
 };
 #endif
 
@@ -1811,11 +1815,11 @@ template <> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPI>(const Chord 
         double range, double g, int opt_sector);
 template <> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RTI>(const Chord &chord,
         double range, double g, int opt_sector);
-template <> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RTgI>(const Chord &chord,
+template <> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RTIg>(const Chord &chord,
         double range, double g, int opt_sector);
 template <> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTI>(const Chord &chord,
         double range, double g, int opt_sector);
-template <> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord,
+template <> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTIg>(const Chord &chord,
         double range, double g, int opt_sector);            
 
 /**
@@ -1895,11 +1899,11 @@ template <> SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPI>(const Chord &c
         double range, double g, int opt_sector);
 template <> SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RTI>(const Chord &chord,
         double range, double g, int opt_sector);
-template <> SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RTgI>(const Chord &chord,
+template <> SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RTIg>(const Chord &chord,
         double range, double g, int opt_sector);
 template <> SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTI>(const Chord &chord,
         double range, double g, int opt_sector);
-template <> SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(const Chord &chord,
+template <> SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTIg>(const Chord &chord,
         double range, double g, int opt_sector);           
 
 /**
