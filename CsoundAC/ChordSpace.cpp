@@ -84,7 +84,7 @@ SILENCE_PUBLIC std::vector<Chord> allOfEquivalenceClass(int voice_count, std::st
     } else if (equivalence_class == "RPTI") {
         fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTI>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPTgI") {
-        fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTgI>(voice_count, range, g, sector, printme);       
+        fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTIg>(voice_count, range, g, sector, printme);       
     }
     return fundamental_domain;
 }
@@ -1000,7 +1000,7 @@ Chord Chord::eRPI(double range, int opt_sector) const {
 
 //	EQUIVALENCE_RELATION_RTI
 
-//	EQUIVALENCE_RELATION_RTgI
+//	EQUIVALENCE_RELATION_RTIg
 
 //	EQUIVALENCE_RELATION_RPTI
 
@@ -1067,10 +1067,10 @@ Chord Chord::eRPTI(double range, int opt_sector) const {
     return csound::equate<EQUIVALENCE_RELATION_RPTI>(*this, range, 1.0, opt_sector);
 }
 
-// EQUIVALENCE_RELATION_RPTgI
+// EQUIVALENCE_RELATION_RPTIg
 
 template<>
-SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTgI>(
+SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTIg>(
     const Chord &chord,
     double range,
     double g,
@@ -1084,17 +1084,17 @@ SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTgI>(
     // RPTgI-normal means: chord is exactly the canonical representative
     // selected by equate<RPTgI> (minor-half preference + induced involution).
     const Chord canonical =
-        equate<EQUIVALENCE_RELATION_RPTgI>(chord, range, g, opt_sector);
+        equate<EQUIVALENCE_RELATION_RPTIg>(chord, range, g, opt_sector);
 
     return chord == canonical;
 }
 
 bool Chord::iseRPTTI(double range, double g, int opt_sector) const {
-    return predicate<EQUIVALENCE_RELATION_RPTgI>(*this, range, g, opt_sector);
+    return predicate<EQUIVALENCE_RELATION_RPTIg>(*this, range, g, opt_sector);
 }
 
 template<>
-SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(
+SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTIg>(
     const Chord &chord,
     double range,
     double g,
@@ -1125,7 +1125,7 @@ SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(
 }
 
 Chord Chord::eRPTTI(double range, double g, int opt_sector) const {
-    return csound::equate<EQUIVALENCE_RELATION_RPTgI>(*this, range, g, opt_sector);
+    return csound::equate<EQUIVALENCE_RELATION_RPTIg>(*this, range, g, opt_sector);
 }
 
 SILENCE_PUBLIC const std::map<std::string, double> &pitchClassesForNames() {

@@ -227,7 +227,7 @@ static void test_nrL() {
     }
 }
 
-std::vector<std::string> equivalenceRelationsToTest = {"RP", "RPT", "RPTg", "RPTI", "RPTgI"};
+std::vector<std::string> equivalenceRelationsToTest = {"RP", "RPT", "RPTg", "RPTI", "RPTIg"};
 typedef csound::Chord(*equate_t)(const csound::Chord &, double, double, int);
 typedef bool (*predicate_t)(const csound::Chord &, double, double, int);
 typedef std::vector<csound::Chord> (*fundamentalDomainByEquate_t)(int, double, double, int);
@@ -267,7 +267,7 @@ static bool testEquivalenceRelation(std::string equivalenceRelation, int voiceCo
         passes = false;
     }
 
-    if (equivalenceRelation == "RPTgI") {
+    if (equivalenceRelation == "RPTIg") {
         if (voiceCount == 3) {
             if (equivalentsForEquivalenceRelation.size() != 19) {
                 csound::System::message("%-8s 'found_equivalents' size should be 19 but is %ld.\n", equivalenceRelation.c_str(), equivalentsForEquivalenceRelation.size());
@@ -435,7 +435,7 @@ int main(int argc, char **argv) {
     printSet("OPs", ops);
     auto optts = csound::allOfEquivalenceClass(3, "RPTg", 12., 1., 0, false);
     printSet("OPTTs", optts);
-    auto opttis = csound::allOfEquivalenceClass(3, "RPTgI", 12., 1., 0, false);
+    auto opttis = csound::allOfEquivalenceClass(3, "RPTIg", 12., 1., 0, false);
     printSet("OPTTIs", opttis);
     //return 0;
 
@@ -454,7 +454,7 @@ int main(int argc, char **argv) {
     equatesForEquivalenceRelations["RPTg"] =     csound::equate<csound::EQUIVALENCE_RELATION_RPTg>;
     equatesForEquivalenceRelations["RPI"] =      csound::equate<csound::EQUIVALENCE_RELATION_RPI>;
     equatesForEquivalenceRelations["RPTI"] =     csound::equate<csound::EQUIVALENCE_RELATION_RPTI>;
-    equatesForEquivalenceRelations["RPTgI"] =    csound::equate<csound::EQUIVALENCE_RELATION_RPTgI>;
+    equatesForEquivalenceRelations["RPTIg"] =    csound::equate<csound::EQUIVALENCE_RELATION_RPTIg>;
     predicatesForEquivalenceRelations["R"] =         csound::predicate<csound::EQUIVALENCE_RELATION_R>;
     predicatesForEquivalenceRelations["P"] =         csound::predicate<csound::EQUIVALENCE_RELATION_P>;
     predicatesForEquivalenceRelations["T"] =         csound::predicate<csound::EQUIVALENCE_RELATION_T>;
@@ -465,12 +465,12 @@ int main(int argc, char **argv) {
     predicatesForEquivalenceRelations["RPTg"] =      csound::predicate<csound::EQUIVALENCE_RELATION_RPTg>;
     predicatesForEquivalenceRelations["RPI"] =       csound::predicate<csound::EQUIVALENCE_RELATION_RPI>;
     predicatesForEquivalenceRelations["RPTI"] =      csound::predicate<csound::EQUIVALENCE_RELATION_RPTI>;
-    predicatesForEquivalenceRelations["RPTgI"] =     csound::predicate<csound::EQUIVALENCE_RELATION_RPTgI>;
+    predicatesForEquivalenceRelations["RPTIg"] =     csound::predicate<csound::EQUIVALENCE_RELATION_RPTIg>;
     equivalenceRelationsForCompoundEquivalenceRelations["RP"] =      {"R", "P"};
     equivalenceRelationsForCompoundEquivalenceRelations["RPT"] =     {"R", "P", "T"}; // V?
     equivalenceRelationsForCompoundEquivalenceRelations["RPTg"] =    {"R", "P", "Tg"}; // V?
     equivalenceRelationsForCompoundEquivalenceRelations["RPI"] =     {"R", "P"};
-    equivalenceRelationsForCompoundEquivalenceRelations["RPTgI"] =   {"RPTg", "RP", "R", "P", "Tg"}; // V?
+    equivalenceRelationsForCompoundEquivalenceRelations["RPTIg"] =   {"RPTIg", "RP", "R", "P", "Tg"}; // V?
     fundamentalDomainByPredicateForEquivalenceRelations["R"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_R>;
     fundamentalDomainByPredicateForEquivalenceRelations["P"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_P>;
     fundamentalDomainByPredicateForEquivalenceRelations["T"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_T>;
@@ -481,18 +481,18 @@ int main(int argc, char **argv) {
     fundamentalDomainByPredicateForEquivalenceRelations["RPTg"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTg>;
     fundamentalDomainByPredicateForEquivalenceRelations["RPI"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPI>;
     fundamentalDomainByPredicateForEquivalenceRelations["RPTI"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTI>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPTgI"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTgI>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPTIg"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTIg>;
         
     auto chordspace_optts_3 = csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTg>(3, 12., 1., testSector);
     printSet("My OPTTs", chordspace_optts_3);
  
-    auto chordspace_opttis_3 = csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTgI>(3, 12., 1., testSector);
+    auto chordspace_opttis_3 = csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTIg>(3, 12., 1., testSector);
     printSet("My OPTTIs", chordspace_opttis_3);
     
     auto chordspace_optts_4 = csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTg>(4, csound::OCTAVE(), 1., testSector);
     printSet("My OPTTs", chordspace_optts_4);
 
-    auto chordspace_opttis_4 = csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTgI>(4, csound::OCTAVE(), 1., testSector);
+    auto chordspace_opttis_4 = csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTIg>(4, csound::OCTAVE(), 1., testSector);
     printSet("My OPTTIs", chordspace_opttis_4);
     
     csound::System::message("\nBehavior of std::fmod and std::remainder:\n\n");
@@ -625,7 +625,7 @@ int main(int argc, char **argv) {
     csound::System::message("chordForName(%s): %s\n", "CM9", chordForName_.information().c_str());
 
     // The following is kind of the acid test. If the inversions in OP are not 
-    // consistent, then the fundamental domains or RPTgI will not be correct, 
+    // consistent, then the fundamental domains or RPTIg will not be correct, 
     // and the whole system will be compromised. This test mimics what one 
     // expects to see in the demo program.
 
