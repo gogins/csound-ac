@@ -438,6 +438,31 @@ SILENCE_PUBLIC std::string toString(const Matrix& mat){
     return ss.str();
 }
 
+// Helpers for equivalence relations.
+
+namespace
+{
+
+void add_unique_chord(std::vector<Chord> &chords, const Chord &chord)
+{
+    for (const auto &existing : chords)
+    {
+        if (existing == chord)
+        {
+            return;
+        }
+    }
+
+    chords.push_back(chord);
+}
+
+Chord least_chord(const std::vector<Chord> &chords)
+{
+    return *std::min_element(chords.begin(), chords.end());
+}
+
+}
+
 template<> SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_r>(const Chord &chord, double range, double g, int opt_sector) {
     Chord normal = chord;
     for (int voice = 0; voice < chord.voices(); ++voice) {
@@ -500,11 +525,14 @@ bool Chord::is_in_rpt_sector_base(int sector, double range) const
         {
             best_score = score;
         }
+
         scores.push_back(score);
     }
 
     const double score_for_sector = scores[size_t(sector)];
-    return eq_tolerance(score_for_sector, best_score, 20, 1024);
+
+    return score_for_sector > best_score ||
+           eq_tolerance(score_for_sector, best_score, 20, 1024);
 }
 
 bool Chord::is_in_minor_rpti_sector(int opt_sector) const
@@ -513,19 +541,36 @@ bool Chord::is_in_minor_rpti_sector(int opt_sector) const
     return hyperplane_equation_.is_minor(*this);
 }
 
-bool Chord::is_in_rpt_sector_g(int opt_sector, double range, double g) const
+bool Chord::is_in_rpt_sector_g(int sector, double range, double g) const
 {
-    return eET(g).is_in_rpt_sector(opt_sector, range);
-}
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
 
-bool Chord::is_in_rpt_sector_base_g(int opt_sector, double range, double g) const
-{
-    if (!iseET(g))
+    if (sector < 0 || sector >= voices())
     {
         return false;
     }
 
-    return is_in_rpt_sector_base(opt_sector, range);
+    const Chord base = eET(g).eRPg(range, g).eTg(g);
+    return base.is_in_rpt_sector_base_g(sector, range, g);
+}
+
+bool Chord::is_in_rpt_sector_base_g(int sector, double range, double g) const
+{
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    if (sector < 0 || sector >= voices())
+    {
+        return false;
+    }
+
+    Chord x = eET(g);
+    return x.is_in_rpt_sector_base(sector, range);
 }
 
 bool Chord::is_in_minor_rpti_sector_g(int opt_sector, double range, double g) const
@@ -1072,7 +1117,92 @@ Chord Chord::eRPT(double range, int opt_sector) const {
     return csound::equate<EQUIVALENCE_RELATION_RPT>(*this, range, 1.0, opt_sector);
 }
 
-//	EQUIVALENCE_RELATION_RPTg
+template<>
+SILENCE_PUBLIC Chord
+equate<EQUIVALENCE_RELATION_RPTg>(
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
+{
+    if (!(range > 0.0))
+    {
+        std::fprintf(
+            stderr,
+            "Warning: eRPTg received invalid range %g; using OCTAVE().\n",
+            range);
+
+        range = OCTAVE();
+    }
+
+    if (!(g > 0.0))
+    {
+        std::fprintf(
+            stderr,
+            "Warning: eRPTg received invalid g %g; using 1.0.\n",
+            g);
+
+        g = 1.0;
+    }
+
+    if (opt_sector < 0 || opt_sector >= chord.voices())
+    {
+        std::fprintf(
+            stderr,
+            "Warning: eRPTg received invalid opt_sector %d; using 0.\n",
+            opt_sector);
+
+        opt_sector = 0;
+    }
+
+    std::vector<Chord> candidates;
+
+    const std::vector<Chord> rptgs = chord.eRPTgs(range, g);
+
+    for (const Chord &candidate : rptgs)
+    {
+        Chord x = candidate.eET(g);
+
+        if (x.is_in_rpt_sector_g(opt_sector, range, g))
+        {
+            add_unique_chord(candidates, x);
+        }
+    }
+
+    if (!candidates.empty())
+    {
+        return least_chord(candidates);
+    }
+
+    std::fprintf(
+        stderr,
+        "Warning: eRPTg found no candidate in OPTg sector %d; "
+        "returning least unfiltered RPTg candidate.\n",
+        opt_sector);
+
+    if (!rptgs.empty())
+    {
+        std::vector<Chord> fallback_candidates;
+
+        for (const Chord &candidate : rptgs)
+        {
+            add_unique_chord(fallback_candidates, candidate.eET(g));
+        }
+
+        return least_chord(fallback_candidates);
+    }
+
+    std::fprintf(
+        stderr,
+        "Warning: eRPTg generated no RPTg candidates; "
+        "returning eRPg(range, g).eTg(g).eET(g).\n");
+
+    Chord fallback = chord.eRPg(range, g);
+    fallback = fallback.eTg(g);
+    fallback = fallback.eET(g);
+
+    return fallback;
+}
 
 template<>
 SILENCE_PUBLIC bool
@@ -1082,123 +1212,22 @@ predicate<EQUIVALENCE_RELATION_RPTg>(
     double g,
     int opt_sector)
 {
-    if (!(range > 0.0))
-    {
-        range = OCTAVE();
-    }
-
-    if (!(g > 0.0))
-    {
-        g = 1.0;
-    }
-
-    const Chord canonical =
-        equate<EQUIVALENCE_RELATION_RPTg>(
-            chord,
-            range,
-            g,
-            opt_sector);
-
-    return chord == canonical;
-}
-
-template<>
-SILENCE_PUBLIC Chord
-equate<EQUIVALENCE_RELATION_RPTg>(
-    const Chord &chord,
-    double range,
-    double g,
-    int opt_sector)
-{
-    (void)opt_sector;
-
-    if (!(range > 0.0))
-    {
-        range = OCTAVE();
-    }
-
-    if (!(g > 0.0))
-    {
-        g = 1.0;
-    }
-
-    auto reduce = [&](const Chord &x) -> Chord
-    {
-        Chord y = x.eET(g);
-
-        y = equate<EQUIVALENCE_RELATION_RPg>(
-            y,
-            range,
-            g,
-            opt_sector);
-
-        y = equate<EQUIVALENCE_RELATION_Tg>(
-            y,
-            range,
-            g,
-            opt_sector);
-
-        y = equate<EQUIVALENCE_RELATION_RPg>(
-            y,
-            range,
-            g,
-            opt_sector);
-
-        return y.eET(g);
-    };
-
-    Chord current = reduce(chord);
-    Chord best = current;
-
-    std::vector<Chord> visited;
-
-    for (;;)
-    {
-        bool already_visited = false;
-
-        for (const Chord &previous : visited)
-        {
-            if (current == previous)
-            {
-                already_visited = true;
-                break;
-            }
-        }
-
-        if (already_visited)
-        {
-            break;
-        }
-
-        visited.push_back(current);
-
-        if (current < best)
-        {
-            best = current;
-        }
-
-        current = reduce(current);
-    }
-
-    return best;
+    return chord.is_in_rpt_sector_g(opt_sector, range, g) &&
+           chord == equate<EQUIVALENCE_RELATION_RPTg>(
+               chord,
+               range,
+               g,
+               opt_sector);
 }
 
 bool Chord::iseRPTg(double range, double g, int opt_sector) const
 {
-    return csound::predicate<EQUIVALENCE_RELATION_RPTg>(
-        *this,
-        range,
-        g,
-        opt_sector);
+    return predicate<EQUIVALENCE_RELATION_RPTg>(*this, range, g, opt_sector);
 }
 
 Chord Chord::eRPTg(double range, double g, int opt_sector) const
 {
-    return csound::equate<EQUIVALENCE_RELATION_RPTg>(
-        *this,
-        range,
-        g,
-        opt_sector);
+    return equate<EQUIVALENCE_RELATION_RPTg>(*this, range, g, opt_sector);
 }
 
 std::vector<Chord> Chord::eRPTs(double range) const {
@@ -1226,6 +1255,19 @@ std::vector<Chord> Chord::eRPTgs(double range, double g) const
 
     std::vector<Chord> candidates;
 
+    auto add_unique = [&](const Chord &candidate)
+    {
+        for (const Chord &existing : candidates)
+        {
+            if (candidate == existing)
+            {
+                return;
+            }
+        }
+
+        candidates.push_back(candidate);
+    };
+
     Chord rp = eRPg(range, g);
     std::vector<Chord> voicings = rp.voicings();
 
@@ -1233,29 +1275,18 @@ std::vector<Chord> Chord::eRPTgs(double range, double g) const
     {
         Chord candidate = voicing.eET(g);
         candidate = candidate.eTg(g);
+        candidate = candidate.eET(g);
         candidate = candidate.eRPg(range, g);
+        candidate = candidate.eET(g);
 
-        bool already_present = false;
-
-        for (const Chord &existing : candidates)
-        {
-            if (candidate == existing)
-            {
-                already_present = true;
-                break;
-            }
-        }
-
-        if (!already_present)
-        {
-            candidates.push_back(candidate);
-        }
+        add_unique(candidate);
     }
 
     std::sort(candidates.begin(), candidates.end());
 
     return candidates;
 }
+
 //	EQUIVALENCE_RELATION_RPI
 
 template<> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPI>(const Chord &chord, double range, double g, int opt_sector) {
