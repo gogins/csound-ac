@@ -83,7 +83,7 @@ SILENCE_PUBLIC std::vector<Chord> allOfEquivalenceClass(int voice_count, std::st
         fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPI>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPTI") {
         fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTI>(voice_count, range, g, sector, printme);       
-    } else if (equivalence_class == "RPTgI") {
+    } else if (equivalence_class == "RPTIg") {
         fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTIg>(voice_count, range, g, sector, printme);       
     }
     return fundamental_domain;

@@ -2304,20 +2304,39 @@ SILENCE_PUBLIC Chord voiceleadingSimpler(const Chord &source, const Chord &d1, c
 
 template<int EQUIVALENCE_RELATION>
 std::vector<csound::Chord>
-fundamentalDomainByPredicate(int voiceN, double range, double g, int sector, bool printme)
+fundamentalDomainByPredicate(
+    int voiceN,
+    double range,
+    double g,
+    int sector,
+    bool printme)
 {
     const char *name_ = namesForEquivalenceRelations[EQUIVALENCE_RELATION];
+
     System::message(
         "fundamentalDomainByPredicate<%s>: voiceN: %d range: %f g: %f sector: %d\n",
-        name_, voiceN, range, g, sector
-    );
+        name_,
+        voiceN,
+        range,
+        g,
+        sector);
 
     if (g <= 0.0)
     {
         g = 1.0;
     }
 
-    // Iterator bounds (same scheme you had).
+    if (sector < 0 || sector >= voiceN)
+    {
+        System::message(
+            "fundamentalDomainByPredicate<%s>: invalid sector %d for voiceN %d; using sector 0.\n",
+            name_,
+            sector,
+            voiceN);
+
+        sector = 0;
+    }
+
     const int upperI = static_cast<int>(3 * (range + 1));
     const int lowerI = static_cast<int>(-(1 * (range + 1)));
 
@@ -2326,47 +2345,50 @@ fundamentalDomainByPredicate(int voiceN, double range, double g, int sector, boo
 
     int scanned = 0;
     int accepted = 0;
-    int in_sector0 = 0;
 
     std::vector<Chord> chords_in_domain;
 
     while (next(it, origin, upperI, g))
     {
         ++scanned;
-        // This is the union predicate.
-        for (auto sector = 0; sector < voiceN; ++sector) {
-            if (predicate<EQUIVALENCE_RELATION>(it, range, g, sector))
-            {
-                ++accepted;
-                chords_in_domain.push_back(it);
-                if (sector == 0) {
-                    ++in_sector0;
-                }   
-                break;
-            }
+
+        const bool in_domain =
+            predicate<EQUIVALENCE_RELATION>(
+                it,
+                range,
+                g,
+                sector);
+
+        if (in_domain)
+        {
+            ++accepted;
+            chords_in_domain.push_back(it);
         }
 
         if (printme)
         {
             System::message(
-                "fundamentalDomainByPredicate<%s>: %s accepted: %6d unique: %6d scanned: %12d %s\n",
+                "fundamentalDomainByPredicate<%s>: %s accepted: %6d unique: %6d scanned: %12d sector: %d %s\n",
                 name_,
-                predicate<EQUIVALENCE_RELATION>(it, range, g, sector) ? "NORMAL " : "       ",
+                in_domain ? "NORMAL " : "       ",
                 accepted,
                 static_cast<int>(chords_in_domain.size()),
                 scanned,
-                print_chord(it).c_str()
-            );
+                sector,
+                print_chord(it).c_str());
         }
     }
 
-     System::message(
-        "fundamentalDomainByPredicate<%s>: scanned: %d accepted: %d size: %d size in sector 0: %d\n",
-        name_, scanned, accepted, static_cast<int>(chords_in_domain.size()), in_sector0
-    );
+    System::message(
+        "fundamentalDomainByPredicate<%s>: scanned: %d accepted: %d size: %d sector: %d\n",
+        name_,
+        scanned,
+        accepted,
+        static_cast<int>(chords_in_domain.size()),
+        sector);
 
     return chords_in_domain;
-}   
+}
 
 template<int EQUIVALENCE_RELATION>
 std::vector<csound::Chord>
