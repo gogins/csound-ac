@@ -1257,19 +1257,23 @@ std::vector<Chord> Chord::eRPTgs(double range, double g) const
 
     auto add_unique = [&](const Chord &candidate)
     {
+        Chord x = candidate.eET(g);
+
         for (const Chord &existing : candidates)
         {
-            if (candidate == existing)
+            if (existing == x)
             {
                 return;
             }
         }
 
-        candidates.push_back(candidate);
+        candidates.push_back(x);
     };
 
-    Chord rp = eRPg(range, g);
-    std::vector<Chord> voicings = rp.voicings();
+    Chord rp = eRP(range);
+    rp = rp.eET(g);
+
+    const std::vector<Chord> voicings = rp.voicings();
 
     for (const Chord &voicing : voicings)
     {
