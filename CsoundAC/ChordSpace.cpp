@@ -2271,14 +2271,14 @@ bool Chord::test(const char *label) const {
     if (ei.iseI(opt_sector) == false) {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eI is not consistent with Chord::iseI.\n");
-    } else {
+     } else {
         std::fprintf(stderr, "        Chord::eI is consistent with Chord::iseI.\n");
     }
     auto eig = eIg(OCTAVE(), 1.0, opt_sector);
     if (eig.iseIg(OCTAVE(), 1.0, opt_sector) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eIg is not consistent with Chord::iseIg.\n");
-    } else {
+        std::fprintf(stderr, "Failed: Chord::eIg is not consistent with Chord::iseIg (%s => %s).\n", toString().c_str(), eig.toString().c_str());
+   } else {
         std::fprintf(stderr, "        Chord::eIg is consistent with Chord::iseIg.\n");
     }
     if (eOP().iseOP() == false) {
