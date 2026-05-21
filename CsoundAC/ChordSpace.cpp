@@ -1356,32 +1356,34 @@ equate<EQUIVALENCE_RELATION_RPTI>(
 {
     (void)g;
 
-    // 1. Reduce to RPT
     Chord a = equate<EQUIVALENCE_RELATION_RPT>(
-        chord, range, 1.0, rpt_sector);
+        chord,
+        range,
+        1.0,
+        rpt_sector);
 
-    // 2. Reflect continuously
     Chord b = reflect_in_inversion_flat(a, rpt_sector, 0.0);
 
-    // 3. Reduce reflected to RPT
     b = equate<EQUIVALENCE_RELATION_RPT>(
-        b, range, 1.0, rpt_sector);
+        b,
+        range,
+        1.0,
+        rpt_sector);
 
-    // 4. Use sector hyperplane (fixed geometry)
-    HyperplaneEquation hp =
-        a.hyperplane_equation(rpt_sector);
+    Chord c = reflect_in_inversion_flat(b, rpt_sector, 0.0);
 
-    double da =
-        (a.col(0) - hp.apex).dot(hp.unit_normal);
+    c = equate<EQUIVALENCE_RELATION_RPT>(
+        c,
+        range,
+        1.0,
+        rpt_sector);
 
-    double db =
-        (b.col(0) - hp.apex).dot(hp.unit_normal);
+    std::vector<Chord> candidates;
+    add_unique_chord(candidates, a);
+    add_unique_chord(candidates, b);
+    add_unique_chord(candidates, c);
 
-    // Minor side rule
-    if (le_tolerance(da, db))
-        return a;
-    else
-        return b;
+    return least_chord(candidates);
 }
 
 Chord Chord::eRPTI(double range, int opt_sector) const {
@@ -2203,37 +2205,37 @@ bool Chord::test(const char *label) const {
     // equate<R>(equate<R>(chord, sector), sector) == equate<R>(chord, sector)
     if (eIg(OCTAVE(), 1.0, opt_sector).eIg(OCTAVE(), 1.0, opt_sector).iseIg(OCTAVE(), 1.0, opt_sector) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eIg is not idempotent.\n");
+        std::fprintf(stderr, "Failed: Chord::eIg is not idempotent (%s).\n", toString().c_str());
     } else {
         std::fprintf(stderr, "        Chord::eIg is idempotent.\n");
     }
     if (eOP().eOP().iseOP() == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOP is not idempotent.\n");
+        std::fprintf(stderr, "Failed: Chord::eOP is not idempotent (%s).\n", toString().c_str());
     } else {
         std::fprintf(stderr, "        Chord::eOP is idempotent.\n");
     }
     if (eOPT(opt_sector).eOPT(opt_sector).iseOPT(opt_sector) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPT is not idempotent.\n");
+        std::fprintf(stderr, "Failed: Chord::eOPT is not idempotent (%s).\n", toString().c_str());
     } else {
         std::fprintf(stderr, "        Chord::eOPT is idempotent.\n");
     }
     if (eOPTg(1.0, opt_sector).eOPTg(1.0, opt_sector).iseOPTg(1.0, opt_sector) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTg is not idempotent.\n");
+        std::fprintf(stderr, "Failed: Chord::eOPTg is not idempotent (%s).\n", toString().c_str());
     } else {
         std::fprintf(stderr, "        Chord::eOPTg is idempotent.\n");
     }
     if (eOPTI(opt_sector).eOPTI(opt_sector).iseOPTI(opt_sector) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTI is not idempotent.\n");
+        std::fprintf(stderr, "Failed: Chord::eOPTI is not idempotent (%s).\n", toString().c_str());
     } else {
         std::fprintf(stderr, "        Chord::eOPTI is idempotent.\n");
     }
     if (eOPTIg( 1.0, opt_sector).eOPTIg(1.0, opt_sector).iseOPTIg( 1.0, opt_sector) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTIg is not idempotent.\n");
+        std::fprintf(stderr, "Failed: Chord::eOPTIg is not idempotent (%s).\n", toString().c_str());
     } else {
         std::fprintf(stderr, "        Chord::eOPTIg is idempotent.\n");
     }
