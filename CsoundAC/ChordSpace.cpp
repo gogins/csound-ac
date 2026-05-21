@@ -84,7 +84,7 @@ SILENCE_PUBLIC std::vector<Chord> allOfEquivalenceClass(int voice_count, std::st
     } else if (equivalence_class == "RPTI") {
         fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTI>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPTgI") {
-        fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTgI>(voice_count, range, g, sector, printme);       
+        fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTIg>(voice_count, range, g, sector, printme);       
     }
     return fundamental_domain;
 }
@@ -438,6 +438,31 @@ SILENCE_PUBLIC std::string toString(const Matrix& mat){
     return ss.str();
 }
 
+// Helpers for equivalence relations.
+
+namespace
+{
+
+void add_unique_chord(std::vector<Chord> &chords, const Chord &chord)
+{
+    for (const auto &existing : chords)
+    {
+        if (existing == chord)
+        {
+            return;
+        }
+    }
+
+    chords.push_back(chord);
+}
+
+Chord least_chord(const std::vector<Chord> &chords)
+{
+    return *std::min_element(chords.begin(), chords.end());
+}
+
+}
+
 template<> SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_r>(const Chord &chord, double range, double g, int opt_sector) {
     Chord normal = chord;
     for (int voice = 0; voice < chord.voices(); ++voice) {
@@ -500,17 +525,62 @@ bool Chord::is_in_rpt_sector_base(int sector, double range) const
         {
             best_score = score;
         }
+
         scores.push_back(score);
     }
 
     const double score_for_sector = scores[size_t(sector)];
-    return eq_tolerance(score_for_sector, best_score, 20, 1024);
+
+    return score_for_sector > best_score ||
+           eq_tolerance(score_for_sector, best_score, 20, 1024);
 }
 
 bool Chord::is_in_minor_rpti_sector(int opt_sector) const
 {
     const auto &hyperplane_equation_ = hyperplane_equation(opt_sector);
     return hyperplane_equation_.is_minor(*this);
+}
+
+bool Chord::is_in_rpt_sector_g(int sector, double range, double g) const
+{
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    if (sector < 0 || sector >= voices())
+    {
+        return false;
+    }
+
+    const Chord base = eET(g).eRPg(range, g).eTg(g);
+    return base.is_in_rpt_sector_base_g(sector, range, g);
+}
+
+bool Chord::is_in_rpt_sector_base_g(int sector, double range, double g) const
+{
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    if (sector < 0 || sector >= voices())
+    {
+        return false;
+    }
+
+    Chord x = eET(g);
+    return x.is_in_rpt_sector_base(sector, range);
+}
+
+bool Chord::is_in_minor_rpti_sector_g(int opt_sector, double range, double g) const
+{
+    if (!iseET(g))
+    {
+        return false;
+    }
+
+    return is_in_minor_rpti_sector(opt_sector);
 }
 
 template<> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_R>(
@@ -639,21 +709,13 @@ predicate<EQUIVALENCE_RELATION_Tg>(
     double g,
     int opt_sector)
 {
-    (void)range;
-    (void)opt_sector;
-
-    if (!(g > 0.0))
-    {
-        g = 1.0;
-    }
-
     const Chord canonical =
-        equate<EQUIVALENCE_RELATION_Tg>(chord, OCTAVE(), g, 0);
+        equate<EQUIVALENCE_RELATION_Tg>(chord, range, g, opt_sector);
 
     return chord == canonical;
 }
 
-bool Chord::iseTT(double g) const {
+bool Chord::iseTg(double g) const {
     return predicate<EQUIVALENCE_RELATION_Tg>(*this, OCTAVE(), g, 0);
 }
 
@@ -673,32 +735,31 @@ equate<EQUIVALENCE_RELATION_Tg>(
         g = 1.0;
     }
 
-    Chord x = chord;
+    Chord x = chord.eET(g);
 
-    // 1) Snap to lattice.
-    x.clamp(g);
-
-    // 2) Compute mean (layer).
     double mean = 0.0;
-    for (int v = 0; v < x.voices(); ++v)
+
+    for (int voice = 0; voice < x.voices(); ++voice)
     {
-        mean += x.getPitch(v);
+        mean += x.getPitch(voice);
     }
+
     mean /= x.voices();
 
-    const double shift = std::floor((mean + g/2.0) / g) * g;    
-    for (int v = 0; v < x.voices(); ++v)
+    const double shift =
+        std::floor((mean + (g / 2.0)) / g) * g;
+
+    for (int voice = 0; voice < x.voices(); ++voice)
     {
-        x.setPitch(v, x.getPitch(v) - shift);
+        x.setPitch(
+            voice,
+            x.getPitch(voice) - shift);
     }
 
-    // 4) Snap again to clean floating error.
-    x.clamp(g);
-
-    return x;
+    return x.eET(g);
 }
 
-Chord Chord::eTT(double g) const {
+Chord Chord::eTg(double g) const {
     return csound::equate<EQUIVALENCE_RELATION_Tg>(*this, OCTAVE(), g, 0);
 }
 
@@ -731,6 +792,95 @@ Chord Chord::eI(int opt_sector) const {
     return csound::equate<EQUIVALENCE_RELATION_I>(*this, OCTAVE(), 1.0, opt_sector);
 }
 
+//	EQUIVALENCE_RELATION_Ig
+
+template<>
+SILENCE_PUBLIC bool
+predicate<EQUIVALENCE_RELATION_Ig>(
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
+{
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    const Chord canonical =
+        equate<EQUIVALENCE_RELATION_Ig>(chord, range, g, opt_sector);
+
+    return chord == canonical;
+}
+
+bool Chord::iseIg(double range, double g, int opt_sector) const {
+    return predicate<EQUIVALENCE_RELATION_Ig>(*this, range, g, opt_sector);
+}
+
+template<>
+SILENCE_PUBLIC Chord
+equate<EQUIVALENCE_RELATION_Ig>(
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
+{
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    auto to_optg = [&](const Chord &x) -> Chord
+    {
+        return equate<EQUIVALENCE_RELATION_RPTg>(x, range, g, opt_sector);
+    };
+
+    auto invert_then_retract = [&](const Chord &x) -> Chord
+    {
+        Chord y = reflect_in_inversion_flat(x, opt_sector, g);
+        return to_optg(y);
+    };
+
+    Chord current = to_optg(chord);
+    Chord best = current;
+
+    std::vector<Chord> visited;
+
+    for (;;)
+    {
+        bool already_visited = false;
+
+        for (const Chord &previous : visited)
+        {
+            if (current == previous)
+            {
+                already_visited = true;
+                break;
+            }
+        }
+
+        if (already_visited)
+        {
+            break;
+        }
+
+        visited.push_back(current);
+
+        if (current < best)
+        {
+            best = current;
+        }
+
+        current = invert_then_retract(current);
+    }
+
+    return best;
+}
+
+Chord Chord::eIg(double range, double g, int opt_sector) const {
+    return csound::equate<EQUIVALENCE_RELATION_Ig>(*this, range, g, opt_sector);
+}
+
 //  EQUIVALENCE_RELATION_RP
 
 template<> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RP>(const Chord &chord, double range, double g, int opt_sector) {
@@ -755,6 +905,93 @@ template<> SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RP>(const Chord &cho
 
 Chord Chord::eRP(double range) const {
     return csound::equate<EQUIVALENCE_RELATION_RP>(*this, range, 1.0, 0);
+}
+
+//  EQUIVALENCE_RELATION_RPg
+
+template<>
+SILENCE_PUBLIC Chord
+equate<EQUIVALENCE_RELATION_RPg>(
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
+{
+    (void)opt_sector;
+
+    if (!(range > 0.0))
+    {
+        range = OCTAVE();
+    }
+
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    Chord result = chord.eET(g);
+
+    result = equate<EQUIVALENCE_RELATION_RP>(
+        result,
+        range,
+        g,
+        opt_sector);
+
+    result = result.eET(g);
+
+    result = equate<EQUIVALENCE_RELATION_RP>(
+        result,
+        range,
+        g,
+        opt_sector);
+
+    return result;
+}
+
+template<>
+SILENCE_PUBLIC bool
+predicate<EQUIVALENCE_RELATION_RPg>(
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
+{
+    if (!(range > 0.0))
+    {
+        range = OCTAVE();
+    }
+
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    const Chord canonical =
+        equate<EQUIVALENCE_RELATION_RPg>(
+            chord,
+            range,
+            g,
+            opt_sector);
+
+    return chord == canonical;
+}
+
+bool Chord::iseRPg(double range, double g, int opt_sector) const
+{
+    return csound::predicate<EQUIVALENCE_RELATION_RPg>(
+        *this,
+        range,
+        g,
+        opt_sector);
+}
+
+Chord Chord::eRPg(double range, double g, int opt_sector) const
+{
+    return csound::equate<EQUIVALENCE_RELATION_RPg>(
+        *this,
+        range,
+        g,
+        opt_sector);
 }
 
 // EQUIVALENCE_RELATION_RT
@@ -880,7 +1117,92 @@ Chord Chord::eRPT(double range, int opt_sector) const {
     return csound::equate<EQUIVALENCE_RELATION_RPT>(*this, range, 1.0, opt_sector);
 }
 
-//	EQUIVALENCE_RELATION_RPTg
+template<>
+SILENCE_PUBLIC Chord
+equate<EQUIVALENCE_RELATION_RPTg>(
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
+{
+    if (!(range > 0.0))
+    {
+        std::fprintf(
+            stderr,
+            "Warning: eRPTg received invalid range %g; using OCTAVE().\n",
+            range);
+
+        range = OCTAVE();
+    }
+
+    if (!(g > 0.0))
+    {
+        std::fprintf(
+            stderr,
+            "Warning: eRPTg received invalid g %g; using 1.0.\n",
+            g);
+
+        g = 1.0;
+    }
+
+    if (opt_sector < 0 || opt_sector >= chord.voices())
+    {
+        std::fprintf(
+            stderr,
+            "Warning: eRPTg received invalid opt_sector %d; using 0.\n",
+            opt_sector);
+
+        opt_sector = 0;
+    }
+
+    std::vector<Chord> candidates;
+
+    const std::vector<Chord> rptgs = chord.eRPTgs(range, g);
+
+    for (const Chord &candidate : rptgs)
+    {
+        Chord x = candidate.eET(g);
+
+        if (x.is_in_rpt_sector_g(opt_sector, range, g))
+        {
+            add_unique_chord(candidates, x);
+        }
+    }
+
+    if (!candidates.empty())
+    {
+        return least_chord(candidates);
+    }
+
+    std::fprintf(
+        stderr,
+        "Warning: eRPTg found no candidate in OPTg sector %d; "
+        "returning least unfiltered RPTg candidate.\n",
+        opt_sector);
+
+    if (!rptgs.empty())
+    {
+        std::vector<Chord> fallback_candidates;
+
+        for (const Chord &candidate : rptgs)
+        {
+            add_unique_chord(fallback_candidates, candidate.eET(g));
+        }
+
+        return least_chord(fallback_candidates);
+    }
+
+    std::fprintf(
+        stderr,
+        "Warning: eRPTg generated no RPTg candidates; "
+        "returning eRPg(range, g).eTg(g).eET(g).\n");
+
+    Chord fallback = chord.eRPg(range, g);
+    fallback = fallback.eTg(g);
+    fallback = fallback.eET(g);
+
+    return fallback;
+}
 
 template<>
 SILENCE_PUBLIC bool
@@ -888,60 +1210,24 @@ predicate<EQUIVALENCE_RELATION_RPTg>(
     const Chord &chord,
     double range,
     double g,
-    int rpt_sector)
+    int opt_sector)
 {
-    if (!(g > 0.0))
-        g = 1.0;
-
-    const Chord canonical =
-        equate<EQUIVALENCE_RELATION_RPTg>(
-            chord, range, g, rpt_sector);
-
-    return chord == canonical;
+    return chord.is_in_rpt_sector_g(opt_sector, range, g) &&
+           chord == equate<EQUIVALENCE_RELATION_RPTg>(
+               chord,
+               range,
+               g,
+               opt_sector);
 }
 
-bool Chord::iseRPTT(double range, double g, int opt_sector) const {
+bool Chord::iseRPTg(double range, double g, int opt_sector) const
+{
     return predicate<EQUIVALENCE_RELATION_RPTg>(*this, range, g, opt_sector);
 }
 
-template<>
-SILENCE_PUBLIC Chord
-equate<EQUIVALENCE_RELATION_RPTg>(
-    const Chord &chord,
-    double range,
-    double g,
-    int rpt_sector)
+Chord Chord::eRPTg(double range, double g, int opt_sector) const
 {
-    if (!(g > 0.0))
-        g = 1.0;
-
-    // 1) Tg canonicalization (already idempotent)
-    Chord x =
-        equate<EQUIVALENCE_RELATION_Tg>(chord, range, g, 0);
-
-    // 2) Permutation normalization
-    x = x.eP();
-
-    // 3) Sector selection
-    if (!x.is_in_rpt_sector_base(rpt_sector, range))
-    {
-        auto vs = x.voicings();
-        for (auto &v : vs)
-        {
-            Chord y =
-                equate<EQUIVALENCE_RELATION_Tg>(v, range, g, 0);
-            y = y.eP();
-
-            if (y.is_in_rpt_sector_base(rpt_sector, range))
-                return y;
-        }
-    }
-
-    return x;
-}
-
-Chord Chord::eRPTT(double range, double g, int opt_sector) const {
-    return csound::equate<EQUIVALENCE_RELATION_RPTg>(*this, range, g, opt_sector);
+    return equate<EQUIVALENCE_RELATION_RPTg>(*this, range, g, opt_sector);
 }
 
 std::vector<Chord> Chord::eRPTs(double range) const {
@@ -955,15 +1241,50 @@ std::vector<Chord> Chord::eRPTs(double range) const {
     return rptts;
 }
 
-std::vector<Chord> Chord::eRPTTs(double range, double g) const {
-    auto rp = eRP(range);
-    std::vector<Chord> rptts;
-    auto rp_vs = rp.voicings();
-    for (auto rp_v : rp_vs) {
-        auto rp_v_tt = rp_v.eTT(g);
-        rptts.push_back(rp_v_tt);
+std::vector<Chord> Chord::eRPTgs(double range, double g) const
+{
+    if (!(range > 0.0))
+    {
+        range = OCTAVE();
     }
-    return rptts;
+
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    std::vector<Chord> candidates;
+
+    auto add_unique = [&](const Chord &candidate)
+    {
+        for (const Chord &existing : candidates)
+        {
+            if (candidate == existing)
+            {
+                return;
+            }
+        }
+
+        candidates.push_back(candidate);
+    };
+
+    Chord rp = eRPg(range, g);
+    std::vector<Chord> voicings = rp.voicings();
+
+    for (const Chord &voicing : voicings)
+    {
+        Chord candidate = voicing.eET(g);
+        candidate = candidate.eTg(g);
+        candidate = candidate.eET(g);
+        candidate = candidate.eRPg(range, g);
+        candidate = candidate.eET(g);
+
+        add_unique(candidate);
+    }
+
+    std::sort(candidates.begin(), candidates.end());
+
+    return candidates;
 }
 
 //	EQUIVALENCE_RELATION_RPI
@@ -1000,7 +1321,7 @@ Chord Chord::eRPI(double range, int opt_sector) const {
 
 //	EQUIVALENCE_RELATION_RTI
 
-//	EQUIVALENCE_RELATION_RTgI
+//	EQUIVALENCE_RELATION_RTIg
 
 //	EQUIVALENCE_RELATION_RPTI
 
@@ -1035,97 +1356,123 @@ equate<EQUIVALENCE_RELATION_RPTI>(
 {
     (void)g;
 
-    // 1. Reduce to RPT
     Chord a = equate<EQUIVALENCE_RELATION_RPT>(
-        chord, range, 1.0, rpt_sector);
+        chord,
+        range,
+        1.0,
+        rpt_sector);
 
-    // 2. Reflect continuously
     Chord b = reflect_in_inversion_flat(a, rpt_sector, 0.0);
 
-    // 3. Reduce reflected to RPT
     b = equate<EQUIVALENCE_RELATION_RPT>(
-        b, range, 1.0, rpt_sector);
+        b,
+        range,
+        1.0,
+        rpt_sector);
 
-    // 4. Use sector hyperplane (fixed geometry)
-    HyperplaneEquation hp =
-        a.hyperplane_equation(rpt_sector);
+    Chord c = reflect_in_inversion_flat(b, rpt_sector, 0.0);
 
-    double da =
-        (a.col(0) - hp.apex).dot(hp.unit_normal);
+    c = equate<EQUIVALENCE_RELATION_RPT>(
+        c,
+        range,
+        1.0,
+        rpt_sector);
 
-    double db =
-        (b.col(0) - hp.apex).dot(hp.unit_normal);
+    std::vector<Chord> candidates;
+    add_unique_chord(candidates, a);
+    add_unique_chord(candidates, b);
+    add_unique_chord(candidates, c);
 
-    // Minor side rule
-    if (le_tolerance(da, db))
-        return a;
-    else
-        return b;
+    return least_chord(candidates);
 }
 
 Chord Chord::eRPTI(double range, int opt_sector) const {
     return csound::equate<EQUIVALENCE_RELATION_RPTI>(*this, range, 1.0, opt_sector);
 }
 
-// EQUIVALENCE_RELATION_RPTgI
+// EQUIVALENCE_RELATION_RPTIg
 
 template<>
-SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTgI>(
+SILENCE_PUBLIC Chord
+equate<EQUIVALENCE_RELATION_RPTIg>(
     const Chord &chord,
     double range,
     double g,
     int opt_sector)
 {
-    if (g <= 0.0)
+    if (!(range > 0.0))
+    {
+        range = OCTAVE();
+    }
+
+    if (!(g > 0.0))
     {
         g = 1.0;
     }
 
-    // RPTgI-normal means: chord is exactly the canonical representative
-    // selected by equate<RPTgI> (minor-half preference + induced involution).
-    const Chord canonical =
-        equate<EQUIVALENCE_RELATION_RPTgI>(chord, range, g, opt_sector);
+    auto to_sector = [&](const Chord &x) -> Chord
+    {
+        return equate<EQUIVALENCE_RELATION_RPTg>(
+            x,
+            range,
+            g,
+            opt_sector);
+    };
 
-    return chord == canonical;
+    auto invert_to_sector = [&](const Chord &x) -> Chord
+    {
+        Chord y = reflect_in_inversion_flat(x, opt_sector, g);
+        y = y.eET(g);
+        y = to_sector(y);
+        return y;
+    };
+
+    std::vector<Chord> candidates;
+
+    Chord current = to_sector(chord);
+
+    for (;;)
+    {
+        const std::size_t old_size = candidates.size();
+
+        add_unique_chord(candidates, current);
+
+        Chord inverted = invert_to_sector(current);
+        add_unique_chord(candidates, inverted);
+
+        current = inverted;
+
+        if (candidates.size() == old_size)
+        {
+            break;
+        }
+    }
+
+    return least_chord(candidates);
 }
 
-bool Chord::iseRPTTI(double range, double g, int opt_sector) const {
-    return predicate<EQUIVALENCE_RELATION_RPTgI>(*this, range, g, opt_sector);
+Chord Chord::eRPTIg(double range, double g, int opt_sector) const {
+    return csound::equate<EQUIVALENCE_RELATION_RPTIg>(*this, range, g, opt_sector);
 }
 
 template<>
-SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTgI>(
+SILENCE_PUBLIC bool
+predicate<EQUIVALENCE_RELATION_RPTIg>(
     const Chord &chord,
     double range,
     double g,
-    int rpt_sector)
+    int opt_sector)
 {
-    if (g <= 0.0)
-    {
-        g = 1.0;
-    }
-
-    // 1) Canonical RPTg representative
-    Chord a = equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, rpt_sector);
-
-    // 2) Decide which half of the sector we're in (minor side is canonical).
-    const HyperplaneEquation hp = a.hyperplane_equation(rpt_sector);
-    const double signed_distance = (a.col(0) - hp.apex).dot(hp.unit_normal);
-
-    // Canonical side = minor half-space (boundary included).
-    if (le_tolerance(signed_distance, 0.0))
-    {
-        return a;
-    }
-
-    // 3) Otherwise reflect discretely and re-canonicalize.
-    Chord b = reflect_in_inversion_flat(a, rpt_sector, g);
-    b = equate<EQUIVALENCE_RELATION_RPTg>(b, range, g, rpt_sector);
-    return b;
+    return chord.is_in_rpt_sector_g(opt_sector, range, g) &&
+           chord == equate<EQUIVALENCE_RELATION_RPTIg>(
+               chord,
+               range,
+               g,
+               opt_sector);
 }
 
-Chord Chord::eRPTTI(double range, double g, int opt_sector) const {
-    return csound::equate<EQUIVALENCE_RELATION_RPTgI>(*this, range, g, opt_sector);
+bool Chord::iseRPTIg(double range, double g, int opt_sector) const {
+    return predicate<EQUIVALENCE_RELATION_RPTIg>(*this, range, g, opt_sector);
 }
 
 SILENCE_PUBLIC const std::map<std::string, double> &pitchClassesForNames() {
@@ -1576,7 +1923,7 @@ std::string Chord::information_sector(int opt_sector_) const
     appendf("O:           %3d => %s\n", iseO(), print_chord(eO()).c_str());
     appendf("P:           %3d => %s\n", iseP(), print_chord(eP()).c_str());
     appendf("T:           %3d => %s\n", iseT(), print_chord(eT()).c_str());
-    appendf("TT:          %3d => %s\n", iseTT(), print_chord(eTT()).c_str());
+    appendf("Tg:          %3d => %s\n", iseTg(), print_chord(eTg()).c_str());
 
     auto isei = iseI(opt_sector);
     auto ei = eI(opt_sector);
@@ -1584,12 +1931,12 @@ std::string Chord::information_sector(int opt_sector_) const
 
     appendf("OP:          %3d => %s\n", iseOP(), print_chord(eOP()).c_str());
     appendf("OT:          %3d => %s\n", iseOT(), print_chord(eOT()).c_str());
-    appendf("OTT:         %3d => %s\n", iseOTT(1.0), print_chord(eOTT()).c_str());
+    appendf("OTg:         %3d => %s\n", iseOTg(1.0), print_chord(eOTg()).c_str());
     appendf("OPT:         %3d => %s\n", iseOPT(opt_sector), print_chord(eOPT(opt_sector)).c_str());
-    appendf("OPTT:        %3d => %s\n", iseOPTT(1.0, opt_sector), print_chord(eOPTT(opt_sector)).c_str());
+    appendf("OPTg:        %3d => %s\n", iseOPTg(1.0, opt_sector), print_chord(eOPTg(opt_sector)).c_str());
     appendf("OPI:         %3d => %s\n", iseOPI(opt_sector), print_chord(eOPI(opt_sector)).c_str());
     appendf("OPTI:        %3d => %s\n", iseOPTI(opt_sector), print_chord(eOPTI(opt_sector)).c_str());
-    appendf("OPTTI:       %3d => %s\n", iseOPTTI(1.0, opt_sector), print_chord(eOPTTI(opt_sector)).c_str());
+    appendf("OPTIg:       %3d => %s\n", iseOPTIg(1.0, opt_sector), print_chord(eOPTIg(opt_sector)).c_str());
 
     auto &hyperplane_equations = hyperplane_equations_for_dimensionalities()[voices()];
     auto &opt_sectors = opt_sectors_for_dimensionalities()[voices()];
@@ -1674,8 +2021,8 @@ SILENCE_PUBLIC bool equals_in_rpt(
 
     if (g > 0.0)
     {
-        aa.clamp(g);
-        bb.clamp(g);
+        aa = aa.eET(g);
+        bb = bb.eET(g);
     }
 
     for (int v = 0; v < aa.voices(); ++v)
@@ -1856,35 +2203,41 @@ bool Chord::test(const char *label) const {
     auto opt_sector = opt_domain_sectors().front();
     // Test idempotency of transformations: 
     // equate<R>(equate<R>(chord, sector), sector) == equate<R>(chord, sector)
+    if (eIg(OCTAVE(), 1.0, opt_sector).eIg(OCTAVE(), 1.0, opt_sector).iseIg(OCTAVE(), 1.0, opt_sector) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eIg is not idempotent (%s).\n", toString().c_str());
+    } else {
+        std::fprintf(stderr, "        Chord::eIg is idempotent.\n");
+    }
     if (eOP().eOP().iseOP() == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOP is not idempotent.\n");
+        std::fprintf(stderr, "Failed: Chord::eOP is not idempotent (%s).\n", toString().c_str());
     } else {
         std::fprintf(stderr, "        Chord::eOP is idempotent.\n");
     }
     if (eOPT(opt_sector).eOPT(opt_sector).iseOPT(opt_sector) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPT is not idempotent.\n");
+        std::fprintf(stderr, "Failed: Chord::eOPT is not idempotent (%s).\n", toString().c_str());
     } else {
         std::fprintf(stderr, "        Chord::eOPT is idempotent.\n");
     }
-    if (eOPTT(1.0, opt_sector).eOPTT(1.0, opt_sector).iseOPTT(1.0, opt_sector) == false) {
+    if (eOPTg(1.0, opt_sector).eOPTg(1.0, opt_sector).iseOPTg(1.0, opt_sector) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTT is not idempotent.\n");
+        std::fprintf(stderr, "Failed: Chord::eOPTg is not idempotent (%s).\n", toString().c_str());
     } else {
-        std::fprintf(stderr, "        Chord::eOPTT is idempotent.\n");
+        std::fprintf(stderr, "        Chord::eOPTg is idempotent.\n");
     }
     if (eOPTI(opt_sector).eOPTI(opt_sector).iseOPTI(opt_sector) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTI is not idempotent.\n");
+        std::fprintf(stderr, "Failed: Chord::eOPTI is not idempotent (%s).\n", toString().c_str());
     } else {
         std::fprintf(stderr, "        Chord::eOPTI is idempotent.\n");
     }
-    if (eOPTTI(1.0, opt_sector).eOPTTI(1.0, opt_sector).iseOPTTI(1.0, opt_sector) == false) {
+    if (eOPTIg( 1.0, opt_sector).eOPTIg(1.0, opt_sector).iseOPTIg( 1.0, opt_sector) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTTI is not idempotent.\n");
+        std::fprintf(stderr, "Failed: Chord::eOPTIg is not idempotent (%s).\n", toString().c_str());
     } else {
-        std::fprintf(stderr, "        Chord::eOPTTI is idempotent.\n");
+        std::fprintf(stderr, "        Chord::eOPTIg is idempotent.\n");
     }
     // Test the consistency of the transformations:
     // predicate<R>(equate<R>(chord, sector), sector) == true
@@ -1906,18 +2259,25 @@ bool Chord::test(const char *label) const {
     } else {
         std::fprintf(stderr, "        Chord::eT is consistent with Chord::iseT.\n");
     }
-    if (eTT(1.0).iseTT(1.0) == false) {
+    if (eTg(1.0).iseTg(1.0) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eTT is not consistent with Chord::iseTT.\n");
+        std::fprintf(stderr, "Failed: Chord::eTg is not consistent with Chord::iseTg.\n");
     } else {
-        std::fprintf(stderr, "        Chord::eTT is consistent with Chord::iseTT.\n");
+        std::fprintf(stderr, "        Chord::eTg is consistent with Chord::iseTg.\n");
     }
     auto ei = eI(opt_sector);
     if (ei.iseI(opt_sector) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eI is not consistent with eI::iseI.\n");
+        std::fprintf(stderr, "Failed: Chord::eI is not consistent with Chord::iseI.\n");
     } else {
-        std::fprintf(stderr, "        Chord::eI is consistent with eI::iseI.\n");
+        std::fprintf(stderr, "        Chord::eI is consistent with Chord::iseI.\n");
+    }
+    auto eig = eIg(OCTAVE(), 1.0, opt_sector);
+    if (eig.iseIg(OCTAVE(), 1.0, opt_sector) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eIg is not consistent with Chord::iseIg.\n");
+    } else {
+        std::fprintf(stderr, "        Chord::eIg is consistent with Chord::iseIg.\n");
     }
     if (eOP().iseOP() == false) {
         passed = false;
@@ -1932,12 +2292,12 @@ bool Chord::test(const char *label) const {
     } else {
         std::fprintf(stderr, "        Chord::eOPT is consistent with Chord::iseOPT.\n");
     }
-    if (eOPTT(1.0, opt_sector).iseOPTT(1.0, opt_sector) == false) {
+    if (eOPTg(1.0, opt_sector).iseOPTg(1.0, opt_sector) == false) {
         passed = false;
-        auto optt_chord = eOPTT(1.0, opt_sector);
-        std::fprintf(stderr, "Failed: Chord::eOPTT is not consistent with Chord::iseOPTT (%s => %s).\n", toString().c_str(), optt_chord.toString().c_str());
+        auto optt_chord = eOPTg(1.0, opt_sector);
+        std::fprintf(stderr, "Failed: Chord::eOPTg is not consistent with Chord::iseOPTg (%s => %s).\n", toString().c_str(), optt_chord.toString().c_str());
     } else {
-        std::fprintf(stderr, "        Chord::eOPTT is consistent with Chord::iseOPTT.\n");
+        std::fprintf(stderr, "        Chord::eOPTg is consistent with Chord::iseOPTg.\n");
     }
     auto opti_chord = eOPTI(opt_sector);
     if (opti_chord.iseOPTI(opt_sector) == false) {
@@ -1946,12 +2306,12 @@ bool Chord::test(const char *label) const {
     } else {
         std::fprintf(stderr, "        Chord::eOPTI is consistent with Chord::iseOPTI.\n");
     }
-    auto optti_chord = eOPTTI(1.0, opt_sector);
-    if (optti_chord.iseOPTTI(1.0, opt_sector) == false) {
+    auto optti_chord = eOPTIg(1.0, opt_sector);
+    if (optti_chord.iseOPTIg(1.0, opt_sector) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTTI is not consistent with Chord::iseOPTTI  (%s => %s).\n", toString().c_str(), optti_chord.toString().c_str());
+        std::fprintf(stderr, "Failed: Chord::eOPTIg is not consistent with Chord::iseOPTIg  (%s => %s).\n", toString().c_str(), optti_chord.toString().c_str());
     } else {
-        std::fprintf(stderr, "        Chord::eOPTTI is consistent with Chord::iseOPTTI.\n");
+        std::fprintf(stderr, "        Chord::eOPTIg is consistent with Chord::iseOPTIg.\n");
     }
     // Test the decomposability of the predicates. The predicate for a 
     // compound equivalence relation must return the same truth value as the 
@@ -1977,14 +2337,14 @@ bool Chord::test(const char *label) const {
     }
     // If it is transformed to T, is it OPT? 
     // After that, is it Tg?
-    // if (iseOPTT(1.0, opt_sector) == true) {
+    // if (iseOPTg(1.0, opt_sector) == true) {
     //     if (iseO() == false ||
     //         iseP() == false || 
-    //         iseTT(1.0) == false) {
+    //         iseTg(1.0) == false) {
     //         passed = false;
-    //         std::fprintf(stderr, "Failed: Chord::iseOPTT is not decomposable.\n");
+    //         std::fprintf(stderr, "Failed: Chord::iseOPTg is not decomposable.\n");
     //     } else {
-    //         std::fprintf(stderr, "        Chord::iseOPTT is decomposable.\n");
+    //         std::fprintf(stderr, "        Chord::iseOPTg is decomposable.\n");
     //     }
     // }
     // NOTE: The decomposability of OPI and OPTI is not guaranteed, because 
@@ -2000,15 +2360,15 @@ bool Chord::test(const char *label) const {
     //         std::fprintf(stderr, "        Chord::iseOPTI is decomposable.\n");
     //     }
     // }
-    // if (iseOPTTI(1.0, opt_sector) == true) {
+    // if (iseOPTIg(1.0, opt_sector) == true) {
     //     if (iseO() == false ||
     //         iseP() == false || 
-    //         iseTT(1.0) == false || 
+    //         iseTg(1.0) == false || 
     //         iseI(opt_sector) == false) {
     //         passed = false;
-    //         std::fprintf(stderr, "Failed: Chord::iseOPTTI is not decomposable.\n");
+    //         std::fprintf(stderr, "Failed: Chord::iseOPTIg is not decomposable.\n");
     //     } else {
-    //         std::fprintf(stderr, "        Chord::iseOPTTI is decomposable.\n");
+    //         std::fprintf(stderr, "        Chord::iseOPTIg is decomposable.\n");
     //     }
     // }
     std::fprintf(stderr, "\n");
@@ -2208,7 +2568,7 @@ Chord Chord::ceiling(double g) const {
     }
     CHORD_SPACE_DEBUG("Chord::ceiling: %s\n", print_chord(*this).c_str());
     CHORD_SPACE_DEBUG("             => %s\n", print_chord(result).c_str());
-    result.clamp(g);
+    result.eET(g);
     return result;
 }
 #endif
@@ -2424,16 +2784,16 @@ bool Chord::iseOPT(int opt_sector) const {
     return iseRPT(OCTAVE(), opt_sector);
 }
 
-bool Chord::iseOPTT(double g, int opt_sector) const {
-    return iseRPTT(OCTAVE(), g, opt_sector);
+bool Chord::iseOPTg(double g, int opt_sector) const {
+    return iseRPTg(OCTAVE(), g, opt_sector);
 }
 
 Chord Chord::eOPT(int opt_sector) const {
     return eRPT(OCTAVE(), opt_sector);
 }
 
-Chord Chord::eOPTT(double g, int opt_sector) const {
-    return eRPTT(OCTAVE(), g, opt_sector);
+Chord Chord::eOPTg(double g, int opt_sector) const {
+    return eRPTg(OCTAVE(), g, opt_sector);
 }
 
 bool Chord::iseOPI(int opt_sector) const {
@@ -2448,16 +2808,16 @@ bool Chord::iseOPTI(int opt_sector) const {
     return iseRPTI(OCTAVE(), opt_sector);
 }
 
-bool Chord::iseOPTTI(double g, int opt_sector) const {
-    return iseRPTTI(OCTAVE(), g, opt_sector);
+bool Chord::iseOPTIg(double g, int opt_sector) const {
+    return iseRPTIg(OCTAVE(), g, opt_sector);
 }
 
 Chord Chord::eOPTI(int opt_sector) const {
     return eRPTI(OCTAVE(), opt_sector);
 }
 
-Chord Chord::eOPTTI(double g, int opt_sector) const {
-    return eRPTTI(OCTAVE(), g, opt_sector);
+Chord Chord::eOPTIg(double g, int opt_sector) const {
+    return eRPTIg(OCTAVE(), g, opt_sector);
 }
 
 std::string Chord::name() const {
@@ -3756,19 +4116,36 @@ bool Chord::is_compact(double range) const {
     return true;
 }
 
-void Chord::clamp(double g)
+Chord Chord::eET(double g) const
 {
+    Chord result = *this;
     if (!(g > 0.0))
     {
-        return;
+        g = 1.0;
     }
+    for (int voice = 0; voice < result.voices(); ++voice)
+    {
+        const double pitch = result.getPitch(voice);
+        result.setPitch(voice, std::round(pitch / g) * g);
+    }
+    return result;
+}
 
+bool Chord::iseET(double g) const
+{
+    if (g <= 0.0)
+    {
+        return false;
+    }
     for (int voice_i = 0, voice_n = voices(); voice_i < voice_n; ++voice_i)
     {
-        double pitch = getPitch(voice_i);
-        pitch = std::round(pitch / g) * g;
-        setPitch(voice_i, pitch);
+        double q = getPitch(voice_i) / g;
+        if (!eq_tolerance(q, std::round(q)))
+        {
+            return false;
+        }
     }
+    return true;
 }
 
 Chord Chord::normal_order() const
@@ -4057,9 +4434,9 @@ Chord Chord::eOT() const {
     return o_t;
 }
 
-Chord Chord::eOTT(double g) const {
+Chord Chord::eOTg(double g) const {
     auto o = eO();
-    auto o_tt = o.eTT(g);
+    auto o_tt = o.eTg(g);
     return o_tt;
 }
 
@@ -4127,8 +4504,7 @@ SILENCE_PUBLIC void PITV::initialize(int N_, double range_, double g_, bool prin
     int normal_form_n = 0;
     while (next(iterator_, origin, upperI, g) == true) {
         chords++;
-        Chord clamped = iterator_;
-        clamped.clamp();
+        Chord clamped = iterator_.eET(g_);
         auto normal_form_ = clamped.normal_form();
         auto prime_form_ = clamped.prime_form();
         // Make a collection to map prime forms to their indices.
@@ -4182,9 +4558,9 @@ SILENCE_PUBLIC void PITV::list(bool listheader, bool listps, bool listvoicings) 
             } else {
                 normal_form_ = inverse_prime_form_;
             }
-            const auto optti = chord.eOPTTI(g);
+            const auto optti = chord.eOPTIg(g);
             opttis_for_prime_forms.insert({prime_form_.toString(), optti.toString()});
-            const auto optt = chord.eOPTT(g);
+            const auto optt = chord.eOPTg(g);
             optts_for_normal_forms.insert({normal_form_.toString(), optt.toString()});
             const auto op = chord.eOP();
             const auto opt_sectors = optt.opt_domain_sectors();
@@ -4208,8 +4584,8 @@ SILENCE_PUBLIC void PITV::list(bool listheader, bool listps, bool listvoicings) 
             } else {
                 normal_form_ = inverse_prime_form_;
             }
-            const auto optti = chord.eOPTTI(g);
-            const auto optt = chord.eOPTT(g);
+            const auto optti = chord.eOPTIg(g);
+            const auto optt = chord.eOPTg(g);
             const auto op = chord.eOP();
             const auto opt_sectors = optt.opt_domain_sectors();
             auto key = chord.toString();

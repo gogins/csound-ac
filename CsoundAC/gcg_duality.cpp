@@ -16,7 +16,7 @@ static int testSector = 0;
 static bool is_k_dual(const csound::Chord &chord_) {
     auto chord = chord_.eOP();
     bool k_dual = false;
-    auto under_k = chord.K().eOPTT().eOP();
+    auto under_k = chord.K().eOPTg().eOP();
     if (under_k != chord) {
         k_dual = true;
         std::fprintf(stderr, "chord:      %s %s\n", chord.toString().c_str(), chord.name().c_str());

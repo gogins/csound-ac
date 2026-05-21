@@ -76,7 +76,7 @@ static void printSet(std::string name, const std::vector<csound::Chord> &chords)
     int i = 1;
     for (auto &value : sorted) {
         auto &c = value.second;
-        csound::System::message("normal: %s  chord[%04d]: %s  OPTT: %s  OPTTI: %s\n", c.normal_form().toString().c_str(), i, c.toString().c_str(), c.eOPTT().toString().c_str(), c.eOPTTI().toString().c_str()); 
+        csound::System::message("normal: %s  chord[%04d]: %s  OPTT: %s  OPTTI: %s\n", c.normal_form().toString().c_str(), i, c.toString().c_str(), c.eOPTg().toString().c_str(), c.eOPTIg().toString().c_str()); 
         auto s = print_opti_sectors(c);
         csound::System::message("%s", s.c_str());
         csound::System::message("\n");
@@ -87,7 +87,7 @@ static void printSet(std::string name, const std::vector<csound::Chord> &chords)
 static void test_pitv(const csound::PITV &pitv_, std::string chordName) {
     csound::System::message("BEGAN test PITV for %s...\n", chordName.c_str());
     csound::Chord originalChord = csound::chordForName(chordName);
-    csound::Chord optti = originalChord.eOPTTI();
+    csound::Chord optti = originalChord.eOPTIg();
     csound::System::message("Original chord:\n%s\n", originalChord.information().c_str());
     Eigen::VectorXi pitv = pitv_.fromChord(originalChord, printPitv);
     csound::Chord reconstitutedChord = pitv_.toChord(pitv[0], pitv[1], pitv[2], pitv[3], printPitv)[0];
@@ -227,7 +227,7 @@ static void test_nrL() {
     }
 }
 
-std::vector<std::string> equivalenceRelationsToTest = {"RP", "RPT", "RPTg", "RPTI", "RPTgI"};
+std::vector<std::string> equivalenceRelationsToTest = {"RP", "RPT", "RPTg", "RPTI", "RPTIg"};
 typedef csound::Chord(*equate_t)(const csound::Chord &, double, double, int);
 typedef bool (*predicate_t)(const csound::Chord &, double, double, int);
 typedef std::vector<csound::Chord> (*fundamentalDomainByEquate_t)(int, double, double, int);
@@ -267,7 +267,7 @@ static bool testEquivalenceRelation(std::string equivalenceRelation, int voiceCo
         passes = false;
     }
 
-    if (equivalenceRelation == "RPTgI") {
+    if (equivalenceRelation == "RPTIg") {
         if (voiceCount == 3) {
             if (equivalentsForEquivalenceRelation.size() != 19) {
                 csound::System::message("%-8s 'found_equivalents' size should be 19 but is %ld.\n", equivalenceRelation.c_str(), equivalentsForEquivalenceRelation.size());
@@ -290,6 +290,37 @@ static bool testEquivalenceRelation(std::string equivalenceRelation, int voiceCo
     return passes;
 }
 
+static bool test_eIg_involution_on_lattice(double g, int opt_sector) {
+    bool passes = true;
+    csound::System::message("\nTesting eIg involution on Tg-lattice chords (sector %d, g %f)...\n", opt_sector, g);
+
+    auto check = [&](const csound::Chord &chord, const char *label) {
+        const csound::Chord on_lattice = chord.eTg(g);
+        const csound::Chord once = on_lattice.eIg(g, opt_sector);
+        const csound::Chord twice = once.eIg(g, opt_sector);
+        const bool involutive = (on_lattice == twice);
+        csound::System::message(
+            "  %s: lattice %s  eIg %s  eIg(eIg) %s  involutive %d\n",
+            label,
+            on_lattice.toString().c_str(),
+            once.toString().c_str(),
+            twice.toString().c_str(),
+            involutive ? 1 : 0);
+        if (!involutive) {
+            passes = false;
+        }
+    };
+
+    check(csound::Chord({0, 4, 7}), "major triad");
+    check(csound::Chord({0, 3, 7}), "minor triad");
+    check(csound::Chord({0, 3, 6}), "diminished");
+    check(csound::chordForName("C7"), "C7");
+    check(csound::chordForName("CM7"), "CM7");
+
+    test(passes, "eIg is involutive on Tg-lattice chords.");
+    return passes;
+}
+
 static bool testEquivalenceRelations(int voiceCount, double range, double g) {
     bool passes = true;
     csound::System::message("\nTesting equivalence relations for %d voices over range %f with g %f...\n\n", voiceCount, range, g);
@@ -308,9 +339,9 @@ static bool testEquivalenceRelations(int voiceCount, double range, double g) {
  */
 static void setDifference(const std::string &a_name, std::vector<csound::Chord> &A, const std::string &b_name,std::vector<csound::Chord> &B, std::vector<csound::Chord> &difference) {
     // auto comparator = [](auto &a, auto &b) {
-    //     auto an = a.eOPTT(0);
+    //     auto an = a.eOPTg(0);
     //     an.clamp();
-    //     auto bn = b.eOPTT(0);
+    //     auto bn = b.eOPTg(0);
     //     bn.clamp();
     //     if ((an < bn) == true) {
     //         ///std::cerr << "less" << std::endl;
@@ -324,12 +355,12 @@ static void setDifference(const std::string &a_name, std::vector<csound::Chord> 
     std::sort(B.begin(), B.end(), csound::ChordTickLess());
     std::multimap<std::string, csound::Chord> map_a;
     for (csound::Chord &chord : A) {
-        std::string key = chord.eOPTT().normal_form().toString();
+        std::string key = chord.eOPTg().normal_form().toString();
         map_a.insert({key, chord});
     }
     std::multimap<std::string, csound::Chord> map_b;
     for (csound::Chord chord : B) {
-        std::string key = chord.eOPTT().normal_form().toString();
+        std::string key = chord.eOPTg().normal_form().toString();
         map_b.insert({key, chord});
     }
     difference.clear();
@@ -345,8 +376,8 @@ static void setDifference(const std::string &a_name, std::vector<csound::Chord> 
             std::fprintf(stderr, "    inverse_prime_form: %s\n", a.inverse_prime_form().toString().c_str());
             std::fprintf(stderr, "    eppcs:              %s\n", a.eppcs().toString().c_str());
             std::fprintf(stderr, "    chord:              %s\n", print_chord(a).c_str());
-            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(a.eOPTT()).c_str());
-            std::fprintf(stderr, "    OPTTI:              %s\n\n\n\n\n\n\n", print_chord(a.eOPTTI()).c_str());
+            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(a.eOPTg()).c_str());
+            std::fprintf(stderr, "    OPTTI:              %s\n\n\n\n\n\n\n", print_chord(a.eOPTIg()).c_str());
             difference.push_back(a_it->second);
             ++a_i;
         } else {
@@ -357,16 +388,16 @@ static void setDifference(const std::string &a_name, std::vector<csound::Chord> 
             std::fprintf(stderr, "    inverse_prime_form: %s\n", a.inverse_prime_form().toString().c_str());
             std::fprintf(stderr, "    eppcs:              %s\n", a.eppcs().toString().c_str());
             std::fprintf(stderr, "    chord:              %s\n", print_chord(a).c_str());
-            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(a.eOPTT()).c_str());
-            std::fprintf(stderr, "    OPTTI:              %s\n", print_chord(a.eOPTTI()).c_str());
+            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(a.eOPTg()).c_str());
+            std::fprintf(stderr, "    OPTTI:              %s\n", print_chord(a.eOPTIg()).c_str());
             std::fprintf(stderr, "  %s[%d]:\n",  b_name.c_str(), b_i);
             std::fprintf(stderr, "    normal_form:        %s\n", b.normal_form().toString().c_str());
             std::fprintf(stderr, "    prime_form:         %s\n", b.prime_form().toString().c_str());
             std::fprintf(stderr, "    inverse_prime_form: %s\n", b.inverse_prime_form().toString().c_str());
             std::fprintf(stderr, "    eppcs:              %s\n", b.eppcs().toString().c_str());
             std::fprintf(stderr, "    chord:              %s\n", print_chord(b).c_str());
-            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(b.eOPTT()).c_str());
-            std::fprintf(stderr, "    OPTTI:              %s\n\n", print_chord(b.eOPTTI()).c_str());
+            std::fprintf(stderr, "    OPTT:               %s\n", print_chord(b.eOPTg()).c_str());
+            std::fprintf(stderr, "    OPTTI:              %s\n\n", print_chord(b.eOPTIg()).c_str());
             ++a_i;
             ++b_i;
         }
@@ -401,18 +432,22 @@ int main(int argc, char **argv) {
     std::fprintf(stderr, "BIN PID=%d\n", getpid());
     std::fprintf(stderr, "BIN argv0=%s\n", argv[0] ? argv[0] : "(null)");
     std::fflush(stderr);
-    auto pid = getpid();
-    std::fprintf(stderr, "Raising SIGSTOP for pid %d to allow attaching a debugger;\n", pid);
-    std::fprintf(stderr, "execute 'fg' in terminal to resume, or attach debugger with 'lldb -p %d'\n", pid);
-#ifdef _WIN32
-    while (!IsDebuggerPresent())
+    const char *wait_for_debugger = std::getenv("CSOUND_AC_WAIT_FOR_DEBUGGER");
+    if (wait_for_debugger != nullptr && wait_for_debugger[0] != '\0' && wait_for_debugger[0] != '0')
     {
-        Sleep(100);
-    }
-    __debugbreak();
+        auto pid = getpid();
+        std::fprintf(stderr, "Raising SIGSTOP for pid %d to allow attaching a debugger;\n", pid);
+        std::fprintf(stderr, "execute 'fg' in terminal to resume, or attach debugger with 'lldb -p %d'\n", pid);
+#ifdef _WIN32
+        while (!IsDebuggerPresent())
+        {
+            Sleep(100);
+        }
+        __debugbreak();
 #else
-    raise(SIGSTOP);
+        raise(SIGSTOP);
 #endif
+    }
     std::cerr << csound::chord_space_version() << std::endl;
     csound::Chord CM = csound::chordForName("C+");
     CM = CM.T(-4.);
@@ -435,7 +470,7 @@ int main(int argc, char **argv) {
     printSet("OPs", ops);
     auto optts = csound::allOfEquivalenceClass(3, "RPTg", 12., 1., 0, false);
     printSet("OPTTs", optts);
-    auto opttis = csound::allOfEquivalenceClass(3, "RPTgI", 12., 1., 0, false);
+    auto opttis = csound::allOfEquivalenceClass(3, "RPTIg", 12., 1., 0, false);
     printSet("OPTTIs", opttis);
     //return 0;
 
@@ -454,7 +489,7 @@ int main(int argc, char **argv) {
     equatesForEquivalenceRelations["RPTg"] =     csound::equate<csound::EQUIVALENCE_RELATION_RPTg>;
     equatesForEquivalenceRelations["RPI"] =      csound::equate<csound::EQUIVALENCE_RELATION_RPI>;
     equatesForEquivalenceRelations["RPTI"] =     csound::equate<csound::EQUIVALENCE_RELATION_RPTI>;
-    equatesForEquivalenceRelations["RPTgI"] =    csound::equate<csound::EQUIVALENCE_RELATION_RPTgI>;
+    equatesForEquivalenceRelations["RPTIg"] =    csound::equate<csound::EQUIVALENCE_RELATION_RPTIg>;
     predicatesForEquivalenceRelations["R"] =         csound::predicate<csound::EQUIVALENCE_RELATION_R>;
     predicatesForEquivalenceRelations["P"] =         csound::predicate<csound::EQUIVALENCE_RELATION_P>;
     predicatesForEquivalenceRelations["T"] =         csound::predicate<csound::EQUIVALENCE_RELATION_T>;
@@ -465,12 +500,12 @@ int main(int argc, char **argv) {
     predicatesForEquivalenceRelations["RPTg"] =      csound::predicate<csound::EQUIVALENCE_RELATION_RPTg>;
     predicatesForEquivalenceRelations["RPI"] =       csound::predicate<csound::EQUIVALENCE_RELATION_RPI>;
     predicatesForEquivalenceRelations["RPTI"] =      csound::predicate<csound::EQUIVALENCE_RELATION_RPTI>;
-    predicatesForEquivalenceRelations["RPTgI"] =     csound::predicate<csound::EQUIVALENCE_RELATION_RPTgI>;
+    predicatesForEquivalenceRelations["RPTIg"] =     csound::predicate<csound::EQUIVALENCE_RELATION_RPTIg>;
     equivalenceRelationsForCompoundEquivalenceRelations["RP"] =      {"R", "P"};
     equivalenceRelationsForCompoundEquivalenceRelations["RPT"] =     {"R", "P", "T"}; // V?
     equivalenceRelationsForCompoundEquivalenceRelations["RPTg"] =    {"R", "P", "Tg"}; // V?
     equivalenceRelationsForCompoundEquivalenceRelations["RPI"] =     {"R", "P"};
-    equivalenceRelationsForCompoundEquivalenceRelations["RPTgI"] =   {"RPTg", "RP", "R", "P", "Tg"}; // V?
+    equivalenceRelationsForCompoundEquivalenceRelations["RPTIg"] =   {"RPTIg", "RP", "R", "P", "Tg"}; // V?
     fundamentalDomainByPredicateForEquivalenceRelations["R"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_R>;
     fundamentalDomainByPredicateForEquivalenceRelations["P"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_P>;
     fundamentalDomainByPredicateForEquivalenceRelations["T"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_T>;
@@ -481,18 +516,18 @@ int main(int argc, char **argv) {
     fundamentalDomainByPredicateForEquivalenceRelations["RPTg"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTg>;
     fundamentalDomainByPredicateForEquivalenceRelations["RPI"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPI>;
     fundamentalDomainByPredicateForEquivalenceRelations["RPTI"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTI>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPTgI"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTgI>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPTIg"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTIg>;
         
     auto chordspace_optts_3 = csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTg>(3, 12., 1., testSector);
     printSet("My OPTTs", chordspace_optts_3);
  
-    auto chordspace_opttis_3 = csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTgI>(3, 12., 1., testSector);
+    auto chordspace_opttis_3 = csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTIg>(3, 12., 1., testSector);
     printSet("My OPTTIs", chordspace_opttis_3);
     
     auto chordspace_optts_4 = csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTg>(4, csound::OCTAVE(), 1., testSector);
     printSet("My OPTTs", chordspace_optts_4);
 
-    auto chordspace_opttis_4 = csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTgI>(4, csound::OCTAVE(), 1., testSector);
+    auto chordspace_opttis_4 = csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTIg>(4, csound::OCTAVE(), 1., testSector);
     printSet("My OPTTIs", chordspace_opttis_4);
     
     csound::System::message("\nBehavior of std::fmod and std::remainder:\n\n");
@@ -572,22 +607,22 @@ int main(int argc, char **argv) {
     csound::Chord eT= eP.eT();
     std::cerr << "eT = eP.eT(): " << eT.toString() << std::endl;
     std::cerr << "eT.iseT(): " << eT.iseT() << std::endl;
-    csound::Chord eTT= eP.eTT();
-    std::cerr << "eTT = eP.eTT(): " << eTT.toString() << std::endl;
-    std::cerr << "eTT.iseT(): " << eTT.iseTT() << std::endl;
-    std::cerr << "eT.iseTT(): " << eT.iseTT() << std::endl;
-    std::cerr << "eTT: " << eTT.toString() << std::endl;
-    csound::Chord inverse = eTT.I();
-    std::cerr << "csound::Chord inverse = eTT.I(): " << inverse.toString() << std::endl;
+    csound::Chord eTg= eP.eTg();
+    std::cerr << "eTg = eP.eTg(): " << eTg.toString() << std::endl;
+    std::cerr << "eTg.iseT(): " << eTg.iseTg() << std::endl;
+    std::cerr << "eT.iseTg(): " << eT.iseTg() << std::endl;
+    std::cerr << "eTg: " << eTg.toString() << std::endl;
+    csound::Chord inverse = eTg.I();
+    std::cerr << "csound::Chord inverse = eTg.I(): " << inverse.toString() << std::endl;
     csound::Chord inverseOfInverse = inverse.I();
     std::cerr << "csound::Chord inverseOfInverse = inverse.I(): " << inverseOfInverse.toString() << std::endl;
     std::cerr << "inverse.iseI(): " << inverse.iseI() << std::endl;
-    csound::Chord eI = eTT.eI();
-    std::cerr << "csound::Chord eI = eTT.eI(): " << eI.toString() << std::endl;
+    csound::Chord eI = eTg.eI();
+    std::cerr << "csound::Chord eI = eTg.eI(): " << eI.toString() << std::endl;
     std::cerr << "eI.iseI(): " << eI.iseI() << std::endl;
-    std::cerr << "eTT.iseI(): " << eTT.iseI() << std::endl;
-    std::cerr << "(inverse < eTT): " << (inverse < eTT) << std::endl;
-    std::cerr << "(eTT < inverse): " << (eTT < inverse) << std::endl;
+    std::cerr << "eTg.iseI(): " << eTg.iseI() << std::endl;
+    std::cerr << "(inverse < eTg): " << (inverse < eTg) << std::endl;
+    std::cerr << "(eTg < inverse): " << (eTg < inverse) << std::endl;
     std::cerr << "chord: " << chord.toString() << std::endl;
     std::cerr << "chord.cycle(): " << chord.cycle().toString() << std::endl;
     std::cerr << "chord.cycle(2): " << chord.cycle(2).toString() << std::endl;
@@ -625,7 +660,7 @@ int main(int argc, char **argv) {
     csound::System::message("chordForName(%s): %s\n", "CM9", chordForName_.information().c_str());
 
     // The following is kind of the acid test. If the inversions in OP are not 
-    // consistent, then the fundamental domains or RPTgI will not be correct, 
+    // consistent, then the fundamental domains or RPTIg will not be correct, 
     // and the whole system will be compromised. This test mimics what one 
     // expects to see in the demo program.
 
@@ -950,10 +985,12 @@ int main(int argc, char **argv) {
     reflected = reflect_in_inversion_flat(original, testSector, g);
     std::cerr << "reflected:" << std::endl;
     std::cerr << reflected.information() << std::endl;
-    spun_back = reflected.eOPTT();
+    spun_back = reflected.eOPTg();
     std::cerr << "spun_back:" << std::endl;
     std::cerr << spun_back.information() << std::endl;    
 #endif    
+    test_eIg_involution_on_lattice(g, testSector);
+
     csound::System::message("\nTesting equivalence relations...\n\n");
     for (int voiceCount = 3; voiceCount <= 4; ++voiceCount) {
         testEquivalenceRelations(voiceCount, csound::OCTAVE(), 1.0);
