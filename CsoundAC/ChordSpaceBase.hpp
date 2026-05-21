@@ -286,7 +286,7 @@ P, L, and R have been extended as follows, see Fiore and Satyendra,
 
 static std::string chord_space_version() {
     char buffer[0x500];
-    std::snprintf(buffer, sizeof(buffer), "ChordSpaceBase version 2.1.1. Compiled from %s on %s at %s.", __FILE__, __DATE__, __TIME__);
+    std::snprintf(buffer, sizeof(buffer), "ChordSpaceBase version 3.0.0. Compiled from %s on %s at %s.", __FILE__, __DATE__, __TIME__);
     return buffer;
 }
 
