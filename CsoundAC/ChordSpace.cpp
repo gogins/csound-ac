@@ -1391,62 +1391,86 @@ Chord Chord::eRPTI(double range, int opt_sector) const {
 // EQUIVALENCE_RELATION_RPTIg
 
 template<>
-SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPTIg>(
+SILENCE_PUBLIC Chord
+equate<EQUIVALENCE_RELATION_RPTIg>(
     const Chord &chord,
     double range,
     double g,
     int opt_sector)
 {
-    if (g <= 0.0)
+    if (!(range > 0.0))
+    {
+        range = OCTAVE();
+    }
+
+    if (!(g > 0.0))
     {
         g = 1.0;
     }
 
-    // RPTgI-normal means: chord is exactly the canonical representative
-    // selected by equate<RPTgI> (minor-half preference + induced involution).
-    const Chord canonical =
-        equate<EQUIVALENCE_RELATION_RPTIg>(chord, range, g, opt_sector);
-
-    return chord == canonical;
-}
-
-bool Chord::iseRPTIg(double range, double g, int opt_sector) const {
-    return predicate<EQUIVALENCE_RELATION_RPTIg>(*this, range, g, opt_sector);
-}
-
-template<>
-SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPTIg>(
-    const Chord &chord,
-    double range,
-    double g,
-    int rpt_sector)
-{
-    if (g <= 0.0)
+    auto to_sector = [&](const Chord &x) -> Chord
     {
-        g = 1.0;
+        return equate<EQUIVALENCE_RELATION_RPTg>(
+            x,
+            range,
+            g,
+            opt_sector);
+    };
+
+    auto invert_to_sector = [&](const Chord &x) -> Chord
+    {
+        Chord y = reflect_in_inversion_flat(x, opt_sector, g);
+        y = y.eET(g);
+        y = to_sector(y);
+        return y;
+    };
+
+    std::vector<Chord> candidates;
+
+    Chord current = to_sector(chord);
+
+    for (;;)
+    {
+        const std::size_t old_size = candidates.size();
+
+        add_unique_chord(candidates, current);
+
+        Chord inverted = invert_to_sector(current);
+        add_unique_chord(candidates, inverted);
+
+        current = inverted;
+
+        if (candidates.size() == old_size)
+        {
+            break;
+        }
     }
 
-    // 1) Canonical RPTg representative
-    Chord a = equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, rpt_sector);
-
-    // 2) Decide which half of the sector we're in (minor side is canonical).
-    const HyperplaneEquation hp = a.hyperplane_equation(rpt_sector);
-    const double signed_distance = (a.col(0) - hp.apex).dot(hp.unit_normal);
-
-    // Canonical side = minor half-space (boundary included).
-    if (le_tolerance(signed_distance, 0.0))
-    {
-        return a;
-    }
-
-    // 3) Otherwise reflect discretely and re-canonicalize.
-    Chord b = reflect_in_inversion_flat(a, rpt_sector, g);
-    b = equate<EQUIVALENCE_RELATION_RPTg>(b, range, g, rpt_sector);
-    return b;
+    return least_chord(candidates);
 }
 
 Chord Chord::eRPTIg(double range, double g, int opt_sector) const {
     return csound::equate<EQUIVALENCE_RELATION_RPTIg>(*this, range, g, opt_sector);
+}
+
+template<>
+SILENCE_PUBLIC bool
+predicate<EQUIVALENCE_RELATION_RPTIg>(
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
+{
+    return chord.is_in_rpt_sector_g(opt_sector, range, g) &&
+           chord == equate<EQUIVALENCE_RELATION_RPTIg>(
+               chord,
+               range,
+               g,
+               opt_sector);
+}
+
+bool Chord::iseRPTIg(double range, double g, int opt_sector) const {
+    return predicate<EQUIVALENCE_RELATION_RPTIg>(*this, range, g, opt_sector);
 }
 
 SILENCE_PUBLIC const std::map<std::string, double> &pitchClassesForNames() {
