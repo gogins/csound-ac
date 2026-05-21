@@ -995,6 +995,22 @@ int main(int argc, char **argv) {
     for (int voiceCount = 3; voiceCount <= 4; ++voiceCount) {
         testEquivalenceRelations(voiceCount, csound::OCTAVE(), 1.0);
     }
+
+    csound::System::message("\nTesting allOfEquivalenceClass<RPTg>...\n\n");
+
+    auto RPTg_chords = csound::allOfEquivalenceClass(3, "RPTg", 12., 1.0, 0, true);
+    std::cerr << "matches:" << std::endl;
+    for (const auto &chord : RPTg_chords) {
+        std::cerr << chord.toString() << std::endl;
+    }
+        
+    csound::System::message("\nTesting allOfEquivalenceClass<RPTIg>...\n\n");
+
+    auto RPTIg_chords = csound::allOfEquivalenceClass(3, "RPTIg", 12., 1.0, 0, true);
+    std::cerr << "matches:" << std::endl;
+    for (const auto &chord : RPTIg_chords) {
+        std::cerr << chord.toString() << std::endl;
+    }
     
     csound::PITV pitv_3;
     pitv_3.initialize(3, 60., 1., true);

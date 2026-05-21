@@ -2314,7 +2314,7 @@ fundamentalDomainByPredicate(
     const char *name_ = namesForEquivalenceRelations[EQUIVALENCE_RELATION];
 
     System::message(
-        "fundamentalDomainByPredicate<%s>: voiceN: %d range: %f g: %f sector: %d\n",
+        "fundamentalDomainByPredicate<%s>: voices: %d range: %f g: %f sector: %d\n",
         name_,
         voiceN,
         range,
