@@ -1276,8 +1276,6 @@ std::vector<Chord> Chord::eRPTgs(double range, double g) const
         Chord candidate = voicing.eET(g);
         candidate = candidate.eTg(g);
         candidate = candidate.eET(g);
-        candidate = candidate.eRPg(range, g);
-        candidate = candidate.eET(g);
 
         add_unique(candidate);
     }
@@ -2720,6 +2718,69 @@ std::vector<Chord> Chord::voicings(int direction, double interval) const {
         voicings.push_back(chord);
     }
     return voicings;
+}
+
+std::vector<Chord> Chord::permuted_voicings_g(double range, double g) const
+{
+    if (!(range > 0.0))
+    {
+        range = OCTAVE();
+    }
+
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    std::vector<Chord> candidates;
+
+    auto add_unique = [&](const Chord &candidate)
+    {
+        for (const Chord &existing : candidates)
+        {
+            if (existing == candidate)
+            {
+                return;
+            }
+        }
+
+        candidates.push_back(candidate);
+    };
+
+    Chord base = eET(g);
+
+    std::vector<int> permutation(size_t(base.voices()));
+
+    for (int voice = 0; voice < base.voices(); ++voice)
+    {
+        permutation[size_t(voice)] = voice;
+    }
+
+    std::sort(permutation.begin(), permutation.end());
+
+    do
+    {
+        Chord candidate = base;
+
+        for (int voice = 0; voice < base.voices(); ++voice)
+        {
+            candidate.setPitch(
+                voice,
+                base.getPitch(permutation[size_t(voice)]));
+        }
+
+        candidate = candidate.eET(g);
+        candidate = candidate.eRPg(range, g);
+
+        add_unique(candidate);
+    }
+    while (std::next_permutation(
+        permutation.begin(),
+        permutation.end()));
+
+    std::sort(candidates.begin(), candidates.end());
+
+    return candidates;
 }
 
 bool Chord::isepcs() const {
