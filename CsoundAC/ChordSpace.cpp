@@ -1227,12 +1227,30 @@ predicate<EQUIVALENCE_RELATION_RPTg>(
     double g,
     int opt_sector)
 {
-    return chord.is_in_rpt_sector_g(opt_sector, range, g) &&
-           chord == equate<EQUIVALENCE_RELATION_RPTg>(
-               chord,
-               range,
-               g,
-               opt_sector);
+    if (!(range > 0.0))
+    {
+        range = OCTAVE();
+    }
+
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    if (opt_sector < 0 || opt_sector >= chord.voices())
+    {
+        return false;
+    }
+
+    const Chord canonical =
+        equate<EQUIVALENCE_RELATION_RPTg>(
+            chord,
+            range,
+            g,
+            opt_sector);
+
+    return chord == canonical &&
+           chord.is_in_rpt_sector_base_g(opt_sector, range, g);
 }
 
 bool Chord::iseRPTg(double range, double g, int opt_sector) const
