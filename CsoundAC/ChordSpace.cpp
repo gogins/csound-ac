@@ -1159,7 +1159,6 @@ equate<EQUIVALENCE_RELATION_RPT>(
 Chord Chord::eRPT(double range, int opt_sector) const {
     return csound::equate<EQUIVALENCE_RELATION_RPT>(*this, range, 1.0, opt_sector);
 }
-
 template<>
 SILENCE_PUBLIC Chord
 equate<EQUIVALENCE_RELATION_RPTg>(
@@ -1184,15 +1183,28 @@ equate<EQUIVALENCE_RELATION_RPTg>(
     }
 
     std::vector<Chord> candidates;
+    std::vector<Chord> all_candidates;
+
+    const int input_layer = chord.eET(g).tg_layer(g);
 
     for (const Chord &candidate : chord.eRPTgs(range, g))
     {
         Chord x = candidate.eET(g);
+        add_unique_chord(all_candidates, x);
 
-        // IMPORTANT: x is already an RPTg candidate.
-        // Do not call is_in_rpt_sector_g here if that function internally
-        // re-reduces the chord. Use the raw/base sector test.
-        if (x.is_in_rpt_sector_base_g(opt_sector, range, g))
+        const bool in_base_sector =
+            x.is_in_rpt_sector_base_g(opt_sector, range, g);
+
+        std::fprintf(
+            stderr,
+            "RPTG_CAND input_layer=%d candidate_layer=%d sector=%d in_base=%d candidate=%s\n",
+            input_layer,
+            x.tg_layer(g),
+            opt_sector,
+            in_base_sector ? 1 : 0,
+            print_chord(x).c_str());
+
+        if (in_base_sector)
         {
             add_unique_chord(candidates, x);
         }
@@ -1202,21 +1214,28 @@ equate<EQUIVALENCE_RELATION_RPTg>(
     {
         std::fprintf(
             stderr,
-            "Warning: eRPTg found no base-sector candidate "
-            "in OPTg sector %d; returning least eRPTgs candidate.\n",
-            opt_sector);
+            "RPTG_EMPTY input_layer=%d sector=%d all_count=%zu input=%s\n",
+            input_layer,
+            opt_sector,
+            all_candidates.size(),
+            print_chord(chord).c_str());
 
-        std::vector<Chord> fallback_candidates;
-
-        for (const Chord &candidate : chord.eRPTgs(range, g))
-        {
-            add_unique_chord(fallback_candidates, candidate.eET(g));
-        }
-
-        return least_chord(fallback_candidates);
+        return least_chord(all_candidates);
     }
 
-    return least_chord(candidates);
+    Chord result = least_chord(candidates);
+
+    std::fprintf(
+        stderr,
+        "RPTG_RESULT input_layer=%d output_layer=%d sector=%d candidate_count=%zu input=%s output=%s\n",
+        input_layer,
+        result.tg_layer(g),
+        opt_sector,
+        candidates.size(),
+        print_chord(chord).c_str(),
+        print_chord(result).c_str());
+
+    return result;
 }
 
 template<>
@@ -1249,8 +1268,7 @@ predicate<EQUIVALENCE_RELATION_RPTg>(
             g,
             opt_sector);
 
-    return chord == canonical &&
-           chord.is_in_rpt_sector_base_g(opt_sector, range, g);
+    return chord == canonical;
 }
 
 bool Chord::iseRPTg(double range, double g, int opt_sector) const
@@ -1301,6 +1319,13 @@ std::vector<Chord> Chord::eRPTgs(double range, double g) const
         }
 
         candidates.push_back(x);
+
+        std::fprintf(
+            stderr,
+            "eRPTgs candidate layer=%d sector0_base=%d %s\n",
+            candidate.tg_layer(g),
+            candidate.is_in_rpt_sector_base_g(0, range, g) ? 1 : 0,
+            print_chord(candidate).c_str());
     };
 
     Chord rp = eRP(range);
