@@ -764,6 +764,7 @@ equate<EQUIVALENCE_RELATION_Tg>(
     }
 
     Chord x = chord.eET(g);
+    const int layer_before = x.tg_layer(g);
 
     double mean = 0.0;
 
@@ -784,7 +785,21 @@ equate<EQUIVALENCE_RELATION_Tg>(
             x.getPitch(voice) - shift);
     }
 
-    return x.eET(g);
+ 
+    auto result = x.eET(g);
+    const int layer_after = result.tg_layer(g);
+
+    const char *greppable = (layer_before == layer_after) ? "TGLAYER OK " : "TGLAYER NOK";
+    std::fprintf(
+        stderr,
+        "%s before=%d after=%d g=%g in=%s out=%s\n",
+        greppable,
+        layer_before,
+        layer_after,
+        g,
+        print_chord(chord).c_str(),
+        print_chord(result).c_str());
+    return result;
 }
 
 Chord Chord::eTg(double g) const {
