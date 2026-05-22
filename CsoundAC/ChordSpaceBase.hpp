@@ -1045,6 +1045,8 @@ public:
      * Returns the sum of the pitches in the chord.
      */
     virtual double layer() const;
+    virtual int tg_layer(double g) const;
+
     /**
      * Returns whether the voices of this chord are less than the voices of 
      * the other.
@@ -2374,13 +2376,14 @@ fundamentalDomainByPredicate(
         if (printme)
         {
             System::message(
-                "fundamentalDomainByPredicate<%s>: %s accepted: %6d unique: %6d scanned: %12d sector: %d %s\n",
+                "fundamentalDomainByPredicate<%s>: %s accepted: %6d unique: %6d scanned: %12d sector: %d layer: %d %s\n",
                 name_,
                 in_domain ? "NORMAL " : "       ",
                 accepted,
                 static_cast<int>(chords_in_domain.size()),
                 scanned,
                 sector,
+                it.tg_layer(g),
                 print_chord(it).c_str());
         }
     }

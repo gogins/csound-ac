@@ -586,6 +586,31 @@ bool Chord::is_in_minor_rpti_sector_g(int opt_sector, double range, double g) co
     return is_in_minor_rpti_sector(opt_sector);
 }
 
+int Chord::tg_layer(double g) const
+{
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    long sum = 0;
+
+    for (int voice = 0; voice < voices(); ++voice)
+    {
+        sum += std::lround(getPitch(voice) / g);
+    }
+
+    const int n = voices();
+    int layer = int(sum % n);
+
+    if (layer < 0)
+    {
+        layer += n;
+    }
+
+    return layer;
+}
+
 template<> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_R>(
     const Chord &chord, double range, double g, int opt_sector)
 {
