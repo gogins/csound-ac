@@ -978,16 +978,10 @@ equate<EQUIVALENCE_RELATION_RPg>(
     result = equate<EQUIVALENCE_RELATION_RP>(
         result,
         range,
-        g,
+        1.0,
         opt_sector);
 
     result = result.eET(g);
-
-    result = equate<EQUIVALENCE_RELATION_RP>(
-        result,
-        range,
-        g,
-        opt_sector);
 
     return result;
 }
