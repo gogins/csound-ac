@@ -464,7 +464,6 @@ int main(int argc, char **argv) {
     test_nrP();
     test_nrL();
     ///return 0;
-    CM.reflect(0);
     // SILENCE_PUBLIC std::vector<Chord> allOfEquivalenceClass(int voice_count, std::string equivalence_class, double range, double g, int sector, bool printme) {
     auto ops = csound::allOfEquivalenceClass(3, "RP", 12., 1., 0, false);
     printSet("OPs", ops);
@@ -690,8 +689,8 @@ int main(int argc, char **argv) {
             std::cerr << "    chord in OP     " << eop.toString() << "\n";
 
             // 1) Pure reflection test (should always be an involution)
-            const csound::Chord reflected = eop.reflect(s);
-            const csound::Chord re_reflected = reflected.reflect(s);
+            const csound::Chord reflected = reflect_in_inversion_flat(eop, s);
+            const csound::Chord re_reflected = reflect_in_inversion_flat(reflected, s);
 
             std::cerr << "    reflected       " << reflected.toString() << "\n";
             std::cerr << "    re-reflected    " << re_reflected.toString() << "\n";
@@ -749,8 +748,8 @@ int main(int argc, char **argv) {
             std::cerr << "    chord in OP     " << eop.toString() << "\n";
 
             // 1) Pure reflection test (should always be an involution)
-            const csound::Chord reflected = eop.reflect(s);
-            const csound::Chord re_reflected = reflected.reflect(s);
+            const csound::Chord reflected = reflect_in_inversion_flat(eop, s);
+            const csound::Chord re_reflected = reflect_in_inversion_flat(reflected, s);
 
             std::cerr << "    reflected       " << reflected.toString() << "\n";
             std::cerr << "    re-reflected    " << re_reflected.toString() << "\n";
@@ -982,7 +981,7 @@ int main(int argc, char **argv) {
     original = csound::chordForName("C7");
     std::cerr << "original:" << std::endl;
     std::cerr << original.information() << std::endl;
-    reflected = reflect_in_inversion_flat(original, testSector, g);
+    reflected = reflect_in_inversion_flat(original, testSector);
     std::cerr << "reflected:" << std::endl;
     std::cerr << reflected.information() << std::endl;
     spun_back = reflected.eOPTg();

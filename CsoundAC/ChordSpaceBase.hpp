@@ -1197,11 +1197,6 @@ public:
      * NOTE: Does NOT return an equivalent under any requivalence relation.
      */
     virtual Chord Q(double x, const Chord &m, double g = 1.) const;
-    /**
-     * Reflects the chord in the inversion flat of the indicated OPT domain sector.
-     * If g > 0, the reflection is within an induced discrete involution.
-     */
-    virtual Chord reflect(int opt_sector, double g = 0.0) const;
 
     virtual void resize(size_t voiceN);
     /**
@@ -2056,13 +2051,19 @@ SILENCE_PUBLIC Chord reflect_in_central_diagonal(const Chord &chord);
 
 SILENCE_PUBLIC Chord reflect_in_central_point(const Chord &chord);
 
-/**
- * Mathematically inverts the chord in the indicated sector by reflecting the 
- * chord in the inversion flat of the OPmsector; this is an involution. 
- * If g > 0, indicating a discrete lattice for chords, an induced discrete 
- * involution is used. 
- */
-SILENCE_PUBLIC Chord reflect_in_inversion_flat(const Chord &chord, int opt_sector, double g);
+// Continuous geometric reflection only.
+// Not lattice-aware. No rounding. No discrete involution repair.
+SILENCE_PUBLIC Chord reflect_in_inversion_flat(
+    const Chord &chord,
+    int opt_sector);
+
+// Discrete lattice operation only.
+// Projects to g-lattice, reflects geometrically, then chooses the nearest
+// lattice point in a way that preserves involution.
+SILENCE_PUBLIC Chord reflect_in_inversion_flat_g(
+    const Chord &chord,
+    int opt_sector,
+    double g);
 
 SILENCE_PUBLIC Chord reflect_in_unison_diagonal(const Chord &chord);
     

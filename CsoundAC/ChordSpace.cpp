@@ -828,7 +828,7 @@ template<> SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_I>(const Chord &chor
     if (predicate<EQUIVALENCE_RELATION_I>(chord, range, g, opt_sector) == true) {
         return chord;
     } else {
-        return reflect_in_inversion_flat(chord, opt_sector, g);
+        return reflect_in_inversion_flat(chord, opt_sector);
     }
 }
 
@@ -869,56 +869,72 @@ equate<EQUIVALENCE_RELATION_Ig>(
     double g,
     int opt_sector)
 {
+    if (!(range > 0.0))
+    {
+        range = OCTAVE();
+    }
+
     if (!(g > 0.0))
     {
         g = 1.0;
     }
 
+    if (opt_sector < 0 || opt_sector >= chord.voices())
+    {
+        opt_sector = 0;
+    }
+
     auto to_optg = [&](const Chord &x) -> Chord
     {
-        return equate<EQUIVALENCE_RELATION_RPTg>(x, range, g, opt_sector);
+        return equate<EQUIVALENCE_RELATION_RPTg>(
+            x,
+            range,
+            g,
+            opt_sector);
     };
 
-    auto invert_then_retract = [&](const Chord &x) -> Chord
+    auto step = [&](const Chord &x) -> Chord
     {
-        Chord y = reflect_in_inversion_flat(x, opt_sector, g);
+        Chord y = reflect_in_inversion_flat_g(x, opt_sector, g);
         return to_optg(y);
     };
 
-    Chord current = to_optg(chord);
-    Chord best = current;
+    std::vector<Chord> orbit;
 
-    std::vector<Chord> visited;
-
-    for (;;)
+    auto add_unique = [&](const Chord &x) -> bool
     {
-        bool already_visited = false;
-
-        for (const Chord &previous : visited)
+        for (const Chord &existing : orbit)
         {
-            if (current == previous)
+            if (existing == x)
             {
-                already_visited = true;
-                break;
+                return false;
             }
         }
 
-        if (already_visited)
+        orbit.push_back(x);
+        return true;
+    };
+
+    Chord current = to_optg(chord);
+
+    const int maximum_steps = 2 * chord.voices() + 4;
+
+    for (int step_i = 0; step_i < maximum_steps; ++step_i)
+    {
+        if (!add_unique(current))
         {
             break;
         }
 
-        visited.push_back(current);
-
-        if (current < best)
-        {
-            best = current;
-        }
-
-        current = invert_then_retract(current);
+        current = step(current);
     }
 
-    return best;
+    if (orbit.empty())
+    {
+        return chord.eET(g);
+    }
+
+    return *std::min_element(orbit.begin(), orbit.end());
 }
 
 Chord Chord::eIg(double range, double g, int opt_sector) const {
@@ -1417,7 +1433,7 @@ equate<EQUIVALENCE_RELATION_RPTI>(
         1.0,
         rpt_sector);
 
-    Chord b = reflect_in_inversion_flat(a, rpt_sector, 0.0);
+    Chord b = reflect_in_inversion_flat(a, rpt_sector);
 
     b = equate<EQUIVALENCE_RELATION_RPT>(
         b,
@@ -1425,7 +1441,7 @@ equate<EQUIVALENCE_RELATION_RPTI>(
         1.0,
         rpt_sector);
 
-    Chord c = reflect_in_inversion_flat(b, rpt_sector, 0.0);
+    Chord c = reflect_in_inversion_flat(b, rpt_sector);
 
     c = equate<EQUIVALENCE_RELATION_RPT>(
         c,
@@ -1476,7 +1492,7 @@ equate<EQUIVALENCE_RELATION_RPTIg>(
 
     auto invert_to_sector = [&](const Chord &x) -> Chord
     {
-        Chord y = reflect_in_inversion_flat(x, opt_sector, g);
+        Chord y = reflect_in_inversion_flat_g(x, opt_sector, g);
         y = y.eET(g);
         y = to_sector(y);
         return y;
@@ -2014,11 +2030,11 @@ std::string Chord::information_sector(int opt_sector_) const
         auto sector_text = print_opti_sectors(*this);
         appendf("    this:           %s\n", print_chord(*this).c_str());
 
-        auto reflected = reflect_in_inversion_flat(*this, sector, g);
+        auto reflected = reflect_in_inversion_flat(*this, sector);
         sector_text = print_opti_sectors(reflected);
         appendf("    reflected:      %s\n", print_chord(reflected).c_str());
 
-        auto rereflected = reflect_in_inversion_flat(reflected, sector, g);
+        auto rereflected = reflect_in_inversion_flat(reflected, sector);
         sector_text = print_opti_sectors(rereflected);
         appendf("    re-reflected:   %s\n", print_chord(rereflected).c_str());
 
@@ -3708,75 +3724,81 @@ SILENCE_PUBLIC Chord reflect_in_unison_diagonal(const Chord &chord) {
     return reflection;
 }
 
-SILENCE_PUBLIC Chord reflect_in_inversion_flat(const Chord &chord, int opt_sector, double g)
+SILENCE_PUBLIC Chord reflect_in_inversion_flat(
+    const Chord &chord,
+    int opt_sector)
 {
-    // Continuous reflection (always non-recursive).
-    auto reflect_continuous = [&](const Chord& x) -> Chord
+    if (opt_sector < 0 || opt_sector >= chord.voices())
     {
-        HyperplaneEquation hyperplane = x.hyperplane_equation(opt_sector);
-        return hyperplane.reflect(x);
-    };
-
-    // Continuous mode.
-    if (!(g > 0.0))
-    {
-        // Preserve non-pitch data.
-        Chord result = chord;
-        Chord reflected = reflect_continuous(chord);
-        for (int v = 0; v < chord.voices(); ++v)
-        {
-            result.setPitch(v, reflected.getPitch(v));
-        }
-        return result;
+        opt_sector = 0;
     }
 
-    // ---- Discrete induced involution on the g-lattice ----
+    HyperplaneEquation hyperplane =
+        chord.hyperplane_equation(opt_sector);
 
-    const int n = chord.voices();
-    const double range = OCTAVE();
+    Chord reflected =
+        hyperplane.reflect(chord);
 
-    // Sector-set membership masks using ONLY is_in_rpt_sector_base
-    // (no predicate/equate calls, so no recursion).
-    auto sector_mask = [&](const Chord& x) -> uint64_t
+    Chord result = chord;
+
+    for (int voice = 0; voice < chord.voices(); ++voice)
     {
-        uint64_t mask = 0;
-        for (int s = 0; s < n; ++s)
-        {
-            if (x.is_in_rpt_sector_base(s, range))
-            {
-                mask |= (uint64_t(1) << s);
-            }
-        }
-        return mask;
+        result.setPitch(
+            voice,
+            reflected.getPitch(voice));
+    }
+
+    return result;
+}
+
+SILENCE_PUBLIC Chord reflect_in_inversion_flat_g(
+    const Chord &chord,
+    int opt_sector,
+    double g)
+{
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    if (opt_sector < 0 || opt_sector >= chord.voices())
+    {
+        opt_sector = 0;
+    }
+
+    Chord lattice_chord =
+        chord.eET(g);
+
+    auto induced = [&](const Chord &x) -> Chord
+    {
+        return reflect_in_inversion_flat(
+            x,
+            opt_sector);
     };
 
-    const uint64_t mask_x = sector_mask(chord);
-
-    auto sector_ok = [&](const Chord& x, const Chord& c) -> bool
+    auto accept_all = [](const Chord &, const Chord &) -> bool
     {
-        (void)x;
-        // Boundary-safe: accept if there exists ANY sector shared by x and c.
-        return (sector_mask(c) & mask_x) != 0;
-    };
-
-    // Wrap the continuous reflection with induced discrete involution.
-    // NOTE: This must not call reflect_in_inversion_flat recursively.
-    auto induced = [&](const Chord& x) -> Chord
-    {
-        return reflect_continuous(x);
-    };
-
-    auto accept_all = [](const Chord&, const Chord&) {
         return true;
     };
 
-    Chord y = discrete_involutive_map(chord, g, induced, accept_all);
-    // Preserve non-pitch data from original chord in the return value.
+    Chord reflected =
+        discrete_involutive_map(
+            lattice_chord,
+            g,
+            induced,
+            accept_all);
+
+    reflected = reflected.eET(g);
+
     Chord result = chord;
-    for (int v = 0; v < n; ++v)
+
+    for (int voice = 0; voice < chord.voices(); ++voice)
     {
-        result.setPitch(v, y.getPitch(v));
+        result.setPitch(
+            voice,
+            reflected.getPitch(voice));
     }
+
     return result;
 }
 
@@ -4705,11 +4727,6 @@ Chord Chord::eOTg(double g) const {
     auto o = eO();
     auto o_tt = o.eTg(g);
     return o_tt;
-}
-
-Chord Chord::reflect(int opt_sector, double g) const {
-    auto reflection = reflect_in_inversion_flat(*this, opt_sector, g);
-    return reflection;
 }
 
 SILENCE_PUBLIC PITV::~PITV() {};
