@@ -74,17 +74,17 @@ namespace csound {
 SILENCE_PUBLIC std::vector<Chord> allOfEquivalenceClass(int voice_count, std::string equivalence_class, double range, double g, int sector, bool printme) {
     std::vector<Chord> fundamental_domain;
     if (equivalence_class == "RP") {
-        fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RP>(voice_count, range, g, sector, printme);       
+        fundamental_domain = fundamentalDomainByGeneration<EQUIVALENCE_RELATION_RP>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPT") {
-        fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPT>(voice_count, range, g, sector, printme);       
+        fundamental_domain = fundamentalDomainByGeneration<EQUIVALENCE_RELATION_RPT>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPTg") {
-        fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTg>(voice_count, range, g, sector, printme);       
+        fundamental_domain = fundamentalDomainByGeneration<EQUIVALENCE_RELATION_RPTg>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPI") {
-        fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPI>(voice_count, range, g, sector, printme);       
+        fundamental_domain = fundamentalDomainByGeneration<EQUIVALENCE_RELATION_RPI>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPTI") {
-        fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTI>(voice_count, range, g, sector, printme);       
+        fundamental_domain = fundamentalDomainByGeneration<EQUIVALENCE_RELATION_RPTI>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPTIg") {
-        fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTIg>(voice_count, range, g, sector, printme);       
+        fundamental_domain = fundamentalDomainByGeneration<EQUIVALENCE_RELATION_RPTIg>(voice_count, range, g, sector, printme);       
     }
     return fundamental_domain;
 }
@@ -790,15 +790,15 @@ equate<EQUIVALENCE_RELATION_Tg>(
     const int layer_after = result.tg_layer(g);
 
     const char *greppable = (layer_before == layer_after) ? "TGLAYER OK " : "TGLAYER NOK";
-    std::fprintf(
-        stderr,
-        "%s before=%d after=%d g=%g in=%s out=%s\n",
-        greppable,
-        layer_before,
-        layer_after,
-        g,
-        print_chord(chord).c_str(),
-        print_chord(result).c_str());
+    // std::fprintf(
+    //     stderr,
+    //     "%s before=%d after=%d g=%g in=%s out=%s\n",
+    //     greppable,
+    //     layer_before,
+    //     layer_after,
+    //     g,
+    //     print_chord(chord).c_str(),
+    //     print_chord(result).c_str());
     return result;
 }
 
@@ -1152,7 +1152,7 @@ equate<EQUIVALENCE_RELATION_RPT>(
             return c;
         }
     }
-    System::error("Error:   Chord equate<EQUIVALENCE_RELATION_RPT>: no RPT in sector %d.\n", rpt_sector);
+    System::error("Error:  Chord equate<EQUIVALENCE_RELATION_RPT>: no RPT in sector %d.\n", rpt_sector);
     return candidates.front();
 }
 
@@ -1195,14 +1195,14 @@ equate<EQUIVALENCE_RELATION_RPTg>(
         const bool in_base_sector =
             x.is_in_rpt_sector_base_g(opt_sector, range, g);
 
-        std::fprintf(
-            stderr,
-            "RPTG_CAND input_layer=%d candidate_layer=%d sector=%d in_base=%d candidate=%s\n",
-            input_layer,
-            x.tg_layer(g),
-            opt_sector,
-            in_base_sector ? 1 : 0,
-            print_chord(x).c_str());
+        // std::fprintf(
+        //     stderr,
+        //     "RPTG_CAND input_layer=%d candidate_layer=%d sector=%d in_base=%d candidate=%s\n",
+        //     input_layer,
+        //     x.tg_layer(g),
+        //     opt_sector,
+        //     in_base_sector ? 1 : 0,
+        //     print_chord(x).c_str());
 
         if (in_base_sector)
         {
@@ -1225,15 +1225,15 @@ equate<EQUIVALENCE_RELATION_RPTg>(
 
     Chord result = least_chord(candidates);
 
-    std::fprintf(
-        stderr,
-        "RPTG_RESULT input_layer=%d output_layer=%d sector=%d candidate_count=%zu input=%s output=%s\n",
-        input_layer,
-        result.tg_layer(g),
-        opt_sector,
-        candidates.size(),
-        print_chord(chord).c_str(),
-        print_chord(result).c_str());
+    // std::fprintf(
+    //     stderr,
+    //     "RPTG_RESULT input_layer=%d output_layer=%d sector=%d candidate_count=%zu input=%s output=%s\n",
+    //     input_layer,
+    //     result.tg_layer(g),
+    //     opt_sector,
+    //     candidates.size(),
+    //     print_chord(chord).c_str(),
+    //     print_chord(result).c_str());
 
     return result;
 }
@@ -1320,12 +1320,12 @@ std::vector<Chord> Chord::eRPTgs(double range, double g) const
 
         candidates.push_back(x);
 
-        std::fprintf(
-            stderr,
-            "eRPTgs candidate layer=%d sector0_base=%d %s\n",
-            candidate.tg_layer(g),
-            candidate.is_in_rpt_sector_base_g(0, range, g) ? 1 : 0,
-            print_chord(candidate).c_str());
+        // std::fprintf(
+        //     stderr,
+        //     "eRPTgs candidate layer=%d sector0_base=%d %s\n",
+        //     candidate.tg_layer(g),
+        //     candidate.is_in_rpt_sector_base_g(0, range, g) ? 1 : 0,
+        //     print_chord(candidate).c_str());
     };
 
     Chord rp = eRP(range);
@@ -2261,110 +2261,157 @@ bool Chord::test(const char *label) const {
     bool passed = true;
     // For some of these we need to know the OPT sector.
     auto opt_sector = opt_domain_sectors().front();
-    // Test idempotency of transformations: 
+    // Idempotence is fundamental:
     // equate<R>(equate<R>(chord, sector), sector) == equate<R>(chord, sector)
-    if (eIg(OCTAVE(), 1.0, opt_sector).eIg(OCTAVE(), 1.0, opt_sector).iseIg(OCTAVE(), 1.0, opt_sector) == false) {
-        passed = false;
-        std::fprintf(stderr, "Failed: Chord::eIg is not idempotent (%s).\n", toString().c_str());
-    } else {
-        std::fprintf(stderr, "        Chord::eIg is idempotent.\n");
-    }
-    if (eOP().eOP().iseOP() == false) {
-        passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOP is not idempotent (%s).\n", toString().c_str());
-    } else {
-        std::fprintf(stderr, "        Chord::eOP is idempotent.\n");
-    }
-    if (eOPT(opt_sector).eOPT(opt_sector).iseOPT(opt_sector) == false) {
-        passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPT is not idempotent (%s).\n", toString().c_str());
-    } else {
-        std::fprintf(stderr, "        Chord::eOPT is idempotent.\n");
-    }
-    if (eOPTg(1.0, opt_sector).eOPTg(1.0, opt_sector).iseOPTg(1.0, opt_sector) == false) {
-        passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTg is not idempotent (%s).\n", toString().c_str());
-    } else {
-        std::fprintf(stderr, "        Chord::eOPTg is idempotent.\n");
-    }
-    if (eOPTI(opt_sector).eOPTI(opt_sector).iseOPTI(opt_sector) == false) {
-        passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTI is not idempotent (%s).\n", toString().c_str());
-    } else {
-        std::fprintf(stderr, "        Chord::eOPTI is idempotent.\n");
-    }
-    if (eOPTIg( 1.0, opt_sector).eOPTIg(1.0, opt_sector).iseOPTIg( 1.0, opt_sector) == false) {
-        passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTIg is not idempotent (%s).\n", toString().c_str());
-    } else {
-        std::fprintf(stderr, "        Chord::eOPTIg is idempotent.\n");
-    }
-    // Test the consistency of the transformations:
-    // predicate<R>(equate<R>(chord, sector), sector) == true
+    // Then consistency: predicate<R>(equate<R>(chord, sector), sector) == true  
+    // Then decomposability: the predicate for a 
+    // compound equivalence relation must return the same truth value as the 
+    // conjunction of predicates for each elementary relation.
+    // Continuous:
     if (eO().iseO() == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eO is not consistent with Chord::iseO.\n");
+        std::fprintf(stderr, "Failed: Chord::eO     is not consistent with Chord::iseO.\n");
     } else {
-        std::fprintf(stderr, "        Chord::eO is consistent with Chord::iseO.\n");
+        std::fprintf(stderr, "        Chord::eO     is consistent with Chord::iseO.\n");
     }
+    // P
     if (eP().iseP() == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eP is not consistent with Chord::iseP.\n");
+        std::fprintf(stderr, "Failed: Chord::eP     is not consistent with Chord::iseP.\n");
     } else {
-        std::fprintf(stderr, "        Chord::eP is consistent with Chord::iseP.\n");
+        std::fprintf(stderr, "        Chord::eP     is consistent with Chord::iseP.\n");
     }
+    // T
     if (eT().iseT() == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eT is not consistent with Chord::iseT.\n");
+        std::fprintf(stderr, "Failed: Chord::eT     is not consistent with Chord::iseT.\n");
     } else {
-        std::fprintf(stderr, "        Chord::eT is consistent with Chord::iseT.\n");
+        std::fprintf(stderr, "        Chord::eT     is consistent with Chord::iseT.\n");
     }
-    if (eTg(1.0).iseTg(1.0) == false) {
+    // I
+    if ((eI(opt_sector).eI(opt_sector) == eI(opt_sector)) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eTg is not consistent with Chord::iseTg.\n");
+        std::fprintf(stderr, "Failed: Chord::eI     is not idempotent (%s).\n", toString().c_str());
     } else {
-        std::fprintf(stderr, "        Chord::eTg is consistent with Chord::iseTg.\n");
+        std::fprintf(stderr, "        Chord::eI     is idempotent.\n");
     }
     auto ei = eI(opt_sector);
     if (ei.iseI(opt_sector) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eI is not consistent with Chord::iseI.\n");
-     } else {
-        std::fprintf(stderr, "        Chord::eI is consistent with Chord::iseI.\n");
+        std::fprintf(stderr, "Failed: Chord::eI     is not consistent with Chord::iseI.\n");
+    } else {
+        std::fprintf(stderr, "        Chord::eI     is consistent with Chord::iseI.\n");
     }
-    auto eig = eIg(OCTAVE(), 1.0, opt_sector);
-    if (eig.iseIg(OCTAVE(), 1.0, opt_sector) == false) {
+    // OP
+    if ((eOP().eOP() == eOP()) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eIg is not consistent with Chord::iseIg (%s => %s).\n", toString().c_str(), eig.toString().c_str());
-   } else {
-        std::fprintf(stderr, "        Chord::eIg is consistent with Chord::iseIg.\n");
+        std::fprintf(stderr, "Failed: Chord::eOP    is not idempotent (%s).\n", toString().c_str());
+    } else {
+        std::fprintf(stderr, "        Chord::eOP    is idempotent.\n");
     }
     if (eOP().iseOP() == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOP is not consistent with Chord::iseOP.\n");
+        std::fprintf(stderr, "Failed: Chord::eOP    is not consistent with Chord::iseOP.\n");
     } else {
-        std::fprintf(stderr, "        Chord::eOP is consistent with Chord::iseOP.\n");
+        std::fprintf(stderr, "        Chord::eOP    is consistent with Chord::iseOP.\n");
     }
-    if (eOPT(opt_sector).is_in_rpt_sector(opt_sector, 12.) == false) {
+    // if (iseOP() == true) {
+    //     if (iseO() == false ||
+    //         iseP() == false) {
+    //         passed = false;
+    //         std::fprintf(stderr, "Failed: Chord::iseOP  is not decomposable.\n");
+    //     } else {
+    //         std::fprintf(stderr, "        Chord::iseOP  is decomposable.\n");
+    //     }
+    // }
+    // OPT
+    if ((eOPT(opt_sector).eOPT(opt_sector) == eOPT(opt_sector)) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eOPT   is not idempotent (%s).\n", toString().c_str());
+    } else {
+        std::fprintf(stderr, "        Chord::eOPT   is idempotent.\n");
+    }
+    // if (iseOPT(opt_sector) == true) {
+    //     if (iseO() == false ||
+    //         iseP() == false || 
+    //         iseT() == false) {
+    //         passed = false;
+    //         std::fprintf(stderr, "Failed: Chord::iseOPT is not decomposable.\n");
+    //     } else {
+    //         std::fprintf(stderr, "        Chord::iseOPT is decomposable.\n");
+    //     }
+    // }
+    if (eOPT(opt_sector).iseOPT(opt_sector) == false) {
         passed = false;
         auto opt_chord = eOPT(opt_sector);
-        std::fprintf(stderr, "Failed: Chord::eOPT is not consistent with Chord::iseOPT (%s => %s).\n", toString().c_str(), opt_chord.toString().c_str());
+        std::fprintf(stderr, "Failed: Chord::eOPT   is not consistent with Chord::iseOPT (%s => %s).\n", toString().c_str(), opt_chord.toString().c_str());
     } else {
-        std::fprintf(stderr, "        Chord::eOPT is consistent with Chord::iseOPT.\n");
+        std::fprintf(stderr, "        Chord::eOPT   is consistent with Chord::iseOPT.\n");
     }
-    if (eOPTg(1.0, opt_sector).iseOPTg(1.0, opt_sector) == false) {
+    // OPTI
+    if ((eOPTI(opt_sector).eOPTI(opt_sector) == eOPTI(opt_sector)) == false) {
         passed = false;
-        auto optt_chord = eOPTg(1.0, opt_sector);
-        std::fprintf(stderr, "Failed: Chord::eOPTg is not consistent with Chord::iseOPTg (%s => %s).\n", toString().c_str(), optt_chord.toString().c_str());
+        std::fprintf(stderr, "Failed: Chord::eOPTI  is not idempotent (%s).\n", toString().c_str());
     } else {
-        std::fprintf(stderr, "        Chord::eOPTg is consistent with Chord::iseOPTg.\n");
+        std::fprintf(stderr, "        Chord::eOPTI  is idempotent.\n");
     }
     auto opti_chord = eOPTI(opt_sector);
     if (opti_chord.iseOPTI(opt_sector) == false) {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTI is not consistent with Chord::iseOPTI (%s => %s).\n", toString().c_str(), opti_chord.toString().c_str());
+        std::fprintf(stderr, "Failed: Chord::eOPTI  is not consistent with Chord::iseOPTI (%s => %s).\n", toString().c_str(), opti_chord.toString().c_str());
     } else {
-        std::fprintf(stderr, "        Chord::eOPTI is consistent with Chord::iseOPTI.\n");
+        std::fprintf(stderr, "        Chord::eOPTI  is consistent with Chord::iseOPTI.\n");
+    }
+    // Equally tempered:
+    // Tg
+    if ((eTg(1.0).eTg(1.0) == eTg(1.0)) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eTg    is not idempotent (%s).\n", toString().c_str());
+    } else {
+        std::fprintf(stderr, "        Chord::eTg    is idempotent.\n");
+    }
+    auto etg = eTg(1.0);
+    if (etg.iseTg(1.0) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eTg    is not consistent with Chord::iseTg (%s => %s).\n", toString().c_str(), etg.toString().c_str());
+    } else {
+        std::fprintf(stderr, "        Chord::eTg    is consistent with Chord::iseTg.\n");
+    }
+    // Ig
+    if ((eIg(OCTAVE(), 1.0, opt_sector).eIg(OCTAVE(), 1.0, opt_sector) == eIg(OCTAVE(), 1.0, opt_sector)) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eIg    is not idempotent (%s).\n", toString().c_str());
+    } else {
+        std::fprintf(stderr, "        Chord::eIg    is idempotent.\n");
+    }
+    auto eig = eIg(OCTAVE(), 1.0, opt_sector);
+    if (eig.iseIg(OCTAVE(), 1.0, opt_sector) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eIg    is not consistent with Chord::iseIg (%s => %s).\n", toString().c_str(), eig.toString().c_str());
+    } else {
+        std::fprintf(stderr, "        Chord::eIg    is consistent with Chord::iseIg.\n");
+    }
+    // OPg
+    // OPTg
+    if ((eOPTg(1.0, opt_sector).eOPTg(1.0, opt_sector) == eOPTg(1.0, opt_sector)) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eOPTg  is not idempotent (%s).\n", toString().c_str());
+    } else {
+        std::fprintf(stderr, "        Chord::eOPTg  is idempotent.\n");
+    }
+    auto optg_chord = eOPTg(1.0, opt_sector);
+    if (optg_chord.iseOPTg(1.0, opt_sector) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eOPTg  is not consistent with Chord::iseOPTg (%s => %s).\n", toString().c_str(), optg_chord.toString().c_str());
+    } else {
+        std::fprintf(stderr, "        Chord::eOPTg  is consistent with Chord::iseOPTg.\n");
+    }
+    // OPTIg
+    if ((eOPTIg( 1.0, opt_sector).eOPTIg(1.0, opt_sector) == eOPTIg(1.0, opt_sector)) == false) {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eOPTIg is not idempotent (%s).\n", toString().c_str());
+    } else {
+        std::fprintf(stderr, "        Chord::eOPTIg is idempotent.\n");
     }
     auto optti_chord = eOPTIg(1.0, opt_sector);
     if (optti_chord.iseOPTIg(1.0, opt_sector) == false) {
@@ -2372,28 +2419,6 @@ bool Chord::test(const char *label) const {
         std::fprintf(stderr, "Failed: Chord::eOPTIg is not consistent with Chord::iseOPTIg  (%s => %s).\n", toString().c_str(), optti_chord.toString().c_str());
     } else {
         std::fprintf(stderr, "        Chord::eOPTIg is consistent with Chord::iseOPTIg.\n");
-    }
-    // Test the decomposability of the predicates. The predicate for a 
-    // compound equivalence relation must return the same truth value as the 
-    // conjunction of predicates for each elementary relation.
-    if (iseOP() == true) {
-        if (iseO() == false ||
-            iseP() == false) {
-            passed = false;
-            std::fprintf(stderr, "Failed: Chord::iseOP is not decomposable.\n");
-        } else {
-            std::fprintf(stderr, "        Chord::iseOP is decomposable.\n");
-        }
-    }
-    if (iseOPT(opt_sector) == true) {
-        if (iseO() == false ||
-            iseP() == false || 
-            iseT() == false) {
-            passed = false;
-            std::fprintf(stderr, "Failed: Chord::iseOPT is not decomposable.\n");
-        } else {
-            std::fprintf(stderr, "        Chord::iseOPT is decomposable.\n");
-        }
     }
     // If it is transformed to T, is it OPT? 
     // After that, is it Tg?
