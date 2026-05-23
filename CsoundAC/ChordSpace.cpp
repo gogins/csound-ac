@@ -17,6 +17,7 @@
  * License along with this software; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
+#include "ChordSpaceBase.hpp"
 #define EIGEN_INITIALIZE_MATRICES_BY_ZERO
 // Header file only library.
 #include "Platform.hpp"
@@ -2256,208 +2257,325 @@ void Chord::resize(size_t voiceN) {
     Matrix::resize(voiceN, COUNT);
 }
 
-bool Chord::test(const char *label) const {
+bool Chord::test(const char *label) const
+{
     std::fprintf(stderr, "\nTESTING %s %s\n\n", toString().c_str(), label);
     bool passed = true;
+
     // For some of these we need to know the OPT sector.
     auto opt_sector = opt_domain_sectors().front();
+
     // Idempotence is fundamental:
     // equate<R>(equate<R>(chord, sector), sector) == equate<R>(chord, sector)
-    // Then consistency: predicate<R>(equate<R>(chord, sector), sector) == true  
-    // Then decomposability: the predicate for a 
-    // compound equivalence relation must return the same truth value as the 
-    // conjunction of predicates for each elementary relation.
+    //
+    // Then consistency:
+    // predicate<R>(equate<R>(chord, sector), sector) == true
+    //
+    // Then decomposability:
+    // the predicate for a compound equivalence relation must return the same
+    // truth value as the conjunction of predicates for each elementary relation.
+
     // Continuous:
-    if (eO().iseO() == false) {
+
+    // O
+    auto o_chord = eO();
+    if (o_chord.iseO() == false)
+    {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eO     is not consistent with Chord::iseO.\n");
-    } else {
+        std::fprintf(stderr, "   %s %d => %s %d.\n",
+            toString().c_str(),
+            iseO(),
+            o_chord.toString().c_str(),
+            o_chord.iseO());
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eO     is consistent with Chord::iseO.\n");
     }
+
     // P
-    if (eP().iseP() == false) {
+    auto p_chord = eP();
+    if (p_chord.iseP() == false)
+    {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eP     is not consistent with Chord::iseP.\n");
-    } else {
+        std::fprintf(stderr, "   %s %d => %s %d.\n",
+            toString().c_str(),
+            iseP(),
+            p_chord.toString().c_str(),
+            p_chord.iseP());
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eP     is consistent with Chord::iseP.\n");
     }
+
     // T
-    if (eT().iseT() == false) {
+    auto t_chord = eT();
+    if (t_chord.iseT() == false)
+    {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eT     is not consistent with Chord::iseT.\n");
-    } else {
+        std::fprintf(stderr, "   %s %d => %s %d.\n",
+            toString().c_str(),
+            iseT(),
+            t_chord.toString().c_str(),
+            t_chord.iseT());
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eT     is consistent with Chord::iseT.\n");
     }
+
     // I
-    if ((eI(opt_sector).eI(opt_sector) == eI(opt_sector)) == false) {
+    if ((eI(opt_sector).eI(opt_sector) == eI(opt_sector)) == false)
+    {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eI     is not idempotent (%s).\n", toString().c_str());
-    } else {
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eI     is idempotent.\n");
     }
-    auto ei = eI(opt_sector);
-    if (ei.iseI(opt_sector) == false) {
+
+    auto i_chord = eI(opt_sector);
+    if (i_chord.iseI(opt_sector) == false)
+    {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eI     is not consistent with Chord::iseI.\n");
-    } else {
+        std::fprintf(stderr, "   %s %d => %s %d.\n",
+            toString().c_str(),
+            iseI(opt_sector),
+            i_chord.toString().c_str(),
+            i_chord.iseI(opt_sector));
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eI     is consistent with Chord::iseI.\n");
     }
+
     // OP
-    if ((eOP().eOP() == eOP()) == false) {
+    if ((eOP().eOP() == eOP()) == false)
+    {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eOP    is not idempotent (%s).\n", toString().c_str());
-    } else {
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eOP    is idempotent.\n");
     }
-    if (eOP().iseOP() == false) {
+
+    auto op_chord = eOP();
+    if (op_chord.iseOP() == false)
+    {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eOP    is not consistent with Chord::iseOP.\n");
-    } else {
+        std::fprintf(stderr, "   %s %d => %s %d.\n",
+            toString().c_str(),
+            iseOP(),
+            op_chord.toString().c_str(),
+            op_chord.iseOP());
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eOP    is consistent with Chord::iseOP.\n");
     }
-    // if (iseOP() == true) {
-    //     if (iseO() == false ||
-    //         iseP() == false) {
-    //         passed = false;
-    //         std::fprintf(stderr, "Failed: Chord::iseOP  is not decomposable.\n");
-    //     } else {
-    //         std::fprintf(stderr, "        Chord::iseOP  is decomposable.\n");
-    //     }
-    // }
+
     // OPT
-    if ((eOPT(opt_sector).eOPT(opt_sector) == eOPT(opt_sector)) == false) {
+    if ((eOPT(opt_sector).eOPT(opt_sector) == eOPT(opt_sector)) == false)
+    {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eOPT   is not idempotent (%s).\n", toString().c_str());
-    } else {
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eOPT   is idempotent.\n");
     }
-    // if (iseOPT(opt_sector) == true) {
-    //     if (iseO() == false ||
-    //         iseP() == false || 
-    //         iseT() == false) {
-    //         passed = false;
-    //         std::fprintf(stderr, "Failed: Chord::iseOPT is not decomposable.\n");
-    //     } else {
-    //         std::fprintf(stderr, "        Chord::iseOPT is decomposable.\n");
-    //     }
-    // }
-    if (eOPT(opt_sector).iseOPT(opt_sector) == false) {
+
+    auto opt_chord = eOPT(opt_sector);
+    if (opt_chord.iseOPT(opt_sector) == false)
+    {
         passed = false;
-        auto opt_chord = eOPT(opt_sector);
-        std::fprintf(stderr, "Failed: Chord::eOPT   is not consistent with Chord::iseOPT (%s => %s).\n", toString().c_str(), opt_chord.toString().c_str());
-    } else {
+        std::fprintf(stderr, "Failed: Chord::eOPT   is not consistent with Chord::iseOPT.\n");
+        std::fprintf(stderr, "   %s %d => %s %d.\n",
+            toString().c_str(),
+            iseOPT(opt_sector),
+            opt_chord.toString().c_str(),
+            opt_chord.iseOPT(opt_sector));
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eOPT   is consistent with Chord::iseOPT.\n");
     }
+
     // OPTI
-    if ((eOPTI(opt_sector).eOPTI(opt_sector) == eOPTI(opt_sector)) == false) {
+    if ((eOPTI(opt_sector).eOPTI(opt_sector) == eOPTI(opt_sector)) == false)
+    {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eOPTI  is not idempotent (%s).\n", toString().c_str());
-    } else {
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eOPTI  is idempotent.\n");
     }
+
     auto opti_chord = eOPTI(opt_sector);
-    if (opti_chord.iseOPTI(opt_sector) == false) {
+    if (opti_chord.iseOPTI(opt_sector) == false)
+    {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTI  is not consistent with Chord::iseOPTI (%s => %s).\n", toString().c_str(), opti_chord.toString().c_str());
-    } else {
+        std::fprintf(stderr, "Failed: Chord::eOPTI  is not consistent with Chord::iseOPTI.\n");
+        std::fprintf(stderr, "   %s %d => %s %d.\n",
+            toString().c_str(),
+            iseOPTI(opt_sector),
+            opti_chord.toString().c_str(),
+            opti_chord.iseOPTI(opt_sector));
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eOPTI  is consistent with Chord::iseOPTI.\n");
     }
+
     // Equally tempered:
+
     // Tg
-    if ((eTg(1.0).eTg(1.0) == eTg(1.0)) == false) {
+    if ((eTg(1.0).eTg(1.0) == eTg(1.0)) == false)
+    {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eTg    is not idempotent (%s).\n", toString().c_str());
-    } else {
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eTg    is idempotent.\n");
     }
-    auto etg = eTg(1.0);
-    if (etg.iseTg(1.0) == false) {
+
+    auto tg_chord = eTg(1.0);
+    if (tg_chord.iseTg(1.0) == false)
+    {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eTg    is not consistent with Chord::iseTg (%s => %s).\n", toString().c_str(), etg.toString().c_str());
-    } else {
+        std::fprintf(stderr, "Failed: Chord::eTg    is not consistent with Chord::iseTg.\n");
+        std::fprintf(stderr, "   %s %d => %s %d.\n",
+            toString().c_str(),
+            iseTg(1.0),
+            tg_chord.toString().c_str(),
+            tg_chord.iseTg(1.0));
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eTg    is consistent with Chord::iseTg.\n");
     }
+
     // Ig
-    if ((eIg(OCTAVE(), 1.0, opt_sector).eIg(OCTAVE(), 1.0, opt_sector) == eIg(OCTAVE(), 1.0, opt_sector)) == false) {
+    if ((eIg(OCTAVE(), 1.0, opt_sector).eIg(OCTAVE(), 1.0, opt_sector) == eIg(OCTAVE(), 1.0, opt_sector)) == false)
+    {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eIg    is not idempotent (%s).\n", toString().c_str());
-    } else {
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eIg    is idempotent.\n");
     }
-    auto eig = eIg(OCTAVE(), 1.0, opt_sector);
-    if (eig.iseIg(OCTAVE(), 1.0, opt_sector) == false) {
+
+    auto ig_chord = eIg(OCTAVE(), 1.0, opt_sector);
+    if (ig_chord.iseIg(OCTAVE(), 1.0, opt_sector) == false)
+    {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eIg    is not consistent with Chord::iseIg (%s => %s).\n", toString().c_str(), eig.toString().c_str());
-    } else {
+        std::fprintf(stderr, "Failed: Chord::eIg    is not consistent with Chord::iseIg.\n");
+        std::fprintf(stderr, "   %s %d => %s %d.\n",
+            toString().c_str(),
+            iseIg(OCTAVE(), 1.0, opt_sector),
+            ig_chord.toString().c_str(),
+            ig_chord.iseIg(OCTAVE(), 1.0, opt_sector));
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eIg    is consistent with Chord::iseIg.\n");
     }
+
     // OPg
+    if ((eRPg(OCTAVE(), 1.0).eRPg(OCTAVE(), 1.0) == eRPg(OCTAVE(), 1.0)) == false)
+    {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eOPg   is not idempotent (%s).\n", toString().c_str());
+    }
+    else
+    {
+        std::fprintf(stderr, "        Chord::eOPg   is idempotent.\n");
+    }
+
+    auto opg_chord = eOPg(1.0);
+    if (opg_chord.iseOPg(1.0) == false)
+    {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::eOPg   is not consistent with Chord::iseOPg.\n");
+        std::fprintf(stderr, "   %s %d => %s %d.\n",
+            toString().c_str(),
+            iseOPg(1.0),
+            opg_chord.toString().c_str(),
+            opg_chord.iseOPg(1.0));
+    }
+    else
+    {
+        std::fprintf(stderr, "        Chord::eOPg   is consistent with Chord::iseOPg.\n");
+    }
+
     // OPTg
-    if ((eOPTg(1.0, opt_sector).eOPTg(1.0, opt_sector) == eOPTg(1.0, opt_sector)) == false) {
+    if ((eOPTg(1.0, opt_sector).eOPTg(1.0, opt_sector) == eOPTg(1.0, opt_sector)) == false)
+    {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eOPTg  is not idempotent (%s).\n", toString().c_str());
-    } else {
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eOPTg  is idempotent.\n");
     }
+
     auto optg_chord = eOPTg(1.0, opt_sector);
-    if (optg_chord.iseOPTg(1.0, opt_sector) == false) {
+    if (optg_chord.iseOPTg(1.0, opt_sector) == false)
+    {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTg  is not consistent with Chord::iseOPTg (%s => %s).\n", toString().c_str(), optg_chord.toString().c_str());
-    } else {
+        std::fprintf(stderr, "Failed: Chord::eOPTg  is not consistent with Chord::iseOPTg.\n");
+        std::fprintf(stderr, "   %s %d => %s %d.\n",
+            toString().c_str(),
+            iseOPTg(1.0, opt_sector),
+            optg_chord.toString().c_str(),
+            optg_chord.iseOPTg(1.0, opt_sector));
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eOPTg  is consistent with Chord::iseOPTg.\n");
     }
+
     // OPTIg
-    if ((eOPTIg( 1.0, opt_sector).eOPTIg(1.0, opt_sector) == eOPTIg(1.0, opt_sector)) == false) {
+    if ((eOPTIg(1.0, opt_sector).eOPTIg(1.0, opt_sector) == eOPTIg(1.0, opt_sector)) == false)
+    {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eOPTIg is not idempotent (%s).\n", toString().c_str());
-    } else {
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eOPTIg is idempotent.\n");
     }
-    auto optti_chord = eOPTIg(1.0, opt_sector);
-    if (optti_chord.iseOPTIg(1.0, opt_sector) == false) {
+
+    auto optig_chord = eOPTIg(1.0, opt_sector);
+    if (optig_chord.iseOPTIg(1.0, opt_sector) == false)
+    {
         passed = false;
-        std::fprintf(stderr, "Failed: Chord::eOPTIg is not consistent with Chord::iseOPTIg  (%s => %s).\n", toString().c_str(), optti_chord.toString().c_str());
-    } else {
+        std::fprintf(stderr, "Failed: Chord::eOPTIg is not consistent with Chord::iseOPTIg.\n");
+        std::fprintf(stderr, "   %s %d => %s %d.\n",
+            toString().c_str(),
+            iseOPTIg(1.0, opt_sector),
+            optig_chord.toString().c_str(),
+            optig_chord.iseOPTIg(1.0, opt_sector));
+    }
+    else
+    {
         std::fprintf(stderr, "        Chord::eOPTIg is consistent with Chord::iseOPTIg.\n");
     }
-    // If it is transformed to T, is it OPT? 
-    // After that, is it Tg?
-    // if (iseOPTg(1.0, opt_sector) == true) {
-    //     if (iseO() == false ||
-    //         iseP() == false || 
-    //         iseTg(1.0) == false) {
-    //         passed = false;
-    //         std::fprintf(stderr, "Failed: Chord::iseOPTg is not decomposable.\n");
-    //     } else {
-    //         std::fprintf(stderr, "        Chord::iseOPTg is decomposable.\n");
-    //     }
-    // }
-    // NOTE: The decomposability of OPI and OPTI is not guaranteed, because 
-    // of the interactions between the different equivalence relations.
-    // if (iseOPTI(opt_sector) == true) {
-    //     if (iseO() == false ||
-    //         iseP() == false || 
-    //         iseT() == false || 
-    //         iseI(opt_sector) == false) {
-    //         passed = false;
-    //         std::fprintf(stderr, "Failed: Chord::iseOPTI is not decomposable.\n");
-    //     } else {
-    //         std::fprintf(stderr, "        Chord::iseOPTI is decomposable.\n");
-    //     }
-    // }
-    // if (iseOPTIg(1.0, opt_sector) == true) {
-    //     if (iseO() == false ||
-    //         iseP() == false || 
-    //         iseTg(1.0) == false || 
-    //         iseI(opt_sector) == false) {
-    //         passed = false;
-    //         std::fprintf(stderr, "Failed: Chord::iseOPTIg is not decomposable.\n");
-    //     } else {
-    //         std::fprintf(stderr, "        Chord::iseOPTIg is decomposable.\n");
-    //     }
-    // }
+
     std::fprintf(stderr, "\n");
     std::fprintf(stderr, "%s", information().c_str());
+
     return passed;
 }
 
@@ -2928,6 +3046,13 @@ Chord Chord::eOP() const {
     return eRP(OCTAVE());
 }
 
+bool Chord::iseOPg(double g) const {
+    return iseRPg(OCTAVE(), g);
+}
+
+Chord Chord::eOPg(double g) const {
+    return eRPg(OCTAVE(), g);
+}
 bool Chord::iseOPT(int opt_sector) const {
     return iseRPT(OCTAVE(), opt_sector);
 }
