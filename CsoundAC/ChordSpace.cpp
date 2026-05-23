@@ -75,17 +75,17 @@ namespace csound {
 SILENCE_PUBLIC std::vector<Chord> allOfEquivalenceClass(int voice_count, std::string equivalence_class, double range, double g, int sector, bool printme) {
     std::vector<Chord> fundamental_domain;
     if (equivalence_class == "RP") {
-        fundamental_domain = fundamentalDomainByGeneration<EQUIVALENCE_RELATION_RP>(voice_count, range, g, sector, printme);       
+        fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RP>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPT") {
-        fundamental_domain = fundamentalDomainByGeneration<EQUIVALENCE_RELATION_RPT>(voice_count, range, g, sector, printme);       
+        fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPT>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPTg") {
-        fundamental_domain = fundamentalDomainByGeneration<EQUIVALENCE_RELATION_RPTg>(voice_count, range, g, sector, printme);       
+        fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTg>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPI") {
-        fundamental_domain = fundamentalDomainByGeneration<EQUIVALENCE_RELATION_RPI>(voice_count, range, g, sector, printme);       
+        fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPI>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPTI") {
-        fundamental_domain = fundamentalDomainByGeneration<EQUIVALENCE_RELATION_RPTI>(voice_count, range, g, sector, printme);       
+        fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTI>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPTIg") {
-        fundamental_domain = fundamentalDomainByGeneration<EQUIVALENCE_RELATION_RPTIg>(voice_count, range, g, sector, printme);       
+        fundamental_domain = fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTIg>(voice_count, range, g, sector, printme);       
     }
     return fundamental_domain;
 }
