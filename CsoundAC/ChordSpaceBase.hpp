@@ -2343,6 +2343,8 @@ SILENCE_PUBLIC Chord voiceleadingSimpler(const Chord &source, const Chord &d1, c
     caches the resulting domain, and exposes lookup helpers.
 */
 
+#pragma region fundamental_domain_cache
+
 enum class fundamental_domain_generation_mode
 {
     by_predicate,
@@ -3401,6 +3403,8 @@ int fundamentalDomainIndexForName(
         fundamentalDomainByEquateDomain<EQUIVALENCE_RELATION>(voiceN, range, g, sector, false);
     return domain.index_for_name(name);
 }
+
+#pragma endregion
 
 } // End of namespace csound.
 
