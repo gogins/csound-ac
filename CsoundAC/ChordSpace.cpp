@@ -895,7 +895,11 @@ equate<EQUIVALENCE_RELATION_Ig>(
 
     auto step = [&](const Chord &x) -> Chord
     {
-        Chord y = reflect_in_inversion_flat_g(x, opt_sector, g);
+        Chord y = reflect_in_inversion_flat_g(
+            x,
+            opt_sector,
+            g);
+
         return to_optg(y);
     };
 
@@ -918,11 +922,13 @@ equate<EQUIVALENCE_RELATION_Ig>(
     Chord current = to_optg(chord);
 
     const int maximum_steps = 2 * chord.voices() + 4;
+    bool closed = false;
 
     for (int step_i = 0; step_i < maximum_steps; ++step_i)
     {
         if (!add_unique(current))
         {
+            closed = true;
             break;
         }
 
@@ -934,7 +940,27 @@ equate<EQUIVALENCE_RELATION_Ig>(
         return chord.eET(g);
     }
 
-    return *std::min_element(orbit.begin(), orbit.end());
+    if (!closed)
+    {
+        std::fprintf(
+            stderr,
+            "Warning: eIg orbit did not close within %d steps for %s.\n",
+            maximum_steps,
+            print_chord(chord).c_str());
+    }
+
+    if (orbit.size() > 2)
+    {
+        std::fprintf(
+            stderr,
+            "Warning: eIg induced orbit has size %zu for %s.\n",
+            orbit.size(),
+            print_chord(chord).c_str());
+    }
+
+    return *std::min_element(
+        orbit.begin(),
+        orbit.end());
 }
 
 Chord Chord::eIg(double range, double g, int opt_sector) const {
