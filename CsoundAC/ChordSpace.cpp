@@ -893,74 +893,38 @@ equate<EQUIVALENCE_RELATION_Ig>(
             opt_sector);
     };
 
-    auto step = [&](const Chord &x) -> Chord
-    {
-        Chord y = reflect_in_inversion_flat_g(
-            x,
+    const Chord a = to_optg(chord);
+
+    Chord b = reflect_in_inversion_flat_g(
+        a,
+        opt_sector,
+        g);
+
+    b = to_optg(b);
+
+    const Chord a_again = to_optg(
+        reflect_in_inversion_flat_g(
+            b,
             opt_sector,
-            g);
+            g));
 
-        return to_optg(y);
-    };
-
-    std::vector<Chord> orbit;
-
-    auto add_unique = [&](const Chord &x) -> bool
-    {
-        for (const Chord &existing : orbit)
-        {
-            if (existing == x)
-            {
-                return false;
-            }
-        }
-
-        orbit.push_back(x);
-        return true;
-    };
-
-    Chord current = to_optg(chord);
-
-    const int maximum_steps = 2 * chord.voices() + 4;
-    bool closed = false;
-
-    for (int step_i = 0; step_i < maximum_steps; ++step_i)
-    {
-        if (!add_unique(current))
-        {
-            closed = true;
-            break;
-        }
-
-        current = step(current);
-    }
-
-    if (orbit.empty())
-    {
-        return chord.eET(g);
-    }
-
-    if (!closed)
+    if (!(a_again == a))
     {
         std::fprintf(
             stderr,
-            "Warning: eIg orbit did not close within %d steps for %s.\n",
-            maximum_steps,
-            print_chord(chord).c_str());
+            "Warning: eIg induced inversion is not a pair "
+            "(%s -> %s -> %s).\n",
+            print_chord(a).c_str(),
+            print_chord(b).c_str(),
+            print_chord(a_again).c_str());
     }
 
-    if (orbit.size() > 2)
+    if (b < a)
     {
-        std::fprintf(
-            stderr,
-            "Warning: eIg induced orbit has size %zu for %s.\n",
-            orbit.size(),
-            print_chord(chord).c_str());
+        return b;
     }
 
-    return *std::min_element(
-        orbit.begin(),
-        orbit.end());
+    return a;
 }
 
 Chord Chord::eIg(double range, double g, int opt_sector) const {
