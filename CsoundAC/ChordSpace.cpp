@@ -1471,6 +1471,11 @@ equate<EQUIVALENCE_RELATION_RPTIg>(
         g = 1.0;
     }
 
+    if (opt_sector < 0 || opt_sector >= chord.voices())
+    {
+        opt_sector = 0;
+    }
+
     auto to_sector = [&](const Chord &x) -> Chord
     {
         return equate<EQUIVALENCE_RELATION_RPTg>(
@@ -1480,36 +1485,56 @@ equate<EQUIVALENCE_RELATION_RPTIg>(
             opt_sector);
     };
 
-    auto invert_to_sector = [&](const Chord &x) -> Chord
+    Chord a = to_sector(chord);
+
+    Chord b = reflect_in_inversion_flat_g(
+        a,
+        opt_sector,
+        g);
+
+    b = to_sector(b);
+
+    const bool a_in_half =
+        a.is_in_minor_rpti_sector_g(
+            opt_sector,
+            range,
+            g);
+
+    const bool b_in_half =
+        b.is_in_minor_rpti_sector_g(
+            opt_sector,
+            range,
+            g);
+
+    if (a_in_half && !b_in_half)
     {
-        Chord y = reflect_in_inversion_flat_g(x, opt_sector, g);
-        y = y.eET(g);
-        y = to_sector(y);
-        return y;
-    };
-
-    std::vector<Chord> candidates;
-
-    Chord current = to_sector(chord);
-
-    for (;;)
-    {
-        const std::size_t old_size = candidates.size();
-
-        add_unique_chord(candidates, current);
-
-        Chord inverted = invert_to_sector(current);
-        add_unique_chord(candidates, inverted);
-
-        current = inverted;
-
-        if (candidates.size() == old_size)
-        {
-            break;
-        }
+        return a;
     }
 
-    return least_chord(candidates);
+    if (b_in_half && !a_in_half)
+    {
+        return b;
+    }
+
+    if (a_in_half && b_in_half)
+    {
+        return least_chord({a, b});
+    }
+
+    /*
+     * This should be rare. It means the discrete reflection and the
+     * side predicate disagree, usually near the inversion flat.
+     * Fall back to the point closer to the selected half by deterministic
+     * order, but warn while debugging.
+     */
+    std::fprintf(
+        stderr,
+        "Warning: eRPTIg found no candidate in selected inversional half "
+        "(%s -> %s).\n",
+        print_chord(a).c_str(),
+        print_chord(b).c_str());
+
+    return least_chord({a, b});
 }
 
 Chord Chord::eRPTIg(double range, double g, int opt_sector) const {
@@ -1524,12 +1549,31 @@ predicate<EQUIVALENCE_RELATION_RPTIg>(
     double g,
     int opt_sector)
 {
-    return chord.is_in_rpt_sector_g(opt_sector, range, g) &&
-           chord == equate<EQUIVALENCE_RELATION_RPTIg>(
-               chord,
-               range,
-               g,
-               opt_sector);
+    if (!(range > 0.0))
+    {
+        range = OCTAVE();
+    }
+
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    if (opt_sector < 0 || opt_sector >= chord.voices())
+    {
+        opt_sector = 0;
+    }
+
+    return
+        chord == equate<EQUIVALENCE_RELATION_RPTg>(
+            chord,
+            range,
+            g,
+            opt_sector) &&
+        chord.is_in_minor_rpti_sector_g(
+            opt_sector,
+            range,
+            g);
 }
 
 bool Chord::iseRPTIg(double range, double g, int opt_sector) const {
