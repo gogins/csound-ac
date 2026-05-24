@@ -510,12 +510,12 @@ int main(int argc, char **argv) {
     fundamentalDomainByPredicateForEquivalenceRelations["T"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_T>;
     fundamentalDomainByPredicateForEquivalenceRelations["Tg"] =          csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_Tg>;
     fundamentalDomainByPredicateForEquivalenceRelations["I"] =           csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_I>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RP"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RP>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPT"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPT>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPTg"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTg>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPI"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPI>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPTI"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTI>;
-    fundamentalDomainByPredicateForEquivalenceRelations["RPTIg"] =          csound::fundamentalDomainByGeneration<csound::EQUIVALENCE_RELATION_RPTIg>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RP"] =          csound::fundamentalDomainByEquate<csound::EQUIVALENCE_RELATION_RP>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPT"] =          csound::fundamentalDomainByEquate<csound::EQUIVALENCE_RELATION_RPT>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPTg"] =          csound::fundamentalDomainByEquate<csound::EQUIVALENCE_RELATION_RPTg>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPI"] =          csound::fundamentalDomainByEquate<csound::EQUIVALENCE_RELATION_RPI>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPTI"] =          csound::fundamentalDomainByEquate<csound::EQUIVALENCE_RELATION_RPTI>;
+    fundamentalDomainByPredicateForEquivalenceRelations["RPTIg"] =          csound::fundamentalDomainByEquate<csound::EQUIVALENCE_RELATION_RPTIg>;
         
     auto chordspace_optts_3 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTg>(3, 12., 1., testSector);
     printSet("My OPTTs", chordspace_optts_3);

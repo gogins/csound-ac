@@ -1803,7 +1803,7 @@ template<int EQUIVALENCE_RELATION> std::vector<Chord> fundamentalDomainByPredica
  * This avoids scanning an ambient box and therefore prevents pathological
  * growth in candidate counts for higher voice counts.
  */
-template<int EQUIVALENCE_RELATION> std::vector<Chord> fundamentalDomainByGeneration(int voiceN, double range, double g = 1., int sector=0, bool printme=false);
+template<int EQUIVALENCE_RELATION> std::vector<Chord> fundamentalDomainByEquate(int voiceN, double range, double g = 1., int sector=0, bool printme=false);
 
 /**
  * Returns the pitch reflected in the center, which may be any pitch.
@@ -2409,11 +2409,11 @@ fundamentalDomainByPredicate(
 
 template<int EQUIVALENCE_RELATION>
 std::vector<csound::Chord>
-fundamentalDomainByGeneration(int voiceN, double range, double g, int sector, bool printme)
+fundamentalDomainByEquate(int voiceN, double range, double g, int sector, bool printme)
 {
     const char *name_ = namesForEquivalenceRelations[EQUIVALENCE_RELATION];
     System::message(
-        "fundamentalDomainByGeneration<%s>: voiceN: %d range: %f g: %f sector: %d\n",
+        "fundamentalDomainByEquate<%s>: voiceN: %d range: %f g: %f sector: %d\n",
         name_, voiceN, range, g, sector
     );
 
@@ -2506,7 +2506,7 @@ fundamentalDomainByGeneration(int voiceN, double range, double g, int sector, bo
                 if (printme)
                 {
                     System::message(
-                        "fundamentalDomainByGeneration<%s>: accepted: %6lld size: %6d generated: %12lld %s\n",
+                        "fundamentalDomainByEquate<%s>: accepted: %6lld size: %6d generated: %12lld %s\n",
                         name_,
                         accepted,
                         static_cast<int>(chords_in_domain.size()),
@@ -2529,7 +2529,7 @@ fundamentalDomainByGeneration(int voiceN, double range, double g, int sector, bo
     enumerate_shapes(1, 0);
 
     System::message(
-        "fundamentalDomainByGeneration<%s>: generated: %lld accepted: %lld size: %d size in sector 0: %lld\n",
+        "fundamentalDomainByEquate<%s>: generated: %lld accepted: %lld size: %d size in sector 0: %lld\n",
         name_,
         generated,
         accepted,
