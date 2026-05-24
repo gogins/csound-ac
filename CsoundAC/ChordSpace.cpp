@@ -3741,6 +3741,214 @@ SILENCE_PUBLIC Chord reflect_in_inversion_flat(
     return result;
 }
 
+// Helpers.
+
+namespace
+{
+
+double squared_pitch_distance(
+    const Chord &a,
+    const Chord &b)
+{
+    double distance = 0.0;
+
+    const int n = std::min(a.voices(), b.voices());
+
+    for (int voice = 0; voice < n; ++voice)
+    {
+        const double delta =
+            a.getPitch(voice) - b.getPitch(voice);
+
+        distance += delta * delta;
+    }
+
+    return distance;
+}
+
+void add_unique_chord_local(
+    std::vector<Chord> &chords,
+    const Chord &candidate)
+{
+    for (const Chord &existing : chords)
+    {
+        if (existing == candidate)
+        {
+            return;
+        }
+    }
+
+    chords.push_back(candidate);
+}
+
+std::vector<Chord> reflection_lattice_candidates_g(
+    const Chord &chord,
+    int opt_sector,
+    double g,
+    int radius)
+{
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    if (radius < 0)
+    {
+        radius = 0;
+    }
+
+    const int n = chord.voices();
+
+    if (opt_sector < 0 || opt_sector >= n)
+    {
+        opt_sector = 0;
+    }
+
+    const double range = OCTAVE();
+
+    const Chord x =
+        chord.eET(g);
+
+    const Chord reflected =
+        reflect_in_inversion_flat(
+            x,
+            opt_sector);
+
+    Chord center =
+        reflected.eET(g);
+
+    std::vector<Chord> sector_candidates;
+    std::vector<Chord> all_candidates;
+
+    std::vector<int> offsets(
+        static_cast<std::size_t>(n),
+        -radius);
+
+    for (;;)
+    {
+        Chord candidate = center;
+
+        for (int voice = 0; voice < n; ++voice)
+        {
+            candidate.setPitch(
+                voice,
+                center.getPitch(voice) +
+                    (double(offsets[static_cast<std::size_t>(voice)]) * g));
+        }
+
+        candidate = candidate.eET(g);
+
+        add_unique_chord_local(
+            all_candidates,
+            candidate);
+
+        if (candidate.is_in_rpt_sector_base_g(
+                opt_sector,
+                range,
+                g))
+        {
+            add_unique_chord_local(
+                sector_candidates,
+                candidate);
+        }
+
+        int carry = n - 1;
+
+        while (carry >= 0)
+        {
+            ++offsets[static_cast<std::size_t>(carry)];
+
+            if (offsets[static_cast<std::size_t>(carry)] <= radius)
+            {
+                break;
+            }
+
+            offsets[static_cast<std::size_t>(carry)] = -radius;
+            --carry;
+        }
+
+        if (carry < 0)
+        {
+            break;
+        }
+    }
+
+    if (!sector_candidates.empty())
+    {
+        std::sort(
+            sector_candidates.begin(),
+            sector_candidates.end());
+
+        return sector_candidates;
+    }
+
+    std::sort(
+        all_candidates.begin(),
+        all_candidates.end());
+
+    return all_candidates;
+}
+
+Chord nearest_reflection_lattice_candidate_g(
+    const Chord &chord,
+    int opt_sector,
+    double g,
+    int radius)
+{
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    const Chord x =
+        chord.eET(g);
+
+    const Chord reflected =
+        reflect_in_inversion_flat(
+            x,
+            opt_sector);
+
+    const std::vector<Chord> candidates =
+        reflection_lattice_candidates_g(
+            x,
+            opt_sector,
+            g,
+            radius);
+
+    if (candidates.empty())
+    {
+        return reflected.eET(g);
+    }
+
+    Chord best =
+        candidates.front();
+
+    double best_distance =
+        squared_pitch_distance(best, reflected);
+
+    for (const Chord &candidate : candidates)
+    {
+        const double candidate_distance =
+            squared_pitch_distance(candidate, reflected);
+
+        if (candidate_distance < best_distance &&
+            !eq_tolerance(candidate_distance, best_distance))
+        {
+            best = candidate;
+            best_distance = candidate_distance;
+        }
+        else if (eq_tolerance(candidate_distance, best_distance) &&
+                 candidate < best)
+        {
+            best = candidate;
+            best_distance = candidate_distance;
+        }
+    }
+
+    return best.eET(g);
+}
+
+}
+
 SILENCE_PUBLIC Chord reflect_in_inversion_flat_g(
     const Chord &chord,
     int opt_sector,
@@ -3751,42 +3959,125 @@ SILENCE_PUBLIC Chord reflect_in_inversion_flat_g(
         g = 1.0;
     }
 
-    if (opt_sector < 0 || opt_sector >= chord.voices())
+    const int n =
+        chord.voices();
+
+    if (opt_sector < 0 || opt_sector >= n)
     {
         opt_sector = 0;
     }
 
-    Chord lattice_chord =
+    const Chord x =
         chord.eET(g);
 
-    auto induced = [&](const Chord &x) -> Chord
-    {
-        return reflect_in_inversion_flat(
+    const Chord reflected_x =
+        reflect_in_inversion_flat(
             x,
             opt_sector);
-    };
 
-    auto accept_all = [](const Chord &, const Chord &) -> bool
-    {
-        return true;
-    };
-
-    Chord reflected =
-        discrete_involutive_map(
-            lattice_chord,
+    /*
+     * Fast path: nearest local lattice candidate.
+     */
+    Chord y =
+        nearest_reflection_lattice_candidate_g(
+            x,
+            opt_sector,
             g,
-            induced,
-            accept_all);
+            1);
 
-    reflected = reflected.eET(g);
+    Chord back =
+        nearest_reflection_lattice_candidate_g(
+            y,
+            opt_sector,
+            g,
+            1);
+
+    if (back == x)
+    {
+        Chord result = chord;
+
+        for (int voice = 0; voice < n; ++voice)
+        {
+            result.setPitch(
+                voice,
+                y.getPitch(voice));
+        }
+
+        return result;
+    }
+
+    /*
+     * Reciprocal repair: search a slightly larger neighborhood around
+     * the continuous reflected point and prefer a candidate that maps
+     * back to x under the same one-sided selection rule.
+     */
+    const int repair_radius = (n <= 3) ? 2 : 3;
+    const std::vector<Chord> candidates =
+        reflection_lattice_candidates_g(
+            x,
+            opt_sector,
+            g,
+            repair_radius);
+
+    bool found_reciprocal = false;
+    Chord best = y;
+    double best_score =
+        std::numeric_limits<double>::infinity();
+
+    for (const Chord &candidate : candidates)
+    {
+        const Chord candidate_back =
+            nearest_reflection_lattice_candidate_g(
+                candidate,
+                opt_sector,
+                g,
+                repair_radius);
+
+        if (!(candidate_back == x))
+        {
+            continue;
+        }
+
+        const Chord reflected_candidate =
+            reflect_in_inversion_flat(
+                candidate,
+                opt_sector);
+
+        const double score =
+            squared_pitch_distance(candidate, reflected_x) +
+            squared_pitch_distance(x, reflected_candidate);
+
+        if (!found_reciprocal ||
+            (score < best_score &&
+             !eq_tolerance(score, best_score)) ||
+            (eq_tolerance(score, best_score) &&
+             candidate < best))
+        {
+            found_reciprocal = true;
+            best = candidate;
+            best_score = score;
+        }
+    }
+
+    if (!found_reciprocal)
+    {
+        std::fprintf(
+            stderr,
+            "Warning: reflect_in_inversion_flat_g found no reciprocal "
+            "candidate for %s; using nearest candidate %s.\n",
+            print_chord(x).c_str(),
+            print_chord(y).c_str());
+    }
+
+    best = best.eET(g);
 
     Chord result = chord;
 
-    for (int voice = 0; voice < chord.voices(); ++voice)
+    for (int voice = 0; voice < n; ++voice)
     {
         result.setPitch(
             voice,
-            reflected.getPitch(voice));
+            best.getPitch(voice));
     }
 
     return result;
