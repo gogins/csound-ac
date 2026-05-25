@@ -3898,6 +3898,16 @@ SILENCE_PUBLIC Chord reflect_in_inversion_flat_g(
     return result;
 }
 
+Chord Chord::R(int opt_sector) const
+{
+    return reflect_in_inversion_flat(*this, opt_sector);
+}
+
+Chord Chord::Rg(int opt_sector, double g) const
+{
+    return reflect_in_inversion_flat_g(*this, opt_sector, g);
+}
+
 SILENCE_PUBLIC Chord scale(std::string name) {
     CHORD_SPACE_DEBUG("scale: for name: %s\n", name.c_str());
     auto scale = chordForName(name);

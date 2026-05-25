@@ -1045,6 +1045,15 @@ public:
      */
     virtual bool self_inverse(int opt_sector = 0) const;
     /**
+     * Reflects the chord in the inversion flat of the indicated OPT sector.
+     */
+    virtual Chord R(int opt_sector) const;
+    /**
+     * Reflects the chord in the inversion flat of the indicated OPT sector,
+     * on the g-lattice.
+     */
+    virtual Chord Rg(int opt_sector, double g = 1.0) const;
+    /**
      * Returns the chord inverted by the sum of its first two voices.
      */
     virtual Chord K() const;
