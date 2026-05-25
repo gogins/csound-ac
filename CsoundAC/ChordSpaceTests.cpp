@@ -230,8 +230,8 @@ static void test_nrL() {
 std::vector<std::string> equivalenceRelationsToTest = {"RP", "RPT", "RPTg", "RPTI", "RPTIg"};
 typedef csound::Chord(*equate_t)(const csound::Chord &, double, double, int);
 typedef bool (*predicate_t)(const csound::Chord &, double, double, int);
-typedef std::vector<csound::Chord> (*fundamentalDomainByEquate_t)(int, double, double, int);
-typedef std::vector<csound::Chord> (*fundamentalDomainByPredicate_t)(int, double, double, int, bool);
+typedef const std::vector<csound::Chord> &(*fundamentalDomainByEquate_t)(int, double, double, int);
+typedef const std::vector<csound::Chord> &(*fundamentalDomainByPredicate_t)(int, double, double, int, bool);
 std::map<std::string, equate_t> equatesForEquivalenceRelations;
 std::map<std::string, predicate_t> predicatesForEquivalenceRelations;
 std::map<std::string, std::set<std::string> > equivalenceRelationsForCompoundEquivalenceRelations;

@@ -1793,7 +1793,7 @@ SILENCE_PUBLIC void fill(std::string rootName, double rootPitch, std::string typ
 /**
  * Returns a set of chords in one sector of the cyclical region.
  */
-template<int EQUIVALENCE_RELATION> std::vector<Chord> fundamentalDomainByPredicate(int voiceN, double range, double g = 1., int sector=0, bool printme=false);
+template<int EQUIVALENCE_RELATION> const std::vector<Chord> &fundamentalDomainByPredicate(int voiceN, double range, double g = 1., int sector=0, bool printme=false);
 
 /**
  * Returns a set of chords in the union of all sectors of the cyclical region,
@@ -1803,7 +1803,7 @@ template<int EQUIVALENCE_RELATION> std::vector<Chord> fundamentalDomainByPredica
  * This avoids scanning an ambient box and therefore prevents pathological
  * growth in candidate counts for higher voice counts.
  */
-template<int EQUIVALENCE_RELATION> std::vector<Chord> fundamentalDomainByEquate(int voiceN, double range, double g = 1., int sector=0, bool printme=false);
+template<int EQUIVALENCE_RELATION> const std::vector<Chord> &fundamentalDomainByEquate(int voiceN, double range, double g = 1., int sector=0, bool printme=false);
 
 /**
  * Returns the pitch reflected in the center, which may be any pitch.
@@ -2318,8 +2318,6 @@ SILENCE_PUBLIC Chord voiceleadingSimpler(const Chord &source, const Chord &d1, c
 // are template definitions that must be in the header.
 //////////////////////////////////////////////////////////////////////////////
 
-#pragma once
-
 /*
     ChordSpaceFundamentalDomains.hpp
 
@@ -2345,1065 +2343,1375 @@ SILENCE_PUBLIC Chord voiceleadingSimpler(const Chord &source, const Chord &d1, c
 
 #pragma region fundamental_domain_cache
 
-enum class fundamental_domain_generation_mode
-{
-    by_predicate,
-    by_equate
-};
-
-struct fundamental_domain_cache_key
-{
-    int equivalence_relation = 0;
-    int voices = 0;
-    int sector = 0;
-    int range_key = 0;
-    int g_key = 0;
-    fundamental_domain_generation_mode mode =
-        fundamental_domain_generation_mode::by_equate;
-
-    bool operator<(const fundamental_domain_cache_key &other) const
-    {
-        if (equivalence_relation != other.equivalence_relation)
-        {
-            return equivalence_relation < other.equivalence_relation;
-        }
-        if (voices != other.voices)
-        {
-            return voices < other.voices;
-        }
-        if (sector != other.sector)
-        {
-            return sector < other.sector;
-        }
-        if (range_key != other.range_key)
-        {
-            return range_key < other.range_key;
-        }
-        if (g_key != other.g_key)
-        {
-            return g_key < other.g_key;
-        }
-        return static_cast<int>(mode) < static_cast<int>(other.mode);
-    }
-};
-
-struct fundamental_domain
-{
-    std::vector<Chord> chords;
-    std::unordered_map<std::string, std::size_t> index_by_to_string;
-    std::unordered_map<std::string, std::size_t> index_by_name;
-    long long generated = 0;
-    long long accepted = 0;
-    int expected_size = -1;
-    bool size_is_expected = true;
-
-    void rebuild_indices()
-    {
-        index_by_to_string.clear();
-        index_by_name.clear();
-
-        for (std::size_t index = 0; index < chords.size(); ++index)
-        {
-            const Chord &chord = chords[index];
-            index_by_to_string.emplace(chord.toString(), index);
-            index_by_name.emplace(print_chord(chord), index);
-        }
-    }
-
-    std::size_t size() const
-    {
-        return chords.size();
-    }
-
-    bool empty() const
-    {
-        return chords.empty();
-    }
-
-    const Chord *chord_for_index(std::size_t index) const
-    {
-        if (index >= chords.size())
-        {
-            return nullptr;
-        }
-        return &chords[index];
-    }
-
-    const Chord *chord_for_to_string(const std::string &text) const
-    {
-        const auto it = index_by_to_string.find(text);
-        if (it == index_by_to_string.end())
-        {
-            return nullptr;
-        }
-        return chord_for_index(it->second);
-    }
-
-    const Chord *chord_for_name(const std::string &name) const
-    {
-        const auto name_it = index_by_name.find(name);
-        if (name_it != index_by_name.end())
-        {
-            return chord_for_index(name_it->second);
-        }
-
-        const auto string_it = index_by_to_string.find(name);
-        if (string_it != index_by_to_string.end())
-        {
-            return chord_for_index(string_it->second);
-        }
-
-        return nullptr;
-    }
-
-    int index_for_to_string(const std::string &text) const
-    {
-        const auto it = index_by_to_string.find(text);
-        if (it == index_by_to_string.end())
-        {
-            return -1;
-        }
-        return static_cast<int>(it->second);
-    }
-
-    int index_for_name(const std::string &name) const
-    {
-        const auto name_it = index_by_name.find(name);
-        if (name_it != index_by_name.end())
-        {
-            return static_cast<int>(name_it->second);
-        }
-
-        const auto string_it = index_by_to_string.find(name);
-        if (string_it != index_by_to_string.end())
-        {
-            return static_cast<int>(string_it->second);
-        }
-
-        return -1;
-    }
-
-    int index_for_chord(const Chord &chord) const
-    {
-        const auto exact_it = index_by_to_string.find(chord.toString());
-        if (exact_it != index_by_to_string.end())
-        {
-            return static_cast<int>(exact_it->second);
-        }
-
-        for (std::size_t index = 0; index < chords.size(); ++index)
-        {
-            if (chords[index] == chord)
-            {
-                return static_cast<int>(index);
-            }
-        }
-
-        return -1;
-    }
-};
-
-namespace fundamental_domain_detail
-{
-
-inline int double_key(double value)
-{
-    return static_cast<int>(std::llround(value * 1000000.0));
-}
-
-inline int binomial_int(int n, int k)
-{
-    if (k < 0 || k > n)
-    {
-        return 0;
-    }
-    if (k > n - k)
-    {
-        k = n - k;
-    }
-
-    long long result = 1;
-    for (int i = 1; i <= k; ++i)
-    {
-        result = (result * static_cast<long long>(n - k + i)) /
-            static_cast<long long>(i);
-    }
-    return static_cast<int>(result);
-}
-
-inline bool add_unique_chord(std::vector<Chord> &chords, const Chord &candidate)
-{
-    for (const Chord &existing : chords)
-    {
-        if (existing == candidate)
-        {
-            return false;
-        }
-    }
-    chords.push_back(candidate);
-    return true;
-}
-
-inline int temperament_steps(double range, double g)
-{
-    if (!(range > 0.0))
-    {
-        range = OCTAVE();
-    }
-    if (!(g > 0.0))
-    {
-        g = 1.0;
-    }
-
-    const double raw_steps = range / g;
-    const int steps = static_cast<int>(std::llround(raw_steps));
-
-    if (steps <= 0)
-    {
-        return 12;
-    }
-
-    if (std::abs(raw_steps - static_cast<double>(steps)) > 1.0e-7)
-    {
-        System::message(
-            "Warning: range/g is not integral in fundamental-domain enumeration "
-            "(range: %f g: %f range/g: %.12f rounded steps: %d).\n",
-            range,
-            g,
-            raw_steps,
-            steps);
-    }
-
-    return steps;
-}
-
-template<typename Callback>
-void enumerate_pitch_class_multisets(int voices, int steps, Callback callback)
-{
-    if (voices <= 0 || steps <= 0)
-    {
-        return;
-    }
-
-    std::vector<int> pcs(static_cast<std::size_t>(voices), 0);
-
-    std::function<void(int, int)> enumerate = [&](int voice, int last_pc)
-    {
-        if (voice >= voices)
-        {
-            callback(pcs);
-            return;
-        }
-
-        for (int pc = last_pc; pc < steps; ++pc)
-        {
-            pcs[static_cast<std::size_t>(voice)] = pc;
-            enumerate(voice + 1, pc);
-        }
-    };
-
-    enumerate(0, 0);
-}
-
-inline Chord chord_from_pitch_class_multiset(const std::vector<int> &pcs, double g)
-{
-    Chord chord(static_cast<int>(pcs.size()));
-    for (int voice = 0; voice < static_cast<int>(pcs.size()); ++voice)
-    {
-        chord.setPitch(voice, static_cast<double>(pcs[static_cast<std::size_t>(voice)]) * g);
-    }
-    return chord.eET(g);
-}
-
-inline std::vector<int> transpose_multiset(const std::vector<int> &pcs, int steps, int transposition)
-{
-    std::vector<int> result;
-    result.reserve(pcs.size());
-    for (int pc : pcs)
-    {
-        int value = (pc + transposition) % steps;
-        if (value < 0)
-        {
-            value += steps;
-        }
-        result.push_back(value);
-    }
-    std::sort(result.begin(), result.end());
-    return result;
-}
-
-inline std::vector<int> invert_multiset(const std::vector<int> &pcs, int steps)
-{
-    std::vector<int> result;
-    result.reserve(pcs.size());
-    for (int pc : pcs)
-    {
-        int value = (-pc) % steps;
-        if (value < 0)
-        {
-            value += steps;
-        }
-        result.push_back(value);
-    }
-    std::sort(result.begin(), result.end());
-    return result;
-}
-
-inline std::vector<int> canonical_transposition_multiset(const std::vector<int> &pcs, int steps)
-{
-    std::vector<int> best = transpose_multiset(pcs, steps, 0);
-    for (int transposition = 1; transposition < steps; ++transposition)
-    {
-        std::vector<int> candidate = transpose_multiset(pcs, steps, transposition);
-        if (candidate < best)
-        {
-            best = candidate;
-        }
-    }
-    return best;
-}
-
-inline std::vector<int> canonical_transposition_inversion_multiset(const std::vector<int> &pcs, int steps)
-{
-    std::vector<int> best = canonical_transposition_multiset(pcs, steps);
-    std::vector<int> inverted = invert_multiset(pcs, steps);
-    std::vector<int> inverted_best = canonical_transposition_multiset(inverted, steps);
-    if (inverted_best < best)
-    {
-        best = inverted_best;
-    }
-    return best;
-}
-
-inline int expected_transposition_domain_size(int voices, int steps)
-{
-    std::map<std::vector<int>, bool> unique_classes;
-    enumerate_pitch_class_multisets(voices, steps, [&](const std::vector<int> &pcs)
-    {
-        unique_classes.emplace(canonical_transposition_multiset(pcs, steps), true);
-    });
-    return static_cast<int>(unique_classes.size());
-}
-
-inline int expected_transposition_inversion_domain_size(int voices, int steps)
-{
-    std::map<std::vector<int>, bool> unique_classes;
-    enumerate_pitch_class_multisets(voices, steps, [&](const std::vector<int> &pcs)
-    {
-        unique_classes.emplace(canonical_transposition_inversion_multiset(pcs, steps), true);
-    });
-    return static_cast<int>(unique_classes.size());
-}
-
-template<int EQUIVALENCE_RELATION>
-int expected_domain_size(int voices, int steps)
-{
-    if (voices <= 0 || steps <= 0)
-    {
-        return -1;
-    }
-
-    if (EQUIVALENCE_RELATION == EQUIVALENCE_RELATION_RPg)
-    {
-        return binomial_int(steps + voices - 1, voices);
-    }
-
-    if (EQUIVALENCE_RELATION == EQUIVALENCE_RELATION_RPTg)
-    {
-        return expected_transposition_domain_size(voices, steps);
-    }
-
-    if (EQUIVALENCE_RELATION == EQUIVALENCE_RELATION_RPTIg)
-    {
-        return expected_transposition_inversion_domain_size(voices, steps);
-    }
-
-    return -1;
-}
-
-inline std::map<fundamental_domain_cache_key, fundamental_domain> &domain_cache()
-{
-    static std::map<fundamental_domain_cache_key, fundamental_domain> cache;
-    return cache;
-}
-
-inline std::mutex &domain_cache_mutex()
-{
-    static std::mutex mutex;
-    return mutex;
-}
-
-inline fundamental_domain_cache_key make_cache_key(
-    int equivalence_relation,
-    int voices,
-    double range,
-    double g,
-    int sector,
-    fundamental_domain_generation_mode mode)
-{
-    fundamental_domain_cache_key key;
-    key.equivalence_relation = equivalence_relation;
-    key.voices = voices;
-    key.sector = sector;
-    key.range_key = double_key(range);
-    key.g_key = double_key(g);
-    key.mode = mode;
-    return key;
-}
-
-inline void sort_unique_domain(std::vector<Chord> &chords)
-{
-    std::sort(chords.begin(), chords.end());
-    std::vector<Chord> unique_chords;
-    unique_chords.reserve(chords.size());
-    for (const Chord &chord : chords)
-    {
-        add_unique_chord(unique_chords, chord);
-    }
-    chords.swap(unique_chords);
-}
-
-template<int EQUIVALENCE_RELATION>
-std::vector<Chord> fundamental_domain_by_equate_uncached_impl(
-    int voices,
-    double range,
-    double g,
-    int sector,
-    bool printme,
-    long long *generated_out,
-    long long *accepted_out,
-    int *expected_size_out)
-{
-    const char *name = namesForEquivalenceRelations[EQUIVALENCE_RELATION];
-
-    if (generated_out != nullptr)
-    {
-        *generated_out = 0;
-    }
-    if (accepted_out != nullptr)
-    {
-        *accepted_out = 0;
-    }
-    if (expected_size_out != nullptr)
-    {
-        *expected_size_out = -1;
-    }
-
-    if (!(range > 0.0))
-    {
-        range = OCTAVE();
-    }
-    if (!(g > 0.0))
-    {
-        g = 1.0;
-    }
-    if (voices <= 0)
-    {
-        return {};
-    }
-    if (sector < 0 || sector >= voices)
-    {
-        System::message(
-            "fundamentalDomainByEquate_<%s>: invalid sector %d for voices %d; using sector 0.\n",
-            name,
-            sector,
-            voices);
-        sector = 0;
-    }
-
-    const int steps = temperament_steps(range, g);
-    const int expected_size = expected_domain_size<EQUIVALENCE_RELATION>(voices, steps);
-    if (expected_size_out != nullptr)
-    {
-        *expected_size_out = expected_size;
-    }
-
-    std::vector<Chord> chords;
-    chords.reserve(expected_size > 0 ? static_cast<std::size_t>(expected_size) : 1024);
-
-    long long generated = 0;
-    long long accepted = 0;
-
-    enumerate_pitch_class_multisets(voices, steps, [&](const std::vector<int> &pcs)
-    {
-        Chord chord = chord_from_pitch_class_multiset(pcs, g);
-        ++generated;
-
-        Chord representative = equate<EQUIVALENCE_RELATION>(chord, range, g, sector);
-        representative = representative.eET(g);
-
-        if (add_unique_chord(chords, representative))
-        {
-            ++accepted;
-            if (printme)
-            {
-                System::message(
-                    "fundamentalDomainByEquate_<%s>: accepted: %6lld unique: %6d generated: %12lld sector: %d layer: %d input: %s output: %s\n",
-                    name,
-                    accepted,
-                    static_cast<int>(chords.size()),
-                    generated,
-                    sector,
-                    representative.tg_layer(g),
-                    print_chord(chord).c_str(),
-                    print_chord(representative).c_str());
-            }
-        }
-    });
-
-    sort_unique_domain(chords);
-
-    if (generated_out != nullptr)
-    {
-        *generated_out = generated;
-    }
-    if (accepted_out != nullptr)
-    {
-        *accepted_out = accepted;
-    }
-
-    System::message(
-        "fundamentalDomainByEquate_<%s>: voices: %d range: %f g: %f sector: %d generated: %lld accepted: %lld size: %d\n",
-        name,
-        voices,
-        range,
-        g,
-        sector,
-        generated,
-        accepted,
-        static_cast<int>(chords.size()));
-
-    if (expected_size >= 0 && expected_size != static_cast<int>(chords.size()))
-    {
-        System::message(
-            "Warning: fundamentalDomainByEquate_<%s>: unexpected domain size: expected %d but got %d "
-            "(voices: %d range: %f g: %f sector: %d).\n",
-            name,
-            expected_size,
-            static_cast<int>(chords.size()),
-            voices,
-            range,
-            g,
-            sector);
-    }
-
-    return chords;
-}
-
-template<int EQUIVALENCE_RELATION>
-std::vector<Chord> fundamental_domain_by_predicate_uncached_impl(
-    int voices,
-    double range,
-    double g,
-    int sector,
-    bool printme,
-    long long *generated_out,
-    long long *accepted_out,
-    int *expected_size_out)
-{
-    const char *name = namesForEquivalenceRelations[EQUIVALENCE_RELATION];
-
-    if (generated_out != nullptr)
-    {
-        *generated_out = 0;
-    }
-    if (accepted_out != nullptr)
-    {
-        *accepted_out = 0;
-    }
-    if (expected_size_out != nullptr)
-    {
-        *expected_size_out = -1;
-    }
-
-    if (!(range > 0.0))
-    {
-        range = OCTAVE();
-    }
-    if (!(g > 0.0))
-    {
-        g = 1.0;
-    }
-    if (voices <= 0)
-    {
-        return {};
-    }
-    if (sector < 0 || sector >= voices)
-    {
-        System::message(
-            "fundamentalDomainByPredicate_<%s>: invalid sector %d for voices %d; using sector 0.\n",
-            name,
-            sector,
-            voices);
-        sector = 0;
-    }
-
-    const int steps = temperament_steps(range, g);
-    const int expected_size = expected_domain_size<EQUIVALENCE_RELATION>(voices, steps);
-    if (expected_size_out != nullptr)
-    {
-        *expected_size_out = expected_size;
-    }
-
-    std::vector<Chord> chords;
-    chords.reserve(expected_size > 0 ? static_cast<std::size_t>(expected_size) : 1024);
-
-    long long generated = 0;
-    long long accepted = 0;
-
-    enumerate_pitch_class_multisets(voices, steps, [&](const std::vector<int> &pcs)
-    {
-        Chord chord = chord_from_pitch_class_multiset(pcs, g);
-        ++generated;
-
-        Chord representative = equate<EQUIVALENCE_RELATION>(chord, range, g, sector);
-        representative = representative.eET(g);
-
-        const bool in_domain = predicate<EQUIVALENCE_RELATION>(representative, range, g, sector);
-        if (in_domain)
-        {
-            if (add_unique_chord(chords, representative))
-            {
-                ++accepted;
-            }
-        }
-        else
-        {
-            System::message(
-                "Warning: fundamentalDomainByPredicate_<%s>: equate result does not satisfy predicate "
-                "(sector: %d input: %s output: %s).\n",
-                name,
-                sector,
-                print_chord(chord).c_str(),
-                print_chord(representative).c_str());
-        }
-
-        if (printme)
-        {
-            System::message(
-                "fundamentalDomainByPredicate_<%s>: %s accepted: %6lld unique: %6d generated: %12lld sector: %d layer: %d input: %s output: %s\n",
-                name,
-                in_domain ? "NORMAL " : "       ",
-                accepted,
-                static_cast<int>(chords.size()),
-                generated,
-                sector,
-                representative.tg_layer(g),
-                print_chord(chord).c_str(),
-                print_chord(representative).c_str());
-        }
-    });
-
-    sort_unique_domain(chords);
-
-    if (generated_out != nullptr)
-    {
-        *generated_out = generated;
-    }
-    if (accepted_out != nullptr)
-    {
-        *accepted_out = accepted;
-    }
-
-    System::message(
-        "fundamentalDomainByPredicate_<%s>: voices: %d range: %f g: %f sector: %d generated: %lld accepted: %lld size: %d\n",
-        name,
-        voices,
-        range,
-        g,
-        sector,
-        generated,
-        accepted,
-        static_cast<int>(chords.size()));
-
-    if (expected_size >= 0 && expected_size != static_cast<int>(chords.size()))
-    {
-        System::message(
-            "Warning: fundamentalDomainByPredicate_<%s>: unexpected domain size: expected %d but got %d "
-            "(voices: %d range: %f g: %f sector: %d).\n",
-            name,
-            expected_size,
-            static_cast<int>(chords.size()),
-            voices,
-            range,
-            g,
-            sector);
-    }
-
-    return chords;
-}
-
-inline void log_domain_summary(
-    const char *function_name,
-    const char *relation_name,
-    const fundamental_domain &domain,
-    int voices,
-    double range,
-    double g,
-    int sector,
-    bool from_cache)
-{
-    System::message(
-        "%s<%s>: voices: %d range: %f g: %f sector: %d generated: %lld accepted: %lld size: %d%s\n",
-        function_name,
-        relation_name,
-        voices,
-        range,
-        g,
-        sector,
-        domain.generated,
-        domain.accepted,
-        static_cast<int>(domain.chords.size()),
-        from_cache ? " cached" : "");
-
-    if (domain.expected_size >= 0 && domain.expected_size != static_cast<int>(domain.chords.size()))
-    {
-        System::message(
-            "Warning: %s<%s>: unexpected domain size: expected %d but got %d "
-            "(voices: %d range: %f g: %f sector: %d).\n",
-            function_name,
-            relation_name,
-            domain.expected_size,
-            static_cast<int>(domain.chords.size()),
-            voices,
-            range,
-            g,
-            sector);
-    }
-}
-
-inline fundamental_domain make_domain_from_chords(
-    std::vector<Chord> chords,
-    long long generated,
-    long long accepted,
-    int expected_size)
-{
-    fundamental_domain domain;
-    domain.chords = std::move(chords);
-    domain.generated = generated;
-    domain.accepted = accepted;
-    domain.expected_size = expected_size;
-    domain.size_is_expected = expected_size < 0 ||
-        expected_size == static_cast<int>(domain.chords.size());
-    domain.rebuild_indices();
-    return domain;
-}
-
-} // namespace fundamental_domain_detail
-
-template<int EQUIVALENCE_RELATION>
-std::vector<csound::Chord> fundamentalDomainByEquate_(
-    int voiceN,
-    double range,
-    double g,
-    int sector,
-    bool printme)
-{
-    return fundamental_domain_detail::fundamental_domain_by_equate_uncached_impl<EQUIVALENCE_RELATION>(
-        voiceN,
-        range,
-        g,
-        sector,
-        printme,
-        nullptr,
-        nullptr,
-        nullptr);
-}
-
-template<int EQUIVALENCE_RELATION>
-std::vector<csound::Chord> fundamentalDomainByPredicate_(
-    int voiceN,
-    double range,
-    double g,
-    int sector,
-    bool printme)
-{
-    return fundamental_domain_detail::fundamental_domain_by_predicate_uncached_impl<EQUIVALENCE_RELATION>(
-        voiceN,
-        range,
-        g,
-        sector,
-        printme,
-        nullptr,
-        nullptr,
-        nullptr);
-}
-
-template<int EQUIVALENCE_RELATION>
-const fundamental_domain &fundamentalDomainByEquateDomain(
-    int voiceN,
-    double range,
-    double g,
-    int sector,
-    bool printme)
-{
-    const char *name = namesForEquivalenceRelations[EQUIVALENCE_RELATION];
-    if (!(range > 0.0))
-    {
-        range = OCTAVE();
-    }
-    if (!(g > 0.0))
-    {
-        g = 1.0;
-    }
-    if (sector < 0 || sector >= voiceN)
-    {
-        sector = 0;
-    }
-
-    const fundamental_domain_cache_key key = fundamental_domain_detail::make_cache_key(
-        EQUIVALENCE_RELATION,
-        voiceN,
-        range,
-        g,
-        sector,
-        fundamental_domain_generation_mode::by_equate);
-
-    {
-        std::lock_guard<std::mutex> lock(fundamental_domain_detail::domain_cache_mutex());
-        auto it = fundamental_domain_detail::domain_cache().find(key);
-        if (it != fundamental_domain_detail::domain_cache().end())
-        {
-            fundamental_domain_detail::log_domain_summary(
-                "fundamentalDomainByEquate",
-                name,
-                it->second,
-                voiceN,
-                range,
-                g,
-                sector,
-                true);
-            return it->second;
-        }
-    }
-
-    std::vector<Chord> chords = fundamentalDomainByEquate_<EQUIVALENCE_RELATION>(
-        voiceN,
-        range,
-        g,
-        sector,
-        printme);
-
-    const int steps = fundamental_domain_detail::temperament_steps(range, g);
-    const int expected_size = fundamental_domain_detail::expected_domain_size<EQUIVALENCE_RELATION>(voiceN, steps);
-
-    const long long generated = fundamental_domain_detail::binomial_int(
-        steps + voiceN - 1,
-        voiceN);
-    const long long accepted = static_cast<long long>(chords.size());
-
-    fundamental_domain domain = fundamental_domain_detail::make_domain_from_chords(
-        std::move(chords),
-        generated,
-        accepted,
-        expected_size);
-
-    std::lock_guard<std::mutex> lock(fundamental_domain_detail::domain_cache_mutex());
-    auto result = fundamental_domain_detail::domain_cache().emplace(key, std::move(domain));
-    fundamental_domain_detail::log_domain_summary(
-        "fundamentalDomainByEquate",
-        name,
-        result.first->second,
-        voiceN,
-        range,
-        g,
-        sector,
-        false);
-    return result.first->second;
-}
-
-template<int EQUIVALENCE_RELATION>
-const fundamental_domain &fundamentalDomainByPredicateDomain(
-    int voiceN,
-    double range,
-    double g,
-    int sector,
-    bool printme)
-{
-    const char *name = namesForEquivalenceRelations[EQUIVALENCE_RELATION];
-    if (!(range > 0.0))
-    {
-        range = OCTAVE();
-    }
-    if (!(g > 0.0))
-    {
-        g = 1.0;
-    }
-    if (sector < 0 || sector >= voiceN)
-    {
-        sector = 0;
-    }
-
-    const fundamental_domain_cache_key key = fundamental_domain_detail::make_cache_key(
-        EQUIVALENCE_RELATION,
-        voiceN,
-        range,
-        g,
-        sector,
-        fundamental_domain_generation_mode::by_predicate);
-
-    {
-        std::lock_guard<std::mutex> lock(fundamental_domain_detail::domain_cache_mutex());
-        auto it = fundamental_domain_detail::domain_cache().find(key);
-        if (it != fundamental_domain_detail::domain_cache().end())
-        {
-            fundamental_domain_detail::log_domain_summary(
-                "fundamentalDomainByPredicate",
-                name,
-                it->second,
-                voiceN,
-                range,
-                g,
-                sector,
-                true);
-            return it->second;
-        }
-    }
-
-    std::vector<Chord> chords = fundamentalDomainByPredicate_<EQUIVALENCE_RELATION>(
-        voiceN,
-        range,
-        g,
-        sector,
-        printme);
-
-    const int steps = fundamental_domain_detail::temperament_steps(range, g);
-    const int expected_size = fundamental_domain_detail::expected_domain_size<EQUIVALENCE_RELATION>(voiceN, steps);
-
-    const long long generated = fundamental_domain_detail::binomial_int(
-        steps + voiceN - 1,
-        voiceN);
-    const long long accepted = static_cast<long long>(chords.size());
-
-    fundamental_domain domain = fundamental_domain_detail::make_domain_from_chords(
-        std::move(chords),
-        generated,
-        accepted,
-        expected_size);
-
-    std::lock_guard<std::mutex> lock(fundamental_domain_detail::domain_cache_mutex());
-    auto result = fundamental_domain_detail::domain_cache().emplace(key, std::move(domain));
-    fundamental_domain_detail::log_domain_summary(
-        "fundamentalDomainByPredicate",
-        name,
-        result.first->second,
-        voiceN,
-        range,
-        g,
-        sector,
-        false);
-    return result.first->second;
-}
-
-template<int EQUIVALENCE_RELATION>
-std::vector<csound::Chord> fundamentalDomainByEquate(
-    int voiceN,
-    double range,
-    double g,
-    int sector,
-    bool printme)
-{
-    const fundamental_domain &domain = fundamentalDomainByEquateDomain<EQUIVALENCE_RELATION>(
-        voiceN,
-        range,
-        g,
-        sector,
-        printme);
-    return domain.chords;
-}
-
-template<int EQUIVALENCE_RELATION>
-std::vector<csound::Chord> fundamentalDomainByPredicate(
-    int voiceN,
-    double range,
-    double g,
-    int sector,
-    bool printme)
-{
-    const fundamental_domain &domain = fundamentalDomainByPredicateDomain<EQUIVALENCE_RELATION>(
-        voiceN,
-        range,
-        g,
-        sector,
-        printme);
-    return domain.chords;
-}
-
-template<int EQUIVALENCE_RELATION>
-const Chord *fundamentalDomainChordForIndex(
-    int voiceN,
-    double range,
-    double g,
-    int sector,
-    bool by_predicate,
-    std::size_t index)
-{
-    const fundamental_domain &domain = by_predicate ?
-        fundamentalDomainByPredicateDomain<EQUIVALENCE_RELATION>(voiceN, range, g, sector, false) :
-        fundamentalDomainByEquateDomain<EQUIVALENCE_RELATION>(voiceN, range, g, sector, false);
-    return domain.chord_for_index(index);
-}
-
-template<int EQUIVALENCE_RELATION>
-const Chord *fundamentalDomainChordForName(
-    int voiceN,
-    double range,
-    double g,
-    int sector,
-    bool by_predicate,
-    const std::string &name)
-{
-    const fundamental_domain &domain = by_predicate ?
-        fundamentalDomainByPredicateDomain<EQUIVALENCE_RELATION>(voiceN, range, g, sector, false) :
-        fundamentalDomainByEquateDomain<EQUIVALENCE_RELATION>(voiceN, range, g, sector, false);
-    return domain.chord_for_name(name);
-}
-
-template<int EQUIVALENCE_RELATION>
-const Chord *fundamentalDomainChordForToString(
-    int voiceN,
-    double range,
-    double g,
-    int sector,
-    bool by_predicate,
-    const std::string &text)
-{
-    const fundamental_domain &domain = by_predicate ?
-        fundamentalDomainByPredicateDomain<EQUIVALENCE_RELATION>(voiceN, range, g, sector, false) :
-        fundamentalDomainByEquateDomain<EQUIVALENCE_RELATION>(voiceN, range, g, sector, false);
-    return domain.chord_for_to_string(text);
-}
-
-template<int EQUIVALENCE_RELATION>
-int fundamentalDomainIndexForChord(
-    int voiceN,
-    double range,
-    double g,
-    int sector,
-    bool by_predicate,
-    const Chord &chord)
-{
-    const fundamental_domain &domain = by_predicate ?
-        fundamentalDomainByPredicateDomain<EQUIVALENCE_RELATION>(voiceN, range, g, sector, false) :
-        fundamentalDomainByEquateDomain<EQUIVALENCE_RELATION>(voiceN, range, g, sector, false);
-    return domain.index_for_chord(chord);
-}
-
-template<int EQUIVALENCE_RELATION>
-int fundamentalDomainIndexForName(
-    int voiceN,
-    double range,
-    double g,
-    int sector,
-    bool by_predicate,
-    const std::string &name)
-{
-    const fundamental_domain &domain = by_predicate ?
-        fundamentalDomainByPredicateDomain<EQUIVALENCE_RELATION>(voiceN, range, g, sector, false) :
-        fundamentalDomainByEquateDomain<EQUIVALENCE_RELATION>(voiceN, range, g, sector, false);
-    return domain.index_for_name(name);
-}
-
+/*
+ * Header-only fundamental-domain cache and fast domain enumerators.
+ *
+ * Intended placement: paste into ChordSpace.hpp after Chord, predicate<ER>,
+ * equate<ER>, and namesForEquivalenceRelations are declared.
+ *
+ * The public fundamentalDomainByPredicate<ER> and
+ * fundamentalDomainByEquate<ER> functions return const references to cached
+ * vectors. The underscore-suffixed functions do the actual uncached
+ * computation and return vectors by value.
+ */
+
+ enum class fundamental_domain_generation_mode
+ {
+     by_predicate,
+     by_equate
+ };
+ 
+ struct fundamental_domain_cache_key
+ {
+     int equivalence_relation = 0;
+     int voices = 0;
+     int sector = 0;
+     int range_key = 0;
+     int g_key = 0;
+     fundamental_domain_generation_mode mode =
+         fundamental_domain_generation_mode::by_equate;
+ 
+     bool operator<(const fundamental_domain_cache_key &other) const
+     {
+         if (equivalence_relation != other.equivalence_relation)
+         {
+             return equivalence_relation < other.equivalence_relation;
+         }
+         if (voices != other.voices)
+         {
+             return voices < other.voices;
+         }
+         if (sector != other.sector)
+         {
+             return sector < other.sector;
+         }
+         if (range_key != other.range_key)
+         {
+             return range_key < other.range_key;
+         }
+         if (g_key != other.g_key)
+         {
+             return g_key < other.g_key;
+         }
+         return static_cast<int>(mode) < static_cast<int>(other.mode);
+     }
+ };
+ 
+ namespace fundamental_domain_detail
+ {
+ 
+ inline int double_key(double value)
+ {
+     return static_cast<int>(std::llround(value * 1000000.0));
+ }
+ 
+ inline long long binomial_ll(int n, int k)
+ {
+     if (k < 0 || k > n)
+     {
+         return 0;
+     }
+ 
+     if (k > n - k)
+     {
+         k = n - k;
+     }
+ 
+     long long result = 1;
+ 
+     for (int i = 1; i <= k; ++i)
+     {
+         result =
+             (result * static_cast<long long>(n - k + i)) /
+             static_cast<long long>(i);
+     }
+ 
+     return result;
+ }
+ 
+ inline int temperament_steps(double range, double g)
+ {
+     if (!(range > 0.0))
+     {
+         range = OCTAVE();
+     }
+ 
+     if (!(g > 0.0))
+     {
+         g = 1.0;
+     }
+ 
+     const double raw_steps = range / g;
+     const int steps = static_cast<int>(std::llround(raw_steps));
+ 
+     if (steps <= 0)
+     {
+         return 12;
+     }
+ 
+     if (std::abs(raw_steps - static_cast<double>(steps)) > 1.0e-7)
+     {
+         System::message(
+             "Warning: range/g is not integral in fundamental-domain enumeration "
+             "(range: %f g: %f range/g: %.12f rounded steps: %d).\n",
+             range,
+             g,
+             raw_steps,
+             steps);
+     }
+ 
+     return steps;
+ }
+ 
+ inline std::vector<long long> lattice_key_for_chord(
+     const Chord &chord,
+     double g)
+ {
+     if (!(g > 0.0))
+     {
+         g = 1.0;
+     }
+ 
+     std::vector<long long> key;
+     key.reserve(static_cast<std::size_t>(chord.voices()));
+ 
+     for (int voice = 0; voice < chord.voices(); ++voice)
+     {
+         key.push_back(
+             static_cast<long long>(
+                 std::llround(chord.getPitch(voice) / g)));
+     }
+ 
+     return key;
+ }
+ 
+ template<typename Callback>
+ void enumerate_pitch_class_multisets(
+     int voices,
+     int steps,
+     Callback callback)
+ {
+     if (voices <= 0 || steps <= 0)
+     {
+         return;
+     }
+ 
+     std::vector<int> pcs(static_cast<std::size_t>(voices), 0);
+ 
+     std::function<void(int, int)> enumerate =
+         [&](int voice, int last_pc)
+         {
+             if (voice >= voices)
+             {
+                 callback(pcs);
+                 return;
+             }
+ 
+             for (int pc = last_pc; pc < steps; ++pc)
+             {
+                 pcs[static_cast<std::size_t>(voice)] = pc;
+                 enumerate(voice + 1, pc);
+             }
+         };
+ 
+     enumerate(0, 0);
+ }
+ 
+ inline Chord chord_from_pitch_class_multiset(
+     const std::vector<int> &pcs,
+     double g)
+ {
+     Chord chord(static_cast<int>(pcs.size()));
+ 
+     for (int voice = 0; voice < static_cast<int>(pcs.size()); ++voice)
+     {
+         chord.setPitch(
+             voice,
+             static_cast<double>(pcs[static_cast<std::size_t>(voice)]) * g);
+     }
+ 
+     return chord.eET(g);
+ }
+ 
+ inline bool add_unique_chord(
+     std::vector<Chord> &chords,
+     std::map<std::vector<long long>, std::size_t> &index_by_lattice_key,
+     const Chord &candidate,
+     double g)
+ {
+     const std::vector<long long> key =
+         lattice_key_for_chord(candidate, g);
+ 
+     if (index_by_lattice_key.find(key) != index_by_lattice_key.end())
+     {
+         return false;
+     }
+ 
+     index_by_lattice_key.emplace(key, chords.size());
+     chords.push_back(candidate);
+     return true;
+ }
+ 
+ inline void sort_unique_domain(
+     std::vector<Chord> &chords,
+     double g)
+ {
+     std::sort(chords.begin(), chords.end());
+ 
+     std::vector<Chord> unique_chords;
+     unique_chords.reserve(chords.size());
+ 
+     std::map<std::vector<long long>, std::size_t> index_by_lattice_key;
+ 
+     for (const Chord &chord : chords)
+     {
+         add_unique_chord(
+             unique_chords,
+             index_by_lattice_key,
+             chord,
+             g);
+     }
+ 
+     chords.swap(unique_chords);
+ }
+ 
+ /*
+  * Expected sizes are intentionally cheap.
+  *
+  * For arbitrary equal temperaments, expected transposition/TI sizes can be
+  * computed by Burnside or by multiset enumeration, but doing so in this hot
+  * path defeats the point of the cache. Keep exact known values for the common
+  * 12TET cases and exact OPg counts for all ETs.
+  */
+ template<int EQUIVALENCE_RELATION>
+ int expected_domain_size(
+     int voices,
+     int steps)
+ {
+     if (voices <= 0 || steps <= 0)
+     {
+         return -1;
+     }
+ 
+     if (EQUIVALENCE_RELATION == EQUIVALENCE_RELATION_RPg)
+     {
+         const long long count =
+             binomial_ll(steps + voices - 1, voices);
+ 
+         if (count <= static_cast<long long>(std::numeric_limits<int>::max()))
+         {
+             return static_cast<int>(count);
+         }
+ 
+         return -1;
+     }
+ 
+     if (steps == 12)
+     {
+         if (EQUIVALENCE_RELATION == EQUIVALENCE_RELATION_RPTg)
+         {
+             switch (voices)
+             {
+             case 3:
+                 return 31;
+             case 4:
+                 return 116;
+             case 5:
+                 return 364;
+             case 6:
+                 return 1038;
+             default:
+                 return -1;
+             }
+         }
+ 
+         if (EQUIVALENCE_RELATION == EQUIVALENCE_RELATION_RPTIg)
+         {
+             switch (voices)
+             {
+             case 3:
+                 return 19;
+             case 4:
+                 return 72;
+             case 5:
+                 return 196;
+             case 6:
+                 return 561;
+             default:
+                 return -1;
+             }
+         }
+     }
+ 
+     return -1;
+ }
+ 
+ inline fundamental_domain_cache_key make_cache_key(
+     int equivalence_relation,
+     int voices,
+     double range,
+     double g,
+     int sector,
+     fundamental_domain_generation_mode mode)
+ {
+     fundamental_domain_cache_key key;
+     key.equivalence_relation = equivalence_relation;
+     key.voices = voices;
+     key.sector = sector;
+     key.range_key = double_key(range);
+     key.g_key = double_key(g);
+     key.mode = mode;
+     return key;
+ }
+ 
+ } // namespace fundamental_domain_detail
+ 
+ struct fundamental_domain
+ {
+     std::vector<Chord> chords;
+     std::unordered_map<std::string, std::size_t> index_by_to_string;
+     std::map<std::vector<long long>, std::size_t> index_by_lattice_key;
+     mutable std::unordered_map<std::string, std::size_t> index_by_name;
+     mutable bool name_index_is_ready = false;
+ 
+     long long generated = 0;
+     long long accepted = 0;
+     int expected_size = -1;
+     bool size_is_expected = true;
+     double g = 1.0;
+ 
+     void rebuild_indices(double g_)
+     {
+         g = (g_ > 0.0) ? g_ : 1.0;
+         index_by_to_string.clear();
+         index_by_lattice_key.clear();
+         index_by_name.clear();
+         name_index_is_ready = false;
+ 
+         for (std::size_t index = 0; index < chords.size(); ++index)
+         {
+             const Chord &chord = chords[index];
+ 
+             index_by_to_string.emplace(
+                 chord.toString(),
+                 index);
+ 
+             index_by_lattice_key.emplace(
+                 fundamental_domain_detail::lattice_key_for_chord(chord, g),
+                 index);
+         }
+     }
+ 
+     void rebuild_name_index() const
+     {
+         if (name_index_is_ready)
+         {
+             return;
+         }
+ 
+         index_by_name.clear();
+ 
+         for (std::size_t index = 0; index < chords.size(); ++index)
+         {
+             index_by_name.emplace(
+                 print_chord(chords[index]),
+                 index);
+         }
+ 
+         name_index_is_ready = true;
+     }
+ 
+     std::size_t size() const
+     {
+         return chords.size();
+     }
+ 
+     bool empty() const
+     {
+         return chords.empty();
+     }
+ 
+     const Chord *chord_for_index(std::size_t index) const
+     {
+         if (index >= chords.size())
+         {
+             return nullptr;
+         }
+ 
+         return &chords[index];
+     }
+ 
+     const Chord *chord_for_to_string(const std::string &text) const
+     {
+         const auto it = index_by_to_string.find(text);
+ 
+         if (it == index_by_to_string.end())
+         {
+             return nullptr;
+         }
+ 
+         return chord_for_index(it->second);
+     }
+ 
+     const Chord *chord_for_name(const std::string &name) const
+     {
+         const Chord *by_to_string =
+             chord_for_to_string(name);
+ 
+         if (by_to_string != nullptr)
+         {
+             return by_to_string;
+         }
+ 
+         rebuild_name_index();
+ 
+         const auto name_it = index_by_name.find(name);
+ 
+         if (name_it == index_by_name.end())
+         {
+             return nullptr;
+         }
+ 
+         return chord_for_index(name_it->second);
+     }
+ 
+     int index_for_to_string(const std::string &text) const
+     {
+         const auto it = index_by_to_string.find(text);
+ 
+         if (it == index_by_to_string.end())
+         {
+             return -1;
+         }
+ 
+         return static_cast<int>(it->second);
+     }
+ 
+     int index_for_name(const std::string &name) const
+     {
+         const int string_index =
+             index_for_to_string(name);
+ 
+         if (string_index >= 0)
+         {
+             return string_index;
+         }
+ 
+         rebuild_name_index();
+ 
+         const auto name_it = index_by_name.find(name);
+ 
+         if (name_it == index_by_name.end())
+         {
+             return -1;
+         }
+ 
+         return static_cast<int>(name_it->second);
+     }
+ 
+     int index_for_chord(const Chord &chord) const
+     {
+         const auto key =
+             fundamental_domain_detail::lattice_key_for_chord(chord, g);
+ 
+         const auto key_it =
+             index_by_lattice_key.find(key);
+ 
+         if (key_it != index_by_lattice_key.end())
+         {
+             return static_cast<int>(key_it->second);
+         }
+ 
+         const int string_index =
+             index_for_to_string(chord.toString());
+ 
+         if (string_index >= 0)
+         {
+             return string_index;
+         }
+ 
+         for (std::size_t index = 0; index < chords.size(); ++index)
+         {
+             if (chords[index] == chord)
+             {
+                 return static_cast<int>(index);
+             }
+         }
+ 
+         return -1;
+     }
+ };
+ 
+ namespace fundamental_domain_detail
+ {
+ 
+ inline std::map<fundamental_domain_cache_key, fundamental_domain> &domain_cache()
+ {
+     static std::map<fundamental_domain_cache_key, fundamental_domain> cache;
+     return cache;
+ }
+ 
+ inline std::mutex &domain_cache_mutex()
+ {
+     static std::mutex mutex;
+     return mutex;
+ }
+ 
+ inline void log_domain_summary(
+     const char *function_name,
+     const char *relation_name,
+     const fundamental_domain &domain,
+     int voices,
+     double range,
+     double g,
+     int sector,
+     bool from_cache)
+ {
+     System::message(
+         "%s<%s>: voices: %d range: %f g: %f sector: %d generated: %lld accepted: %lld size: %d%s\n",
+         function_name,
+         relation_name,
+         voices,
+         range,
+         g,
+         sector,
+         domain.generated,
+         domain.accepted,
+         static_cast<int>(domain.chords.size()),
+         from_cache ? " cached" : "");
+ 
+     if (domain.expected_size >= 0 &&
+         domain.expected_size != static_cast<int>(domain.chords.size()))
+     {
+         System::message(
+             "Warning: %s<%s>: unexpected domain size: expected %d but got %d "
+             "(voices: %d range: %f g: %f sector: %d).\n",
+             function_name,
+             relation_name,
+             domain.expected_size,
+             static_cast<int>(domain.chords.size()),
+             voices,
+             range,
+             g,
+             sector);
+     }
+ }
+ 
+ inline fundamental_domain make_domain_from_chords(
+     std::vector<Chord> chords,
+     long long generated,
+     long long accepted,
+     int expected_size,
+     double g)
+ {
+     fundamental_domain domain;
+     domain.chords = std::move(chords);
+     domain.generated = generated;
+     domain.accepted = accepted;
+     domain.expected_size = expected_size;
+     domain.size_is_expected =
+         expected_size < 0 ||
+         expected_size == static_cast<int>(domain.chords.size());
+     domain.rebuild_indices(g);
+     return domain;
+ }
+ 
+ } // namespace fundamental_domain_detail
+ 
+ template<int EQUIVALENCE_RELATION>
+ const fundamental_domain &fundamentalDomainByEquateDomain(
+     int voiceN,
+     double range,
+     double g,
+     int sector,
+     bool printme);
+ 
+ template<int EQUIVALENCE_RELATION>
+ const fundamental_domain &fundamentalDomainByPredicateDomain(
+     int voiceN,
+     double range,
+     double g,
+     int sector,
+     bool printme);
+ 
+ template<int EQUIVALENCE_RELATION>
+ std::vector<Chord> fundamentalDomainByEquate_(
+     int voiceN,
+     double range,
+     double g,
+     int sector,
+     bool printme)
+ {
+     const char *name =
+         namesForEquivalenceRelations[EQUIVALENCE_RELATION];
+ 
+     if (!(range > 0.0))
+     {
+         range = OCTAVE();
+     }
+ 
+     if (!(g > 0.0))
+     {
+         g = 1.0;
+     }
+ 
+     if (voiceN <= 0)
+     {
+         return {};
+     }
+ 
+     if (sector < 0 || sector >= voiceN)
+     {
+         System::message(
+             "fundamentalDomainByEquate_<%s>: invalid sector %d for voices %d; using sector 0.\n",
+             name,
+             sector,
+             voiceN);
+ 
+         sector = 0;
+     }
+ 
+     const int steps =
+         fundamental_domain_detail::temperament_steps(range, g);
+ 
+     const int expected_size =
+         fundamental_domain_detail::expected_domain_size<EQUIVALENCE_RELATION>(
+             voiceN,
+             steps);
+ 
+     std::vector<Chord> chords;
+     chords.reserve(
+         expected_size > 0 ?
+             static_cast<std::size_t>(expected_size) :
+             static_cast<std::size_t>(1024));
+ 
+     std::map<std::vector<long long>, std::size_t> index_by_lattice_key;
+ 
+     long long generated = 0;
+     long long accepted = 0;
+ 
+     fundamental_domain_detail::enumerate_pitch_class_multisets(
+         voiceN,
+         steps,
+         [&](const std::vector<int> &pcs)
+         {
+             Chord chord =
+                 fundamental_domain_detail::chord_from_pitch_class_multiset(
+                     pcs,
+                     g);
+ 
+             ++generated;
+ 
+             Chord representative =
+                 equate<EQUIVALENCE_RELATION>(
+                     chord,
+                     range,
+                     g,
+                     sector).eET(g);
+ 
+             if (fundamental_domain_detail::add_unique_chord(
+                     chords,
+                     index_by_lattice_key,
+                     representative,
+                     g))
+             {
+                 ++accepted;
+ 
+                 if (printme)
+                 {
+                     System::message(
+                         "fundamentalDomainByEquate_<%s>: accepted: %6lld unique: %6d generated: %12lld sector: %d layer: %d input: %s output: %s\n",
+                         name,
+                         accepted,
+                         static_cast<int>(chords.size()),
+                         generated,
+                         sector,
+                         representative.tg_layer(g),
+                         print_chord(chord).c_str(),
+                         print_chord(representative).c_str());
+                 }
+             }
+         });
+ 
+     fundamental_domain_detail::sort_unique_domain(chords, g);
+ 
+     System::message(
+         "fundamentalDomainByEquate_<%s>: voices: %d range: %f g: %f sector: %d generated: %lld accepted: %lld size: %d\n",
+         name,
+         voiceN,
+         range,
+         g,
+         sector,
+         generated,
+         accepted,
+         static_cast<int>(chords.size()));
+ 
+     if (expected_size >= 0 &&
+         expected_size != static_cast<int>(chords.size()))
+     {
+         System::message(
+             "Warning: fundamentalDomainByEquate_<%s>: unexpected domain size: expected %d but got %d "
+             "(voices: %d range: %f g: %f sector: %d).\n",
+             name,
+             expected_size,
+             static_cast<int>(chords.size()),
+             voiceN,
+             range,
+             g,
+             sector);
+     }
+ 
+     return chords;
+ }
+ 
+ /*
+  * RPTIg / OPTIg fast path:
+  *
+  * The inversional domain is now defined as the minor half of the already
+  * computed RPTg / OPTg domain. This avoids running geometric reflection for
+  * every OPg pitch-class multiset.
+  */
+ template<>
+ inline std::vector<Chord> fundamentalDomainByEquate_<EQUIVALENCE_RELATION_RPTIg>(
+     int voiceN,
+     double range,
+     double g,
+     int sector,
+     bool printme)
+ {
+     const char *name =
+         namesForEquivalenceRelations[EQUIVALENCE_RELATION_RPTIg];
+ 
+     if (!(range > 0.0))
+     {
+         range = OCTAVE();
+     }
+ 
+     if (!(g > 0.0))
+     {
+         g = 1.0;
+     }
+ 
+     if (voiceN <= 0)
+     {
+         return {};
+     }
+ 
+     if (sector < 0 || sector >= voiceN)
+     {
+         System::message(
+             "fundamentalDomainByEquate_<%s>: invalid sector %d for voices %d; using sector 0.\n",
+             name,
+             sector,
+             voiceN);
+ 
+         sector = 0;
+     }
+ 
+     const fundamental_domain &rptg_domain =
+         fundamentalDomainByEquateDomain<EQUIVALENCE_RELATION_RPTg>(
+             voiceN,
+             range,
+             g,
+             sector,
+             false);
+ 
+     std::vector<Chord> chords;
+     chords.reserve(rptg_domain.chords.size());
+ 
+     std::map<std::vector<long long>, std::size_t> index_by_lattice_key;
+ 
+     for (const Chord &chord : rptg_domain.chords)
+     {
+         if (chord.is_in_minor_rpti_sector_g(
+                 sector,
+                 range,
+                 g))
+         {
+             fundamental_domain_detail::add_unique_chord(
+                 chords,
+                 index_by_lattice_key,
+                 chord.eET(g),
+                 g);
+         }
+     }
+ 
+     fundamental_domain_detail::sort_unique_domain(chords, g);
+ 
+     const int steps =
+         fundamental_domain_detail::temperament_steps(range, g);
+ 
+     const int expected_size =
+         fundamental_domain_detail::expected_domain_size<EQUIVALENCE_RELATION_RPTIg>(
+             voiceN,
+             steps);
+ 
+     System::message(
+         "fundamentalDomainByEquate_<%s>: voices: %d range: %f g: %f sector: %d generated: %lld accepted: %lld size: %d\n",
+         name,
+         voiceN,
+         range,
+         g,
+         sector,
+         static_cast<long long>(rptg_domain.chords.size()),
+         static_cast<long long>(chords.size()),
+         static_cast<int>(chords.size()));
+ 
+     if (expected_size >= 0 &&
+         expected_size != static_cast<int>(chords.size()))
+     {
+         System::message(
+             "Warning: fundamentalDomainByEquate_<%s>: unexpected domain size: expected %d but got %d "
+             "(voices: %d range: %f g: %f sector: %d).\n",
+             name,
+             expected_size,
+             static_cast<int>(chords.size()),
+             voiceN,
+             range,
+             g,
+             sector);
+     }
+ 
+     if (printme)
+     {
+         for (std::size_t index = 0; index < chords.size(); ++index)
+         {
+             System::message(
+                 "fundamentalDomainByEquate_<%s>: chord[%6d]: %s\n",
+                 name,
+                 static_cast<int>(index),
+                 print_chord(chords[index]).c_str());
+         }
+     }
+ 
+     return chords;
+ }
+ 
+ template<int EQUIVALENCE_RELATION>
+ std::vector<Chord> fundamentalDomainByPredicate_(
+     int voiceN,
+     double range,
+     double g,
+     int sector,
+     bool printme)
+ {
+     const char *name =
+         namesForEquivalenceRelations[EQUIVALENCE_RELATION];
+ 
+     /*
+      * Fast path: the predicate domain should be the cached equate-domain
+      * image. Validate only these representatives, not all OPg seeds.
+      */
+     const fundamental_domain &equate_domain =
+         fundamentalDomainByEquateDomain<EQUIVALENCE_RELATION>(
+             voiceN,
+             range,
+             g,
+             sector,
+             printme);
+ 
+     std::vector<Chord> chords;
+     chords.reserve(equate_domain.chords.size());
+ 
+     std::map<std::vector<long long>, std::size_t> index_by_lattice_key;
+ 
+     long long accepted = 0;
+ 
+     for (const Chord &chord : equate_domain.chords)
+     {
+         const bool in_domain =
+             predicate<EQUIVALENCE_RELATION>(
+                 chord,
+                 range,
+                 g,
+                 sector);
+ 
+         if (in_domain)
+         {
+             if (fundamental_domain_detail::add_unique_chord(
+                     chords,
+                     index_by_lattice_key,
+                     chord,
+                     g))
+             {
+                 ++accepted;
+             }
+         }
+         else
+         {
+             System::message(
+                 "Warning: fundamentalDomainByPredicate_<%s>: equate-domain chord does not satisfy predicate "
+                 "(sector: %d chord: %s).\n",
+                 name,
+                 sector,
+                 print_chord(chord).c_str());
+         }
+     }
+ 
+     fundamental_domain_detail::sort_unique_domain(chords, g);
+ 
+     System::message(
+         "fundamentalDomainByPredicate_<%s>: voices: %d range: %f g: %f sector: %d generated: %lld accepted: %lld size: %d\n",
+         name,
+         voiceN,
+         range,
+         g,
+         sector,
+         static_cast<long long>(equate_domain.chords.size()),
+         accepted,
+         static_cast<int>(chords.size()));
+ 
+     return chords;
+ }
+ 
+ template<>
+ inline std::vector<Chord> fundamentalDomainByPredicate_<EQUIVALENCE_RELATION_RPTIg>(
+     int voiceN,
+     double range,
+     double g,
+     int sector,
+     bool printme)
+ {
+     (void)printme;
+ 
+     /*
+      * Do not call predicate<RPTIg> on every representative here. The domain
+      * is exactly the minor-half filter of RPTg, computed by the RPTIg equate
+      * specialization above.
+      */
+     return fundamentalDomainByEquate_<EQUIVALENCE_RELATION_RPTIg>(
+         voiceN,
+         range,
+         g,
+         sector,
+         false);
+ }
+ 
+ template<int EQUIVALENCE_RELATION>
+ const fundamental_domain &fundamentalDomainByEquateDomain(
+     int voiceN,
+     double range,
+     double g,
+     int sector,
+     bool printme)
+ {
+     const char *name =
+         namesForEquivalenceRelations[EQUIVALENCE_RELATION];
+ 
+     if (!(range > 0.0))
+     {
+         range = OCTAVE();
+     }
+ 
+     if (!(g > 0.0))
+     {
+         g = 1.0;
+     }
+ 
+     if (voiceN <= 0)
+     {
+         static fundamental_domain empty_domain;
+         return empty_domain;
+     }
+ 
+     if (sector < 0 || sector >= voiceN)
+     {
+         sector = 0;
+     }
+ 
+     const fundamental_domain_cache_key key =
+         fundamental_domain_detail::make_cache_key(
+             EQUIVALENCE_RELATION,
+             voiceN,
+             range,
+             g,
+             sector,
+             fundamental_domain_generation_mode::by_equate);
+ 
+     {
+         std::lock_guard<std::mutex> lock(
+             fundamental_domain_detail::domain_cache_mutex());
+ 
+         auto it =
+             fundamental_domain_detail::domain_cache().find(key);
+ 
+         if (it != fundamental_domain_detail::domain_cache().end())
+         {
+             return it->second;
+         }
+     }
+ 
+     std::vector<Chord> chords =
+         fundamentalDomainByEquate_<EQUIVALENCE_RELATION>(
+             voiceN,
+             range,
+             g,
+             sector,
+             printme);
+ 
+     const int steps =
+         fundamental_domain_detail::temperament_steps(range, g);
+ 
+     const int expected_size =
+         fundamental_domain_detail::expected_domain_size<EQUIVALENCE_RELATION>(
+             voiceN,
+             steps);
+ 
+     const long long generated =
+         fundamental_domain_detail::binomial_ll(
+             steps + voiceN - 1,
+             voiceN);
+ 
+     const long long accepted =
+         static_cast<long long>(chords.size());
+ 
+     fundamental_domain domain =
+         fundamental_domain_detail::make_domain_from_chords(
+             std::move(chords),
+             generated,
+             accepted,
+             expected_size,
+             g);
+ 
+     std::lock_guard<std::mutex> lock(
+         fundamental_domain_detail::domain_cache_mutex());
+ 
+     auto existing =
+         fundamental_domain_detail::domain_cache().find(key);
+ 
+     if (existing != fundamental_domain_detail::domain_cache().end())
+     {
+         return existing->second;
+     }
+ 
+     auto result =
+         fundamental_domain_detail::domain_cache().emplace(
+             key,
+             std::move(domain));
+ 
+     fundamental_domain_detail::log_domain_summary(
+         "fundamentalDomainByEquate",
+         name,
+         result.first->second,
+         voiceN,
+         range,
+         g,
+         sector,
+         false);
+ 
+     return result.first->second;
+ }
+ 
+ template<int EQUIVALENCE_RELATION>
+ const fundamental_domain &fundamentalDomainByPredicateDomain(
+     int voiceN,
+     double range,
+     double g,
+     int sector,
+     bool printme)
+ {
+     const char *name =
+         namesForEquivalenceRelations[EQUIVALENCE_RELATION];
+ 
+     if (!(range > 0.0))
+     {
+         range = OCTAVE();
+     }
+ 
+     if (!(g > 0.0))
+     {
+         g = 1.0;
+     }
+ 
+     if (voiceN <= 0)
+     {
+         static fundamental_domain empty_domain;
+         return empty_domain;
+     }
+ 
+     if (sector < 0 || sector >= voiceN)
+     {
+         sector = 0;
+     }
+ 
+     const fundamental_domain_cache_key key =
+         fundamental_domain_detail::make_cache_key(
+             EQUIVALENCE_RELATION,
+             voiceN,
+             range,
+             g,
+             sector,
+             fundamental_domain_generation_mode::by_predicate);
+ 
+     {
+         std::lock_guard<std::mutex> lock(
+             fundamental_domain_detail::domain_cache_mutex());
+ 
+         auto it =
+             fundamental_domain_detail::domain_cache().find(key);
+ 
+         if (it != fundamental_domain_detail::domain_cache().end())
+         {
+             return it->second;
+         }
+     }
+ 
+     std::vector<Chord> chords =
+         fundamentalDomainByPredicate_<EQUIVALENCE_RELATION>(
+             voiceN,
+             range,
+             g,
+             sector,
+             printme);
+ 
+     const int steps =
+         fundamental_domain_detail::temperament_steps(range, g);
+ 
+     const int expected_size =
+         fundamental_domain_detail::expected_domain_size<EQUIVALENCE_RELATION>(
+             voiceN,
+             steps);
+ 
+     const long long generated =
+         static_cast<long long>(chords.size());
+ 
+     const long long accepted =
+         static_cast<long long>(chords.size());
+ 
+     fundamental_domain domain =
+         fundamental_domain_detail::make_domain_from_chords(
+             std::move(chords),
+             generated,
+             accepted,
+             expected_size,
+             g);
+ 
+     std::lock_guard<std::mutex> lock(
+         fundamental_domain_detail::domain_cache_mutex());
+ 
+     auto existing =
+         fundamental_domain_detail::domain_cache().find(key);
+ 
+     if (existing != fundamental_domain_detail::domain_cache().end())
+     {
+         return existing->second;
+     }
+ 
+     auto result =
+         fundamental_domain_detail::domain_cache().emplace(
+             key,
+             std::move(domain));
+ 
+     fundamental_domain_detail::log_domain_summary(
+         "fundamentalDomainByPredicate",
+         name,
+         result.first->second,
+         voiceN,
+         range,
+         g,
+         sector,
+         false);
+ 
+     return result.first->second;
+ }
+ 
+ template<int EQUIVALENCE_RELATION>
+ const std::vector<Chord> &fundamentalDomainByEquate(
+     int voiceN,
+     double range,
+     double g,
+     int sector,
+     bool printme)
+ {
+     const fundamental_domain &domain =
+         fundamentalDomainByEquateDomain<EQUIVALENCE_RELATION>(
+             voiceN,
+             range,
+             g,
+             sector,
+             printme);
+ 
+     return domain.chords;
+ }
+ 
+ template<int EQUIVALENCE_RELATION>
+ const std::vector<Chord> &fundamentalDomainByPredicate(
+     int voiceN,
+     double range,
+     double g,
+     int sector,
+     bool printme)
+ {
+     const fundamental_domain &domain =
+         fundamentalDomainByPredicateDomain<EQUIVALENCE_RELATION>(
+             voiceN,
+             range,
+             g,
+             sector,
+             printme);
+ 
+     return domain.chords;
+ }
+ 
+ template<int EQUIVALENCE_RELATION>
+ const Chord *fundamentalDomainChordForIndex(
+     int voiceN,
+     double range,
+     double g,
+     int sector,
+     bool by_predicate,
+     std::size_t index)
+ {
+     const fundamental_domain &domain =
+         by_predicate ?
+             fundamentalDomainByPredicateDomain<EQUIVALENCE_RELATION>(
+                 voiceN,
+                 range,
+                 g,
+                 sector,
+                 false) :
+             fundamentalDomainByEquateDomain<EQUIVALENCE_RELATION>(
+                 voiceN,
+                 range,
+                 g,
+                 sector,
+                 false);
+ 
+     return domain.chord_for_index(index);
+ }
+ 
+ template<int EQUIVALENCE_RELATION>
+ const Chord *fundamentalDomainChordForName(
+     int voiceN,
+     double range,
+     double g,
+     int sector,
+     bool by_predicate,
+     const std::string &name)
+ {
+     const fundamental_domain &domain =
+         by_predicate ?
+             fundamentalDomainByPredicateDomain<EQUIVALENCE_RELATION>(
+                 voiceN,
+                 range,
+                 g,
+                 sector,
+                 false) :
+             fundamentalDomainByEquateDomain<EQUIVALENCE_RELATION>(
+                 voiceN,
+                 range,
+                 g,
+                 sector,
+                 false);
+ 
+     return domain.chord_for_name(name);
+ }
+ 
+ template<int EQUIVALENCE_RELATION>
+ const Chord *fundamentalDomainChordForToString(
+     int voiceN,
+     double range,
+     double g,
+     int sector,
+     bool by_predicate,
+     const std::string &text)
+ {
+     const fundamental_domain &domain =
+         by_predicate ?
+             fundamentalDomainByPredicateDomain<EQUIVALENCE_RELATION>(
+                 voiceN,
+                 range,
+                 g,
+                 sector,
+                 false) :
+             fundamentalDomainByEquateDomain<EQUIVALENCE_RELATION>(
+                 voiceN,
+                 range,
+                 g,
+                 sector,
+                 false);
+ 
+     return domain.chord_for_to_string(text);
+ }
+ 
+ template<int EQUIVALENCE_RELATION>
+ int fundamentalDomainIndexForChord(
+     int voiceN,
+     double range,
+     double g,
+     int sector,
+     bool by_predicate,
+     const Chord &chord)
+ {
+     const fundamental_domain &domain =
+         by_predicate ?
+             fundamentalDomainByPredicateDomain<EQUIVALENCE_RELATION>(
+                 voiceN,
+                 range,
+                 g,
+                 sector,
+                 false) :
+             fundamentalDomainByEquateDomain<EQUIVALENCE_RELATION>(
+                 voiceN,
+                 range,
+                 g,
+                 sector,
+                 false);
+ 
+     return domain.index_for_chord(chord);
+ }
+ 
+ template<int EQUIVALENCE_RELATION>
+ int fundamentalDomainIndexForName(
+     int voiceN,
+     double range,
+     double g,
+     int sector,
+     bool by_predicate,
+     const std::string &name)
+ {
+     const fundamental_domain &domain =
+         by_predicate ?
+             fundamentalDomainByPredicateDomain<EQUIVALENCE_RELATION>(
+                 voiceN,
+                 range,
+                 g,
+                 sector,
+                 false) :
+             fundamentalDomainByEquateDomain<EQUIVALENCE_RELATION>(
+                 voiceN,
+                 range,
+                 g,
+                 sector,
+                 false);
+ 
+     return domain.index_for_name(name);
+ }
+ 
+ /*
+  * ChordSpaceTests.cpp timing gate:
+  *
+  * Put this near the other test-printing constants, then wrap expensive domain
+  * output, printPass, printPitv, and detailed printSet calls in
+  * `if constexpr (print_domains)`.
+  */
+ constexpr bool print_domains = false;
+ 
+ /*
+  * Typical replacements in ChordSpaceTests.cpp:
+  *
+  *     constexpr bool printPass = print_domains;
+  *     constexpr bool printPitv = print_domains;
+  *
+  *     if constexpr (print_domains)
+  *     {
+  *         printSet(...);
+  *     }
+  *
+  * If printSet itself has detailed per-chord output, guard that detail with
+  * `if constexpr (print_domains)` as well.
+  */
+ 
 #pragma endregion
 
 } // End of namespace csound.
