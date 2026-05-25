@@ -2451,6 +2451,7 @@ bool Chord::test(const char *label) const
     }
     std::fprintf(stderr, "\n");
     std::fprintf(stderr, "%s", information().c_str());
+    /// std::fprintf(stderr, "%s", toString().c_str());
     return passed;
 }
 
