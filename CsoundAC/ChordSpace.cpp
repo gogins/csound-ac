@@ -1928,10 +1928,10 @@ std::string Chord::information_sector(int opt_sector_) const
         appendf("    hyperplane equation:\n       %s\n", text.c_str());
         auto sector_text = print_opti_sectors(*this);
         appendf("    this:           %s\n", print_chord(*this).c_str());
-        auto reflected = reflect_in_inversion_flat(*this, sector);
+        auto reflected = R( sector);
         sector_text = print_opti_sectors(reflected);
         appendf("    reflected:      %s\n", print_chord(reflected).c_str());
-        auto rereflected = reflect_in_inversion_flat(reflected, sector);
+        auto rereflected = reflected.R(  sector);
         sector_text = print_opti_sectors(rereflected);
         appendf("    re-reflected:   %s\n", print_chord(rereflected).c_str());
         result.append("\n");
@@ -2247,6 +2247,16 @@ bool Chord::test(const char *label) const
     {
         std::fprintf(stderr, "        Chord::eI     is consistent with Chord::iseI.\n");
     }
+    // R
+    if ((R(opt_sector).R(opt_sector) == *this) == false)
+    {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::R      is not involutive (%s).\n", toString().c_str());
+    }
+    else
+    {
+        std::fprintf(stderr, "        Chord::R      is involutive.\n");
+    }
     // OP
     if ((eOP().eOP() == eOP()) == false)
     {
@@ -2373,6 +2383,16 @@ bool Chord::test(const char *label) const
     {
         std::fprintf(stderr, "        Chord::eIg    is consistent with Chord::iseIg.\n");
     }
+    // Rg
+    if ((Rg(opt_sector, 1.0).Rg(opt_sector, 1.0) == *this) == false)
+    {
+        passed = false;
+        std::fprintf(stderr, "Failed: Chord::Rg     is not involutive (%s).\n", toString().c_str());
+    }
+    else
+    {
+        std::fprintf(stderr, "        Chord::Rg     is involutive.\n");
+    }    
     // OPg
     if ((eRPg(OCTAVE(), 1.0).eRPg(OCTAVE(), 1.0) == eRPg(OCTAVE(), 1.0)) == false)
     {
