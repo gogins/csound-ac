@@ -67,6 +67,8 @@ static bool test(bool passes, std::string message) {
     return passes;
 }
 
+static bool print_sets = false;
+
 static void printSet(std::string name, const std::vector<csound::Chord> &chords) {
     csound::System::message("%s\n", name.c_str());
     std::multimap<csound::Chord, csound::Chord, csound::ChordTickLess> sorted;
@@ -466,11 +468,11 @@ int main(int argc, char **argv) {
     ///return 0;
     // SILENCE_PUBLIC std::vector<Chord> allOfEquivalenceClass(int voice_count, std::string equivalence_class, double range, double g, int sector, bool printme) {
     auto ops = csound::allOfEquivalenceClass(3, "RP", 12., 1., 0, false);
-    printSet("OPs", ops);
+    if (print_sets) printSet("OPs", ops);
     auto optts = csound::allOfEquivalenceClass(3, "RPTg", 12., 1., 0, false);
-    printSet("OPTTs", optts);
+    if (print_sets) printSet("OPTTs", optts);
     auto opttis = csound::allOfEquivalenceClass(3, "RPTIg", 12., 1., 0, false);
-    printSet("OPTTIs", opttis);
+    if (print_sets) printSet("OPTTIs", opttis);
     //return 0;
 
     auto chordx = csound::chordForName("CM7");
@@ -518,16 +520,16 @@ int main(int argc, char **argv) {
     fundamentalDomainByPredicateForEquivalenceRelations["RPTIg"] =          csound::fundamentalDomainByEquate<csound::EQUIVALENCE_RELATION_RPTIg>;
         
     auto chordspace_optts_3 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTg>(3, 12., 1., testSector);
-    printSet("My OPTTs", chordspace_optts_3);
+    if (print_sets) printSet("My OPTTs", chordspace_optts_3);
  
     auto chordspace_opttis_3 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTIg>(3, 12., 1., testSector);
-    printSet("My OPTTIs", chordspace_opttis_3);
+    if (print_sets) printSet("My OPTTIs", chordspace_opttis_3);
     
     auto chordspace_optts_4 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTg>(4, csound::OCTAVE(), 1., testSector);
-    printSet("My OPTTs", chordspace_optts_4);
+    if (print_sets) printSet("My OPTTs", chordspace_optts_4);
 
     auto chordspace_opttis_4 = csound::fundamentalDomainByPredicate<csound::EQUIVALENCE_RELATION_RPTIg>(4, csound::OCTAVE(), 1., testSector);
-    printSet("My OPTTIs", chordspace_opttis_4);
+    if (print_sets) printSet("My OPTTIs", chordspace_opttis_4);
     
     csound::System::message("\nBehavior of std::fmod and std::remainder:\n\n");
     for (double pitch = -24.0; pitch < 24.0; pitch += 1.0) {
@@ -931,22 +933,22 @@ int main(int argc, char **argv) {
     //~ printSet("Science OPTTIs", science_opttis_4);
     
     std::vector<csound::Chord> difference;
-    setDifference("ScienceOPTTS", science_optts_3, "ChordSpaceOPTTs", chordspace_optts_3, difference);
+    if (print_sets) setDifference("ScienceOPTTS", science_optts_3, "ChordSpaceOPTTs", chordspace_optts_3, difference);
     //~ for (const auto &chord : difference) {
         //~ std::cerr << "Chords in Science not in ChordSpace:" << std::endl << std::endl;
         //~ std::cerr << chord.information() << std::endl << std::endl;
     //~ }
-    setDifference("ChordSpaceOPTTS", chordspace_optts_3, "ScienceOPTTs", science_optts_3, difference);
+    if (print_sets) setDifference("ChordSpaceOPTTS", chordspace_optts_3, "ScienceOPTTs", science_optts_3, difference);
     //~ for (const auto &chord : difference) {
         //~ std::cerr << "Chords in ChordSpace not in Science:" << std::endl << std::endl;
         //~ std::cerr << chord.information() << std::endl << std::endl;
     //~ }
-    setDifference("ScienceOPTTIs", science_opttis_4, "ChordSpaceOPTTIs", chordspace_opttis_4, difference);
+    if (print_sets) setDifference("ScienceOPTTIs", science_opttis_4, "ChordSpaceOPTTIs", chordspace_opttis_4, difference);
     //~ for (const auto &chord : difference) {
         //~ std::cerr << "Chords in Science not in ChordSpace:" << std::endl << std::endl;
         //~ std::cerr << chord.information() << std::endl << std::endl;
     //~ }
-    setDifference("ChordSpaceOPTTIs", chordspace_opttis_4, "ScienceOPTTIs", science_opttis_4, difference);
+    if (print_sets) setDifference("ChordSpaceOPTTIs", chordspace_opttis_4, "ScienceOPTTIs", science_opttis_4, difference);
     //~ for (const auto &chord : difference) {
         //~ std::cerr << "Chords in ChordSpace not in Science:" << std::endl << std::endl;
         //~ std::cerr << chord.information() << std::endl << std::endl;
