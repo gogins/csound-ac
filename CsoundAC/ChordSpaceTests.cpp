@@ -1,4 +1,3 @@
-#include "ChordSpaceBase.hpp"
 #include "ChordSpace.hpp"
 #include <algorithm>
 #include <iostream>

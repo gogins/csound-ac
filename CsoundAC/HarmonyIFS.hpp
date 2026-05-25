@@ -26,7 +26,6 @@
 %include "std_vector.i"
 %include "std_map.i"
 %{
-#include "ChordSpaceBase.hpp"
 #include "ChordSpace.hpp"
 #include "Conversions.hpp"
 #include "Event.hpp"
@@ -42,7 +41,6 @@
 #include <Eigen/Dense>
 %}
 #else
-#include "ChordSpaceBase.hpp"
 #include "ChordSpace.hpp"
 #include "Conversions.hpp"
 #include "Event.hpp"

@@ -74,7 +74,6 @@
 #include "Event.hpp"
 #include "Midifile.hpp"
 #include "Score.hpp"
-#include "ChordSpaceBase.hpp"
 #include "ChordSpace.hpp"
 #include "Composition.hpp"
 #include "Node.hpp"

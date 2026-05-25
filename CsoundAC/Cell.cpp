@@ -19,7 +19,7 @@
  */
 #include <array>
 #include "Cell.hpp"
-#include "ChordSpaceBase.hpp"
+#include "ChordSpace.hpp"
 #include "System.hpp"
 
 namespace csound
