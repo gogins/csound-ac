@@ -3173,62 +3173,81 @@ SILENCE_PUBLIC double epc(double pitch) {
 // If a or b is near zero, the tolerance is multiples of machine epsilon, and the result is difference <= tolerance.
 // If a and b are not near zero, the tolerance is multiples of ulps, and the result is difference <= tolerance.
 
-SILENCE_PUBLIC bool eq_tolerance(double a, double b, int epsilons, int ulps) {
-    static const double machine_epsilon = std::numeric_limits<double>::epsilon();
-    static const double double_max_ = std::numeric_limits<double>::max();
-    if (a == b) {
-        CHORD_SPACE_DEBUG("eq_tolerance: a and b are strictly equal:\n    => return true.\n");
+namespace
+{
+
+double fast_ulp_spacing(double x)
+{
+    x = std::abs(x);
+
+    if (x == 0.0)
+    {
+        return std::numeric_limits<double>::denorm_min();
+    }
+
+    if (!std::isfinite(x))
+    {
+        return std::numeric_limits<double>::infinity();
+    }
+
+    std::uint64_t bits = 0;
+    std::memcpy(&bits, &x, sizeof(bits));
+
+    const std::uint64_t exponent_bits =
+        (bits >> 52) & 0x7ffULL;
+
+    if (exponent_bits == 0)
+    {
+        return std::numeric_limits<double>::denorm_min();
+    }
+
+    const int exponent =
+        static_cast<int>(exponent_bits) - 1023;
+
+    return std::ldexp(1.0, exponent - 52);
+}
+
+}
+SILENCE_PUBLIC bool eq_tolerance(
+    double a,
+    double b,
+    int epsilons,
+    int ulps)
+{
+    static const double machine_epsilon =
+        std::numeric_limits<double>::epsilon();
+
+    if (a == b)
+    {
         return true;
     }
-    if ((a == double_max_ || b == double_max_) == true) {
-        CHORD_SPACE_DEBUG("eq_tolerance: a or b is double_max_:\n    => return false.\n");
+
+    if (!std::isfinite(a) || !std::isfinite(b))
+    {
         return false;
     }
-    if ((std::isinf(a) || std::isinf(b)) == true) {
-        CHORD_SPACE_DEBUG("eq_tolerance: a or b is inf:\n    => return false.\n");
+
+    const double difference =
+        std::abs(a - b);
+
+    if (!std::isfinite(difference))
+    {
         return false;
     }
-    if ((std::isnan(a) || std::isnan(b)) == true) {
-        CHORD_SPACE_DEBUG("eq_tolerance: a or b is nan:\n    => return false.\n");
-        return false;
+
+    const double absolute_tolerance =
+        static_cast<double>(epsilons) * machine_epsilon;
+
+    if (a == 0.0 || b == 0.0 || difference <= absolute_tolerance)
+    {
+        return difference <= absolute_tolerance;
     }
-    double difference = a - b;
-    // True means the number is negative.
-    if (std::signbit(difference) == true) {
-        difference = -difference;
-    }
-    if ((difference == double_max_) == true) {
-        CHORD_SPACE_DEBUG("eq_tolerance: difference of and b is double_max_:\n    => return false.\n");
-        return false;
-    }
-    if (std::isinf(difference) == true) {
-         CHORD_SPACE_DEBUG("eq_tolerance: difference of and b is inf:\n    => return false.\n");
-        return false;
-    }
-    if (std::isnan(difference) == true) {
-         CHORD_SPACE_DEBUG("eq_tolerance: difference of and b is nan:\n    => return false.\n");
-        return false;
-    }
-    double tolerance = epsilons * machine_epsilon;
-    if ((a == 0. || b == 0.) == true || difference <= tolerance) {
-        if (difference <= tolerance) {
-            CHORD_SPACE_DEBUG("eq_tolerance: a or b is strictly equal to 0 and difference of a and b <= epsilons tolerance:\n    => return true.\n");
-            return true;
-        } else {
-            CHORD_SPACE_DEBUG("eq_tolerance: a or b is strictly equal to 0 and difference of a and b > epsilons tolerance:\n    => return false.\n");
-            return false;
-        }
-    } else {
-        double difference_ulp = boost::math::ulp(difference);
-        tolerance = difference_ulp * ulps;
-        if (difference <= tolerance) {
-            CHORD_SPACE_DEBUG("eq_tolerance: a or b are not strictly equal to 0 and difference of a and b <= ulps tolerance:\n    => return true.\n");
-            return true;
-        } else {
-            CHORD_SPACE_DEBUG("eq_tolerance: a or b are not strictly equal to 0 and difference of a and b > ulps tolerance:\n    => return false.\n");
-            return false;
-        }
-    }
+
+    const double tolerance =
+        fast_ulp_spacing(difference) *
+        static_cast<double>(ulps);
+
+    return difference <= tolerance;
 }
 
 SILENCE_PUBLIC double euclidean(const Chord &a, const Chord &b) {
