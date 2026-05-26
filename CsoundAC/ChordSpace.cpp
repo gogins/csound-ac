@@ -2436,7 +2436,7 @@ bool Chord::test(const char *label) const
     }
     // Rg -- test only in sectors to which this chord belongs.
     for (int sector = 0; sector < voices(); ++sector) {
-        if (is_in_rpt_sector_base(sector, OCTAVE()) == true) {
+        if (is_in_rpt_sector(sector, OCTAVE()) == true) {
             if ((Rg(sector, 1.0).Rg(opt_sector, 1.0) == *this) == false)
             {
                 passed = false;
