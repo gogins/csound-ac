@@ -3882,18 +3882,45 @@ void build_reflect_in_inversion_flat_g_cache(
     const double range =
         OCTAVE();
 
-    /*
-     * Rg must be an operation on RPg representatives, not RPTg/OPTg
-     * representatives. Using RPTg here destroys transpositional information
-     * and breaks Rg(Rg(x)) == x.
-     */
-    const std::vector<Chord> &domain =
-        fundamentalDomainByEquate<EQUIVALENCE_RELATION_RPg>(
-            voices,
-            range,
-            g,
-            opt_sector,
-            false);
+        std::vector<Chord> domain;
+
+        const std::vector<Chord> &raw_domain =
+            fundamentalDomainByEquate<EQUIVALENCE_RELATION_RPg>(
+                voices,
+                range,
+                g,
+                opt_sector,
+                false);
+        
+        for (const Chord &chord : raw_domain)
+        {
+            Chord normalized =
+                equate<EQUIVALENCE_RELATION_RPg>(
+                    chord,
+                    range,
+                    g,
+                    opt_sector).eET(g);
+        
+            bool already_present = false;
+        
+            for (const Chord &existing : domain)
+            {
+                if (existing == normalized)
+                {
+                    already_present = true;
+                    break;
+                }
+            }
+        
+            if (!already_present)
+            {
+                domain.push_back(normalized);
+            }
+        }
+        
+        std::sort(
+            domain.begin(),
+            domain.end());
 
     const int domain_size =
         static_cast<int>(domain.size());
