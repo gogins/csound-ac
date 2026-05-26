@@ -801,89 +801,6 @@ Chord Chord::eI(int opt_sector) const {
     return csound::equate<EQUIVALENCE_RELATION_I>(*this, OCTAVE(), 1.0, opt_sector);
 }
 
-//	EQUIVALENCE_RELATION_Ig
-
-template<>
-SILENCE_PUBLIC bool
-predicate<EQUIVALENCE_RELATION_Ig>(
-    const Chord &chord,
-    double range,
-    double g,
-    int opt_sector)
-{
-    if (!(g > 0.0))
-    {
-        g = 1.0;
-    }
-    const Chord canonical =
-        equate<EQUIVALENCE_RELATION_Ig>(chord, range, g, opt_sector);
-    return chord == canonical;
-}
-
-bool Chord::iseIg(double range, double g, int opt_sector) const {
-    return predicate<EQUIVALENCE_RELATION_Ig>(*this, range, g, opt_sector);
-}
-
-template<>
-SILENCE_PUBLIC Chord
-equate<EQUIVALENCE_RELATION_Ig>(
-    const Chord &chord,
-    double range,
-    double g,
-    int opt_sector)
-{
-    if (!(range > 0.0))
-    {
-        range = OCTAVE();
-    }
-    if (!(g > 0.0))
-    {
-        g = 1.0;
-    }
-    if (opt_sector < 0 || opt_sector >= chord.voices())
-    {
-        opt_sector = 0;
-    }
-    auto to_optg = [&](const Chord &x) -> Chord
-    {
-        return equate<EQUIVALENCE_RELATION_RPTg>(
-            x,
-            range,
-            g,
-            opt_sector);
-    };
-    const Chord a = to_optg(chord);
-    Chord b = reflect_in_inversion_flat_g(
-        a,
-        opt_sector,
-        g);
-    b = to_optg(b);
-    const Chord a_again = to_optg(
-        reflect_in_inversion_flat_g(
-            b,
-            opt_sector,
-            g));
-    if (!(a_again == a))
-    {
-        std::fprintf(
-            stderr,
-            "Warning: eIg induced inversion is not a pair "
-            "(%s -> %s -> %s).\n",
-            print_chord(a).c_str(),
-            print_chord(b).c_str(),
-            print_chord(a_again).c_str());
-    }
-    if (b < a)
-    {
-        return b;
-    }
-    return a;
-}
-
-Chord Chord::eIg(double range, double g, int opt_sector) const {
-    return csound::equate<EQUIVALENCE_RELATION_Ig>(*this, range, g, opt_sector);
-}
-
 //  EQUIVALENCE_RELATION_RP
 
 template<> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RP>(const Chord &chord, double range, double g, int opt_sector) {
@@ -976,6 +893,90 @@ bool Chord::iseRPg(double range, double g, int opt_sector) const
 Chord Chord::eRPg(double range, double g, int opt_sector) const
 {
     return csound::equate<EQUIVALENCE_RELATION_RPg>(
+        *this,
+        range,
+        g,
+        opt_sector);
+}
+
+//	EQUIVALENCE_RELATION_Ig
+
+template<>
+SILENCE_PUBLIC Chord
+equate<EQUIVALENCE_RELATION_Ig>(
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
+{
+    if (!(range > 0.0))
+    {
+        range = OCTAVE();
+    }
+
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+
+    if (opt_sector < 0 || opt_sector >= chord.voices())
+    {
+        opt_sector = 0;
+    }
+
+    const Chord a =
+        equate<EQUIVALENCE_RELATION_RPg>(
+            chord,
+            range,
+            g,
+            opt_sector).eET(g);
+
+    const Chord b =
+        equate<EQUIVALENCE_RELATION_RPg>(
+            reflect_in_inversion_flat_g(
+                a,
+                opt_sector,
+                g),
+            range,
+            g,
+            opt_sector).eET(g);
+
+    if (b < a)
+    {
+        return b;
+    }
+
+    return a;
+}
+
+template<>
+SILENCE_PUBLIC bool
+predicate<EQUIVALENCE_RELATION_Ig>(
+    const Chord &chord,
+    double range,
+    double g,
+    int opt_sector)
+{
+    const Chord canonical =
+        equate<EQUIVALENCE_RELATION_Ig>(
+            chord,
+            range,
+            g,
+            opt_sector);
+
+    return chord == canonical;
+}
+
+Chord Chord::eIg(double range, double g, int opt_sector) const {
+    return csound::equate<EQUIVALENCE_RELATION_Ig>(*this, range, g, opt_sector);
+}
+
+bool Chord::iseIg(
+    double range,
+    double g,
+    int opt_sector) const
+{
+    return predicate<EQUIVALENCE_RELATION_Ig>(
         *this,
         range,
         g,
@@ -1365,67 +1366,118 @@ equate<EQUIVALENCE_RELATION_RPTIg>(
     {
         range = OCTAVE();
     }
+
     if (!(g > 0.0))
     {
         g = 1.0;
     }
+
     if (opt_sector < 0 || opt_sector >= chord.voices())
     {
         opt_sector = 0;
     }
-    auto to_sector = [&](const Chord &x) -> Chord
+
+    auto to_rptg = [&](const Chord &x) -> Chord
     {
         return equate<EQUIVALENCE_RELATION_RPTg>(
             x,
             range,
             g,
-            opt_sector);
+            opt_sector).eET(g);
     };
-    Chord a = to_sector(chord);
-    Chord b = reflect_in_inversion_flat_g(
-        a,
-        opt_sector,
-        g);
-    b = to_sector(b);
-    const bool a_in_half =
-        a.is_in_minor_rpti_sector_g(
-            opt_sector,
-            range,
-            g);
-    const bool b_in_half =
-        b.is_in_minor_rpti_sector_g(
-            opt_sector,
-            range,
-            g);
-    if (a_in_half && !b_in_half)
-    {
-        return a;
-    }
-    if (b_in_half && !a_in_half)
-    {
-        return b;
-    }
-    if (a_in_half && b_in_half)
-    {
-        return least_chord({a, b});
-    }
-    /*
-     * This should be rare. It means the discrete reflection and the
-     * side predicate disagree, usually near the inversion flat.
-     * Fall back to the point closer to the selected half by deterministic
-     * order, but warn while debugging.
-     */
-    std::fprintf(
-        stderr,
-        "Warning: eRPTIg found no candidate in selected inversional half "
-        "(%s -> %s).\n",
-        print_chord(a).c_str(),
-        print_chord(b).c_str());
-    return least_chord({a, b});
-}
 
-Chord Chord::eRPTIg(double range, double g, int opt_sector) const {
-    return csound::equate<EQUIVALENCE_RELATION_RPTIg>(*this, range, g, opt_sector);
+    auto step = [&](const Chord &x) -> Chord
+    {
+        const Chord reflected =
+            reflect_in_inversion_flat_g(
+                x,
+                opt_sector,
+                g).eET(g);
+
+        return to_rptg(reflected);
+    };
+
+    std::vector<Chord> orbit;
+
+    auto add_unique = [&](const Chord &x) -> bool
+    {
+        for (const Chord &existing : orbit)
+        {
+            if (existing == x)
+            {
+                return false;
+            }
+        }
+
+        orbit.push_back(x);
+        return true;
+    };
+
+    Chord current =
+        to_rptg(chord);
+
+    const std::vector<Chord> &rptg_domain =
+        fundamentalDomainByEquate<EQUIVALENCE_RELATION_RPTg>(
+            chord.voices(),
+            range,
+            g,
+            opt_sector,
+            false);
+
+    const int maximum_steps =
+        static_cast<int>(rptg_domain.size()) + 1;
+
+    bool closed = false;
+
+    for (int step_i = 0; step_i < maximum_steps; ++step_i)
+    {
+        if (!add_unique(current))
+        {
+            closed = true;
+            break;
+        }
+
+        current =
+            step(current);
+    }
+
+    if (!closed)
+    {
+        std::fprintf(
+            stderr,
+            "Warning: eRPTIg orbit did not close within %d steps for %s.\n",
+            maximum_steps,
+            chord.toString().c_str());
+    }
+
+    std::vector<Chord> minor_candidates;
+
+    for (const Chord &candidate : orbit)
+    {
+        if (candidate.is_in_minor_rpti_sector_g(
+                opt_sector,
+                range,
+                g))
+        {
+            minor_candidates.push_back(candidate);
+        }
+    }
+
+    if (!minor_candidates.empty())
+    {
+        return *std::min_element(
+            minor_candidates.begin(),
+            minor_candidates.end());
+    }
+
+    if (!orbit.empty())
+    {
+        return *std::min_element(
+            orbit.begin(),
+            orbit.end());
+    }
+
+    return chord.eET(g);
 }
 
 template<>
@@ -1436,28 +1488,18 @@ predicate<EQUIVALENCE_RELATION_RPTIg>(
     double g,
     int opt_sector)
 {
-    if (!(range > 0.0))
-    {
-        range = OCTAVE();
-    }
-    if (!(g > 0.0))
-    {
-        g = 1.0;
-    }
-    if (opt_sector < 0 || opt_sector >= chord.voices())
-    {
-        opt_sector = 0;
-    }
-    return
-        chord == equate<EQUIVALENCE_RELATION_RPTg>(
+    const Chord canonical =
+        equate<EQUIVALENCE_RELATION_RPTIg>(
             chord,
             range,
             g,
-            opt_sector) &&
-        chord.is_in_minor_rpti_sector_g(
-            opt_sector,
-            range,
-            g);
+            opt_sector);
+
+    return chord == canonical;
+}
+
+Chord Chord::eRPTIg(double range, double g, int opt_sector) const {
+    return csound::equate<EQUIVALENCE_RELATION_RPTIg>(*this, range, g, opt_sector);
 }
 
 bool Chord::iseRPTIg(double range, double g, int opt_sector) const {
