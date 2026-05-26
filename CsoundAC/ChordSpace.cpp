@@ -1976,8 +1976,17 @@ std::string Chord::information_sector(int opt_sector_) const
         auto rereflected = reflected.R(  sector);
         sector_text = print_opti_sectors(rereflected);
         appendf("    re-reflected:   %s\n", print_chord(rereflected).c_str());
-        result.append("\n");
+        if (is_in_rpt_sector_base(sector, OCTAVE()) == true) {
+            appendf("    this:           %s\n", print_chord(*this).c_str());
+            auto reflected_g = Rg(sector, 1.0);
+            sector_text = print_opti_sectors(reflected_g);
+            appendf("    reflected_g:    %s\n", print_chord(reflected_g).c_str());
+            auto rereflected_g = reflected_g.Rg(sector, 1.0);
+            sector_text = print_opti_sectors(rereflected_g);
+            appendf("    re-reflected_g: %s\n", print_chord(rereflected_g).c_str());
+        }
     }
+    result.append("\n");
     return result;
 }
 

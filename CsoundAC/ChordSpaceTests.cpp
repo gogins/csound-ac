@@ -992,7 +992,7 @@ int main(int argc, char **argv) {
     test_eIg_involution_on_lattice(g, testSector);
 
     csound::System::message("\nTesting equivalence relations...\n\n");
-    for (int voiceCount = 3; voiceCount <= 4; ++voiceCount) {
+    for (int voiceCount = 3; voiceCount <= 6; ++voiceCount) {
         testEquivalenceRelations(voiceCount, csound::OCTAVE(), 1.0);
     }
 
