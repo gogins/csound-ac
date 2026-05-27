@@ -3859,6 +3859,108 @@ double reflection_pair_cost(
         squared_pitch_distance(x, reflected_y);
 }
 
+struct reflection_pair_candidate
+{
+    int i = -1;
+    int j = -1;
+    double cost = 0.0;
+    bool operator<(const reflection_pair_candidate &other) const
+    {
+        if (!eq_tolerance(cost, other.cost, 20, 1024))
+        {
+            return cost < other.cost;
+        }
+        if (i != other.i)
+        {
+            return i < other.i;
+        }
+        return j < other.j;
+    }
+};
+
+int chord_lattice_sum(
+    const Chord &chord,
+    double g)
+{
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+    int sum = 0;
+    for (int voice = 0; voice < chord.voices(); ++voice)
+    {
+        sum += static_cast<int>(
+            std::llround(
+                chord.getPitch(voice) / g));
+    }
+    return sum;
+}
+
+void pair_reflection_layer(
+    const std::vector<Chord> &domain,
+    const std::vector<Chord> &reflected_domain,
+    const std::vector<int> &indices,
+    std::vector<int> &partner_by_index)
+{
+    std::vector<reflection_pair_candidate> candidates;
+    const std::size_t layer_size =
+        indices.size();
+    candidates.reserve(
+        (layer_size * (layer_size + 1)) / 2);
+    for (std::size_t a = 0; a < layer_size; ++a)
+    {
+        const int i =
+            indices[a];
+        const Chord &x =
+            domain[static_cast<std::size_t>(i)];
+        const Chord &reflected_x =
+            reflected_domain[static_cast<std::size_t>(i)];
+        for (std::size_t b = a; b < layer_size; ++b)
+        {
+            const int j =
+                indices[b];
+            const Chord &y =
+                domain[static_cast<std::size_t>(j)];
+            const Chord &reflected_y =
+                reflected_domain[static_cast<std::size_t>(j)];
+            reflection_pair_candidate candidate;
+            candidate.i =
+                i;
+            candidate.j =
+                j;
+            candidate.cost =
+                reflection_pair_cost(
+                    x,
+                    reflected_x,
+                    y,
+                    reflected_y);
+            candidates.push_back(candidate);
+        }
+    }
+    std::sort(
+        candidates.begin(),
+        candidates.end());
+    for (const reflection_pair_candidate &candidate : candidates)
+    {
+        const int i =
+            candidate.i;
+        const int j =
+            candidate.j;
+        if (partner_by_index[static_cast<std::size_t>(i)] != -1)
+        {
+            continue;
+        }
+        if (partner_by_index[static_cast<std::size_t>(j)] != -1)
+        {
+            continue;
+        }
+        partner_by_index[static_cast<std::size_t>(i)] =
+            j;
+        partner_by_index[static_cast<std::size_t>(j)] =
+            i;
+    }
+}
+
 int ceiling_divide(
     int numerator,
     int denominator)
@@ -4081,59 +4183,30 @@ void build_reflect_in_inversion_flat_g_cache(
     std::vector<int> partner_by_index(
         static_cast<std::size_t>(domain_size),
         -1);
-    /*
-     * Greedy involutive pairing. This is O(N^2) time and O(N) storage.
-     * It avoids the enormous O(N^2) pair-candidate allocation.
-     */
+    std::map<int, std::vector<int>> indices_by_sum;
     for (int i = 0; i < domain_size; ++i)
     {
-        if (partner_by_index[static_cast<std::size_t>(i)] != -1)
+        const int sum =
+            chord_lattice_sum(
+                domain[static_cast<std::size_t>(i)],
+                g);
+        indices_by_sum[sum].push_back(i);
+    }
+    for (const auto &entry : indices_by_sum)
+    {
+        pair_reflection_layer(
+            domain,
+            reflected_domain,
+            entry.second,
+            partner_by_index);
+    }
+    for (int i = 0; i < domain_size; ++i)
+    {
+        if (partner_by_index[static_cast<std::size_t>(i)] == -1)
         {
-            continue;
+            partner_by_index[static_cast<std::size_t>(i)] =
+                i;
         }
-        const Chord &x =
-            domain[static_cast<std::size_t>(i)];
-        const Chord &reflected_x =
-            reflected_domain[static_cast<std::size_t>(i)];
-        int best_j =
-            i;
-        double best_cost =
-            reflection_pair_cost(
-                x,
-                reflected_x,
-                x,
-                reflected_x);
-        for (int j = i + 1; j < domain_size; ++j)
-        {
-            if (partner_by_index[static_cast<std::size_t>(j)] != -1)
-            {
-                continue;
-            }
-            const Chord &y =
-                domain[static_cast<std::size_t>(j)];
-            const Chord &reflected_y =
-                reflected_domain[static_cast<std::size_t>(j)];
-            const double cost =
-                reflection_pair_cost(
-                    x,
-                    reflected_x,
-                    y,
-                    reflected_y);
-            if ((cost < best_cost &&
-                 !eq_tolerance(cost, best_cost, 20, 1024)) ||
-                (eq_tolerance(cost, best_cost, 20, 1024) &&
-                 y < domain[static_cast<std::size_t>(best_j)]))
-            {
-                best_j =
-                    j;
-                best_cost =
-                    cost;
-            }
-        }
-        partner_by_index[static_cast<std::size_t>(i)] =
-            best_j;
-        partner_by_index[static_cast<std::size_t>(best_j)] =
-            i;
     }
     for (int i = 0; i < domain_size; ++i)
     {
