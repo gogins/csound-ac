@@ -2435,20 +2435,40 @@ bool Chord::test(const char *label) const
         std::fprintf(stderr, "        Chord::eIg    is consistent with Chord::iseIg.\n");
     }
     // Rg -- test only in sectors to which this chord belongs.
-     for (int sector = 0; sector < voices(); ++sector) {
-        Chord x = key<EQUIVALENCE_RELATION_RPg>(OCTAVE(), 1.0, opt_sector);
-        if (x.is_in_rpt_sector(sector, OCTAVE()) == true) {
-            if ((x.Rg(sector, 1.0).Rg(opt_sector, 1.0) == x) == false)
+    for (int sector = 0; sector < voices(); ++sector)
+    {
+        const Chord x =
+            key<EQUIVALENCE_RELATION_RPg>(
+                OCTAVE(),
+                1.0,
+                sector);
+        if (x.is_in_rpt_sector(sector, OCTAVE()) == true)
+        {
+            const Chord once =
+                x.Rg(sector, 1.0);
+            const Chord twice =
+                once.Rg(sector, 1.0);
+            if ((twice == x) == false)
             {
                 passed = false;
-                std::fprintf(stderr, "Failed: Chord::Rg     in %3d is not involutive (%s).\n", sector, toString().c_str());
+                std::fprintf(
+                    stderr,
+                    "Failed: Chord::Rg in %3d is not involutive "
+                    "(%s => %s => %s).\n",
+                    sector,
+                    x.toString().c_str(),
+                    once.toString().c_str(),
+                    twice.toString().c_str());
             }
             else
             {
-                std::fprintf(stderr, "        Chord::Rg     in %3d is involutive.\n", sector);
-            }    
+                std::fprintf(
+                    stderr,
+                    "        Chord::Rg     in %3d is involutive.\n",
+                    sector);
+            }
         }
-    }   
+    }
     // OPg
     if ((eRPg(OCTAVE(), 1.0).eRPg(OCTAVE(), 1.0) == eRPg(OCTAVE(), 1.0)) == false)
     {
