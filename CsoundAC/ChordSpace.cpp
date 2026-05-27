@@ -74,17 +74,17 @@ namespace csound {
 SILENCE_PUBLIC const std::vector<Chord> &allOfEquivalenceClass(int voice_count, std::string equivalence_class, double range, double g, int sector, bool printme) {
     /// std::vector<Chord> fundamental_domain;
     if (equivalence_class == "RP") {
-        return fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RP>(voice_count, range, g, sector, printme);       
+        return fundamentalDomainByEquate<EQUIVALENCE_RELATION_RP>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPT") {
-        return fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPT>(voice_count, range, g, sector, printme);       
+        return fundamentalDomainByEquate<EQUIVALENCE_RELATION_RPT>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPTg") {
-        return fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTg>(voice_count, range, g, sector, printme);       
+        return fundamentalDomainByEquate<EQUIVALENCE_RELATION_RPTg>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPI") {
-        return fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPI>(voice_count, range, g, sector, printme);       
+        return fundamentalDomainByEquate<EQUIVALENCE_RELATION_RPI>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPTI") {
-        return fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTI>(voice_count, range, g, sector, printme);       
+        return fundamentalDomainByEquate<EQUIVALENCE_RELATION_RPTI>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPTIg") {
-        return fundamentalDomainByPredicate<EQUIVALENCE_RELATION_RPTIg>(voice_count, range, g, sector, printme);       
+        return fundamentalDomainByEquate<EQUIVALENCE_RELATION_RPTIg>(voice_count, range, g, sector, printme);       
     }
     /// return fundamental_domain;
 }
