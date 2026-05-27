@@ -3716,20 +3716,16 @@ double squared_pitch_distance(
     const Chord &b)
 {
     double distance = 0.0;
-
     const int n =
         std::min(
             a.voices(),
             b.voices());
-
     for (int voice = 0; voice < n; ++voice)
     {
         const double delta =
             a.getPitch(voice) - b.getPitch(voice);
-
         distance += delta * delta;
     }
-
     return distance;
 }
 
@@ -3750,31 +3746,25 @@ struct chord_cache_less
     {
         const int a_voices =
             a.voices();
-
         const int b_voices =
             b.voices();
-
         if (a_voices != b_voices)
         {
             return a_voices < b_voices;
         }
-
         for (int voice = 0; voice < a_voices; ++voice)
         {
             const long long a_key =
                 chord_cache_pitch_key(
                     a.getPitch(voice));
-
             const long long b_key =
                 chord_cache_pitch_key(
                     b.getPitch(voice));
-
             if (a_key != b_key)
             {
                 return a_key < b_key;
             }
         }
-
         return false;
     }
 };
@@ -3809,19 +3799,16 @@ Chord copy_pitches_to_original_chord(
 {
     Chord result =
         original;
-
     const int n =
         std::min(
             original.voices(),
             pitches.voices());
-
     for (int voice = 0; voice < n; ++voice)
     {
         result.setPitch(
             voice,
             pitches.getPitch(voice));
     }
-
     return result;
 }
 
@@ -3832,42 +3819,32 @@ const Chord *find_reflect_in_inversion_flat_g_cache_entry(
 {
     const int voices =
         key_chord.voices();
-
     auto &cache =
         reflect_in_inversion_flat_g_cache();
-
     const auto dimension_it =
         cache.find(voices);
-
     if (dimension_it == cache.end())
     {
         return nullptr;
     }
-
     const auto sector_it =
         dimension_it->second.find(opt_sector);
-
     if (sector_it == dimension_it->second.end())
     {
         return nullptr;
     }
-
     const auto g_it =
         sector_it->second.find(g);
-
     if (g_it == sector_it->second.end())
     {
         return nullptr;
     }
-
     const auto chord_it =
         g_it->second.find(key_chord);
-
     if (chord_it == g_it->second.end())
     {
         return nullptr;
     }
-
     return &chord_it->second;
 }
 
@@ -3882,6 +3859,176 @@ double reflection_pair_cost(
         squared_pitch_distance(x, reflected_y);
 }
 
+int ceiling_divide(
+    int numerator,
+    int denominator)
+{
+    if (denominator <= 0)
+    {
+        return 0;
+    }
+    if (numerator >= 0)
+    {
+        return (numerator + denominator - 1) / denominator;
+    }
+    return -((-numerator) / denominator);
+}
+
+void add_unique_chord_to_domain(
+    std::vector<Chord> &domain,
+    const Chord &candidate)
+{
+    for (const Chord &existing : domain)
+    {
+        if (existing == candidate)
+        {
+            return;
+        }
+    }
+    domain.push_back(candidate);
+}
+
+Chord chord_from_lattice_pitches(
+    const std::vector<int> &pitches,
+    double g)
+{
+    const int voices =
+        static_cast<int>(pitches.size());
+    Chord chord(voices);
+    for (int voice = 0; voice < voices; ++voice)
+    {
+        chord.setPitch(
+            voice,
+            static_cast<double>(
+                pitches[static_cast<std::size_t>(voice)]) * g);
+    }
+    return chord;
+}
+
+void enumerate_rpg_lattice_domain_recursive(
+    std::vector<Chord> &domain,
+    std::vector<int> &pitches,
+    int voice,
+    int voices,
+    int minimum_pitch,
+    int previous_pitch,
+    int steps,
+    int current_sum,
+    double range,
+    double g,
+    int opt_sector)
+{
+    if (voice >= voices)
+    {
+        if (current_sum < 0 || current_sum > steps)
+        {
+            return;
+        }
+        const Chord chord =
+            chord_from_lattice_pitches(
+                pitches,
+                g);
+        const Chord key =
+            chord.key<EQUIVALENCE_RELATION_RPg>(
+                range,
+                g,
+                opt_sector);
+        add_unique_chord_to_domain(
+            domain,
+            key);
+        return;
+    }
+    const int remaining =
+        voices - voice - 1;
+    const int highest =
+        minimum_pitch + steps;
+    for (int pitch = previous_pitch; pitch <= highest; ++pitch)
+    {
+        const int minimum_possible_sum =
+            current_sum + pitch + (remaining * pitch);
+        const int maximum_possible_sum =
+            current_sum + pitch + (remaining * highest);
+        if (maximum_possible_sum < 0)
+        {
+            continue;
+        }
+        if (minimum_possible_sum > steps)
+        {
+            break;
+        }
+        pitches[static_cast<std::size_t>(voice)] =
+            pitch;
+        enumerate_rpg_lattice_domain_recursive(
+            domain,
+            pitches,
+            voice + 1,
+            voices,
+            minimum_pitch,
+            pitch,
+            steps,
+            current_sum + pitch,
+            range,
+            g,
+            opt_sector);
+    }
+}
+
+std::vector<Chord> enumerate_rpg_lattice_domain_for_cache(
+    int voices,
+    double range,
+    double g,
+    int opt_sector)
+{
+    if (!(range > 0.0))
+    {
+        range = OCTAVE();
+    }
+    if (!(g > 0.0))
+    {
+        g = 1.0;
+    }
+    std::vector<Chord> domain;
+    const int steps =
+        static_cast<int>(
+            std::llround(range / g));
+    if (voices <= 0 || steps <= 0)
+    {
+        return domain;
+    }
+    const int minimum_lowest_pitch =
+        ceiling_divide(
+            -((voices - 1) * steps),
+            voices);
+    const int maximum_lowest_pitch =
+        steps / voices;
+    std::vector<int> pitches(
+        static_cast<std::size_t>(voices),
+        0);
+    for (int minimum_pitch = minimum_lowest_pitch;
+         minimum_pitch <= maximum_lowest_pitch;
+         ++minimum_pitch)
+    {
+        pitches[0] =
+            minimum_pitch;
+        enumerate_rpg_lattice_domain_recursive(
+            domain,
+            pitches,
+            1,
+            voices,
+            minimum_pitch,
+            minimum_pitch,
+            steps,
+            minimum_pitch,
+            range,
+            g,
+            opt_sector);
+    }
+    std::sort(
+        domain.begin(),
+        domain.end());
+    return domain;
+}
+
 void build_reflect_in_inversion_flat_g_cache(
     int voices,
     int opt_sector,
@@ -3891,81 +4038,39 @@ void build_reflect_in_inversion_flat_g_cache(
     {
         g = 1.0;
     }
-
     if (voices < 2 || voices > 6)
     {
         return;
     }
-
     if (opt_sector < 0 || opt_sector >= voices)
     {
         opt_sector = 0;
     }
-
     reflection_chord_cache &chord_cache =
         reflect_in_inversion_flat_g_cache()
             [voices]
             [opt_sector]
             [g];
-
     if (!chord_cache.empty())
     {
         return;
     }
-
     const double range =
         OCTAVE();
-
-    std::vector<Chord> domain;
-
-    const std::vector<Chord> &raw_domain =
-        fundamentalDomainByEquate<EQUIVALENCE_RELATION_RPg>(
+    std::vector<Chord> domain =
+        enumerate_rpg_lattice_domain_for_cache(
             voices,
             range,
             g,
-            opt_sector,
-            false);
-
-    for (const Chord &chord : raw_domain)
-    {
-        const Chord normalized =
-            chord.key<EQUIVALENCE_RELATION_RPg>(
-                range,
-                g,
-                opt_sector);
-
-        bool already_present = false;
-
-        for (const Chord &existing : domain)
-        {
-            if (existing == normalized)
-            {
-                already_present = true;
-                break;
-            }
-        }
-
-        if (!already_present)
-        {
-            domain.push_back(normalized);
-        }
-    }
-
-    std::sort(
-        domain.begin(),
-        domain.end());
-
+            opt_sector);
     const int domain_size =
         static_cast<int>(domain.size());
-
     if (domain_size <= 0)
     {
         return;
     }
-
     std::vector<Chord> reflected_domain;
     reflected_domain.reserve(domain.size());
-
     for (const Chord &chord : domain)
     {
         reflected_domain.push_back(
@@ -3973,11 +4078,9 @@ void build_reflect_in_inversion_flat_g_cache(
                 chord,
                 opt_sector));
     }
-
     std::vector<int> partner_by_index(
         static_cast<std::size_t>(domain_size),
         -1);
-
     /*
      * Greedy involutive pairing. This is O(N^2) time and O(N) storage.
      * It avoids the enormous O(N^2) pair-candidate allocation.
@@ -3988,43 +4091,34 @@ void build_reflect_in_inversion_flat_g_cache(
         {
             continue;
         }
-
         const Chord &x =
             domain[static_cast<std::size_t>(i)];
-
         const Chord &reflected_x =
             reflected_domain[static_cast<std::size_t>(i)];
-
         int best_j =
             i;
-
         double best_cost =
             reflection_pair_cost(
                 x,
                 reflected_x,
                 x,
                 reflected_x);
-
         for (int j = i + 1; j < domain_size; ++j)
         {
             if (partner_by_index[static_cast<std::size_t>(j)] != -1)
             {
                 continue;
             }
-
             const Chord &y =
                 domain[static_cast<std::size_t>(j)];
-
             const Chord &reflected_y =
                 reflected_domain[static_cast<std::size_t>(j)];
-
             const double cost =
                 reflection_pair_cost(
                     x,
                     reflected_x,
                     y,
                     reflected_y);
-
             if ((cost < best_cost &&
                  !eq_tolerance(cost, best_cost, 20, 1024)) ||
                 (eq_tolerance(cost, best_cost, 20, 1024) &&
@@ -4032,42 +4126,34 @@ void build_reflect_in_inversion_flat_g_cache(
             {
                 best_j =
                     j;
-
                 best_cost =
                     cost;
             }
         }
-
         partner_by_index[static_cast<std::size_t>(i)] =
             best_j;
-
         partner_by_index[static_cast<std::size_t>(best_j)] =
             i;
     }
-
     for (int i = 0; i < domain_size; ++i)
     {
         const int j =
             partner_by_index[static_cast<std::size_t>(i)];
-
         const Chord key =
             domain[static_cast<std::size_t>(i)]
                 .key<EQUIVALENCE_RELATION_RPg>(
                     range,
                     g,
                     opt_sector);
-
         const Chord value =
             domain[static_cast<std::size_t>(j)]
                 .key<EQUIVALENCE_RELATION_RPg>(
                     range,
                     g,
                     opt_sector);
-
         chord_cache[key] =
             value;
     }
-
     /*
      * Defensive check: the cache must be an involution.
      */
@@ -4075,13 +4161,10 @@ void build_reflect_in_inversion_flat_g_cache(
     {
         const Chord &x =
             entry.first;
-
         const Chord &y =
             entry.second;
-
         const auto y_it =
             chord_cache.find(y);
-
         if (y_it == chord_cache.end())
         {
             std::fprintf(
@@ -4093,10 +4176,8 @@ void build_reflect_in_inversion_flat_g_cache(
                 voices,
                 opt_sector,
                 g);
-
             continue;
         }
-
         if (!(y_it->second == x))
         {
             std::fprintf(
@@ -4111,7 +4192,6 @@ void build_reflect_in_inversion_flat_g_cache(
                 g);
         }
     }
-
     System::message(
         "reflect_in_inversion_flat_g: built RPg involution cache "
         "voices: %d sector: %d g: %f size: %d.\n",
@@ -4132,47 +4212,38 @@ SILENCE_PUBLIC Chord reflect_in_inversion_flat_g(
     {
         g = 1.0;
     }
-
     const int voices =
         chord.voices();
-
     if (voices <= 0)
     {
         return chord;
     }
-
     if (opt_sector < 0 || opt_sector >= voices)
     {
         opt_sector = 0;
     }
-
     const double range =
         OCTAVE();
-
     /*
      * Rg is defined on RPg representatives. Do not reduce to RPTg here.
      */
     const Chord key_chord =
         chord.key<EQUIVALENCE_RELATION_RPg>(
-            OCTAVE(),
+            range,
             g,
             opt_sector);
-
     {
         std::lock_guard<std::mutex> lock(
             reflect_in_inversion_flat_g_cache_mutex());
-
         build_reflect_in_inversion_flat_g_cache(
             voices,
             opt_sector,
             g);
-
         const Chord *cached =
             find_reflect_in_inversion_flat_g_cache_entry(
                 key_chord,
                 opt_sector,
                 g);
-
         if (cached != nullptr)
         {
             return copy_pitches_to_original_chord(
@@ -4180,7 +4251,6 @@ SILENCE_PUBLIC Chord reflect_in_inversion_flat_g(
                 *cached);
         }
     }
-
     /*
      * Fallback. This should be rare. It means the input did not land
      * in the cached RPg domain.
@@ -4193,7 +4263,6 @@ SILENCE_PUBLIC Chord reflect_in_inversion_flat_g(
         voices,
         opt_sector,
         g);
-
     return copy_pitches_to_original_chord(
         chord,
         key_chord);
