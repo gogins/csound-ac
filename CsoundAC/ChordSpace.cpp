@@ -2435,9 +2435,10 @@ bool Chord::test(const char *label) const
         std::fprintf(stderr, "        Chord::eIg    is consistent with Chord::iseIg.\n");
     }
     // Rg -- test only in sectors to which this chord belongs.
-    for (int sector = 0; sector < voices(); ++sector) {
-        if (is_in_rpt_sector(sector, OCTAVE()) == true) {
-            if ((Rg(sector, 1.0).Rg(opt_sector, 1.0) == *this) == false)
+     for (int sector = 0; sector < voices(); ++sector) {
+        Chord x = key<EQUIVALENCE_RELATION_RPg>(OCTAVE(), 1.0, opt_sector);
+        if (x.is_in_rpt_sector(sector, OCTAVE()) == true) {
+            if ((x.Rg(sector, 1.0).Rg(opt_sector, 1.0) == x) == false)
             {
                 passed = false;
                 std::fprintf(stderr, "Failed: Chord::Rg     in %3d is not involutive (%s).\n", sector, toString().c_str());

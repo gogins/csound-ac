@@ -3040,11 +3040,10 @@ SILENCE_PUBLIC Chord voiceleadingSimpler(const Chord &source, const Chord &d1, c
              ++generated;
  
              Chord representative =
-                 equate<EQUIVALENCE_RELATION>(
-                     chord,
-                     range,
-                     g,
-                     sector).eET(g);
+             chord.key<EQUIVALENCE_RELATION>(
+                 range,
+                 g,
+                 sector);
  
              if (fundamental_domain_detail::add_unique_chord(
                      chords,
