@@ -3895,45 +3895,44 @@ void build_reflect_in_inversion_flat_g_cache(
     const double range =
         OCTAVE();
 
-        std::vector<Chord> domain;
+    std::vector<Chord> domain;
 
-        const std::vector<Chord> &raw_domain =
-            fundamentalDomainByEquate<EQUIVALENCE_RELATION_RPg>(
-                voices,
+    const std::vector<Chord> &raw_domain =
+        fundamentalDomainByEquate<EQUIVALENCE_RELATION_RPg>(
+            voices,
+            range,
+            g,
+            opt_sector,
+            false);
+
+    for (const Chord &chord : raw_domain)
+    {
+        const Chord normalized =
+            chord.key<EQUIVALENCE_RELATION_RPg>(
                 range,
                 g,
-                opt_sector,
-                false);
-        
-        for (const Chord &chord : raw_domain)
+                opt_sector);
+
+        bool already_present = false;
+
+        for (const Chord &existing : domain)
         {
-            Chord normalized =
-                equate<EQUIVALENCE_RELATION_RPg>(
-                    chord,
-                    range,
-                    g,
-                    opt_sector).eET(g);
-        
-            bool already_present = false;
-        
-            for (const Chord &existing : domain)
+            if (existing == normalized)
             {
-                if (existing == normalized)
-                {
-                    already_present = true;
-                    break;
-                }
-            }
-        
-            if (!already_present)
-            {
-                domain.push_back(normalized);
+                already_present = true;
+                break;
             }
         }
-        
-        std::sort(
-            domain.begin(),
-            domain.end());
+
+        if (!already_present)
+        {
+            domain.push_back(normalized);
+        }
+    }
+
+    std::sort(
+        domain.begin(),
+        domain.end());
 
     const int domain_size =
         static_cast<int>(domain.size());
@@ -4031,10 +4030,18 @@ void build_reflect_in_inversion_flat_g_cache(
             partner_by_index[static_cast<std::size_t>(i)];
 
         const Chord key =
-            domain[static_cast<std::size_t>(i)].eET(g);
+            domain[static_cast<std::size_t>(i)]
+                .key<EQUIVALENCE_RELATION_RPg>(
+                    range,
+                    g,
+                    opt_sector);
 
         const Chord value =
-            domain[static_cast<std::size_t>(j)].eET(g);
+            domain[static_cast<std::size_t>(j)]
+                .key<EQUIVALENCE_RELATION_RPg>(
+                    range,
+                    g,
+                    opt_sector);
 
         chord_cache[key] =
             value;
@@ -4125,11 +4132,10 @@ SILENCE_PUBLIC Chord reflect_in_inversion_flat_g(
      * Rg is defined on RPg representatives. Do not reduce to RPTg here.
      */
     const Chord key_chord =
-        equate<EQUIVALENCE_RELATION_RPg>(
-            chord,
-            range,
+        chord.key<EQUIVALENCE_RELATION_RPg>(
+            OCTAVE(),
             g,
-            opt_sector).eET(g);
+            opt_sector);
 
     {
         std::lock_guard<std::mutex> lock(
