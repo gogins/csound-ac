@@ -468,6 +468,33 @@ public:
     Chord(const Chord &other);
     Chord(const std::vector<double> &other);
     virtual ~Chord();
+    template<int EQUIVALENCE_RELATION>
+    Chord key(
+        double range,
+        double g,
+        int sector) const
+    {
+        if (!(range > 0.0))
+        {
+            range = OCTAVE();
+        }
+
+        if (!(g > 0.0))
+        {
+            g = 1.0;
+        }
+
+        if (sector < 0 || sector >= voices())
+        {
+            sector = 0;
+        }
+
+        return equate<EQUIVALENCE_RELATION>(
+            *this,
+            range,
+            g,
+            sector).eET(g);
+    }
     virtual Chord &operator = (const Chord &other);
     Chord& operator=(Chord&& other) noexcept = default;
     Chord(Chord&& other) noexcept = default;
