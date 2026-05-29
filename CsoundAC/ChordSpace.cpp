@@ -676,6 +676,7 @@ Chord Chord::eP() const {
     return csound::equate<EQUIVALENCE_RELATION_P>(*this, OCTAVE(), 1.0, 0);
 }
 
+
 //	EQUIVALENCE_RELATION_T
 
 template<> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_T>(const Chord &chord, double range, double g, int opt_sector) {
@@ -2430,18 +2431,19 @@ bool Chord::test(const char *label) const
     {
         std::fprintf(stderr, "        Chord::eIg    is consistent with Chord::iseIg.\n");
     }
-    // Rg -- test only in sectors to which this chord belongs.
+    // Rg is an involution on the RPg domain: pitches are ET multiples of g,
+    // sorted, with layer (sum) in [0, range].  Normalize a to its RPg
+    // representative before testing so the check operates on a chord that
+    // the cache recognizes.
     for (int sector = 0; sector < voices(); ++sector)
     {
-        // a = key<EQUIVALENCE_RELATION_RPg>(
-        //     OCTAVE(),
-        //     1.0,
-        //     sector);
         if (a.is_in_rpt_sector(sector, OCTAVE()) == true)
         {
-            b = a.Rg(sector, 1.0);
+            const Chord a_rpg =
+                a.key<EQUIVALENCE_RELATION_RPg>(OCTAVE(), 1.0, sector);
+            b = a_rpg.Rg(sector, 1.0);
             c = b.Rg(sector, 1.0);
-            if ((c == a) == false)
+            if ((c == a_rpg) == false)
             {
                 passed = false;
                 std::fprintf(
@@ -2449,7 +2451,7 @@ bool Chord::test(const char *label) const
                     "Failed: Chord::Rg     is not involutive in sector %d\n"
                     "                      (%s => %s => %s).\n",
                     sector,
-                    a.toString().c_str(),
+                    a_rpg.toString().c_str(),
                     b.toString().c_str(),
                     c.toString().c_str());
             }

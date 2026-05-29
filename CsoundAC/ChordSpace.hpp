@@ -2478,24 +2478,24 @@ SILENCE_PUBLIC Chord voiceleadingSimpler(const Chord &source, const Chord &d1, c
          g = 1.0;
      }
  
-     const double raw_steps = range / g;
-     const int steps = static_cast<int>(std::llround(raw_steps));
- 
-     if (steps <= 0)
-     {
-         return 12;
-     }
- 
-     if (std::abs(raw_steps - static_cast<double>(steps)) > 1.0e-7)
-     {
-         System::message(
-             "Warning: range/g is not integral in fundamental-domain enumeration "
-             "(range: %f g: %f range/g: %.12f rounded steps: %d).\n",
-             range,
-             g,
-             raw_steps,
-             steps);
-     }
+    const double raw_steps = range / g;
+    const int steps = static_cast<int>(std::llround(raw_steps));
+
+    if (steps <= 0)
+    {
+        return 12;
+    }
+
+    if (std::abs(raw_steps - static_cast<double>(steps)) > 1.0e-7)
+    {
+        System::message(
+            "Warning: range/g is not integral in fundamental-domain enumeration "
+            "(range: %f g: %f range/g: %.12f rounded steps: %d).\n",
+            range,
+            g,
+            raw_steps,
+            steps);
+    }
  
      return steps;
  }
