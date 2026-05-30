@@ -25,6 +25,9 @@ option(CSOUND_AC_INSTALL_PYTHON_TO_SITEARCH
     "Install Python interface into the active interpreter site-packages in addition to the portable release layout."
     ${CSOUND_AC_INSTALL_PYTHON_TO_SITEARCH_DEFAULT}
 )
+set(CSOUND_AC_EXTRA_PYTHON_SITEARCH "" CACHE STRING
+    "Extra site-packages directories for Python bindings (semicolon-separated absolute paths, e.g. a venv)."
+)
 
 
 find_package(SWIG)
@@ -460,54 +463,91 @@ if(BUILD_CSOUND_AC)
 
         # For make install.
         #
-        # When enabled, preserve the historical behavior: install the SWIG module
-        # and Python files into the active interpreter's site-packages directory.
+        # Prefix-relative installs use the Python minor-version path so Homebrew
+        # and other versioned layouts (e.g. lib/python3.12/site-packages) pick
+        # up the bindings. stage_dist passes --prefix to dist/csound-ac, so the
+        # same relative path lands in the release ZIP tree.
         #
-        # On Linux and Windows, do not install into Python3_SITEARCH here. On CI
-        # runners that expands to a real system interpreter directory such as
-        # /usr/local/lib/python3.12/dist-packages, which is not writable and is
-        # also not appropriate for release staging. The relative install rules
-        # below place the Python interface inside the staged distribution tree.
+        # When enabled, also install into the active interpreter's site-packages
+        # (and any CSOUND_AC_EXTRA_PYTHON_SITEARCH paths), skipping duplicates
+        # of the prefix-relative destination. These use install COMPONENT
+        # PythonActive EXCLUDE_FROM_ALL so stage_dist/release packaging does not
+        # touch live interpreter directories. Local build-macos.sh runs this
+        # component after the prefix install. On CI, keep
+        # CSOUND_AC_INSTALL_PYTHON_TO_SITEARCH=OFF to avoid writing outside the
+        # staged tree.
 
-        if(CSOUND_AC_INSTALL_PYTHON_TO_SITEARCH)
-            install(TARGETS ${SWIG_MODULE_CsoundAC_REAL_NAME}
-                LIBRARY DESTINATION "${Python3_SITEARCH}"
-            )
+        set(CSOUND_AC_PYTHON_PREFIX_RELATIVE
+            "lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages"
+        )
+        message(STATUS "CSOUND_AC_PYTHON_PREFIX_RELATIVE: ${CSOUND_AC_PYTHON_PREFIX_RELATIVE}")
 
-            install(FILES "${BUILD_DIR}/CsoundAC.py"
-                DESTINATION "${Python3_SITEARCH}"
-            )
+        cmake_path(SET _csound_ac_prefix_site_packages
+            NORMALIZE "${CMAKE_INSTALL_PREFIX}/${CSOUND_AC_PYTHON_PREFIX_RELATIVE}"
+        )
+        cmake_path(SET _python3_sitearch NORMALIZE "${Python3_SITEARCH}")
 
-            install(FILES "${CMAKE_SOURCE_DIR}/silencio/python/GeneralizedContextualGroup.py"
-                DESTINATION "${Python3_SITEARCH}"
-            )
-
-            install(FILES "${CMAKE_SOURCE_DIR}/reaper/ac_reaper.py"
-                DESTINATION "${Python3_SITEARCH}"
-            )
+        set(_csound_ac_extra_python_sitearch_dirs "")
+        if(CSOUND_AC_INSTALL_PYTHON_TO_SITEARCH
+                AND NOT _python3_sitearch STREQUAL _csound_ac_prefix_site_packages)
+            list(APPEND _csound_ac_extra_python_sitearch_dirs "${Python3_SITEARCH}")
+        endif()
+        foreach(_extra_dir IN LISTS CSOUND_AC_EXTRA_PYTHON_SITEARCH)
+            if(_extra_dir)
+                cmake_path(SET _extra_dir NORMALIZE "${_extra_dir}")
+                if(NOT _extra_dir IN_LIST _csound_ac_extra_python_sitearch_dirs
+                        AND NOT _extra_dir STREQUAL _csound_ac_prefix_site_packages)
+                    list(APPEND _csound_ac_extra_python_sitearch_dirs "${_extra_dir}")
+                endif()
+            endif()
+        endforeach()
+        if(_csound_ac_extra_python_sitearch_dirs)
+            message(STATUS "CSOUND_AC extra Python site-packages: ${_csound_ac_extra_python_sitearch_dirs}")
         endif()
 
-        # For CPack/release ZIP staging on all platforms. These paths are
-        # relative to CMAKE_INSTALL_PREFIX or to the --prefix supplied by
-        # stage_dist, so they work in CI without writing to system locations.
-
         install(TARGETS "${SWIG_MODULE_CsoundAC_REAL_NAME}"
-            RUNTIME DESTINATION "lib/python/site-packages"
-            LIBRARY DESTINATION "lib/python/site-packages"
-            ARCHIVE DESTINATION "lib/python/site-packages"
+            RUNTIME DESTINATION "${CSOUND_AC_PYTHON_PREFIX_RELATIVE}"
+            LIBRARY DESTINATION "${CSOUND_AC_PYTHON_PREFIX_RELATIVE}"
+            ARCHIVE DESTINATION "${CSOUND_AC_PYTHON_PREFIX_RELATIVE}"
         )
 
         install(FILES "${BUILD_DIR}/CsoundAC.py"
-            DESTINATION "lib/python/site-packages"
+            DESTINATION "${CSOUND_AC_PYTHON_PREFIX_RELATIVE}"
         )
 
         install(FILES "${CMAKE_SOURCE_DIR}/silencio/python/GeneralizedContextualGroup.py"
-            DESTINATION "lib/python/site-packages"
+            DESTINATION "${CSOUND_AC_PYTHON_PREFIX_RELATIVE}"
         )
 
         install(FILES "${CMAKE_SOURCE_DIR}/reaper/ac_reaper.py"
-            DESTINATION "lib/python/site-packages"
+            DESTINATION "${CSOUND_AC_PYTHON_PREFIX_RELATIVE}"
         )
+
+        foreach(_py_dir IN LISTS _csound_ac_extra_python_sitearch_dirs)
+            install(TARGETS "${SWIG_MODULE_CsoundAC_REAL_NAME}"
+                LIBRARY DESTINATION "${_py_dir}"
+                COMPONENT PythonActive
+                EXCLUDE_FROM_ALL
+            )
+
+            install(FILES "${BUILD_DIR}/CsoundAC.py"
+                DESTINATION "${_py_dir}"
+                COMPONENT PythonActive
+                EXCLUDE_FROM_ALL
+            )
+
+            install(FILES "${CMAKE_SOURCE_DIR}/silencio/python/GeneralizedContextualGroup.py"
+                DESTINATION "${_py_dir}"
+                COMPONENT PythonActive
+                EXCLUDE_FROM_ALL
+            )
+
+            install(FILES "${CMAKE_SOURCE_DIR}/reaper/ac_reaper.py"
+                DESTINATION "${_py_dir}"
+                COMPONENT PythonActive
+                EXCLUDE_FROM_ALL
+            )
+        endforeach()
 
     endif()
 
