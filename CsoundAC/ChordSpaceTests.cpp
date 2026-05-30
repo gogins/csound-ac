@@ -288,23 +288,23 @@ static bool testEquivalenceRelation(std::string equivalenceRelation, int voiceCo
     return passes;
 }
 
-static bool test_eIg_involution_on_lattice(double g, int opt_sector) {
+static bool test_eIg_idempotent_on_lattice(double g, int opt_sector) {
     bool passes = true;
-    csound::System::message("\nTesting eIg involution on Tg-lattice chords (sector %d, g %f)...\n", opt_sector, g);
+    csound::System::message("\nTesting eIg idempotency on Tg-lattice chords (sector %d, g %f)...\n", opt_sector, g);
 
     auto check = [&](const csound::Chord &chord, const char *label) {
         const csound::Chord on_lattice = chord.eTg(g);
         const csound::Chord once = on_lattice.eIg(g, opt_sector);
         const csound::Chord twice = once.eIg(g, opt_sector);
-        const bool involutive = (on_lattice == twice);
+        const bool idempotent = (once == twice);
         csound::System::message(
-            "  %s: lattice %s  eIg %s  eIg(eIg) %s  involutive %d\n",
+            "  %s: lattice %s  eIg %s  eIg(eIg) %s  idempotent %d\n",
             label,
             on_lattice.toString().c_str(),
             once.toString().c_str(),
             twice.toString().c_str(),
-            involutive ? 1 : 0);
-        if (!involutive) {
+            idempotent ? 1 : 0);
+        if (!idempotent) {
             passes = false;
         }
     };
@@ -315,7 +315,7 @@ static bool test_eIg_involution_on_lattice(double g, int opt_sector) {
     check(csound::chordForName("C7"), "C7");
     check(csound::chordForName("CM7"), "CM7");
 
-    test(passes, "eIg is involutive on Tg-lattice chords.");
+    test(passes, "eIg is idempotent on Tg-lattice chords.");
     return passes;
 }
 
@@ -689,7 +689,7 @@ int main(int argc, char **argv) {
     science_optts_3.push_back(csound::Chord({0., 4., 7.}));
     science_optts_3.push_back(csound::Chord({0., 4., 8.}));
     //~ printSet("Science OPTTIs", science_optts_3);
-    
+    fprintf(stderr, "science_optts_3.size(): %zu\n", science_optts_3.size());
     std::vector<csound::Chord> science_opttis_4;
     science_opttis_4.push_back(csound::Chord({0., 0., 0., 0.}));
     science_opttis_4.push_back(csound::Chord({0., 0., 0., 1.}));
@@ -776,6 +776,7 @@ int main(int argc, char **argv) {
     science_opttis_4.push_back(csound::Chord({0., 2., 6., 8.}));
     science_opttis_4.push_back(csound::Chord({0., 3., 6., 9.}));
     //~ printSet("Science OPTTIs", science_opttis_4);
+    std::fprintf(stderr, "science_opttis_4.size(): %zu\n", science_opttis_4.size());
     
     std::vector<csound::Chord> difference;
     if (print_sets) setDifference("ScienceOPTTS", science_optts_3, "ChordSpaceOPTTs", chordspace_optts_3, difference);
@@ -804,7 +805,7 @@ int main(int argc, char **argv) {
     auto test_chord2 = csound::Chord({0., 1., 2., 8.}).eT();
     std::cerr << test_chord2.information() << std::endl;
 
-    test_eIg_involution_on_lattice(g, testSector);
+    test_eIg_idempotent_on_lattice(g, testSector);
 
     csound::System::message("\nTesting equivalence relations...\n\n");
     for (int voiceCount = 3; voiceCount <= 6; ++voiceCount) {
