@@ -255,6 +255,9 @@ namespace csound {
  *    figures (e.g. 72 vs 84 tetrachord classes).
  *
  * See also \c CHORDSPACE.md in the repository for a longer reference.
+ * 
+ * Debugging, testing, and design changes were done by Michael Gogins using 
+ * ChatGPT and Cursor with Sonnet 3.5.
  */
 
 static std::string chord_space_version() {
