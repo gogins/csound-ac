@@ -493,9 +493,10 @@ bool Chord::is_in_rpt_sector(int sector, double range) const
     {
         return false;
     }
-    // Project chord onto RP/T base.
-    const Chord base = eRP(range).eT();
-    return base.is_in_rpt_sector_base(sector, range);
+    // T-normalize the chord directly.  Using eRP() first would octave-shift
+    // negative pitches and produce the wrong T-normal form for chords that are
+    // already in RPT normal form (which have T-normal, possibly negative pitches).
+    return eT().is_in_rpt_sector_base(sector, range);
 }
 
 bool Chord::is_in_rpt_sector_base(int sector, double range) const
@@ -1040,24 +1041,15 @@ SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPT>(
     int rpt_sector)
 {
     (void)g;
-    // Decomposable definition:
-    //   chord is RPT-normal iff it is already in the RP prism, already in the T base,
-    //   and lies in the requested sector (tested without further reduction).
-    if (predicate<EQUIVALENCE_RELATION_RP>(chord, range, 1.0, 0) == false)
-    {
-        return false;
-    }
-    if (predicate<EQUIVALENCE_RELATION_T>(chord, range, 1.0, 0) == false)
-    {
-        return false;
-    }
-    // Sectoring is defined in the RP/T base, not in the Tg base.
-    // Using raw-sectoring on a Tg-normal chord will generally fail.
-    if (chord.eT().is_in_rpt_sector_base(rpt_sector, range) == false)
-    {
-        return false;
-    }
-    return true;
+    // The RPT representative is the T-normal voicing of the RP chord that lies
+    // in the requested sector.  equate<RPT> returns such a chord; a chord is
+    // RPT-canonical iff it equals that canonical representative.
+    // NOTE: RPT-normal chords are T-normal (sum=0) and may have negative
+    // pitches, so they do NOT satisfy the RP predicate.  The old decomposable
+    // check (RP && T && sector) was wrong for that reason.
+    const Chord canonical =
+        equate<EQUIVALENCE_RELATION_RPT>(chord, range, 1.0, rpt_sector);
+    return chord == canonical;
 }
 
 bool Chord::iseRPT(double range, int opt_sector) const {
@@ -1325,27 +1317,39 @@ equate<EQUIVALENCE_RELATION_RPTI>(
     int rpt_sector)
 {
     (void)g;
-    Chord a = equate<EQUIVALENCE_RELATION_RPT>(
-        chord,
-        range,
-        1.0,
-        rpt_sector);
-    Chord b = reflect_in_inversion_flat(a, rpt_sector);
-    b = equate<EQUIVALENCE_RELATION_RPT>(
-        b,
-        range,
-        1.0,
-        rpt_sector);
-    Chord c = reflect_in_inversion_flat(b, rpt_sector);
-    c = equate<EQUIVALENCE_RELATION_RPT>(
-        c,
-        range,
-        1.0,
-        rpt_sector);
+    (void)rpt_sector;
+    // Enumerate all T-normal voicings of the RP chord and its direct
+    // musical inversion, then return the lexicographically smallest one.
+    //
+    // The "direct musical inversion" of a T-normal chord {p0,...,p_{n-1}} is
+    // {-p_{n-1},...,-p_0}, which is also T-normal and sorted (ascending).
+    //
+    // This is correct for all n: the hyperplane-reflection approach used
+    // previously is only valid for n≤4 (where the inversion flat is
+    // codimension-1 in the T-hyperplane), but fails for n=5,6,... where the
+    // inversion flat has higher codimension.  The direct-inversion approach
+    // produces provably idempotent results for any voice count.
+    const Chord rp = chord.eRP(range);
     std::vector<Chord> candidates;
-    add_unique_chord(candidates, a);
-    add_unique_chord(candidates, b);
-    add_unique_chord(candidates, c);
+    // Voicings of the RP chord.
+    for (const Chord &v : rp.voicings())
+    {
+        add_unique_chord(candidates, v.eT());
+    }
+    // Direct musical inversion: negate and reverse the pitches of rp.
+    const int n = rp.voices();
+    Chord rp_inv(n);
+    for (int i = 0; i < n; ++i)
+    {
+        rp_inv.setPitch(i, -rp.getPitch(n - 1 - i));
+    }
+    // rp_inv is T-normal and sorted; reduce it to RP form and enumerate its
+    // voicings as well.
+    const Chord rp_inv_rp = rp_inv.eRP(range);
+    for (const Chord &v : rp_inv_rp.voicings())
+    {
+        add_unique_chord(candidates, v.eT());
+    }
     return least_chord(candidates);
 }
 
@@ -2356,19 +2360,19 @@ bool Chord::test(const char *label) const
             c.toString().c_str());
     }
     b = a.eOPT(opt_sector);
-    if (b.iseOP() == false)
+    if (b.iseOPT(opt_sector) == false)
     {
         passed = false;
         std::fprintf(stderr, "Failed: Chord::eOPT   is not consistent with Chord::iseOPT.\n");
         std::fprintf(stderr, "   %s %d => %s %d.\n",
             a.toString().c_str(),
-            iseOP(),
+            iseOPT(opt_sector),
             b.toString().c_str(),
             b.iseOPT(opt_sector));
     }
     else
     {
-        std::fprintf(stderr, "        Chord::eOP    is consistent with Chord::iseOP.\n");
+        std::fprintf(stderr, "        Chord::eOPT   is consistent with Chord::iseOPT.\n");
     }
     // OPTI    a = eOPTI(opt_sector);
     b = a.eOPTI(opt_sector);
@@ -4749,10 +4753,23 @@ void Chord::initialize_sectors()
         {
             std::vector<Chord> sector_vertices;
             sector_vertices.reserve(size_t(n));
+            // vertices[0] = apex (required by HyperplaneEquation::create).
             sector_vertices.push_back(apex);
+            // vertices[1] = v_plus  = bv[(k+1)%n]
+            // vertices[2] = v_minus = bv[(k-1+n)%n]
+            // HyperplaneEquation::create uses (vertices[1] - vertices[2]) as the
+            // inversion-flat normal.  The ordering here must match that expectation.
+            const int v_plus  = (k + 1) % n;
+            const int v_minus = (k - 1 + n) % n;
+            sector_vertices.push_back(base_vertices[v_plus]);
+            if (v_minus != v_plus)
+            {
+                sector_vertices.push_back(base_vertices[v_minus]);
+            }
+            // Append remaining base vertices (skipping bv[k], v_plus, v_minus).
             for (int v = 0; v < n; ++v)
             {
-                if (v == k)
+                if (v == k || v == v_plus || v == v_minus)
                 {
                     continue;
                 }
@@ -5042,37 +5059,33 @@ SILENCE_PUBLIC bool is_in_full_simplex(const Chord &point,
 
 std::vector<int> Chord::opt_domain_sectors() const
 {
-    auto &opt_simplexes_for_dimensionalities_ = opt_simplexes_for_dimensionalities();
-    if (voices() < 0 || static_cast<size_t>(voices()) >= opt_simplexes_for_dimensionalities_.size())
-    {
-        std::fprintf(stderr, "opt_domain_sectors: voices()=%d out of range (size=%zu)\n",
-            voices(), opt_simplexes_for_dimensionalities_.size());
-        std::abort();
-    }
-    auto &opt_simplexes = opt_simplexes_for_dimensionalities_[voices()];
+    // Use eT() (T-normalize without octave-reduction) so that RPT-normal
+    // chords (which are T-normal but may have negative pitches) are correctly
+    // classified.  The old code used eOT() = eO().eT(), which octave-shifted
+    // negative pitches before T-normalization, producing the T-normal form of
+    // the base voicing rather than the chord itself.  That caused sector
+    // mismatches for chords like {-1, -7, 8} (RPT-sector 0), whose eOT() form
+    // {-3, 0, 3} falls in sector 2.
+    //
+    // is_in_rpt_sector_base guarantees at least one sector is returned
+    // (the one with the highest Voronoi score), so no fallback is needed.
+    // Sector data is initialized lazily by hyperplane_equations_for_dimensionalities()
+    // which is called inside is_in_rpt_sector_base.
+    const Chord t_normal = eT();
     std::vector<int> result;
-    auto ot = eOT();
-    for (int sector = 0, n = static_cast<int>(opt_simplexes.size()); sector < n; ++sector)
+    const int n = voices();
+    for (int sector = 0; sector < n; ++sector)
     {
-        if (is_in_full_simplex(ot, opt_simplexes[sector]) == true)
+        if (t_normal.is_in_rpt_sector_base(sector, OCTAVE()))
         {
             result.push_back(sector);
         }
     }
-    if (result.empty() == true)
+    // is_in_rpt_sector_base always accepts at least the sector with the best
+    // score, so result should never be empty.  Guard defensively anyway.
+    if (result.empty())
     {
-        double best = std::numeric_limits<double>::infinity();
-        int best_sector = 0;
-        for (int sector = 0, n = static_cast<int>(opt_simplexes.size()); sector < n; ++sector)
-        {
-            double d = distance_to_points(ot, opt_simplexes[sector]);
-            if (d < best)
-            {
-                best = d;
-                best_sector = sector;
-            }
-        }
-        result.push_back(best_sector);
+        result.push_back(0);
     }
     std::sort(result.begin(), result.end());
     result.erase(std::unique(result.begin(), result.end()), result.end());
