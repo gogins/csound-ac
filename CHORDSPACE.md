@@ -3,236 +3,278 @@
 Michael Gogins  
 Irreducible Productions
 
+Reference for the chord-space library in CsoundAC (`ChordSpace.hpp`). The design
+follows Callender, Quinn, and Tymoczko, ["Generalized Voice-Leading
+Spaces,"](https://www.science.org/doi/10.1126/science.1153021) *Science* 320,
+2008. Continuous geometry is implemented first; a discrete layer (suffix `g`)
+expresses how musicians usually think in equal temperament.
+
+CsoundAC exposes this code in **C++**, **Python**, and **JavaScript** (including
+the trichord-space visualization in csound-wasm).
+
+---
+
 ## Purpose
 
-The chord space library in CsoundAC, declared in `ChordSpace.hpp`, provides mathematically based code for wworking with chords, scales, neo-Riemannian transformations of chords, and voice-leading in the context of algorithmic composition. The CsoundAC library, including the chord space code, has interfaces in C++, Python, and JavaScript.
+The library supports algorithmic composition by providing:
 
-The chord space code has recently been changed to cleanly separate:
+- **Equivalence classes and normal forms** — decide whether a chord lies in a
+  representative fundamental domain, and map arbitrary chords to canonical
+  representatives (`eOP`, `eOPT`, `eOPTIg`, and related functions).
 
-- **continuous geometry**, defined in chord spaces whose coordinates are real-valued pitches; from
-- **discrete geometry induced on a lattice**, defined by quantizing continuous pitches to an equally tempered lattice with step size `g` that evenly divides the period (usually the octave) of pitch equivalence.
+- **Catalogues of classes** — enumerate equivalence classes (e.g. all trichord
+  set-classes in 12-TET via `fundamentalDomainByEquate` for `RPTIg`).
 
----
+- **Orbifold navigation** — move progressions within a quotient space.
 
-## Representation
+- **Neo-Riemannian harmony** — `P`, `L`, `R`, `D`, and contextual `K`, `Q`.
 
-### Pitches
+- **Voice-leading** — relate abstract equivalence classes via closest
+  voice-leading in a less abstract space.
 
-Pitches and intervals are represented as real numbers. Middle C is `60`. The perid of octave equivalence defined as `12` semitones. Thus pitches in chord space are consistent with the MIDI specification, with the exception that pitches in chord space may take fractional values.
-
-Whole numbers represent equal temperament. Fractions represent microtonal or otherwise continuous pitch values.
-
-### Voices and chords
-
-A **voice** is a distinct pitched sound.
-
-A **chord** is an ordered tuple of voices, represented as a point in an `N`-dimensional chord space, one dimension per voice.
-
-### Pitch equivalence
-
-The period of pitch equivalence is defined as `12.0` semitones, i.e., the octave.
-
-This is not merely a convenience for MIDI compatibility. It is a foundational assumption of the current theory and implementation:
-
-- octave equivalence is defined modulo `12`;
-- OP, OPT, and OPTI geometry are constructed in octave-equivalence space;
-- voice-leading, sector structure, and inversion flats all assume octave equivalence.
+- **Scales and function** — scale degrees, conforming events to scales, and
+  Roman-numeral-style operations.
 
 ---
 
-## Continuous and discrete chord spaces
+## Pitches, voices, and chords
+
+**Pitch** is a logarithmic quantity: octaves are doublings of frequency. Pitches
+and intervals are **real numbers**. Middle C is `60`; one octave is `12`,
+matching MIDI and 12-tone equal temperament (12-TET). Whole numbers are semitone
+steps; fractions allow microtonal or continuous values.
+
+A **voice** is one sounding line. A **chord** is an ordered tuple of pitches, a
+point in **R^N** with one dimension per voice.
+
+A **scale** is a chord whose lowest voice is a tonic pitch-class and whose other
+voices are pitch-classes in ascending order.
+
+For composition, a **score** can be read as a sequence of fleeting chords.
+
+### Octave equivalence period
+
+The period of pitch equivalence is **12 semitones**. This is foundational, not
+merely MIDI convenience:
+
+- octave equivalence is modulo `12`;
+- OP, OPT, and OPTI geometry are built in octave-equivalence space;
+- voice-leading, sectors, and inversion flats assume octave equivalence.
+
+---
+
+## Continuous vs discrete (`g`)
+
+Two related geometries share the same `Chord` type.
 
 ### Continuous chord space
 
-Continuous chord space is the real-valued space `R^N` modulo whichever equivalence relations are applied. In this space, pitches may take any real values, including fractional values.
+Pitches may be any reals. Equivalence relations **O**, **P**, **T**, **I** and
+their compounds (**OP**, **OPT**, **OPTI**, **RPT**, **RPTI**, …) use exact
+transposition (pitch sum `0` after `eT`) and hyperplane reflection where
+appropriate. After `eT`, pitches need **not** be integers.
 
-### Lattice-induced discrete chord space
+### Lattice-induced discrete space
 
-Discrete chord space is **not** a separate storage type. It is the subset of continuous chord space whose coordinates lie on an equally tempered lattice.
+Discrete space is **not** a separate storage type. It is the subset of
+continuous space whose coordinates lie on an equally tempered lattice.
 
-Let `g > 0` be the lattice step size. Then a chord lies on the `g`-lattice if each voice is an integer multiple of `g`, within tolerance. To be musically well-formed in this library, `g` must evenly divide the the octave (12 semitones):
+Let `g > 0` be the lattice step. A chord lies on the **g-lattice** if each voice
+is (within tolerance) an integer multiple of `g`. For musical use, `g` should
+divide the octave evenly:
 
 ```text
-12 / g ∈ N
+12 / g ∈ ℕ
 ```
 
 Examples:
 
-- `g = 1` gives 12-tone equal temperament.
-- `g = 1/2` gives 24-tone equal temperament.
-- `g = 12/19` gives 19 equal divisions of the octave.
-- `g = 2` gives a 6-step whole-tone lattice.
+| `g`   | Temperament / lattice        |
+|-------|------------------------------|
+| `1`   | 12-TET (semitone grid)       |
+| `0.5` | 24-TET (quarter-tone grid)   |
+| `2`   | whole-tone lattice (6 steps) |
+| `12/19` | 19-EDO                   |
 
-The voices of `Chord` therefore remain floating-point numbers in all cases. Discrete geometry is induced by projecting continuous chords onto exact multiples of `g`.
+Relations with suffix **`g`** (`Tg`, `Ig`, `OPTg`, `OPTIg`, `RPTg`, `RPTIg`, …)
+first compute the continuous representative, then snap to the lattice (`eET`,
+`eTg`).
+
+### Recommendation for 12-TET composition
+
+Prefer the **`g` APIs with `g = 1`**:
+
+- `eOPTIg`, `eRPTIg`, `iseRPTIg`
+- `fundamentalDomainByEquate` for `RPTIg`
+
+These match **chord type** and **set class** as musicians use those terms in
+12-TET.
 
 ---
 
-## Definitions
+## Plain chord space and cardinality
 
-### Plain chord space
+Plain chord space has no equivalence relation. Ordered chords are written
+`(p₁, …, p_N)`; unordered (sorted) chords `{p₁, …, p_N}` illustrate
+permutational equivalence.
 
-Plain chord space has no equivalence relation. Ordered chords are represented as vectors in parentheses `(p1, ..., pN)`. Unordered chords are represented as sorted vectors in braces `{p1, ..., pN}`.
-
-### Cardinality equivalence
-
-Cardinality equivalence is **not** assumed. Chord spaces are of fixed dimension. A one-note sonority may therefore be represented as `{60}`, `{60, 60}`, `{60, 60, 60}`, and so on, depending on the dimensionality of the space.
-
-This preserves a proto-metric in plain chord space that descends to child chord spaces.
-
-### Scale
-
-A scale is a chord whose first and lowest voice is a tonic pitch-class and whose other voices are pitch-classes in ascending order.
-
-### Score
-
-For algorithmic composition, a score may be treated as a sequence of more or less fleeting chords.
+**Cardinality equivalence is not assumed.** Spaces have fixed dimension `N`. A
+single note may appear as `{60}`, `{60, 60}`, or `{60, 60, 60}` in trichord
+space. This preserves a proto-metric that descends to quotient spaces.
 
 ---
 
 ## Equivalence relations
 
-An equivalence relation identifies different elements of a set as belonging to the same class. Operations that send elements to their equivalents induce quotient spaces or orbifolds, where identified facets of the space are glued together.
+An equivalence relation groups chords considered “the same” under a symmetry.
+Quotienting yields **orbifolds**: facets of a fundamental domain are identified
+(octave wrap-around, inversion identification, etc.).
 
-In most cases, a chord space can be divided into many geometrically equivalent fundamental domains for the same equivalence relation. This API therefore uses the notion of a **representative fundamental domain**.
+Many relations admit several geometrically identical copies of a fundamental
+domain; this API chooses **representative** (normal) domains.
 
-The following equivalence relations are defined.
+### Elementary relations
 
-### C
+| Symbol | Meaning |
+|--------|---------|
+| **O** | Octave equivalence: pitches differing by whole octaves (`12`) are equivalent. |
+| **P** | Permutational equivalence: reordering voices does not change the chord. Domain: voices sorted ascending. |
+| **T** | Continuous transpositional equivalence: translate all voices by the same amount. Domain: hyperplane with pitch sum `0` (mean zero). |
+| **Tg** | Transpositional equivalence on the **g-lattice** (`eTg`, `eET`). |
+| **I** | Continuous inversion: reflection in a hyperplane (**inversion flat**), not registral revoicing. “Invert” here is the mathematician’s sense; shifting individual voices by octaves is **revoicing**. |
+| **Ig** | Inversion on the **g-lattice** (`eIg`). |
 
-Cardinality equivalence. Not assumed in this library.
+### Compounds (continuous unless suffixed with `g`)
 
-### O
+| Symbol | Meaning |
+|--------|---------|
+| **OP** | Octave + permutational (Tymoczko’s chord space). An **N**-voice space is an equilateral hyperprism, one octave high, with **N** cyclical **sectors** from octavewise revoicing. In 12-TET trichords: augmented triads along the center, major/minor columns around them. |
+| **OPT** | **Chord type**: OP modulo **T**. Representative layer = base of the OP prism (normal form). **N** sector copies related by revoicing. C major and C minor are **different** OPT types. |
+| **OPTI** | **Set class**: OPT modulo **I**. Major and minor triads share a class. Canonical inversion uses **direct musical inversion** (negate and reverse T-normal pitches, then reduce)—required for correctness when **N > 4**, not hyperplane reflection alone. |
+| **OPTg**, **OPTIg** | As OPT / OPTI with representatives on the **g-lattice**. |
+| **R**, **RP**, **RPT**, **RPTI** | Range and compounds: octavewise revoicing within a range combined with the above. |
+| **RPTg**, **RPTIg** | Discrete (lattice) versions. **RPTIg** inversion pairs in the fundamental domain are resolved by **lexicographic tie-break** (keep the smaller of `{chord, inversion}`), which is stable after cyclic revoicing canonicalization. |
 
-Octave equivalence. Pitches differing by integer multiples of `12` are equivalent.
+### Lattice-induced relations in general
 
-### P
+For any continuous relation **EC**, the lattice-induced relation **ECg** is:
 
-Permutational equivalence. Chords that differ only by reordering of voices are equivalent. The representative fundamental domain is the wedge in which voices are sorted in ascending order.
+1. compute the continuous representative for **EC**;
+2. project onto the **g-lattice**;
+3. require idempotency and predicate consistency.
 
-### T
-
-Continuous transpositional equivalence. Chords that differ by translation parallel to the unison diagonal are equivalent. The representative fundamental domain is the hyperplane orthogonal to the unison diagonal with sum of pitches equal to `0`.
-
-### I
-
-Continuous inversional equivalence. Here inversion is used in the mathematician’s sense: reflection in a point or hyperplane, not registral revoicing. In the chord-space orbifolds used here, inversion is represented geometrically by reflection in an inversion flat.
-
-### OP
-
-Octave equivalence plus permutational equivalence. This is Tymoczko’s orbifold for chords of fixed cardinality in harmonic context.
-
-For `N` voices, the OP fundamental domain is an equilateral hyperprism with `N` side facets and height `12 / N` along the unison direction.
-
-### OPT
-
-OP plus continuous transpositional equivalence. The representative OPT fundamental domain is chosen as the base layer of the OP hyperprism. The full OPT domain is the union of all OPT sectors; any individual sector is a tile of that domain, not the whole fundamental domain.
-
-### OPTI
-
-OPT plus continuous inversional equivalence. Each OPT sector is divided into two halves by an inversion flat. Two possible global OPTI domains exist, corresponding informally to the “minor” and “major” halves; this API chooses the minor domain with the lowest sector index as the representative OPTI fundamental domain.
-
-### Lattice-induced relations
-
-For any continuous equivalence relation `EC`, the corresponding lattice-induced relation is written `ECg`. Its representative domain is the intersection of the representative continuous domain for `EC` with the `g`-lattice.
-
-Examples:
-
-- `OPTg`: OPT representatives that also lie on the `g`-lattice.
-- `Ig`: inversional representatives constrained to the `g`-lattice.
-- `OPTIg`: OPTI representatives constrained to the `g`-lattice.
-
-These are **not** separate spaces with separate storage types. They are induced by predicates and projections defined on `Chord`.
+Examples: `OPTg`, `Ig`, `OPTIg`, `RPTg`, `RPTIg`.
 
 ---
 
 ## Geometry of OP, OPT, and OPTI
 
-Let `N` be the dimensionality of the chord space.
+Let **N** be the number of voices.
 
 ### OP
 
-Under OP equivalence, chord space is an equilateral hyperprism with `N` side facets and height `12 / N` along the unison axis.
+Under OP, chord space is an equilateral hyperprism with **N** side facets and
+height **12/N** along the unison direction.
 
-A chord translated parallel to the unison diagonal rises or falls through the prism. When it passes through the top or bottom base, octave equivalence folds it back into the adjacent sector. This produces a cyclical region that divides OP into `N` sectors. Each OP sector is an isosceles hyperprism.
+Translating parallel to the unison diagonal moves a chord through the prism.
+Octave equivalence folds the top and bottom bases, producing **N cyclical
+sectors**. Each sector is an isosceles hyperprism.
 
 ### OPT
 
-OPT is the base layer of the OP hyperprism. The OPT representative fundamental domain is the union of all OPT sectors in that layer.
+OPT is the **base layer** of the OP hyperprism. The representative OPT domain is
+the union of all OPT sectors in that layer.
 
-To determine the sector of a chord in OP:
+**Sector assignment** (for a T-normal chord):
 
-1. project the chord onto OPT;
-2. compute the Euclidean distance from the chord to the centroid of each sector’s base face;
-3. assign the chord to any sector whose centroid is minimal in distance.
+1. project to OPT;
+2. score each sector’s base centroid (dot-product / Voronoi rule in
+   `is_in_rpt_sector_base`);
+3. accept any sector with maximal score.
 
-Boundary points may satisfy this criterion for more than one sector.
+Boundary chords may belong to **more than one** sector.
 
 ### OPTI
 
-Each OPT sector is divided into two halves by a hyperplane through the center of the cyclical region and the centroid of that sector’s base face. This hyperplane is the inversion flat.
+Each OPT sector is cut in half by an **inversion flat** (hyperplane through the
+sector center and the base centroid). Continuous inversion reflects across this
+flat.
 
-Under continuous inversion, a chord reflects across this inversion flat from one half-sector to the other.
+The representative OPTI domain is the union of chosen half-sectors. For
+**OPTIg / RPTIg**, which representative of each inversion pair is kept is
+decided by **lex order**, not solely by which side of the flat a chord lies on
+(after `RPTg` canonicalization, hyperplane classification can misclassify pairs).
 
-The OPTI representative fundamental domain is the union of the chosen half-sectors over all sectors.
+### Extrusions
 
-### Extrusions in OP
-
-OPT sectors, OPTI sectors, and inversion flats can be extruded along the unison diagonal to define corresponding OPI domains and full inversion flats in OP space.
+OPT sectors, OPTI half-sectors, and inversion flats extend along the unison
+diagonal into full OP space (OPI geometry, `Rg` reflection cache, etc.).
 
 ---
 
 ## Boundary behavior
 
-Chords lying on shared boundaries of these polytopes belong to all adjacent polytopes.
+Chords on shared **facets, edges, or vertices** of sectors belong to all
+adjacent regions that share that boundary.
 
-Therefore:
+Consequences:
 
 - predicates are **closed-set** tests;
-- a boundary chord may satisfy predicates for more than one sector;
-- no unique sector ownership is required unless explicitly needed for counting or labeling.
+- a boundary chord may satisfy predicates for **multiple** sectors;
+- sector indices are **selectors** (which flat or region to use), not unique
+  ownership labels.
 
-Sector-indexed operations therefore use the sector argument as a **target selector**, not as a proof that the chord belongs exclusively to that sector.
+When reflecting in the trichord-space model, the **same sector** must be used
+for both halves of an invert/invert pair; otherwise facet chords appear
+non-involutive because different sectors have different inversion flats.
 
-Tie-breaking is not required merely to define membership. It is only required if an ownership notion is introduced.
+Tie-breaking (lex order for RPTIg, lowest sector index in `opt_domain_sectors`)
+is needed for **canonical catalogues**, not for bare membership.
 
 ---
 
 ## Predicates and projections
 
-Predicates are implemented geometrically:
+- **`ise<EC>(...)`** — true when the chord lies in the representative domain
+  for **EC** (boundary points included).
 
-- `ise<EC>(...)` returns `true` exactly when the chord lies in the chosen representative polytope for `EC`.
-- Boundary points satisfy the predicate.
+- **`e<EC>(...)`** — canonical representative; should be **idempotent**:
+  `e(e(x)) == e(x)`.
 
-Projections are implemented by applying the relevant group action, analytically or iteratively, until the chord lies in the chosen representative polytope.
+Template forms `equate<EQUIVALENCE_RELATION_…>`, `predicate<…>`, and
+`fundamentalDomainByEquate` / `fundamentalDomainByPredicate` mirror the member
+functions.
 
-### Continuous rule
+### Continuous vs lattice
 
-For continuous equivalence classes, predicates and projections are defined entirely in the continuous orbifold geometry.
+| Layer | Rule |
+|-------|------|
+| Continuous | Geometry in the real-valued orbifold. |
+| Lattice (`…g`) | Continuous representative, then snap to **g**-grid; must remain idempotent and satisfy `iseLattice(g)`. |
 
-### Lattice rule
-
-For lattice-induced equivalence classes, the implementation rule is:
-
-1. compute the representative in the corresponding continuous geometry;
-2. project that representative onto the `g`-lattice;
-3. accept boundary points that lie in more than one sector;
-4. require the result to be idempotent and to satisfy the corresponding predicate.
-
-This rule applies in particular to `Ig`, `OPTg`, and `OPTIg`.
+Conceptually: `eECg(g, sector) ≈ eET(g) ∘ eEC(sector)` (with sector and tolerance
+details as implemented).
 
 ---
 
-## API
+## Neo-Riemannian and contextual operations
 
-The public API retains the existing member-function pattern:
+Beyond equivalence maps:
 
-- `Chord::ise<EC>(...)` is a predicate;
-- `Chord::e<EC>(...)` is a projection.
+| Operation | Role |
+|-----------|------|
+| `T(p, x)` | Translate chord by `x` semitones. |
+| `I(p [, x])` | Reflect in point `x` (default origin). |
+| `P`, `L`, `R` | Parallel, Leittonwechsel, Relative. |
+| `D` | Dominant (down a perfect fifth). |
+| `K(c)`, `Q(c, n, m)` | Contextual inversion and transposition (Fiore & Satyendra, *MTO* 11, 2008). |
+| `R(sector)`, `Rg(sector, g)` | Reflection in OPT sector `sector`’s inversion flat; `Rg` uses a cached involution on **g**-lattice RPg representatives. |
 
-The following conventions apply.
+---
 
-### Continuous API
+## API overview
+
+Member-function pattern on `Chord`:
 
 ```cpp
 bool Chord::iseO() const;
@@ -241,127 +283,126 @@ Chord Chord::eO() const;
 bool Chord::iseP() const;
 Chord Chord::eP() const;
 
-bool Chord::iseT(int sector = -1) const;
-Chord Chord::eT(int sector = -1) const;
+bool Chord::iseT() const;
+Chord Chord::eT() const;
 
-bool Chord::iseI(int sector = -1) const;
-Chord Chord::eI(int sector = -1) const;
+bool Chord::iseTg(double g = 1.0) const;
+Chord Chord::eTg(double g = 1.0) const;
 
-bool Chord::iseOP(int sector = -1) const;
-Chord Chord::eOP(int sector = -1) const;
+bool Chord::iseI(int sector = 0) const;
+Chord Chord::eI(int sector = 0) const;
 
-bool Chord::iseOPT(int sector = -1) const;
-Chord Chord::eOPT(int sector = -1) const;
+bool Chord::iseIg(double g = 1.0, int sector = 0) const;
+Chord Chord::eIg(double g = 1.0, int sector = 0) const;
 
-bool Chord::iseOPTI(int sector = -1) const;
-Chord Chord::eOPTI(int sector = -1) const;
+bool Chord::iseOP() const;
+Chord Chord::eOP() const;
+
+bool Chord::iseOPT(int sector = 0) const;
+Chord Chord::eOPT(int sector = 0) const;
+
+bool Chord::iseOPTg(double g = 1.0, int sector = 0) const;
+Chord Chord::eOPTg(double g = 1.0, int sector = 0) const;
+
+bool Chord::iseOPTI(int sector = 0) const;
+Chord Chord::eOPTI(int sector = 0) const;
+
+bool Chord::iseOPTIg(double g = 1.0, int sector = 0) const;
+Chord Chord::eOPTIg(double g = 1.0, int sector = 0) const;
+
+bool Chord::iseRPTIg(double range, double g = 1.0, int sector = 0) const;
+Chord Chord::eRPTIg(double range, double g = 1.0, int sector = 0) const;
 ```
 
-### Lattice helpers
-
-The following lattice helper functions are added:
+Lattice helpers:
 
 ```cpp
 bool Chord::iseLattice(double g = 1.0) const;
-Chord Chord::eLattice(double g = 1.0) const;
+Chord Chord::eLattice(double g = 1.0) const;  // snap each voice to nearest g multiple
+Chord Chord::eET(double g = 1.0) const;     // exact tempered projection
 ```
 
-`iseLattice(g)` returns `true` if and only if every voice lies on the `g`-lattice, within tolerance.
-
-`eLattice(g)` snaps every voice independently to the nearest multiple of `g`.
-
-### Lattice-induced inversion
-
-The following lattice-induced inversion functions are added:
+Domain enumeration:
 
 ```cpp
-bool Chord::iseIg(double g = 1.0, int sector = -1) const;
-Chord Chord::eIg(double g = 1.0, int sector = -1) const;
+const std::vector<Chord> &fundamentalDomainByEquate<RPTIg>(
+    int voices, double range, double g, int sector, bool printme);
 ```
 
-Semantics:
-
-- `iseIg(g, sector)` is true when the chord lies in the chosen representative inversion domain **and** lies on the `g`-lattice.
-- `eIg(g, sector)` computes the continuous inversional representative and then projects the result onto the `g`-lattice.
-
-### General lattice-induced API
-
-For every continuous equivalence class `EC`, the lattice-induced version follows the same pattern:
-
-```cpp
-bool Chord::iseECg(double g = 1.0, int sector = -1) const;
-Chord Chord::eECg(double g = 1.0, int sector = -1) const;
-```
-
-Semantics:
-
-- `iseECg(g, sector)` is true if and only if the chord lies in the representative domain for `EC` and lies on the `g`-lattice.
-- `eECg(g, sector)` computes the continuous representative for `EC` and then projects it to the `g`-lattice.
-
-Thus:
-
-```text
-eECg(g, sector) = eLattice(g) ∘ eEC(sector)
-```
-
-provided the composition satisfies the invariants below.
+`opt_domain_sectors()` returns all OPT sectors a chord belongs to (sorted);
+use the lowest index for a canonical sector choice.
 
 ---
 
-## Invariants required by the unit tests
+## 12-TET set-class counts (`g = 1`, `range = 12`)
 
-The unit tests define part of the specification and must be taken seriously.
+Verified by `ChordSpaceTests` for **RPTg** and **RPTIg** at **`g = 1`**:
 
-For each equivalence relation `R` and sector selector `sector`, the following must hold.
+| Voices | RPTg (OPT types) | RPTIg (set classes) |
+|--------|------------------|---------------------|
+| 3      | 31               | 19                  |
+| 4      | 116              | 72                  |
+| 5      | 364              | 196                 |
+| 6      | 1038             | 561                 |
 
-### 1. Idempotence
+Formula for RPTIg size: `(|RPTg| + self_inverse_count) / 2` over the catalogue.
 
-```text
-equate<R>(equate<R>(chord, sector), sector) == equate<R>(chord, sector)
-```
+These counts may **differ** from manual tallies of illustrations in the CQT
+paper (different conventions: inclusive octave span in pitch-class listings,
+continuous vs lattice, etc.). Example: CQT-style tetrachord lists often cite
+**84** classes; this library’s **RPTIg** domain at `g = 1` has **72**.
 
-For lattice-induced relations:
+---
 
-```text
-equate<Rg>(equate<Rg>(chord, g, sector), g, sector) == equate<Rg>(chord, g, sector)
-```
+## Invariants and testing
 
-within tolerance.
+`ChordSpaceTests` and `Chord::test()` check, for each relation **R** and sector:
 
-### 2. Predicate/projection consistency
+1. **Idempotence** — `eR(eR(x)) == eR(x)`.
+2. **Consistency** — `iseR(eR(x))` is true.
+3. **Lattice consistency** (for `…g`) — representatives lie on the **g**-grid.
+4. **Decomposability** — compound predicates agree with constituents where
+   geometry decomposes.
 
-```text
-predicate<R>(equate<R>(chord, sector), sector) == true
-```
+At **`g = 1`**, **`range = 12`**, voices **3–6**, the suite reports on the order
+of **two million** passing checks for discrete relations and most continuous
+paths.
 
-For lattice-induced relations:
+---
 
-```text
-predicate<Rg>(equate<Rg>(chord, g, sector), g, sector) == true
-```
+## Known limitations and test coverage
 
-### 3. Lattice consistency
+### Continuous `eOPT` / `eRPT` (six voices)
 
-For lattice-induced projections:
+One **known failure** remains in `ChordSpaceTests`: for **N = 6**, some
+representatives in the RPTI catalogue have pitch sums **not divisible by 6**.
+Continuous `eT` then yields **non-integer** pitches, and **`eOPT` is not
+idempotent** (`equate<RPT>` may fail to find a sector).
 
-```text
-equate<Rg>(chord, g, sector).iseLattice(g) == true
-```
+This does **not** affect the discrete path **`eOPTg` / `eOPTIg` / `RPTIg` at
+`g = 1`**, which is the recommended API for 12-TET composition. The continuous
+issue is **intentionally left unfixed** for now.
 
-### 4. Decomposability
+### Other values of `g`
 
-The predicate for a compound equivalence relation must agree with the conjunction of the predicates for its constituent elementary relations, insofar as the geometry actually decomposes in that way.
+The implementation is parameterized by **`g`**, but **`ChordSpaceTests` currently
+exercises only `g = 1`** with `range = 12`. Hardcoded domain-size checks for
+RPTg and RPTIg apply only to **12-TET**. Using **`g ≠ 1`** (e.g. 24-TET) should
+be treated as **untested** until dedicated tests are added.
 
-### 5. Membership of representative domains
+### CQT catalogues vs this library
 
-Representative chords can be collected by globally iterating over a space enclosing the representative fundamental domain and inserting each chord that satisfies the **union membership predicate** for that domain.
+CQT’s mathematics is **continuous**; their figures use **integer** pitch-class
+illustrations. This library’s **RPTIg** domains at **`g = 1`** use exact lattice
+representatives and **lex** inversion tie-breaks. Do not expect one-to-one
+agreement with every table or hand count in the paper.
 
-The union predicate is satisfied if the sector predicate is satisfied for one or more sectors in the domain.
+---
 
-Examples:
+## References
 
-- `OPT`: the chord lies in any OPT sector.
-- `OPTg`: OPT membership and lattice membership on `g`.
-- `OPTI`: the chord lies in the chosen inversion half of any OPT sector.
-- `OPTIg`: OPTI membership and lattice membership on `g`.
-
+- Callender, Quinn, Tymoczko, "Generalized Voice-Leading Spaces," *Science*
+  320, 2008.
+- Fiore and Satyendra, "Generalized Contextual Groups," *Music Theory Online*
+  11, 2008.
+- Header overview: `CsoundAC/ChordSpace.hpp` (file comment at top of file).

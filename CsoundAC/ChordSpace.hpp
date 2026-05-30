@@ -82,208 +82,180 @@
 
 namespace csound {
 /** \file ChordSpace.hpp
-This library implements a geometric approach to some common operations on 
-chords in neo-Riemannian music theory for use in score generating procedures:
-
- -  Identifying whether a chord belongs to some equivalence class of music
-    theory, or sending a chord to its equivalent within a representative
-    ("normal") fundamental domain of some equivalence relation. The
-    equivalence relations are octave (O), permutational (P), transpositional,
-    (T), inversional (I), and their compounds OP, OPT (set-class or chord
-    type), and OPTI (similar to prime form), among others.
-
- -  Causing chord progressions to move strictly within an orbifold that
-    reoresents some equivalence class.
-
- -  Implementing chord progressions based on the L, P, R, D, K, and Q
-    operations of neo-Riemannian theory (thus implementing some aspects of
-    "harmony").
-
- -  Implementing chord progressions performed within a more abstract
-    equivalence class by means of the closest voice-leading within a less
-    abstract equivalence class (thus implementing some fundamentals of
-    "counterpoint").
-    
- -  Implementing "functional" or "Roman numeral" operations performed 
-    using scales and scale degrees (thus implementing many fundamentals of 
-    "pragmatic music theory").
-    
-# Definitions
-
-Pitch is the perception of a distinct sound frequency. It is a logarithmic
-perception; octaves, which sound 'equivalent' in some sense, represent
-doublings or halvings of frequency.
-
-Pitches and intervals are represented as real numbers. Middle C is 60 and the
-octave is 12. Our usual system of 12-tone equal temperament, as well as MIDI
-key numbers, are completely represented by the whole numbers; any and all
-other pitches can be represented simply by using fractions.
-
-A voice is a distinct sound that is heard as having a pitch.
-
-A chord is simply a set of voices heard at the same time, represented here
-as a point in a chord space having one dimension of pitch for each voice
-in the chord.
-
-A scale is a chord with a tonic pitch-class as its first and lowest voice, 
-all other voices being pitch-classes sorted in ascending order.
-
-For the purposes of algorithmic composition, a score can be considered to be a 
-sequence of more or less fleeting chords.
-
-# Equivalence Relations and Classes
-
-An equivalence relation identifies different elements of a set as belonging to
-the same class. For example the octave is an equivalence relation that 
-identifies C1, C2, and C3 as belonging to the equivalence class C. Operations 
-that send elements to their equivalents induce quotient spaces or orbifolds, 
-where the equivalence operation identifies points on one facet of the orbifold 
-with points on an opposing facet. The fundamental domain of the equivalence 
-relation is the space consisting of the orbifold and its surface.
-
-Plain chord space has no equivalence relation. Ordered chords are represented
-as vectors in parentheses (p1, ..., pN). Unordered chords are represented as
-sorted vectors in braces {p1, ..., pN}. Unordering is itself an equivalence
-relation -- permutational equivalence.
-
-The following equivalence relations apply to pitches and chords, and exist in
-different orbifolds. Equivalence relations can be combined (Callendar, Quinn,
-and Tymoczko, "Generalized Voice-Leading Spaces," _Science_ 320, 2008), and
-the more equivalence relations are combined, the more abstract is the
-resulting orbifold compared to the parent space.
-
-In most cases, a chord space can be divided into a number, possibly
-infinite, of geometrically equivalent fundamental domains for the same
-equivalence relation. Therefore, here we use the notion of 'representative'
-or 'normal' fundamental domain. For example, the representative fundamental
-domain of unordered sequences, out of all possible orderings, consists of all
-sequences in their ordinary sorted order. It is important, in the following,
-to identify representative fundamental domains that combine properly, e.g.
-such that the representative fundamental domain of OP / the representative
-fundamental domain of PI equals the representative fundamental domain of OPI.
-And this in turn may require accounting for duplicate elements of the
-representative fundamental domain caused by reflections or singularities in
-the orbifold (e.g. on vertices, edges, or facets shared by fundamental domains 
-with a cyclical structure), or by doubled pitches in a chord.
-
-<dl>
-<dt>C   <dd>Cardinality equivalence, e.g. {1, 1, 2} == {1, 2}. _Not_ assuming
-        cardinality equivalence ensures that there is a proto-metric in plain
-        chord space that is inherited by all child chord spaces. Cardinality
-        equivalence is never assumed here, because we are working in chord
-        spaces of fixed dimensionality; e.g. we represent the note middle C
-        not only as {60}, but also as {60, 60, ..., 60}.
-        
-<dt>O   <dd>Octave equivalence. The fundamental domain is defined by the pitches
-        in a chord spanning the range of an octave or less, and summing to
-        an octave or less.
-
-<dt>P   <dd>Permutational equivalence. The fundamental domain is defined by a
-        "wedge" of plain chord space in which the voices of a chord are always
-        sorted by pitch.
-
-<dt>T   <dd>Transpositional equivalence, e.g. {1, 2} == {7, 8}. The fundamental
-        domain is defined as a hyperplane in chord space at right angles to the
-        diagonal of unison chords. Represented by the chord always having a
-        sum of pitches equal to 0.
-
-<dt>Tg  <dd>Transpositional equivalence; the pitches of the chord are sent to 
-        the ceilings of the pitches in the first chord whose sum is equal 
-        to or greater than 0, i.e., rounded up to equal temperament.
-
-<dt>I   <dd>Inversional equivalence. Care is needed to distinguish the
-        mathematician's sense of 'invert', which means 'pitch-space inversion'
-        or 'reflect in a point', from the musician's sense of 'invert', which
-        varies according to context but in practice often means 'registral
-        inversion' or 'revoice by adding an octave to the lowest tone of a
-        chord.' Here, we use 'invert' and 'inversion' in the mathematician's
-        sense, and we use the terms 'revoice' and 'voicing' for the musician's
-        'invert' and 'inversion'. Here, the inversion of a chord is its 
-        reflection in a hyperplane (the inversion flat) that divides a 
-        fundamental domain of pitch.
-
-<dt>PI  <dd>Inversional equivalence with permutational equivalence. The
-        'inversion flat' of unordered chord space is a hyperplane consisting
-        of all those unordered chords that are invariant under inversion. A
-        fundamental domain is defined by any half space bounded by a
-        hyperplane containing the inversion flat.
-
-<dt>OP  <dd>Octave equivalence with permutational equivalence. Tymoczko's 
-        orbifold for chords; i.e. chords with a fixed number of voices in a 
-        harmonic context. The fundamental domain is defined as a hyperprism 
-        one octave long with as many sides as voices and the ends identified 
-        by octave equivalence and one cyclical permutation of voices, modulo 
-        the unordering. In OP for trichords in 12TET, the augmented triads run 
-        up the middle of the prism, the major and minor triads are in 6
-        alternating columns around the augmented triads, the two-pitch chords
-        form the 3 sides, and the one-pitch chords form the 3 edges that join
-        the sides.
-        
-<dt>OPT  <dd>The layer of the OP prism as close as possible to the origin, modulo
-        the number of voices. Chord type. Note that CM and Cm are different
-        OPT. Because the OP prism is canted down from the origin, at least one
-        pitch in each OPT chord (excepting the origin itself) is negative. 
-        For n dimensions there are n OPT fundamental domains centering on the 
-        maximally even chord and generated by rotation about the maximally 
-        even chord, equivalently octavewise revoicing, more or less the same 
-        as the musician's sense of "chord inversion."
-
-<dt>OPTg  <dd>The same as OPT, but with chords rounded up within equal 
-        temperament; equivalent to "chord type."
-
-<dt>OPI  <dd>The OP prism modulo inversion, i.e. 1/2 of the OP prism. The
-        representative fundamental consits of those chords having inversional 
-        equivalence.
-
-<dt>OPTI  <dd>The OPT layer modulo inversion, i.e. 1/2 of the OPT layer.
-        Set-class. Note that minor and major triads are are the same OPTI.
-
-<dt>OPTIg  <dd>The same as OPTI, but with chords rounded up within equal 
-        temperament; equivalent to "set class."
-</dl>
-
-# Operations
-
-Each of the above equivalence relations is, of course, an operation that sends
-chords outside some fundamental domain to chords inside that fundamental 
-domain. We define the following additional operations:
-
-<dl>
-<dt>T(p, x)     <dd>Translate p by x.
-
-<dt>I(p [, x])  <dd>Reflect p in x, by default the origin.
-
-<dt>P           <dd>Send a major triad to the minor triad with the same root,
-                or vice versa (Riemann's parallel transformation).
-
-<dt>L           <dd>Send a major triad to the minor triad one major third higher,
-                or vice versa (Riemann's Leittonwechsel or leading-tone
-                exchange transformation).
-
-<dt>R           <dd>Send a major triad to the minor triad one minor third lower,
-                or vice versa (Riemann's relative transformation).
-
-<dt>D            <dd>Send a triad to the next triad a perfect fifth lower
-                (dominant transformation).
-</dl>
-
-P, L, and R have been extended as follows, see Fiore and Satyendra,
-"Generalized Contextual Groups", _Music Theory Online_ 11, August 2008:
-
-<dl>
-<dt>K(c)        <dd>Interchange by inversion;
-                `K(c) := I(c, c[1] + c[2])`.
-                This is a generalized form of P; for major and minor triads,
-                it is exactly the same as P, but it also works with other
-                chord types.
-
-<dt>Q(c, n, m)  <dd>Contexual transposition;
-                `Q(c, n, m) := T(c, n)` if c is a T-form of m,
-                or `T(c, -n)` if c is an I-form of M. Not a generalized form
-                of L or R; but, like them, K and Q generate the T-I group.
-</dl>
-                
-*/
+ *
+ * Geometric operations on chords for algorithmic composition: equivalence
+ * classes (orbifolds), voice-leading, neo-Riemannian transformations,
+ * scales, and functional harmony.
+ *
+ * The design follows Callender, Quinn, and Tymoczko, "Generalized
+ * Voice-Leading Spaces," _Science_ 320, 2008. Continuous geometry is
+ * implemented first; a discrete layer (suffix \c g) expresses how musicians
+ * usually think in equal temperament.
+ *
+ * # What this library does
+ *
+ *  - Decide whether a chord lies in a representative fundamental domain for
+ *    an equivalence relation, and map arbitrary chords to canonical
+ *    representatives (\c eOP, \c eOPT, \c eOPTIg, and related functions).
+ *
+ *  - Enumerate equivalence classes (e.g. all trichord set-classes in 12-TET
+ *    via \c fundamentalDomainByEquate).
+ *
+ *  - Move progressions within an orbifold, apply neo-Riemannian \c P, \c L,
+ *    \c R, \c D, \c K, \c Q, and related contextual operations.
+ *
+ *  - Voice-lead between abstract equivalence classes using closest
+ *    voice-leading in a less abstract space.
+ *
+ *  - Work with scales, scale degrees, and Roman-numeral-style operations.
+ *
+ * # Pitches, voices, and chords
+ *
+ * Pitch is a logarithmic quantity: octaves are doublings of frequency. Pitches
+ * and intervals are \b real numbers. Middle C is \c 60; one octave is \c 12,
+ * matching MIDI and 12-tone equal temperament (12-TET). Whole numbers are
+ * semitone steps; fractions allow microtonal or continuous values.
+ *
+ * A \b voice is one sounding line. A \b chord is an ordered tuple of pitches,
+ * a point in \f$ \mathbb{R}^N \f$ with one dimension per voice. A \b scale
+ * is a chord whose lowest voice is a tonic pitch-class and whose other voices
+ * are pitch-classes in ascending order. For composition, a score can be read
+ * as a sequence of fleeting chords.
+ *
+ * # Continuous vs discrete (\c g)
+ *
+ * Two related geometries share the same \c Chord type:
+ *
+ *  - \b Continuous space: pitches may be any reals. Equivalence relations
+ *    \c O, \c P, \c T, \c I and their compounds (\c OP, \c OPT, \c OPTI,
+ *    \c RPT, \c RPTI, …) use exact transposition (sum of pitches \c 0 after
+ *    \c eT) and hyperplane reflection where appropriate.
+ *
+ *  - \b Discrete (\c g-lattice) space: pitches are projected to an equally
+ *    spaced grid with step \c g > 0. For musical use, \c g should divide the
+ *    octave evenly: \f$ 12/g \in \mathbb{N} \f$. Examples: \c g = 1 (12-TET),
+ *    \c g = 0.5 (24-TET), \c g = 2 (whole-tone lattice). Relations with suffix
+ *    \c g (\c Tg, \c Ig, \c OPTg, \c OPTIg, \c RPTg, \c RPTIg, …) first
+ *    compute the continuous representative, then snap to the lattice (\c eET).
+ *
+ * For \b algorithmic composition in 12-TET, prefer the \c g APIs with
+ * \c g = 1 (\c eOPTIg, \c eRPTIg, \c iseRPTIg, \c fundamentalDomainByEquate
+ * for \c RPTIg). They match “chord type” and “set class” as musicians use
+ * those terms.
+ *
+ * # Equivalence relations
+ *
+ * An equivalence relation groups different chords that are considered “the
+ * same” under some symmetry. Quotienting by equivalences yields orbifolds:
+ * facets of a fundamental domain are identified (e.g. octave wrap-around).
+ * Many relations admit several geometrically identical copies of a fundamental
+ * domain; this API picks \b representative domains (normal forms).
+ *
+ * Chords on \b boundaries (shared facets, edges, or vertices of sectors)
+ * may belong to more than one sector; predicates are closed-set tests.
+ * Sector indices select which inversion flat or cyclical region to use—they
+ * do not always assign unique ownership.
+ *
+ * Cardinality equivalence is \b not assumed: spaces have fixed dimension \c N
+ * (e.g. a single note may be \c {60, 60, 60} in trichord space).
+ *
+ * <dl>
+ *
+ * <dt>O</dt><dd>Octave equivalence: pitches differing by whole octaves (\c 12)
+ * are equivalent. Fundamental domain: span at most one octave.</dd>
+ *
+ * <dt>P</dt><dd>Permutational equivalence: reordering voices does not change
+ * the chord. Fundamental domain: voices sorted ascending.</dd>
+ *
+ * <dt>T</dt><dd>Continuous transpositional equivalence: translate all voices
+ * by the same amount. Fundamental domain: hyperplane with pitch sum \c 0
+ * (mean zero). Pitches need not be integers after \c eT.</dd>
+ *
+ * <dt>Tg</dt><dd>Transpositional equivalence on the \c g-lattice: same idea as
+ * \c T, but the representative is chosen so voices lie on the tempered grid
+ * (\c eTg, \c eET).</dd>
+ *
+ * <dt>I</dt><dd>Continuous inversion: reflection in a hyperplane (inversion
+ * flat), not registral revoicing. “Invert” here is the mathematician’s sense;
+ * octave shifts of individual voices are \b revoicings.</dd>
+ *
+ * <dt>Ig</dt><dd>Inversion on the \c g-lattice (\c eIg).</dd>
+ *
+ * <dt>OP</dt><dd>Octave + permutational equivalence (Tymoczko’s chord space).
+ * An \c N-voice space is an equilateral hyperprism, one octave high, with \c N
+ * cyclical sectors from octavewise revoicing. Trichords in 12-TET: augmented
+ * triads along the center, major/minor columns around them.</dd>
+ *
+ * <dt>OPT</dt><dd>Chord \b type: \c OP further modulo continuous translation
+ * (\c T). The representative layer is the base of the \c OP prism (normal
+ * form). There are \c N sector copies related by revoicing.</dd>
+ *
+ * <dt>OPTg</dt><dd>As \c OPT, with representatives on the \c g-lattice.</dd>
+ *
+ * <dt>OPTI</dt><dd>\b Set class: \c OPT modulo continuous inversion (\c I).
+ * Major and minor triads share a class. Canonical inversion pairs use direct
+ * musical inversion (negate and reverse T-normal pitches, then reduce), not
+ * only hyperplane reflection—required for correctness when \c N \c > \c 4.</dd>
+ *
+ * <dt>OPTIg</dt><dd>As \c OPTI on the \c g-lattice. Inversion pairs in the
+ * \c RPTIg fundamental domain are resolved by lexicographic tie-break
+ * (smaller representative of each pair), equivalent to picking one side of
+ * each inversion pair without relying on the inversion flat after revoicing.</dd>
+ *
+ * <dt>R, RP, RPT, RPTI, RPTg, RPTIg</dt><dd>Range (\c R) and related
+ * compounds combine octavewise revoicing within a range with the above
+ * relations. Names ending in \c g use the discrete layer.</dd>
+ *
+ * </dl>
+ *
+ * # Neo-Riemannian and contextual operations
+ *
+ * Beyond equivalence maps (\c eOP, \c eOPT, …):
+ *
+ * <dl>
+ *
+ * <dt>T(p, x)</dt><dd>Translate chord \c p by \c x semitones.</dd>
+ *
+ * <dt>I(p [, x])</dt><dd>Reflect \c p in point \c x (default origin).</dd>
+ *
+ * <dt>P, L, R</dt><dd>Parallel, Leittonwechsel, Relative (major/minor
+ * neighbors).</dd>
+ *
+ * <dt>D</dt><dd>Dominant (down a perfect fifth).</dd>
+ *
+ * <dt>K(c), Q(c, n, m)</dt><dd>Contextual inversion and transposition
+ * (Fiore and Satyendra, "Generalized Contextual Groups," _MTO_ 11, 2008).</dd>
+ *
+ * <dt>R(s), Rg(s, g)</dt><dd>Reflection in the inversion flat of OPT sector
+ * \c s; \c Rg uses a cached involution on \c g-lattice representatives.</dd>
+ *
+ * </dl>
+ *
+ * # Known limitations and test coverage
+ *
+ *  - \b Continuous \c eOPT / \c eRPT: One known failure in \c ChordSpaceTests
+ *    for \c N = 6 voices: some representatives in the \c RPTI catalogue have
+ *    pitch sums not divisible by \c 6, so continuous \c eT yields non-integer
+ *    pitches and \c eOPT is not idempotent. This does \b not affect the
+ *    discrete path \c eOPTg / \c eOPTIg / \c RPTIg at \c g = 1, which is the
+ *    recommended API for 12-TET composition. The continuous failure is
+ *    intentionally left unfixed for now.
+ *
+ *  - \b Other values of \c g: The implementation is parameterized by \c g,
+ *    but the regression suite (\c ChordSpaceTests) currently exercises only
+ *    \c g = 1 with \c range = 12. Domain-size checks for \c RPTg and \c RPTIg
+ *    are hardcoded for 12-TET (\c 19, \c 72, \c 196, \c 561 set-classes for
+ *    \c N = 3…6). Using \c g \c != \c 1 (e.g. 24-TET) should be treated as
+ *    untested until dedicated tests are added.
+ *
+ *  - \b CQT catalogues: Illustrations in Callender–Quinn–Tymoczko use integer
+ *    pitch-classes in continuous OPTI geometry; this library’s \c RPTIg
+ *    domains at \c g = 1 use a slightly different convention (exact lattice,
+ *    lex inversion tie-break). Counts may differ from manual tallies of those
+ *    figures (e.g. 72 vs 84 tetrachord classes).
+ *
+ * See also \c CHORDSPACE.md in the repository for a longer reference.
+ */
 
 static std::string chord_space_version() {
     char buffer[0x500];
