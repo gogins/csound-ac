@@ -47,7 +47,6 @@
 // Header file only library.
 #include <boost/math/special_functions/ulp.hpp>
 #include <cfloat>
-// Header file only library.
 #include "ChordSpace.hpp"
 #include <climits>
 #include <cmath>
@@ -72,7 +71,6 @@
 namespace csound {
     
 SILENCE_PUBLIC const std::vector<Chord> &allOfEquivalenceClass(int voice_count, std::string equivalence_class, double range, double g, int sector, bool printme) {
-    /// std::vector<Chord> fundamental_domain;
     if (equivalence_class == "RP") {
         return fundamentalDomainByEquate<EQUIVALENCE_RELATION_RP>(voice_count, range, g, sector, printme);       
     } else if (equivalence_class == "RPT") {
@@ -86,7 +84,8 @@ SILENCE_PUBLIC const std::vector<Chord> &allOfEquivalenceClass(int voice_count, 
     } else if (equivalence_class == "RPTIg") {
         return fundamentalDomainByEquate<EQUIVALENCE_RELATION_RPTIg>(voice_count, range, g, sector, printme);       
     }
-    /// return fundamental_domain;
+    static const std::vector<Chord> empty;
+    return empty;
 }
     
 SILENCE_PUBLIC Chord gather(Score &score, double startTime, double endTime) {
@@ -158,11 +157,7 @@ SILENCE_PUBLIC void numerics_information(double a, double b, int epsilons, int u
     static const double machine_epsilon = std::numeric_limits<double>::epsilon();
     static const double double_max_ = std::numeric_limits<double>::max();
     CHORD_SPACE_DEBUG("numerics_information: a: %.*g b: %.*g machine_epsilon: %.*g double_max: %.*g epsilons: %5d ulps: %5d:\n", PRECISION, a, PRECISION, b, PRECISION, machine_epsilon, PRECISION, double_max_, epsilons, ulps);
-    //~ lt_tolerance(a, b, epsilons, ulps);
-    //~ le_tolerance(a, b, epsilons, ulps);
     eq_tolerance(a, b, epsilons, ulps);
-    //~ ge_tolerance(a, b, epsilons, ulps);
-    //~ gt_tolerance(a, b, epsilons, ulps);
 }
 
 SILENCE_PUBLIC std::vector<Event *> slice(Score &score, double startTime, double endTime) {
@@ -758,15 +753,6 @@ equate<EQUIVALENCE_RELATION_Tg>(
     auto result = x.eET(g);
     const int layer_after = result.tg_layer(g);
     const char *greppable = (layer_before == layer_after) ? "TGLAYER OK " : "TGLAYER NOK";
-    // std::fprintf(
-    //     stderr,
-    //     "%s before=%d after=%d g=%g in=%s out=%s\n",
-    //     greppable,
-    //     layer_before,
-    //     layer_after,
-    //     g,
-    //     print_chord(chord).c_str(),
-    //     print_chord(result).c_str());
     return result;
 }
 
@@ -1121,14 +1107,6 @@ equate<EQUIVALENCE_RELATION_RPTg>(
         add_unique_chord(all_candidates, x);
         const bool in_base_sector =
             x.is_in_rpt_sector_base_g(opt_sector, range, g);
-        // std::fprintf(
-        //     stderr,
-        //     "RPTG_CAND input_layer=%d candidate_layer=%d sector=%d in_base=%d candidate=%s\n",
-        //     input_layer,
-        //     x.tg_layer(g),
-        //     opt_sector,
-        //     in_base_sector ? 1 : 0,
-        //     print_chord(x).c_str());
         if (in_base_sector)
         {
             add_unique_chord(candidates, x);
@@ -1146,15 +1124,6 @@ equate<EQUIVALENCE_RELATION_RPTg>(
         return least_chord(all_candidates);
     }
     Chord result = least_chord(candidates);
-    // std::fprintf(
-    //     stderr,
-    //     "RPTG_RESULT input_layer=%d output_layer=%d sector=%d candidate_count=%zu input=%s output=%s\n",
-    //     input_layer,
-    //     result.tg_layer(g),
-    //     opt_sector,
-    //     candidates.size(),
-    //     print_chord(chord).c_str(),
-    //     print_chord(result).c_str());
     return result;
 }
 
@@ -1230,12 +1199,6 @@ std::vector<Chord> Chord::eRPTgs(double range, double g) const
             }
         }
         candidates.push_back(x);
-        // std::fprintf(
-        //     stderr,
-        //     "eRPTgs candidate layer=%d sector0_base=%d %s\n",
-        //     candidate.tg_layer(g),
-        //     candidate.is_in_rpt_sector_base_g(0, range, g) ? 1 : 0,
-        //     print_chord(candidate).c_str());
     };
     Chord rp = eRP(range);
     rp = rp.eET(g);
@@ -1269,8 +1232,6 @@ template<> SILENCE_PUBLIC bool predicate<EQUIVALENCE_RELATION_RPI>(const Chord &
 bool Chord::iseRPI(double range, int opt_sector) const {
     return predicate<EQUIVALENCE_RELATION_RPI>(*this, range, 1.0, opt_sector);
 }
-
-// TODO: Verify.
 
 template<> SILENCE_PUBLIC Chord equate<EQUIVALENCE_RELATION_RPI>(const Chord &chord, double range, double g, int opt_sector) {
     if (predicate<EQUIVALENCE_RELATION_RPI>(chord, range, g, opt_sector) == true) {
@@ -1323,12 +1284,7 @@ equate<EQUIVALENCE_RELATION_RPTI>(
     //
     // The "direct musical inversion" of a T-normal chord {p0,...,p_{n-1}} is
     // {-p_{n-1},...,-p_0}, which is also T-normal and sorted (ascending).
-    //
-    // This is correct for all n: the hyperplane-reflection approach used
-    // previously is only valid for n≤4 (where the inversion flat is
-    // codimension-1 in the T-hyperplane), but fails for n=5,6,... where the
-    // inversion flat has higher codimension.  The direct-inversion approach
-    // produces provably idempotent results for any voice count.
+    // Direct musical inversion (not hyperplane reflection) for all voice counts.
     const Chord rp = chord.eRP(range);
     std::vector<Chord> candidates;
     // Voicings of the RP chord.
@@ -1563,13 +1519,9 @@ SILENCE_PUBLIC void fill(std::string rootName, double rootPitch, std::string typ
     chord = chord.T(rootPitch);
     Chord eOP_ = chord.eOP();
     CHORD_SPACE_DEBUG("eOP_:   %s  chordName: %s\n", eOP_.toString().c_str(), chordName.c_str());
-    ///chordsForNames()[chordName] = eOP_;
-    ///namesForChords()[eOP_] = chordName;
     add_chord(chordName, eOP_);
     if (is_scale == true) {
         Scale scale(chordName, chord);
-        ///scalesForNames()[chordName] = scale;
-        ///namesForScales()[scale] = chordName;
         add_scale(chordName, scale);
     }
 }
@@ -2489,7 +2441,6 @@ bool Chord::test(const char *label) const
     }
     std::fprintf(stderr, "\n");
     std::fprintf(stderr, "%s", information().c_str());
-    /// std::fprintf(stderr, "%s", toString().c_str());
     return passed;
 }
 
@@ -2687,8 +2638,6 @@ Chord Chord::ceiling(double g) const {
     return result;
 }
 #endif
-
-// TODO: Keep track of this.
 
 Chord Chord::ceiling(double g) const
 {
@@ -3413,7 +3362,6 @@ SILENCE_PUBLIC Chord midpoint(const Chord &a, const Chord &b) {
         double voiceMidpoint = voiceSum / 2.0;
         midpoint_.setPitch(voice, voiceMidpoint);
     }
-    /// CHORD_SPACE_DEBUG("a: %s  b: %s  mid: %s\n", a.toString().c_str(), b.toString().c_str(), midpoint_.toString().c_str());
     return midpoint_;
 }
 
@@ -4506,7 +4454,7 @@ SILENCE_PUBLIC Chord voiceleadingSimpler(const Chord &source, const Chord &d1, c
             return d1;
         }
     }
-    // TODO: Verify this.
+    // Tie-break by count of stationary voices in the voice-leading.
     int s1 = voiceleading(source, d1).count(0.0);
     int s2 = voiceleading(source, d2).count(0.0);
     if (s1 > s2) {
@@ -4581,45 +4529,7 @@ const HyperplaneEquation &Chord::hyperplane_equation(int opt_sector) const
     return it->second[size_t(opt_sector)];
 }
 
-// What we want is:
-//
-// 1) OPT fundamental domain (the OP/T base):
-//    In OT-reduced coordinates (mod transposition), the OPT fundamental domain
-//    is the (N−1)-dimensional simplex that is the convex hull of the N vertices
-//    of the cyclical region. This simplex is the base of the OP hyperprism.
-//
-// 2) OPT sector decomposition:
-//    The OPT fundamental domain tiles into N OPT sector polytopes. Each OPT
-//    sector is the convex hull of:
-//      - the OPT-domain center, and
-//      - one (N−2)-dimensional facet of the cyclical-region simplex.
-//    (For N=3 the facet has 2 vertices; for general N it has N−1 vertices.)
-//
-// 3) Extrusion to OP geometry:
-//    Extruding the OPT base along the unison-diagonal direction by height 12/N
-//    yields the OP fundamental hyperprism. Extruding each OPT sector yields the
-//    corresponding OP sector hyperprism.
-//
-// 4) Inversion flats:
-//    For each OPT sector there is an associated inversion hyperplane (“inversion
-//    flat”) that bisects the sector hyperprism into minor and major halves.
-//    In the base, this hyperplane passes through the OPT-domain center and the
-//    midpoint of the sector’s base facet; in the full OP geometry it is the
-//    extrusion of that bisector along the unison-diagonal direction.
-//    Each inversion flat is represented computationally by a hyperplane equation
-//    n·x = d (unit normal n and constant d).
-//
-// 5) OPTI representative domain:
-//    Each OPT sector is split by its inversion flat into two OPTI half-sector
-//    regions (minor and major). A fundamental domain for inversional equivalence
-//    OPTI can be chosen as the union of the N minor half-sector regions.
-//    (Equivalently, one may choose the union of the N major halves, but we take
-//    the minor union as the representative.)
-//
-// 6) Extrusion to OPI geometry:
-//    Extruding the OPTI half-sector regions by 12/N yields the corresponding
-//    OPI half-sector hyperprisms, and extruding the inversion flats yields the
-//    full inversion flats in OP space.
+// OPT sector geometry: see CHORDSPACE.md.
 void Chord::initialize_sectors()
 {
     static bool initialized = false;
@@ -4670,7 +4580,7 @@ void Chord::initialize_sectors()
             CHORD_SPACE_DEBUG("  base vertex %d: %s\n", i, base_vertices[i].toString().c_str());
         }
         Chord apex(n);
-        /// Crashes in WASM: apex.col(0) = sum / double(n);
+        // Per-voice loop avoids Eigen assignment issues in some WASM builds.
         for (int voice = 0; voice < n; ++voice) {
             apex.setPitch(voice, sum.getPitch(voice) / double(n));
         }   
