@@ -3159,10 +3159,27 @@ SILENCE_PUBLIC Chord voiceleadingSimpler(const Chord &source, const Chord &d1, c
  
      for (const Chord &chord : rptg_domain.chords)
      {
-         if (chord.is_in_minor_rpti_sector_g(
-                 sector,
-                 range,
-                 g))
+         // Build the musical inversion in T-space: negate pitches and reverse
+         // voice order so that the sorted T-normal form of a chord {c0...cn-1}
+         // maps to the T-normal form of its negative {-cn-1...-c0}.
+         const int n = chord.voices();
+         Chord inv_chord(n);
+         for (int v = 0; v < n; ++v)
+         {
+             inv_chord.setPitch(v, -chord.getPitch(n - 1 - v));
+         }
+ 
+         // Get the RPTg canonical representative of the inversion.
+         const Chord inv_rptg =
+             equate<EQUIVALENCE_RELATION_RPTg>(inv_chord, range, g, sector);
+ 
+         // Include this chord iff it is the lexicographically smaller member
+         // of the pair {chord, inv_rptg}.  Self-inverse chords (chord == inv_rptg)
+         // are always included.  This selection is equivalent to the OPTI
+         // convention "keep the minor representative" but avoids dependence on
+         // the inversion-flat hyperplane, which can misclassify some chords
+         // after cyclic revoicing canonicalization.
+         if (chord <= inv_rptg)
          {
              fundamental_domain_detail::add_unique_chord(
                  chords,

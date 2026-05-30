@@ -1382,107 +1382,37 @@ equate<EQUIVALENCE_RELATION_RPTIg>(
         opt_sector = 0;
     }
 
-    auto to_rptg = [&](const Chord &x) -> Chord
+    // Get the RPTg canonical form of the chord.
+    const Chord rptg =
+        equate<EQUIVALENCE_RELATION_RPTg>(chord, range, g, opt_sector).eET(g);
+
+    // Build the musical inversion: negate each pitch and reverse voice order.
+    // For a T-normalized chord {c0 ≤ c1 ≤ ... ≤ cn-1} (sum=0), the inversion
+    // is {-cn-1, ..., -c1, -c0} which is also sorted ascending (sum=0).
+    const int n = rptg.voices();
+    Chord inv_chord(n);
+    for (int v = 0; v < n; ++v)
     {
-        return equate<EQUIVALENCE_RELATION_RPTg>(
-            x,
-            range,
-            g,
-            opt_sector).eET(g);
-    };
-
-    auto step = [&](const Chord &x) -> Chord
-    {
-        const Chord reflected =
-            reflect_in_inversion_flat_g(
-                x,
-                opt_sector,
-                g).eET(g);
-
-        return to_rptg(reflected);
-    };
-
-    std::vector<Chord> orbit;
-
-    auto add_unique = [&](const Chord &x) -> bool
-    {
-        for (const Chord &existing : orbit)
-        {
-            if (existing == x)
-            {
-                return false;
-            }
-        }
-
-        orbit.push_back(x);
-        return true;
-    };
-
-    Chord current =
-        to_rptg(chord);
-
-    const std::vector<Chord> &rptg_domain =
-        fundamentalDomainByEquate<EQUIVALENCE_RELATION_RPTg>(
-            chord.voices(),
-            range,
-            g,
-            opt_sector,
-            false);
-
-    const int maximum_steps =
-        static_cast<int>(rptg_domain.size()) + 1;
-
-    bool closed = false;
-
-    for (int step_i = 0; step_i < maximum_steps; ++step_i)
-    {
-        if (!add_unique(current))
-        {
-            closed = true;
-            break;
-        }
-
-        current =
-            step(current);
+        inv_chord.setPitch(v, -rptg.getPitch(n - 1 - v));
     }
 
-    if (!closed)
+    // Get the RPTg canonical form of the inversion.
+    const Chord inv_rptg =
+        equate<EQUIVALENCE_RELATION_RPTg>(inv_chord, range, g, opt_sector).eET(g);
+
+    // Return the lexicographically smaller representative.  This gives a
+    // canonical choice of one element from each {chord, inversion} pair
+    // without depending on the inversion-flat hyperplane (which can
+    // misclassify after cyclic revoicing).  Self-inverse chords are
+    // equal to their inversion and are returned as-is.
+    if (rptg <= inv_rptg)
     {
-        std::fprintf(
-            stderr,
-            "Warning: eRPTIg orbit did not close within %d steps for %s.\n",
-            maximum_steps,
-            chord.toString().c_str());
+        return rptg;
     }
-
-    std::vector<Chord> minor_candidates;
-
-    for (const Chord &candidate : orbit)
+    else
     {
-        if (candidate.is_in_minor_rpti_sector_g(
-                opt_sector,
-                range,
-                g))
-        {
-            minor_candidates.push_back(candidate);
-        }
+        return inv_rptg;
     }
-
-    if (!minor_candidates.empty())
-    {
-        return *std::min_element(
-            minor_candidates.begin(),
-            minor_candidates.end());
-    }
-
-    if (!orbit.empty())
-    {
-        return *std::min_element(
-            orbit.begin(),
-            orbit.end());
-    }
-
-    return chord.eET(g);
 }
 
 template<>

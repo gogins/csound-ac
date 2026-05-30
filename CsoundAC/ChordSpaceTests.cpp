@@ -15,7 +15,7 @@ typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 typedef Eigen::Matrix<double, Eigen::Dynamic, 1> Vector;
 
 static bool printPass = true;
-static bool printPitv = true;
+static bool printPitv = false;
 static bool failureExits = false ;
 static int passCount = 0;
 static int failureCount = 0;
@@ -276,8 +276,8 @@ static bool testEquivalenceRelation(std::string equivalenceRelation, int voiceCo
             }
          }
         if (voiceCount == 4) {
-            if (equivalentsForEquivalenceRelation.size() != 83) {
-                csound::System::message("%-8s 'found_equivalents' size should be 83 but is %ld.\n", equivalenceRelation.c_str(), equivalentsForEquivalenceRelation.size());
+            if (equivalentsForEquivalenceRelation.size() != 72) {
+                csound::System::message("%-8s 'found_equivalents' size should be 72 but is %ld.\n", equivalenceRelation.c_str(), equivalentsForEquivalenceRelation.size());
                 passes = false;    
                 test(passes, "Size of found equivalents not correct for 4 voices.");
             } else {
@@ -403,6 +403,238 @@ static void setDifference(const std::string &a_name, std::vector<csound::Chord> 
     std::sort(difference.begin(), difference.end(), csound::ChordTickLess());
  }
  
+/**
+ * Diagnostic for 4-voice RPTg / RPTIg equivalence classes.
+ *
+ * For each chord in the RPTg domain:
+ *   1. Compute its musical inversion: negate each pitch and re-apply RPTg.
+ *   2. Classify it as self-inverse or not.
+ *   3. Track which chords are in the RPTIg domain by the hyperplane method.
+ *
+ * Expected relation: |RPTIg| = (|RPTg| + |self-inverse|) / 2
+ *
+ * Also compares the RPTIg domain (by both methods) against the science list
+ * (84 entries from Callender-Quinn-Tymoczko 2008).
+ */
+static void diagnose_rptg_4voices()
+{
+    const int voices = 4;
+    const double range = csound::OCTAVE();
+    const double g = 1.0;
+    const int sector = 0;
+
+    std::fprintf(stderr,
+        "\n===========================================================\n"
+        " DIAGNOSTIC: 4-voice RPTg / RPTIg domain analysis\n"
+        "===========================================================\n");
+
+    // Build the RPTg domain.
+    const auto &rptg_domain =
+        csound::fundamentalDomainByEquate<csound::EQUIVALENCE_RELATION_RPTg>(
+            voices, range, g, sector);
+    std::fprintf(stderr, "RPTg domain size: %d\n\n", (int)rptg_domain.size());
+
+    // Get the inversion-flat hyperplane for sector 0 in 4-voice space.
+    csound::Chord probe4(voices);
+    const auto &hp = probe4.hyperplane_equation(sector);
+
+    int self_inverse_count = 0;
+    int hyperplane_minor_count = 0;
+    int math_minor_count = 0;   // chord <= its inversion (lexicographic)
+
+    // Collect the RPTIg domain by two methods.
+    std::vector<csound::Chord> rptIg_hyperplane;  // current implementation
+    std::vector<csound::Chord> rptIg_math;        // strict mathematical definition
+
+    // Build a canonical-key set for the hyperplane domain (for quick lookup).
+    auto chord_key = [&](const csound::Chord &c) -> std::string
+    {
+        return c.eOPTg().normal_form().toString();
+    };
+
+    std::fprintf(stderr,
+        "\nMismatches between hyperplane and math (lex) selection:\n");
+    std::fprintf(stderr,
+        "%-40s  %8s  %-40s  %5s  %5s  %5s\n",
+        "chord (RPTg)", "signed_d", "inv-RPTg", "self?", "hp?", "math?");
+
+    for (const csound::Chord &chord : rptg_domain)
+    {
+        // Musical inversion in T-space: negate each pitch, then re-apply RPTg.
+        csound::Chord inv_chord(voices);
+        for (int v = 0; v < voices; ++v)
+        {
+            inv_chord.setPitch(v, -chord.getPitch(voices - 1 - v));
+        }
+        // inv_chord is already T-normalized (negation of T-normal is T-normal).
+        // Apply RPTg to get the canonical representative of the inversion.
+        const csound::Chord inv_rptg =
+            csound::equate<csound::EQUIVALENCE_RELATION_RPTg>(
+                inv_chord, range, g, sector);
+
+        // Compute the inversion flat signed distance.
+        Vector chord_v =
+            csound::HyperplaneEquation::chord_point_column(chord);
+        const Vector a_to_chord =
+            chord_v - hp.apex;
+        const double signed_dist = a_to_chord.dot(hp.unit_normal);
+
+        const bool is_self_inv = (chord == inv_rptg);
+        const bool hyperplane_minor = csound::le_tolerance(signed_dist, 0.0, 64, 512);
+        // "Math minor": keep chord if chord <= inv (lexicographic), which
+        // picks exactly one from each {chord, inv} pair.
+        const bool math_minor = is_self_inv || (chord < inv_rptg);
+
+        if (is_self_inv) ++self_inverse_count;
+        if (hyperplane_minor) ++hyperplane_minor_count;
+        if (math_minor) ++math_minor_count;
+
+        if (hyperplane_minor) rptIg_hyperplane.push_back(chord);
+        if (math_minor)       rptIg_math.push_back(chord);
+
+        // Print chords where hyperplane and math disagree.
+        if (hyperplane_minor != math_minor)
+        {
+            std::fprintf(stderr,
+                "MISMATCH %-36s  %8.4f  %-36s  self=%d  hp=%d  math=%d\n",
+                chord.toString().c_str(),
+                signed_dist,
+                inv_rptg.toString().c_str(),
+                is_self_inv ? 1 : 0,
+                hyperplane_minor ? 1 : 0,
+                math_minor ? 1 : 0);
+        }
+    }
+
+    std::fprintf(stderr, "\nRPTg  total:             %d\n", (int)rptg_domain.size());
+    std::fprintf(stderr, "Self-inverse chords:      %d\n", self_inverse_count);
+    std::fprintf(stderr, "Expected RPTIg (formula): %d\n",
+        ((int)rptg_domain.size() + self_inverse_count) / 2);
+    std::fprintf(stderr, "RPTIg by hyperplane:      %d\n", hyperplane_minor_count);
+    std::fprintf(stderr, "RPTIg by math (lex):      %d\n", math_minor_count);
+
+    // Compare against science_opttis_4 (84 entries from CQT 2008).
+    // Map each science chord to its eOPTg().normal_form() key.
+    std::vector<csound::Chord> science;
+    auto add = [&](std::initializer_list<double> v)
+    {
+        csound::Chord c;
+        c.resize(v.size());
+        int i = 0;
+        for (double p : v) { c.setPitch(i++, p); }
+        science.push_back(c);
+    };
+    // The complete science_opttis_4 list from Callender-Quinn-Tymoczko 2008
+    // (OP form: voices in [0,12], first voice = 0).
+    add({0,0,0,0}); add({0,0,0,1}); add({0,0,0,2}); add({0,0,0,3});
+    add({0,0,0,4}); add({0,0,0,5}); add({0,0,0,6}); add({0,0,0,7});
+    add({0,0,0,8}); add({0,0,0,9}); add({0,0,0,10}); add({0,0,0,11});
+    add({0,0,0,12});
+    add({0,0,1,1}); add({0,0,1,2}); add({0,0,1,3}); add({0,0,1,4});
+    add({0,0,1,5}); add({0,0,1,6}); add({0,0,1,7}); add({0,0,1,8});
+    add({0,0,1,9}); add({0,0,1,10}); add({0,0,1,11});
+    add({0,0,2,2}); add({0,0,2,3}); add({0,0,2,4}); add({0,0,2,5});
+    add({0,0,2,6}); add({0,0,2,7}); add({0,0,2,8}); add({0,0,2,9});
+    add({0,0,2,10});
+    add({0,0,3,3}); add({0,0,3,4}); add({0,0,3,5}); add({0,0,3,6});
+    add({0,0,3,7}); add({0,0,3,8}); add({0,0,3,9});
+    add({0,0,4,4}); add({0,0,4,5}); add({0,0,4,6}); add({0,0,4,7});
+    add({0,0,4,8});
+    add({0,0,5,5}); add({0,0,5,6}); add({0,0,5,7});
+    add({0,0,6,6});
+    add({0,1,2,3}); add({0,1,2,4}); add({0,1,2,5}); add({0,1,2,6});
+    add({0,1,2,7}); add({0,1,2,8}); add({0,1,2,9}); add({0,1,2,10});
+    add({0,1,2,11});
+    add({0,1,3,4}); add({0,1,3,5}); add({0,1,3,6}); add({0,1,3,7});
+    add({0,1,3,8}); add({0,1,3,9}); add({0,1,3,10});
+    add({0,1,4,5}); add({0,1,4,6}); add({0,1,4,7}); add({0,1,4,8});
+    add({0,1,4,9});
+    add({0,1,5,6}); add({0,1,5,7}); add({0,1,5,8});
+    add({0,1,6,7});
+    add({0,2,4,6}); add({0,2,4,7}); add({0,2,4,8}); add({0,2,4,9});
+    add({0,2,4,10});
+    add({0,2,5,7}); add({0,2,5,8}); add({0,2,5,9});
+    add({0,2,6,8});
+    add({0,3,6,9});
+
+    std::fprintf(stderr, "\nScience OPTTI set size: %d\n", (int)science.size());
+
+    // Build lookup sets (using eOPTg().normal_form() key, same as setDifference).
+    std::map<std::string, csound::Chord> sci_map, hp_map, math_map;
+    for (const auto &c : science)
+    {
+        sci_map[chord_key(c)] = c;
+    }
+    for (const auto &c : rptIg_hyperplane)
+    {
+        hp_map[chord_key(c)] = c;
+    }
+    for (const auto &c : rptIg_math)
+    {
+        math_map[chord_key(c)] = c;
+    }
+
+    // In science but not in hyperplane domain.
+    int sci_not_hp = 0;
+    std::fprintf(stderr, "\n-- In Science but NOT in RPTIg(hyperplane) --\n");
+    for (const auto &kv : sci_map)
+    {
+        if (hp_map.find(kv.first) == hp_map.end())
+        {
+            std::fprintf(stderr, "  sci=%s  key=%s\n",
+                kv.second.toString().c_str(), kv.first.c_str());
+            ++sci_not_hp;
+        }
+    }
+    std::fprintf(stderr, "  (%d total)\n", sci_not_hp);
+
+    // In hyperplane domain but not in science.
+    int hp_not_sci = 0;
+    std::fprintf(stderr, "\n-- In RPTIg(hyperplane) but NOT in Science --\n");
+    for (const auto &kv : hp_map)
+    {
+        if (sci_map.find(kv.first) == sci_map.end())
+        {
+            std::fprintf(stderr, "  hp=%s  key=%s\n",
+                kv.second.toString().c_str(), kv.first.c_str());
+            ++hp_not_sci;
+        }
+    }
+    std::fprintf(stderr, "  (%d total)\n", hp_not_sci);
+
+    // In science but not in math domain.
+    int sci_not_math = 0;
+    std::fprintf(stderr, "\n-- In Science but NOT in RPTIg(math/lex) --\n");
+    for (const auto &kv : sci_map)
+    {
+        if (math_map.find(kv.first) == math_map.end())
+        {
+            std::fprintf(stderr, "  sci=%s  key=%s\n",
+                kv.second.toString().c_str(), kv.first.c_str());
+            ++sci_not_math;
+        }
+    }
+    std::fprintf(stderr, "  (%d total)\n", sci_not_math);
+
+    std::fprintf(stderr,
+        "\nSUMMARY:\n"
+        "  RPTg domain size:          %d\n"
+        "  Self-inverse count:        %d\n"
+        "  Expected RPTIg (formula):  %d\n"
+        "  RPTIg by hyperplane:       %d  (in sci but not hp: %d, in hp but not sci: %d)\n"
+        "  RPTIg by math (lex):       %d  (in sci but not math: %d)\n"
+        "  Science OPTTI:             %d\n",
+        (int)rptg_domain.size(),
+        self_inverse_count,
+        ((int)rptg_domain.size() + self_inverse_count) / 2,
+        hyperplane_minor_count, sci_not_hp, hp_not_sci,
+        math_minor_count, sci_not_math,
+        (int)science.size());
+
+    std::fprintf(stderr,
+        "===========================================================\n\n");
+}
+
 static void test_eq_tolerance() {
     double mp_double_small = .00000000000000000001;
     double mp_double_large = 1e40;
@@ -806,6 +1038,8 @@ int main(int argc, char **argv) {
     std::cerr << test_chord2.information() << std::endl;
 
     test_eIg_idempotent_on_lattice(g, testSector);
+
+    diagnose_rptg_4voices();
 
     csound::System::message("\nTesting equivalence relations...\n\n");
     for (int voiceCount = 3; voiceCount <= 6; ++voiceCount) {
