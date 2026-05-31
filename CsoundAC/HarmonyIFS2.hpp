@@ -103,7 +103,7 @@ namespace csound {
             virtual ~HarmonyPoint2() {};
             virtual void initialize() {
                 resize(HP_ELEMENT_COUNT);
-                operator *= (0);
+                setZero();
                 (*this)[HP_HOMOGENEITY] = 1.0;
             };
             virtual double t() const {
@@ -459,7 +459,7 @@ namespace csound {
                         
                     // Voicing row:
                     //   Time column:
-                    double V_t =      ((p_n.T - p_n_1.V) / (p_N.t - p_0.t)) 
+                    double V_t =      ((p_n.V - p_n_1.V) / (p_N.t - p_0.t)) 
                         - (p_n.s_VP * ((p_N.P - p_0.P)   / (p_N.t - p_0.t)))
                         - (p_n.s_VI * ((p_N.I - p_0.I)   / (p_N.t - p_0.t)))
                         - (p_n.s_VT * ((p_N.T - p_0.T)   / (p_N.t - p_0.t)))
@@ -473,7 +473,7 @@ namespace csound {
                     //   Voicing column:
                     double V_sVV = p_n.s_VV;
                     //   Homogeneity or translation column:
-                    double V_h =      (((p_N.t * p_n_1.V) - (p_0.t * p_n.T)) / (p_N.t - p_0.t)) 
+                    double V_h =      (((p_N.t * p_n_1.V) - (p_0.t * p_n.V)) / (p_N.t - p_0.t)) 
                         - (p_n.s_VP * (((p_N.t * p_0.P)   - (p_0.t * p_N.P)) / (p_N.t - p_0.t)))
                         - (p_n.s_VI * (((p_N.t * p_0.I)   - (p_0.t * p_N.I)) / (p_N.t - p_0.t)))
                         - (p_n.s_VT * (((p_N.t * p_0.T)   - (p_0.t * p_N.T)) / (p_N.t - p_0.t)))
@@ -539,7 +539,7 @@ namespace csound {
                 score.clear();
                 int iteration = 0;
                 HarmonyPoint2 initial_point;
-                initial_point.set_homogeneity(1);
+                initial_point.initialize();
                 System::inform("HarmonyIFS::generate_score_attractor: initial point:\n%s\n", initial_point.toString().c_str());
                 for (int i = 0, n = hutchinson_operator.size(); i < n; ++i) {
                     System::inform("HarmonyIFS::generate_score_attractor: transformation[%3d]\n", i + 1);
