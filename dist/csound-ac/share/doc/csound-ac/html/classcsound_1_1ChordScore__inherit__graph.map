@@ -1,0 +1,7 @@
+<map id="csound::ChordScore" name="csound::ChordScore">
+<area shape="rect" id="Node000001" title="Score equipped with chords." alt="" coords="5,153,146,178"/>
+<area shape="rect" id="Node000002" href="$classcsound_1_1Score.html" title="Base class for collections of events in music space." alt="" coords="23,79,128,105"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="77,118,78,153,73,151,74,122"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="18,5,133,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="77,44,78,79,73,78,74,49"/>
+</map>

@@ -1,0 +1,7 @@
+<map id="csound::ExternalNode" name="csound::ExternalNode">
+<area shape="rect" id="Node000001" title="ExternalNode runs a stored script with a specified command line, and imports Csound &quot;i&quot; statements pr..." alt="" coords="5,153,156,178"/>
+<area shape="rect" id="Node000002" href="$classcsound_1_1ScoreNode.html" title="Node class that produces events from the contained score, which can be built up programmatically or i..." alt="" coords="12,79,149,105"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="82,118,83,153,78,151,79,122"/>
+<area shape="rect" id="Node000003" href="$classcsound_1_1Node.html" title="Base class for all music graph nodes in the Silence system." alt="" coords="29,5,132,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="82,44,83,79,78,78,79,49"/>
+</map>

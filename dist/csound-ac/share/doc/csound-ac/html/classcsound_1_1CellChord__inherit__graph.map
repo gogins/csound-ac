@@ -1,0 +1,5 @@
+<map id="csound::CellChord" name="csound::CellChord">
+<area shape="rect" id="Node000001" title="Notes produced by the child nodes of this are conformed to the chord, starting at the indicated start..." alt="" coords="5,79,135,105"/>
+<area shape="rect" id="Node000002" href="$classcsound_1_1Node.html" title="Base class for all music graph nodes in the Silence system." alt="" coords="19,5,121,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="72,45,73,79,67,78,68,48"/>
+</map>

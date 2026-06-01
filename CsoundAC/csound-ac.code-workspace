@@ -1,0 +1,41 @@
+{
+	"folders": [
+		{
+			"name": "csound-ac",
+			"path": ".."
+		},
+		{
+			"name": "csound-vst3",
+			"path": "../../csound-vst3"
+		},
+		{
+			"name": "csound-vst3-opcodes",
+			"path": "../../csound-vst3-opcodes"
+		},
+		{
+			"name": "csound-cxx-opcodes",
+			"path": "../../csound-cxx-opcodes"
+		},
+		{
+			"name": "csound-wasm",
+			"path": "../../csound-wasm"
+		},
+		{
+			"name": "cloud-5",
+			"path": "../../cloud-5"
+		},
+		{
+			"name": "gogins.github.io",
+			"path": "../../gogins.github.io"
+		},
+		{
+			"name": "csound-nwjs",
+			"path": "../../csound-nwjs"
+		},
+		{
+			"name": "michael.gogins.studio",
+			"path": "../../michael.gogins.studio"
+		}
+	],
+	"settings": {}
+}

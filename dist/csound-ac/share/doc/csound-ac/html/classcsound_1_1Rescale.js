@@ -1,0 +1,25 @@
+var classcsound_1_1Rescale =
+[
+    [ "Rescale", "classcsound_1_1Rescale.html#adfacf1640e230b2b8799b54bc93ff4e5", null ],
+    [ "~Rescale", "classcsound_1_1Rescale.html#a18516867db9e553cb917a4a6e93946e2", null ],
+    [ "addChild", "classcsound_1_1Rescale.html#ac7d9176e4a4e60fe533123db52ae5245", null ],
+    [ "childCount", "classcsound_1_1Rescale.html#a3458285e4dc013276b58a12905e69d72", null ],
+    [ "clear", "classcsound_1_1Rescale.html#a37a2198151a265e38d5828cf31ca0726", null ],
+    [ "createTransform", "classcsound_1_1Rescale.html#a5182dd093b5953b91a14fd445ff732b8", null ],
+    [ "element", "classcsound_1_1Rescale.html#acab7efe6e4c2b2e2ee4b0d2149d23f06", null ],
+    [ "generate", "classcsound_1_1Rescale.html#aacc61b14c36e5c8bfca87f9bc8d58d5d", null ],
+    [ "getChild", "classcsound_1_1Rescale.html#a6bb80adb16a0d8eda2959dc27ce003bc", null ],
+    [ "getLocalCoordinates", "classcsound_1_1Rescale.html#ae775cf5eeb3e46b8e6ebe0545284b217", null ],
+    [ "getRescale", "classcsound_1_1Rescale.html#a33f21e9079ea31c0f94ac247bca7db6d", null ],
+    [ "getScore", "classcsound_1_1Rescale.html#a278cd191f0e1ceb257cb26a5a1402d58", null ],
+    [ "initialize", "classcsound_1_1Rescale.html#a77fee857fb43530baa95940730e1f43f", null ],
+    [ "setElement", "classcsound_1_1Rescale.html#a0d8c697d9a2e92e597e2fd0e2fb196b4", null ],
+    [ "setRescale", "classcsound_1_1Rescale.html#aa7c1bcee117751aafecb7dccec60e07b", null ],
+    [ "transform", "classcsound_1_1Rescale.html#a5ffe9846e23b4beb3ac7df2c9a2920e4", null ],
+    [ "traverse", "classcsound_1_1Rescale.html#aabba904cb2809c249c3cb3380884a4c2", null ],
+    [ "children", "classcsound_1_1Rescale.html#a28709cda931d1677b3479a971f06e193", null ],
+    [ "duration", "classcsound_1_1Rescale.html#adb901a06ac49fa07284449037d6e0ec1", null ],
+    [ "importFilename", "classcsound_1_1Rescale.html#a6de25e4bd9d2f281d3c2cc54031fbdd9", null ],
+    [ "localCoordinates", "classcsound_1_1Rescale.html#a2297fbc46ecc8793c54d99e984d513b8", null ],
+    [ "score", "classcsound_1_1Rescale.html#acef2e0972666d20ffc80c01ffd3a5eb4", null ]
+];

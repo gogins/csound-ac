@@ -1,0 +1,7 @@
+<map id="csound::Chord" name="csound::Chord">
+<area shape="rect" id="Node000001" title="Chords consist of simultaneously sounding pitches." alt="" coords="5,79,112,105"/>
+<area shape="rect" id="Node000003" href="$classcsound_1_1Scale.html" title="Scale as a class; must be created with the name of the scale." alt="" coords="6,153,111,178"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="60,118,61,153,56,151,57,122"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="30,5,87,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="59,44,61,79,56,78,58,49"/>
+</map>

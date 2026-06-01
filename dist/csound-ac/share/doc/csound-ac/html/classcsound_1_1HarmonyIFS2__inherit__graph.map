@@ -1,0 +1,7 @@
+<map id="csound::HarmonyIFS2" name="csound::HarmonyIFS2">
+<area shape="rect" id="Node000001" title="HarmonyIFS is a class for doing algorithmic music composition by means of fractal interpolation funct..." alt="" coords="5,153,158,178"/>
+<area shape="rect" id="Node000002" href="$classcsound_1_1ScoreNode.html" title="Node class that produces events from the contained score, which can be built up programmatically or i..." alt="" coords="13,79,150,105"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="83,118,84,153,79,151,80,122"/>
+<area shape="rect" id="Node000003" href="$classcsound_1_1Node.html" title="Base class for all music graph nodes in the Silence system." alt="" coords="30,5,133,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="83,44,84,79,79,78,80,49"/>
+</map>

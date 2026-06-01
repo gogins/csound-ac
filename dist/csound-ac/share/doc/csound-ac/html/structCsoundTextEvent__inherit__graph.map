@@ -1,0 +1,5 @@
+<map id="CsoundTextEvent" name="CsoundTextEvent">
+<area shape="rect" id="Node000001" title="Specialization of CsoundEvent for high&#45;level textual score events, fragments of scores,..." alt="" coords="5,79,131,105"/>
+<area shape="rect" id="Node000002" href="$structCsoundEvent.html" title="Abstract base class for Csound events to be enqueued for performance." alt="" coords="18,5,118,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="70,45,71,79,65,78,66,48"/>
+</map>

@@ -1,0 +1,26 @@
+var classcsound_1_1CMaskNode =
+[
+    [ "addChild", "classcsound_1_1CMaskNode.html#ac7d9176e4a4e60fe533123db52ae5245", null ],
+    [ "childCount", "classcsound_1_1CMaskNode.html#a3458285e4dc013276b58a12905e69d72", null ],
+    [ "clear", "classcsound_1_1CMaskNode.html#a37a2198151a265e38d5828cf31ca0726", null ],
+    [ "createTransform", "classcsound_1_1CMaskNode.html#a5182dd093b5953b91a14fd445ff732b8", null ],
+    [ "element", "classcsound_1_1CMaskNode.html#acab7efe6e4c2b2e2ee4b0d2149d23f06", null ],
+    [ "generate", "classcsound_1_1CMaskNode.html#aacc61b14c36e5c8bfca87f9bc8d58d5d", null ],
+    [ "generateLocally", "classcsound_1_1CMaskNode.html#ab5e65c32128ed5f8576e78966814183e", null ],
+    [ "getChild", "classcsound_1_1CMaskNode.html#a6bb80adb16a0d8eda2959dc27ce003bc", null ],
+    [ "getLocalCoordinates", "classcsound_1_1CMaskNode.html#ae775cf5eeb3e46b8e6ebe0545284b217", null ],
+    [ "getParametersText", "classcsound_1_1CMaskNode.html#a88d581e6576fdd4efe9ff4e7636338ed", null ],
+    [ "getScore", "classcsound_1_1CMaskNode.html#a278cd191f0e1ceb257cb26a5a1402d58", null ],
+    [ "setElement", "classcsound_1_1CMaskNode.html#a0d8c697d9a2e92e597e2fd0e2fb196b4", null ],
+    [ "setParametersText", "classcsound_1_1CMaskNode.html#a2eee737ff4ea3054d606b0810f43824c", null ],
+    [ "transform", "classcsound_1_1CMaskNode.html#ae55ad5887fa6bfd0bc4826fcc8b29827", null ],
+    [ "translate_to_silence", "classcsound_1_1CMaskNode.html#a27afff62f122001463bc59b5415526ad", null ],
+    [ "traverse", "classcsound_1_1CMaskNode.html#aabba904cb2809c249c3cb3380884a4c2", null ],
+    [ "children", "classcsound_1_1CMaskNode.html#a28709cda931d1677b3479a971f06e193", null ],
+    [ "duration", "classcsound_1_1CMaskNode.html#adb901a06ac49fa07284449037d6e0ec1", null ],
+    [ "importFilename", "classcsound_1_1CMaskNode.html#a6de25e4bd9d2f281d3c2cc54031fbdd9", null ],
+    [ "localCoordinates", "classcsound_1_1CMaskNode.html#a2297fbc46ecc8793c54d99e984d513b8", null ],
+    [ "parameters_text", "classcsound_1_1CMaskNode.html#a88926b3d32d70b2e5dca9baed67051cf", null ],
+    [ "score", "classcsound_1_1CMaskNode.html#acef2e0972666d20ffc80c01ffd3a5eb4", null ],
+    [ "score_text", "classcsound_1_1CMaskNode.html#a169b2649e9c06a8d3918bb9642668f5b", null ]
+];

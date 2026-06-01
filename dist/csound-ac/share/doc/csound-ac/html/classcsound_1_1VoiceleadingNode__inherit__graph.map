@@ -1,0 +1,7 @@
+<map id="csound::VoiceleadingNode" name="csound::VoiceleadingNode">
+<area shape="rect" id="Node000001" title="This node class imposes a sequence of one or more &quot;voice&#45;leading&quot; operations upon the pitches of note..." alt="" coords="7,79,184,105"/>
+<area shape="rect" id="Node000003" href="$classcsound_1_1ChordLindenmayer.html" title="A Lindenmayer system consists of a turtle representing a position in musical space,..." alt="" coords="5,153,186,178"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="97,118,98,153,93,151,94,122"/>
+<area shape="rect" id="Node000002" href="$classcsound_1_1Node.html" title="Base class for all music graph nodes in the Silence system." alt="" coords="44,5,147,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="97,44,98,79,93,78,94,49"/>
+</map>

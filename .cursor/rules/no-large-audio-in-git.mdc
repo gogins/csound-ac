@@ -1,0 +1,12 @@
+---
+description: Do not commit large or lossless audio binaries to git; use LFS or external assets
+alwaysApply: true
+---
+
+# No large audio files in git
+
+- **Do not** `git add` **long renders, full pieces, or lossless masters** (e.g. `.aif`, `.aiff`, `.caf`, large `.wav`, multi‑minute `.flac`) into this repository on normal commits.
+- GitHub rejects blobs **over 100 MB**; the repo should stay small and clone-friendly. Treat **multi‑megabyte** soundfiles as “large” unless the user explicitly chooses Git LFS.
+- **Prefer**: document a download URL; generate audio in CI; keep files **local** or in **release attachments**; or use **Git LFS** with team agreement.
+- **Tests / examples**: tiny clips only, or procedural generation; never check in Cellular-scale or benchmark output soundfiles unless using LFS.
+- When editing `.gitignore` or examples, avoid re-introducing paths that bypass these rules (`git add -f` unless the user asks).

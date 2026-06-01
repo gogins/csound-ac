@@ -1,0 +1,5 @@
+<map id="concurrent_queue&lt; Data &gt;" name="concurrent_queue&lt; Data &gt;">
+<area shape="rect" id="Node000001" title="A thread&#45;safe queue, or first&#45;in first&#45;out (FIFO) queue, implemented using only the standard C++11 li..." alt="" coords="8,5,184,31"/>
+<area shape="rect" id="Node000002" href="$classconcurrent__queue.html" title=" " alt="" coords="5,102,187,143"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="98,45,99,102,93,101,94,48"/>
+</map>

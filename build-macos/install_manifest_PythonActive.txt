@@ -1,0 +1,4 @@
+/Users/michaelgogins/venv/csound/lib/python3.12/site-packages/_CsoundAC.so
+/Users/michaelgogins/venv/csound/lib/python3.12/site-packages/CsoundAC.py
+/Users/michaelgogins/venv/csound/lib/python3.12/site-packages/GeneralizedContextualGroup.py
+/Users/michaelgogins/venv/csound/lib/python3.12/site-packages/ac_reaper.py
