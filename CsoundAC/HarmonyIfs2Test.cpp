@@ -59,29 +59,22 @@ nchnls = 2
 
 seed 574382
 
-;gi_Protoverb vstinit "/home/mkg/.u-he/Protoverb/Protoverb.64.avx.so", 1
-gi_Mverb2020 vstinit "/home/mkg/.local/lib/Mverb2020.so", 1
-gi_ReverbDragonfly vstinit "/home/mkg/.local/lib/DragonflyHallReverb-vst.so", 1
-gi_Pianoteq vstinit "/home/mkg/Pianoteq\ 7/x86-64bit/Pianoteq\ 7.so", 1
-
-gi_Organteq vstinit "/home/mkg/Organteq\ 1/x86-64bit/Organteq\ 1.lv2/Organteq_1.so", 0
+gi_Pianoteq vst3init "/Library/Audio/Plug-Ins/VST3/Pianoteq 9.vst3", "Pianoteq 9", 1
+gi_Organteq vst3init "/Library/Audio/Plug-Ins/VST3/Organteq 2.vst3", "Organteq 2", 1
+vst3info gi_Pianoteq
+vst3info gi_Organteq
 
 alwayson "OrganOutOrganteq"
 alwayson "PianoOutPianoteq"
-; alwayson "ReverbSC"
-alwayson "Mverb2020"
-; alwayson "ReverbDragonfly"
-; alwayson "MVerb"
-; alwayson "ReverbBabo"
-; alwayson "NReverb"
+alwayson "ReverbSC"
 alwayson "MasterOutput"
 
-connect "PianoOutPianoteq", "outleft", "Mverb2020", "inleft"
-connect "PianoOutPianoteq", "outright", "Mverb2020", "inright"
-connect "OrganOutOrganteq", "outleft", "Mverb2020", "inleft"
-connect "OrganOutOrganteq", "outright", "Mverb2020", "inright"
-connect "Mverb2020", "outleft", "MasterOutput", "inleft"
-connect "Mverb2020", "outright", "MasterOutput", "inright"
+connect "PianoOutPianoteq", "outleft", "ReverbSC", "inleft"
+connect "PianoOutPianoteq", "outright", "ReverbSC", "inright"
+connect "OrganOutOrganteq", "outleft", "ReverbSC", "inleft"
+connect "OrganOutOrganteq", "outright", "ReverbSC", "inright"
+connect "ReverbSC", "outleft", "MasterOutput", "inleft"
+connect "ReverbSC", "outright", "MasterOutput", "inright"
 
 
 gk_OrganNoteOrganteq_midi_dynamic_range init 127
@@ -105,11 +98,14 @@ i_phase = p9
 i_instrument = p1
 i_homogeneity = p11
 instances active p1
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
-vstnote gi_Organteq, i_midi_channel, i_midi_key, i_midi_velocity, i_duration
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+vst3note gi_Organteq, i_midi_channel, i_midi_key, i_midi_velocity, i_duration
 endin
 
 gk_PianoNotePianoteq_midi_dynamic_range init 127
+gk_PianoNotePianoteq_midi_dynamic_range chnexport "gk_PianoNotePianoteq_midi_dynamic_range", 3 ;  20
+
+gk_PianoNotePianoteq_midi_dynamic_range init 20
 instr 11,12,13,14
 if p3 == -1 then
   p3 = 1000000
@@ -131,11 +127,12 @@ i_midi_key = p4
 i_midi_velocity = p5
 i_homogeneity = p11
 instances active p1
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 i_pitch_correction = 44100 / sr
 ; prints "Pitch factor:   %9.4f\n", i_pitch_correction
-vstnote gi_Pianoteq, 0, i_midi_key, i_midi_velocity, i_duration
+i_result vst3note gi_Pianoteq, 0, i_midi_key, i_midi_velocity, i_duration
 endin
+
 
 // This must be initialized in the orc header before any #includes.
 
@@ -146,18 +143,14 @@ gk_PianoOutPianoteq_left_to_right init 0.5
 gk_PianoOutPianoteq_bottom_to_top init 0
 
 instr PianoOutPianoteq
-; Should be "D4 Daily Practice".
-vstprogset gi_Pianoteq, 0
-; Sustain off.
-vstparamset gi_Pianoteq, 0, 0
-; Reverb off.
-vstparamset gi_Pianoteq, 72, 0
+; Reverb switch off in Pianoteq 9.
+vst3paramset gi_Pianoteq, 93, 0
 k_gain = ampdb(gk_PianoOutPianoteq_level)
 i_overall_amps = 89
 i_normalization = ampdb(-i_overall_amps) * 2
 i_amplitude = ampdb(80) * i_normalization
 if gi_PianoOutPianoteq_print == 1 then
-  vstinfo gi_PianoOutPianoteq_print
+  vst3info gi_Pianoteq
 endif
 i_instrument = p1
 i_time = p2
@@ -166,7 +159,7 @@ i_midi_key = p4
 i_midi_velocity = p5
 ainleft init 0
 ainright init 0
-aoutleft, aoutright vstaudio gi_Pianoteq, ainleft, ainright
+aoutleft, aoutright vst3audio gi_Pianoteq, ainleft, ainright
 a_signal = aoutleft + aoutright
 a_signal *= k_gain
 a_signal *= i_amplitude
@@ -184,7 +177,7 @@ outleta "out", a_spatial_reverb_send
 outleta "outleft", a_out_left
 outleta "outright", a_out_right
 #endif
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 
 
@@ -194,81 +187,69 @@ gk_OrganOutOrganteq_front_to_back init 0
 gk_OrganOutOrganteq_left_to_right init 0.5
 gk_OrganOutOrganteq_bottom_to_top init 0
 instr OrganOutOrganteq
-; By default, Organteq .fxp  preset files are saved thus:
-; /home/mkg/.local/share/Modartt/Organteq/Presets/My Presets/Church (copy).fxp
-; However, vst4cs doesn't load .fxp files, only .fxb preset bank files.
-; However again, Organtec doesn't save .fxb files, only .fxp files.
-; The vst4cs program change opcode does not seem to work except with loaded .fxb files.
-; vstprogset gi_Organteq, 3
-; vstmidiout gi_Organteq, 192, 5, 15, 0
-; vstmidiout gi_Organteq, 192, 6, 15, 0
-; So, the only thing to do is to set each parameter right here. Unfortunately,
-; not all the parameters in the GUI are available from code.
-; Reverb control.
-vstparamset gi_Organteq, 4, 0
-; Tutti (test), it works.
-; vstparamset gi_Organteq, 6, 1
+; Internal reverb off (Organteq 2).
+vst3paramset gi_Organteq, 8, 0
 
-; Set up all stops...
+; NOTE: In Organteq 2, stop buttons are numbered starting with 109.
 
 ; Keyboard 1 -- Pedale
 
-vstparamset gi_Organteq, 33, 1
-vstparamset gi_Organteq, 34, 0
-vstparamset gi_Organteq, 35, 0
-vstparamset gi_Organteq, 36, 0
-vstparamset gi_Organteq, 37, 1
-vstparamset gi_Organteq, 38, 0
-vstparamset gi_Organteq, 39, 0
-vstparamset gi_Organteq, 40, 0
-vstparamset gi_Organteq, 41, 0
-vstparamset gi_Organteq, 42, 0
+vst3paramset gi_Organteq, 109, 1
+vst3paramset gi_Organteq, 110, 0
+vst3paramset gi_Organteq, 111, 0
+vst3paramset gi_Organteq, 112, 0
+vst3paramset gi_Organteq, 113, 1
+vst3paramset gi_Organteq, 114, 0
+vst3paramset gi_Organteq, 115, 0
+vst3paramset gi_Organteq, 116, 0
+vst3paramset gi_Organteq, 117, 0
+vst3paramset gi_Organteq, 118, 0
 
 ; Keyboard 2 -- Positif
 
-vstparamset gi_Organteq, 43, 0
-vstparamset gi_Organteq, 44, 1
-vstparamset gi_Organteq, 45, 0
-vstparamset gi_Organteq, 46, 0
-vstparamset gi_Organteq, 47, 1
-vstparamset gi_Organteq, 48, 0
-vstparamset gi_Organteq, 49, 0
-vstparamset gi_Organteq, 50, 0
-vstparamset gi_Organteq, 51, 1
-vstparamset gi_Organteq, 52, 0
+vst3paramset gi_Organteq, 119, 0
+vst3paramset gi_Organteq, 120, 1
+vst3paramset gi_Organteq, 121, 0
+vst3paramset gi_Organteq, 122, 0
+vst3paramset gi_Organteq, 123, 1
+vst3paramset gi_Organteq, 124, 0
+vst3paramset gi_Organteq, 125, 0
+vst3paramset gi_Organteq, 126, 0
+vst3paramset gi_Organteq, 127, 1
+vst3paramset gi_Organteq, 128, 0
 
 ; Keyboard 3 -- Grand Orgue
 
-vstparamset gi_Organteq, 53, 0
-vstparamset gi_Organteq, 54, 1
-vstparamset gi_Organteq, 55, 1
-vstparamset gi_Organteq, 56, 0
-vstparamset gi_Organteq, 57, 0 
-vstparamset gi_Organteq, 58, 0
-vstparamset gi_Organteq, 59, 0
-vstparamset gi_Organteq, 60, 0
-vstparamset gi_Organteq, 61, 0
-vstparamset gi_Organteq, 62, 0
+vst3paramset gi_Organteq, 129, 0
+vst3paramset gi_Organteq, 130, 1
+vst3paramset gi_Organteq, 131, 1
+vst3paramset gi_Organteq, 132, 0
+vst3paramset gi_Organteq, 133, 0
+vst3paramset gi_Organteq, 134, 0
+vst3paramset gi_Organteq, 135, 0
+vst3paramset gi_Organteq, 136, 0
+vst3paramset gi_Organteq, 137, 0
+vst3paramset gi_Organteq, 138, 0
 
 ; Keyboard 4 - Recit 
 
-vstparamset gi_Organteq, 63, 1
-vstparamset gi_Organteq, 64, 1
-vstparamset gi_Organteq, 65, 0
-vstparamset gi_Organteq, 66, 0
-vstparamset gi_Organteq, 67, 0
-vstparamset gi_Organteq, 68, 0
-vstparamset gi_Organteq, 69, 0
-vstparamset gi_Organteq, 70, 1
-vstparamset gi_Organteq, 71, 0
-vstparamset gi_Organteq, 72, 0
+vst3paramset gi_Organteq, 139, 1
+vst3paramset gi_Organteq, 140, 1
+vst3paramset gi_Organteq, 141, 0
+vst3paramset gi_Organteq, 142, 0
+vst3paramset gi_Organteq, 143, 0
+vst3paramset gi_Organteq, 144, 0
+vst3paramset gi_Organteq, 145, 0
+vst3paramset gi_Organteq, 146, 1
+vst3paramset gi_Organteq, 147, 0
+vst3paramset gi_Organteq, 148, 0
 
 k_gain = ampdb(gk_OrganOutOrganteq_level)
 i_overall_amps = 89
 i_normalization = ampdb(-i_overall_amps) * 2
 i_amplitude = ampdb(80) * i_normalization
 if gi_OrganOutOrganteq_print == 1 then
-  vstinfo gi_Organteq
+  vst3info gi_Organteq
 endif
 i_instrument = p1
 i_time = p2
@@ -277,7 +258,7 @@ i_midi_key = p4
 i_midi_velocity = p5
 ainleft init 0
 ainright init 0
-aoutleft, aoutright vstaudio gi_Organteq, ainleft, ainright
+aoutleft, aoutright vst3audio gi_Organteq, ainleft, ainright
 a_signal = aoutleft + aoutright
 a_signal *= k_gain
 a_signal *= i_amplitude
@@ -295,7 +276,7 @@ outleta "out", a_spatial_reverb_send
 outleta "outleft", a_out_left
 outleta "outright", a_out_right
 #endif
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 
 gk_Mverb2020_level init 0
@@ -326,7 +307,7 @@ ainright inleta "inright"
 aoutleft, aoutright vstaudio gi_Mverb2020, ainleft, ainright
 outleta "outleft", aoutleft
 outleta "outright", aoutright
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 
 gS_MVerb_preset init "Huge Hall"
@@ -349,7 +330,7 @@ ainright  inleta  "inright"
 aoutleft, aoutright MVerb ainleft, ainright, gS_MVerb_preset; , "wet", gk_MVerb_wet, "FB", gk_MVerb_feedback, "random", 1, "rslow", gk_MVerb_rslow, "rfast", gk_MVerb_rfast, "rmax", gk_MVerb_rmax, "print", gk_MVerb_print, "DFact", gk_MVerb_DFact
 outleta  "outleft", aoutleft
 outleta  "outright", aoutright
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 
 gk_ReverbDragonfly_Dry_Level init .5
@@ -394,7 +375,7 @@ vstparamset gi_ReverbDragonfly, 17, gk_ReverbDragonfly_Modulation
 aoutleft, aoutright vstaudio gi_ReverbDragonfly, ainleft, ainright
 outleta  "outleft", aoutleft
 outleta  "outright", aoutright
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 
 instr ReverbBabo
@@ -413,7 +394,7 @@ aoutleft = aleftleftout + arightleftout
 aoutright = aleftrightout + arightrightout
 outleta  "outleft", aoutleft
 outleta  "outright", aoutright
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 
 gk_ReverbSC_feedback init 0.875
@@ -433,7 +414,7 @@ aleftoutmix = aleftin * gk_ReverbSC_dry + aleftout * gk_ReverbSC_wet
 arightoutmix = arightin * gk_ReverbSC_dry + arightout * gk_ReverbSC_wet
 outleta "outleft", aleftoutmix
 outleta "outright", arightoutmix
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 
 gk_NReverb_wet init 0.5
@@ -455,7 +436,7 @@ aleftoutmix = ainleft * gk_NReverb_dry + aleftout * gk_NReverb_wet
 arightoutmix = ainright * gk_NReverb_dry + arightout * gk_NReverb_wet
 outleta "outleft", aleftoutmix
 outleta "outright", arightoutmix
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 
 gk_MasterOutput_level init 0
@@ -478,7 +459,7 @@ filename_exists:
 prints sprintf("Output filename: %s\\n", gS_MasterOutput_filename)
 fout gS_MasterOutput_filename, 18, aleft * i_amplitude_adjustment, aright * i_amplitude_adjustment
 filename_endif:
-prints "%-24.24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
+prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 
 )";
