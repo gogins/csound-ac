@@ -109,6 +109,17 @@ _csnd.so
 /libCsoundAC*
 CsoundAC.py
 
+# Out-of-tree macOS build and staged release layout (see build-macos.sh)
+build-macos/
+dist/
+
+# Local binaries, debug symbols, and render artifacts in CsoundAC/
+/CsoundAC/HarmonyIfs2Test
+/CsoundAC/ChordSpaceTests
+/CsoundAC/*.dSYM/
+/CsoundAC/*-generated.csd
+/CsoundAC/*.wav-generated.csd
+
 csladspa.so
 
 # SWIG Wrappers

@@ -123,6 +123,7 @@ int MusicModel::perform()
     if (errorStatus == 1) {
         errorStatus = 0;
     }
+    cppSound->cleanup();
     cppSound->setCommand(old_command);
     auto seconds = System::stopTiming(started_at);
     System::message("Performance took %9.4f seconds.\n", seconds);

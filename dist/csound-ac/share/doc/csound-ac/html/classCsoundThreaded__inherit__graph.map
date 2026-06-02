@@ -1,7 +1,0 @@
-<map id="CsoundThreaded" name="CsoundThreaded">
-<area shape="rect" id="Node000001" title="This class provides a multi&#45;threaded C++ interface to the &quot;C&quot; Csound API." alt="" coords="29,79,150,105"/>
-<area shape="rect" id="Node000003" href="$classcsound_1_1CsoundProducer.html" title="Optionally adds metadata, performs post&#45;processing, translates to various soundfile formats as automa..." alt="" coords="5,153,174,178"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="91,118,92,153,87,151,88,122"/>
-<area shape="rect" id="Node000002" title=" " alt="" coords="56,5,123,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="91,44,92,79,87,78,88,49"/>
-</map>

@@ -1,7 +1,0 @@
-<map id="csound::Cell" name="csound::Cell">
-<area shape="rect" id="Node000001" title="Score node that simplifies building up structures of motivic cells, and incrementally transforming th..." alt="" coords="26,153,121,178"/>
-<area shape="rect" id="Node000002" href="$classcsound_1_1ScoreNode.html" title="Node class that produces events from the contained score, which can be built up programmatically or i..." alt="" coords="5,79,142,105"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="75,118,76,153,71,151,72,122"/>
-<area shape="rect" id="Node000003" href="$classcsound_1_1Node.html" title="Base class for all music graph nodes in the Silence system." alt="" coords="22,5,125,31"/>
-<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="75,44,76,79,71,78,72,49"/>
-</map>

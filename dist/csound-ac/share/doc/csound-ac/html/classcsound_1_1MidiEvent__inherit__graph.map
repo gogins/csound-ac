@@ -1,5 +1,0 @@
-<map id="csound::MidiEvent" name="csound::MidiEvent">
-<area shape="rect" id="Node000001" title="This class is used to store ALL Midi messages." alt="" coords="5,79,135,105"/>
-<area shape="rect" id="Node000002" title=" " alt="" coords="12,5,128,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="72,45,73,79,67,78,68,48"/>
-</map>

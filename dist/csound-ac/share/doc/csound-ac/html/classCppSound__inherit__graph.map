@@ -1,7 +1,0 @@
-<map id="CppSound" name="CppSound">
-<area shape="rect" id="Node000001" title=" " alt="" coords="48,79,130,105"/>
-<area shape="rect" id="Node000002" title=" " alt="" coords="5,5,72,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="57,41,83,78,78,79,54,46"/>
-<area shape="rect" id="Node000003" href="$classCsoundFile.html" title="Manages a Csound Structured Data (CSD) file with facilities for creating an arrangement of selected i..." alt="" coords="96,5,184,31"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="125,42,100,80,96,77,120,44"/>
-</map>

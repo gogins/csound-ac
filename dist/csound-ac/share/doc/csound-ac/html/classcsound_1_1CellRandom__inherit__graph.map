@@ -1,7 +1,0 @@
-<map id="csound::CellRandom" name="csound::CellRandom">
-<area shape="rect" id="Node000001" title="Notes produced by the child nodes of this, starting at the indicated start index, up to but not inclu..." alt="" coords="5,153,149,178"/>
-<area shape="rect" id="Node000002" href="$classcsound_1_1Random.html" title="A random value will be sampled from the specified distribution, translated and scaled as specified,..." alt="" coords="17,79,137,105"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="79,118,80,153,74,151,75,122"/>
-<area shape="rect" id="Node000003" href="$classcsound_1_1Node.html" title="Base class for all music graph nodes in the Silence system." alt="" coords="26,5,128,31"/>
-<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="78,44,80,79,74,78,76,49"/>
-</map>

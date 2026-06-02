@@ -1,7 +1,0 @@
-<map id="csound::LispTransformer" name="csound::LispTransformer">
-<area shape="rect" id="Node000001" title="Node that uses Lisp code to transform Events produced by child Nodes." alt="" coords="5,153,171,178"/>
-<area shape="rect" id="Node000002" href="$classcsound_1_1LispNode.html" title="Base class for Nodes that can use embedded Lisp code to generate or transform Events." alt="" coords="25,79,151,105"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="90,118,90,153,86,151,86,122"/>
-<area shape="rect" id="Node000003" href="$classcsound_1_1Node.html" title="Base class for all music graph nodes in the Silence system." alt="" coords="37,5,139,31"/>
-<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="89,44,91,79,85,78,87,49"/>
-</map>

@@ -1,5 +1,0 @@
-<map id="CsoundScoreEvent" name="CsoundScoreEvent">
-<area shape="rect" id="Node000001" title="Specialization of CsoundEvent for low&#45;level score events with raw pfields." alt="" coords="5,79,140,105"/>
-<area shape="rect" id="Node000002" href="$structCsoundEvent.html" title="Abstract base class for Csound events to be enqueued for performance." alt="" coords="22,5,123,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="74,45,75,79,70,78,71,48"/>
-</map>

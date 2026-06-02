@@ -1,9 +1,0 @@
-#!/bin/sh
-# [Gedit Tool]
-# Name=Reformat with astyle
-# Input=nothing
-# Output=output-panel
-# Applicability=all
-# Save-files=nothing
-
-~/playpen.py cpp-astyle $GEDIT_CURRENT_DOCUMENT_PATH

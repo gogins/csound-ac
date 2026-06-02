@@ -1,9 +1,0 @@
-<map id="csound::ScoreModel" name="csound::ScoreModel">
-<area shape="rect" id="Node000001" title="Base class for compositions that use the principle of a music graph to generate a score." alt="" coords="81,79,221,105"/>
-<area shape="rect" id="Node000004" href="$classcsound_1_1MusicModel.html" title="A ScoreModel that uses Csound to render generated scores, via the CppSound class." alt="" coords="80,153,222,178"/>
-<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="153,118,153,153,149,151,149,122"/>
-<area shape="rect" id="Node000002" href="$classcsound_1_1Composition.html" title="Base class for user&#45;defined musical compositions." alt="" coords="5,5,150,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="101,39,141,78,136,79,100,45"/>
-<area shape="rect" id="Node000003" href="$classcsound_1_1Node.html" title="Base class for all music graph nodes in the Silence system." alt="" coords="174,5,277,31"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="204,40,165,81,162,77,200,43"/>
-</map>
