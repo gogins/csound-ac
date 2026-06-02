@@ -22,7 +22,7 @@ int main(int argc, const char **argv)
     csound::System::setMessageLevel(7);
     csound::HarmonyIFS2 harmony_ifs;
     // initialize(int voices_, double range_, double bass_, double note_duration_, bool tie_overlaps_, bool remove_duplicates, double g_ = 1.) {
-    harmony_ifs.initialize(5 , 60., 30., .05, true, true, 1.);
+    harmony_ifs.initialize(5 , 60., 30., .05, false, true, 1.);
     auto tonic = csound::chordForName("CM9");
     auto subdominant = csound::chordForName("Dm9");
     subdominant = csound::octavewiseRevoicing(subdominant, 30, 60);
@@ -40,9 +40,9 @@ int main(int argc, const char **argv)
     harmony_ifs.initialize_hutchinson_operator();
     double A = 5.13 * M_PI / 180.;
     csound::System::message("A: %9.4f\n", A);
-    harmony_ifs.generate_score_attractor(7);
+    harmony_ifs.generate_score_attractor(8);
     csound::Rescale rescale;
-    rescale.setRescale(csound::Event::INSTRUMENT, true, true, 3., .999);
+    rescale.setRescale(csound::Event::INSTRUMENT, true, true, 1., 4.999);
     rescale.setRescale(csound::Event::VELOCITY, true, true, 60., 6.);
     rescale.addChild(&harmony_ifs);
     model.addChild(&rescale);
@@ -76,7 +76,6 @@ connect "OrganOutOrganteq", "outright", "ReverbSC", "inright"
 connect "ReverbSC", "outleft", "MasterOutput", "inleft"
 connect "ReverbSC", "outright", "MasterOutput", "inright"
 
-
 gk_OrganNoteOrganteq_midi_dynamic_range init 127
 ; These are the pedalboard and three manuals.
 instr Pedale, Positif, Grand_Orgue, Recit
@@ -99,14 +98,14 @@ i_instrument = p1
 i_homogeneity = p11
 instances active p1
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
-vst3note gi_Organteq, i_midi_channel, i_midi_key, i_midi_velocity, i_duration
+i_result vst3note gi_Organteq, i_midi_channel, i_midi_key, i_midi_velocity, i_duration
 endin
 
 gk_PianoNotePianoteq_midi_dynamic_range init 127
 gk_PianoNotePianoteq_midi_dynamic_range chnexport "gk_PianoNotePianoteq_midi_dynamic_range", 3 ;  20
 
 gk_PianoNotePianoteq_midi_dynamic_range init 20
-instr 11,12,13,14
+instr PianoNotePianoteq
 if p3 == -1 then
   p3 = 1000000
 endif
@@ -179,7 +178,6 @@ outleta "outright", a_out_right
 #endif
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
-
 
 gk_OrganOutOrganteq_level init 0
 gi_OrganOutOrganteq_print init 1
@@ -279,105 +277,6 @@ outleta "outright", a_out_right
 prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
 endin
 
-gk_Mverb2020_level init 0
-gk_Mverb2020_Mix init .5
-gk_Mverb2020_Pre_delay init 0.5
-gk_Mverb2020_Early_late_mix init 0.5
-gk_Mverb2020_Size init 0.5
-gk_Mverb2020_Density init 0.5
-gk_Mverb2020_Bandwith_Frequency init 0.5
-gk_Mverb2020_Decay init 0.85
-gk_Mverb2020_Damping_Frequency init 0.5
-gk_Mverb2020_Gain init 1
-gi_Mverb2020_Program init 4
-instr Mverb2020
-vstprogset gi_Mverb2020, gi_Mverb2020_Program
-vstparamset gi_Mverb2020, 1, gk_Mverb2020_Mix
-;vstparamset gi_Mverb2020, 1, gk_Mverb2020_Pre_delay
-;vstparamset gi_Mverb2020, 2, gk_Mverb2020_Early_late_mix
-;vstparamset gi_Mverb2020, 3, gk_Mverb2020_Size
-;vstparamset gi_Mverb2020, 4, gk_Mverb2020_Density
-;vstparamset gi_Mverb2020, 5, gk_Mverb2020_Bandwith_Frequency
-vstparamset gi_Mverb2020, 6, gk_Mverb2020_Decay
-;vstparamset gi_Mverb2020, 7, gk_Mverb2020_Damping_Frequency
-;vstparamset gi_Mverb2020, 8, gk_Mverb2020_Gain
-k_gain = ampdb(gk_Mverb2020_level)
-ainleft inleta "inleft"
-ainright inleta "inright"
-aoutleft, aoutright vstaudio gi_Mverb2020, ainleft, ainright
-outleta "outleft", aoutleft
-outleta "outright", aoutright
-prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
-endin
-
-gS_MVerb_preset init "Huge Hall"
-gk_MVerb_FB init .975
-gk_MVerb_wet init .5
-gk_MVerb_random init 1
-gk_MVerb_rslow init 1.1
-gk_MVerb_rfast init 3.8
-gk_MVerb_rmax init .0005
-gk_MVerb_print init 1
-gk_MVerb_DFact init .75
-instr MVerb
-//////////////////////////////////////////////
-// Original csd by Jon Christopher Nelson.
-// Adapted to C++ plugin by Michael Gogins.
-// Compute-intensive!
-//////////////////////////////////////////////
-ainleft  inleta  "inleft"
-ainright  inleta  "inright"
-aoutleft, aoutright MVerb ainleft, ainright, gS_MVerb_preset; , "wet", gk_MVerb_wet, "FB", gk_MVerb_feedback, "random", 1, "rslow", gk_MVerb_rslow, "rfast", gk_MVerb_rfast, "rmax", gk_MVerb_rmax, "print", gk_MVerb_print, "DFact", gk_MVerb_DFact
-outleta  "outleft", aoutleft
-outleta  "outright", aoutright
-prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
-endin
-
-gk_ReverbDragonfly_Dry_Level init .5
-gk_ReverbDragonfly_Early_Level init .05
-gk_ReverbDragonfly_Late_Level init .75
-gk_ReverbDragonfly_Size init .75
-gk_ReverbDragonfly_Width init .75
-gk_ReverbDragonfly_Predelay init .35
-gk_ReverbDragonfly_Diffuse init .9
-gk_ReverbDragonfly_Low_Cut init .8
-gk_ReverbDragonfly_Low_Cross init .5
-gk_ReverbDragonfly_Low_Mult init .5
-gk_ReverbDragonfly_High_Cut init .85
-gk_ReverbDragonfly_High_Cross init .5
-gk_ReverbDragonfly_High_Mult init .34
-gk_ReverbDragonfly_Spin init .015
-gk_ReverbDragonfly_Wander init .025
-gk_ReverbDragonfly_Decay init .075
-gk_ReverbDragonfly_Early_Send init .25
-gk_ReverbDragonfly_Modulation init .025
-instr ReverbDragonfly
-ainleft  inleta  "inleft"
-ainright  inleta  "inright"
-vstparamset gi_ReverbDragonfly,  0, gk_ReverbDragonfly_Dry_Level
-vstparamset gi_ReverbDragonfly,  1, gk_ReverbDragonfly_Early_Level
-vstparamset gi_ReverbDragonfly,  2, gk_ReverbDragonfly_Late_Level
-vstparamset gi_ReverbDragonfly,  3, gk_ReverbDragonfly_Size
-vstparamset gi_ReverbDragonfly,  4, gk_ReverbDragonfly_Width
-vstparamset gi_ReverbDragonfly,  5, gk_ReverbDragonfly_Predelay
-vstparamset gi_ReverbDragonfly,  6, gk_ReverbDragonfly_Diffuse
-vstparamset gi_ReverbDragonfly,  7, gk_ReverbDragonfly_Low_Cut
-vstparamset gi_ReverbDragonfly,  8, gk_ReverbDragonfly_Low_Cross
-vstparamset gi_ReverbDragonfly,  9, gk_ReverbDragonfly_Low_Mult
-vstparamset gi_ReverbDragonfly, 10, gk_ReverbDragonfly_High_Cut
-vstparamset gi_ReverbDragonfly, 11, gk_ReverbDragonfly_High_Cross
-vstparamset gi_ReverbDragonfly, 12, gk_ReverbDragonfly_High_Mult
-vstparamset gi_ReverbDragonfly, 13, gk_ReverbDragonfly_Spin
-vstparamset gi_ReverbDragonfly, 14, gk_ReverbDragonfly_Wander
-vstparamset gi_ReverbDragonfly, 15, gk_ReverbDragonfly_Decay
-vstparamset gi_ReverbDragonfly, 16, gk_ReverbDragonfly_Early_Send
-vstparamset gi_ReverbDragonfly, 17, gk_ReverbDragonfly_Modulation
-aoutleft, aoutright vstaudio gi_ReverbDragonfly, ainleft, ainright
-outleta  "outleft", aoutleft
-outleta  "outright", aoutright
-prints "%-24s i %9.4f t %9.4f d %9.4f k %9.4f v %9.4f p %9.4f #%3d\\n", nstrstr(p1), p1, p2, p3, p4, p5, p7, active(p1)
-endin
-
 instr ReverbBabo
 ainleft  inleta  "inleft"
 ainright  inleta  "inright"
@@ -465,6 +364,7 @@ endin
 )";
     model.setCsoundOrchestra(orc);
     model.setCsoundScoreHeader("f 0 420\n");
-    model.processArgv(argc, argv);
+    std::vector<std::string> args(argv, argv + argc);
+    model.processArgs(args);
 }
 
