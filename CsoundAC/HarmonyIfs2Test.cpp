@@ -22,12 +22,13 @@ int main(int argc, const char **argv)
     csound::System::setMessageLevel(7);
     csound::HarmonyIFS2 harmony_ifs;
     // initialize(int voices_, double range_, double bass_, double note_duration_, bool tie_overlaps_, bool remove_duplicates, double g_ = 1.) {
-    harmony_ifs.initialize(5 , 60., 30., .05, false, true, 1.);
+    harmony_ifs.initialize(5 , 60., 30., .05, true, true, 1.);
     auto tonic = csound::chordForName("CM9");
     auto subdominant = csound::chordForName("Dm9");
     subdominant = csound::octavewiseRevoicing(subdominant, 30, 60);
     auto dominant = csound::chordForName("G9");
     dominant = csound::octavewiseRevoicing(dominant, 28, 60);
+    auto mediant = csound::chordForName("Em9");
     csound::System::message("I:\n%s\n", tonic.information_sector(0).c_str());
     csound::System::message("ii:\n%s\n", subdominant.information_sector(0).c_str());
     csound::System::message("V:\n%s\n", dominant.information_sector(0).c_str());
@@ -36,13 +37,13 @@ int main(int argc, const char **argv)
     harmony_ifs.add_interpolation_point_as_chord(  0., tonic,       .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01);
     harmony_ifs.add_interpolation_point_as_chord(100., subdominant, .01, .01, .01, .20, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01);
     harmony_ifs.add_interpolation_point_as_chord(220., dominant,    .01, .01, .01, .01, .01, .01, .01, .01, .01, .05, .01, .01, .01, .01, .01, .01);
-    harmony_ifs.add_interpolation_point_as_chord(300., tonic,       .05, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01);
+    harmony_ifs.add_interpolation_point_as_chord(300., mediant,       .05, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01, .01);
     harmony_ifs.initialize_hutchinson_operator();
     double A = 5.13 * M_PI / 180.;
     csound::System::message("A: %9.4f\n", A);
     harmony_ifs.generate_score_attractor(8);
     csound::Rescale rescale;
-    rescale.setRescale(csound::Event::INSTRUMENT, true, true, 1., 4.999);
+    rescale.setRescale(csound::Event::INSTRUMENT, true, true, 5., 0.);
     rescale.setRescale(csound::Event::VELOCITY, true, true, 60., 6.);
     rescale.addChild(&harmony_ifs);
     model.addChild(&rescale);
