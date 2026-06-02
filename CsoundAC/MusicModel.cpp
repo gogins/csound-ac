@@ -123,7 +123,9 @@ int MusicModel::perform()
     if (errorStatus == 1) {
         errorStatus = 0;
     }
-    cppSound->cleanup();
+    // Csound already resets at end of performance ("resetting Csound instance"),
+    // which unloads opcode modules. Do not call Reset() again here; a second
+    // reset was provoking a spurious empty perform and a second vst3 teardown.
     cppSound->setCommand(old_command);
     auto seconds = System::stopTiming(started_at);
     System::message("Performance took %9.4f seconds.\n", seconds);
