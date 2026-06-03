@@ -15,7 +15,7 @@ int main(int argc, const char **argv)
 {
     csound::MusicModel model;
     model.setAuthor("Michael Gogins");
-    model.setTitle("HarmonyIfsTest");
+    model.setTitle("HarmonyIfs2Test");
     model.setAlbum("Silence");
     model.setYear("2021");
     model.setPerformanceRightsOrganization("Irreducible Productions, ASCAP");
