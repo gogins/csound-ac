@@ -41,7 +41,7 @@ int main(int argc, const char **argv)
     harmony_ifs.initialize_hutchinson_operator();
     double A = 5.13 * M_PI / 180.;
     csound::System::message("A: %9.4f\n", A);
-    harmony_ifs.generate_score_attractor(8);
+    harmony_ifs.generate_score_attractor(4);
     csound::Rescale rescale;
     rescale.setRescale(csound::Event::INSTRUMENT, true, true, 5., 0.);
     rescale.setRescale(csound::Event::VELOCITY, true, true, 60., 6.);
@@ -366,6 +366,6 @@ endin
     model.setCsoundOrchestra(orc);
     model.setCsoundScoreHeader("f 0 420\n");
     std::vector<std::string> args(argv, argv + argc);
-    model.processArgs(args);
+    return model.processArgs(args);
 }
 
