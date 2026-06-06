@@ -223,29 +223,36 @@ SILENCE_PUBLIC void ChordScore::insertChord(double tyme, const Chord chord) {
     chords_for_times[tyme] = chord;
 }
 /**
- * Returns a pointer to the first chord that starts at or after the
- * specified time. If there is no such chord, a null pointer is returned.
+ * Returns the chord that governs harmony at the given time: the timeline
+ * entry at or before \c time_, or if none exists, the soonest entry after
+ * \c time_. Returns null if the timeline is empty.
  */
 SILENCE_PUBLIC Chord *ChordScore::getChord(double time_) {
-    auto it = chords_for_times.lower_bound(time_);
-    if (it != chords_for_times.end()) {
-        return &it->second;
-    } else {
+    if (chords_for_times.empty()) {
         return nullptr;
     }
+    auto after = chords_for_times.upper_bound(time_);
+    if (after != chords_for_times.begin()) {
+        --after;
+        return &after->second;
+    }
+    auto soonest = chords_for_times.lower_bound(time_);
+    if (soonest != chords_for_times.end()) {
+        return &soonest->second;
+    }
+    return nullptr;
 }
 
 /**
- * Conforms the pitch-classes of the events in this to the closest
- * pitch-class of the chord, if any, that obtains at that time.
+ * Conforms each note to the chord from getChord at that note's time.
  */
 SILENCE_PUBLIC void ChordScore::conformToChords(bool tie_overlaps, bool octave_equivalence) {
     sort();
     if (chords_for_times.begin() != chords_for_times.end()) {
         for (auto event_iterator = begin(); event_iterator != end(); ++event_iterator) {
-            auto chord_iterator = chords_for_times.lower_bound(event_iterator->getTime());
-            if (chord_iterator != chords_for_times.end()) {
-                conformToChord_equivalence(*event_iterator, chord_iterator->second, octave_equivalence);
+            Chord *chord = getChord(event_iterator->getTime());
+            if (chord != nullptr) {
+                conformToChord_equivalence(*event_iterator, *chord, octave_equivalence);
             }
         }
     }

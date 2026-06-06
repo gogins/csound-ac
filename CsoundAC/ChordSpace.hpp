@@ -3759,17 +3759,18 @@ class SILENCE_PUBLIC ChordScore : public Score {
 public:
     std::map<double, Chord> chords_for_times;
     /**
-     * Conforms the pitch-classes of the events in this to the closest
-     * pitch-class of the chord, if any, that obtains at that time.
+     * Conforms each note to the chord from getChord at that note's time.
      */
     virtual void conformToChords(bool tie_overlaps, bool octave_equivalence);
     /**
-     * Returns a pointer to the first chord that starts at or after the
-     * specified time. If there is no such chord, a null pointer is returned.
+     * Returns the most recent timeline chord at or before \c time_, or if
+     * none exists, the soonest chord after \c time_. Null if the timeline is
+     * empty.
      */
     virtual Chord *getChord(double time_);
     virtual double getDuration();
     void getScale(std::vector<Event> &score, int dimension, size_t beginAt, size_t endAt, double &minimum, double &range);
+    /** Records the turtle chord on the harmony timeline at \c tyme. */
     virtual void insertChord(double tyme, const Chord chord);
     virtual void setDuration(double targetDuration);
     void setScale(std::vector<Event> &score,
