@@ -1,0 +1,11 @@
+---
+description: Edit CsoundAC only in the canonical csound-ac repo, never in dependency submodules
+alwaysApply: true
+---
+
+# CsoundAC source of truth
+
+- **Edit CsoundAC C/C++ only in** `/Users/michaelgogins/csound-ac` (the standalone `gogins/csound-ac` repo).
+- **Never edit** files under `*/dependencies/csound-ac/**` in `csound-wasm`, `cloud-5` build trees, or any other dependent project. Those paths are **git submodules** — read-only mirrors for builds.
+- After changing `csound-ac`, commit and push there first. Dependent repos pick up changes via submodule update (`csound-wasm/update-dependency-submodules.sh` / `build-wasm.sh`), then rebuild wasm and install dist into `cloud-5`.
+- If asked to change `ChordSpace`, `PITV`, `ChordScore`, etc., open and patch files under `csound-ac/CsoundAC/`, not a submodule copy.
