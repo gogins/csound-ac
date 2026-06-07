@@ -189,8 +189,8 @@ pull request for your contributions.
   Linux, and Windows using GitHub Actions.
 
 - I discovered a serious bug in the chord space code in this library; quotients 
-  and reflections work perfectly only in continuous chord spaces, not in discrete 
-  (e.g. 12-tone equal temperament) chord spaces. I am working to fix this. The 
+  and reflections worked perfectly only in continuous chord spaces, not in discrete 
+  (e.g. 12-tone equal temperament) chord spaces. I have now fixed this. The 
   code for functional harmony, voice-leading, and neo-Riemannian transformations 
   was and remains correct.
 
