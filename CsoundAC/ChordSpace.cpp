@@ -58,6 +58,7 @@
 #include <iostream>
 #include <iterator>
 #include <map>
+#include <mutex>
 #include <random>
 #include "Score.hpp"
 #include <set>
