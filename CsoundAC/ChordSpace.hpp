@@ -422,6 +422,9 @@ SILENCE_PUBLIC double C4();
  */
 SILENCE_PUBLIC Chord chord(const Chord &scale, int scale_degree, int chord_voices, int interval = 3);
 
+template<int EQUIVALENCE_RELATION> SILENCE_PUBLIC Chord equate(const Chord &chord,
+        double range, double g, int opt_sector);
+
 /**
  * Chords consist of simultaneously sounding pitches. The pitches are
  * represented as semitones with 0 at the origin and middle C as 60.
