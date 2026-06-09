@@ -1,5 +1,7 @@
 # DEVELOPMENT AND RELEASE PROCESS
-Michael Gogins
+Michael Gogins<br>
+https://github.com/gogins<br>
+http://michaelgogins.tumblr.com
 
 `csound-ac` is the core library for my work in algorithmic composition with 
 Csound. It is written in C++, and has both C++ and Python interfaces. It 
@@ -27,17 +29,17 @@ Many of my other projects depend on `csound-ac`. These include:
 
 To keep all of these projects in sync, observe the following workflow. 
 
-# Development Triggers
+## Development Triggers
 
-All builds of any of these projects update any Git submodules or download 
-dependencies of that project to their latest versions.
+All builds of any of these projects trigger updates of any Git submodules or 
+download dependencies of that project to their latest versions.
 
-All pushes to the main branch of any of these projects trigger a build of the 
+All pushes to the main branch of any of these projects trigger a new build of the 
 project on GitHub for macOS, Linux, and Windows.
 
-All new releases, or new tags, of any of these projects trigger a build of 
+All new releases, or new tags, of any of these projects trigger a new build of 
 the project on GitHub for macOS, Linux, and Windows, followed by a release of 
-the build artifacts to GitHub Releases.
+the built artifacts to GitHub Releases.
 
 ## Release Dependencies
 
