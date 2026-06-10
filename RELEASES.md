@@ -38,7 +38,7 @@ All pushes to the main branch of any of these projects trigger a new build of th
 project on GitHub for macOS, Linux, and Windows.
 
 All new releases, or new tags, of any of these projects trigger a new build of 
-the project on GitHub for macOS, Linux, and Windows, followed by a release of 
+that project on GitHub for macOS, Linux, and Windows, followed by a release of 
 the built artifacts to GitHub Releases.
 
 ## Release Dependencies
@@ -48,4 +48,9 @@ When there is a new release of `csound-ac`, make a new releases of
 `csound-wasm`.
 
 When there is a new release of `csound-wasm`, make a new release of 
-`csound-node` and `cloud-5`.
+`csound-node` and `cloud-5`. 
+
+When there is a new release of `cloud-5`, `gogins.github.io` is automatically 
+updated with the new contents of `cloud-5`. Files in `cloud-5` overwrite the 
+same files in `gogins.github.io`, but files in `gogins.github.io` that are not 
+in `cloud-5` are left in place.
