@@ -43,7 +43,7 @@ the built artifacts to GitHub Releases.
 
 ## Release Dependencies
 
-When there is a new release of `csound-ac`, make a new releases of 
+When there is a new release of `csound-ac`, make new releases of 
 `csound-vst3`, `csound-vst3-opcodes`, `csound-cxx-opcodes`, and 
 `csound-wasm`.
 
