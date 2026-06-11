@@ -47,7 +47,7 @@ When there is a new release of `csound-ac`, make a new releases of
 `csound-vst3`, `csound-vst3-opcodes`, `csound-cxx-opcodes`, and 
 `csound-wasm`.
 
-When there is a new release of `csound-wasm`, make a new release of 
+When there is a new release of `csound-wasm`, make new releases of 
 `csound-node` and `cloud-5`. 
 
 When there is a new release of `cloud-5`, `gogins.github.io` is automatically 
