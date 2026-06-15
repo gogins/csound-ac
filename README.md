@@ -114,7 +114,7 @@ these files to your home directory or other places.
 - If you use Visual Studio Code, install in it the `playpen.vsix` extension, 
   which makes the computer music playpen part of Visual Studio Code.
   
-- If you use the SciTE text editor, Create a symbolic link from 
+- If you use the SciTE text editor, create a symbolic link from 
   `csound-ac/playpen/.SciTEUser.properties` to your home directory, which 
   makes the computer music playpen part of SciTE.
 
