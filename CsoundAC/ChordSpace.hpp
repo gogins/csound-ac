@@ -2230,11 +2230,24 @@ class SILENCE_PUBLIC Scale : public Chord {
          * possible, an empty Chord is returned. The number of voices 
          * defaults to that of the current Chord. Can be used to generate 
          * secondary dominants (function = 5), secondary supertonics 
-         * (function = 2), secondary subtonics (function = 6), and so on.
+         * (function = 2), secondary submediants (function = 6), and so on.
          * It is then up to the user to perform an appropriate progression 
          * by number of scale degrees in the original Scale.
          */
         virtual std::vector<Chord> secondary(const Chord &current_chord, int secondary_function = 5, int voices_ = -1) const;
+        /**
+         * Returns the current Chord mutated, if possible, have the specified 
+         * function with respect to the target scale degree of the Scale. Not 
+         * "secondary function of this chord," but "this chord as secondary 
+         * function of another (tonicized) chord." The number of voices 
+         * defaults to that of the current Chord. Can be used to generate 
+         * secondary dominants (function = 5), secondary supertonics 
+         * (function = 2), secondary submediants (function = 6), and so on.
+         * It is then up to the user to perform an appropriate progression 
+         * by number of scale degrees in the original Scale. If no such mutation 
+         * can be found, nothing is done; i.e., the current Chord is returned.
+         */
+        virtual Chord secondary_to_degree(const Chord &current_chord, int secondary_function, int target_degree, int chord_voices = -1) const;
         /**
          * Returns the number of semitones (may be whole or fractional) from 
          * the tonic (as 0) of this Scale to the indicated scale degree, which 

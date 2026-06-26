@@ -4378,6 +4378,58 @@ SILENCE_PUBLIC std::vector<Scale> Scale::tonicizations(const Chord &current_chor
     return result;
 }
 
+// Helpers for secondary_to_degree:
+
+static double modulo_octave(double value) {
+    double result = std::fmod(value, 12.0);
+    if (result < 0.0) {
+        result += 12.0;
+    }
+    return result;
+}
+static bool same_octave_class(double a, double b, int epsilons = 20, int ulps = 200) {
+    double difference = modulo_octave(a - b);
+    return eq_tolerance(difference, 0.0, epsilons, ulps) || eq_tolerance(difference, 12.0, epsilons, ulps);
+}
+static double degree_octave_class(const Scale &scale, int scale_degree) {
+    return modulo_octave(scale.tonic() + scale.semitones_for_degree(scale_degree));
+}
+static int degree_for_octave_class_bruteforce(const Scale &scale, double octave_class) {
+    int degree_count = scale.voices();
+    for (int degree = 1; degree <= degree_count; ++degree) {
+        if (same_octave_class(degree_octave_class(scale, degree), octave_class)) {
+            return degree;
+        }
+    }
+    return -1;
+}
+
+SILENCE_PUBLIC Chord Scale::secondary_to_degree(const Chord &current_chord, int secondary_function, int target_degree, int chord_voices) const {
+    int current_degree = degree(current_chord);
+    if (current_degree == -1) {
+        return current_chord;
+    }
+    if (chord_voices == -1) {
+        chord_voices = current_chord.voices();
+    }
+    int tonicization_voices = 3;
+    double target_tonic_octave_class = degree_octave_class(*this, target_degree);
+    Chord target_tonic_chord = chord(target_degree, tonicization_voices);
+    std::vector<Scale> tonicized_scales = tonicizations(target_tonic_chord, tonicization_voices);
+    for (const auto &tonicized_scale : tonicized_scales) {
+        if (!same_octave_class(tonicized_scale.tonic(), target_tonic_octave_class)) {
+            continue;
+        }
+        double function_octave_class = degree_octave_class(tonicized_scale, secondary_function);
+        int local_degree = degree_for_octave_class_bruteforce(*this, function_octave_class);
+        if (local_degree != current_degree) {
+            continue;
+        }
+        return tonicized_scale.chord(secondary_function, chord_voices);
+    }
+    return current_chord;
+}
+
 SILENCE_PUBLIC double T(double pitch, double semitones) {
     return pitch + semitones;
 }
