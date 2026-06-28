@@ -3762,6 +3762,39 @@ SILENCE_PUBLIC Chord voiceleadingSimpler(const Chord &source, const Chord &d1, c
 
 class SILENCE_PUBLIC ChordScore;
 
+/**
+ * How notes governed by a harmony timeline entry are conformed at \ref
+ * ChordScore::conformToChords.
+ */
+enum class HarmonyConformMode {
+    /** Legacy insertChord: use the global \c octave_equivalence flag in conformToChords. */
+    Default = 0,
+    /** Quantize to pitch-classes of the reference chord (\c Hc). */
+    Hc = 1,
+    /** Quantize to the actual pitches of the reference chord (\c Hcv). */
+    Hcv = 2,
+    /** Voice-lead from sounding score notes to pitch-classes of the reference (\c Hcs). */
+    Hcs = 3,
+    /** Quantize to pitch-classes at a scale degree (\c Hd). */
+    Hd = 4,
+    /** Voice-lead from sounding score notes to functional harmony at a scale degree (\c Hds). */
+    Hds = 5,
+};
+
+/**
+ * One harmony constraint on the timeline: a reference chord or scale context,
+ * plus the conform mode that applies until the next entry.
+ */
+struct SILENCE_PUBLIC HarmonyEntry {
+    Chord chord;
+    HarmonyConformMode mode;
+    Scale scale;
+    int scale_degree;
+    int voices;
+    double voice_leading_range;
+    HarmonyEntry();
+};
+
 SILENCE_PUBLIC const std::vector<Chord> &allOfEquivalenceClass(int voice_count, std::string equivalence_class, double range, double g, int sector, bool printme);
 
 SILENCE_PUBLIC void apply(Score &score, const Chord &chord, double startTime, double endTime, bool octaveEquivalence = true);
@@ -3774,21 +3807,55 @@ SILENCE_PUBLIC void apply(Score &score, const Chord &chord, double startTime, do
  */
 class SILENCE_PUBLIC ChordScore : public Score {
 public:
-    std::map<double, Chord> chords_for_times;
+    std::map<double, HarmonyEntry> harmonies_for_times;
     /**
-     * Conforms each note to the chord from getChord at that note's time.
+     * Conforms each note using the harmony entry from getHarmony at that note's
+     * onset time. The \c octave_equivalence flag applies only to entries
+     * inserted with insertChord(time, chord) and mode Default.
      */
-    virtual void conformToChords(bool tie_overlaps, bool octave_equivalence);
+    virtual void conformToChords(bool tie_overlaps, bool octave_equivalence = true);
     /**
      * Returns the most recent timeline chord at or before \c time_, or if
      * none exists, the soonest chord after \c time_. Null if the timeline is
      * empty.
      */
     virtual Chord *getChord(double time_);
+    /**
+     * Returns the most recent harmony entry at or before \c time_, or if none
+     * exists, the soonest entry after \c time_. Null if the timeline is empty.
+     */
+    virtual HarmonyEntry *getHarmony(double time_);
     virtual double getDuration();
     void getScale(std::vector<Event> &score, int dimension, size_t beginAt, size_t endAt, double &minimum, double &range);
-    /** Records the turtle chord on the harmony timeline at \c tyme. */
+    /** Records a reference chord on the harmony timeline with mode Default. */
     virtual void insertChord(double tyme, const Chord chord);
+    /**
+     * Records a reference chord on the harmony timeline with an explicit
+     * conform mode (\c Hc, \c Hcv, or \c Hcs).
+     */
+    virtual void insertChord(double tyme,
+                             const Chord &chord,
+                             HarmonyConformMode mode,
+                             int voices = -1,
+                             double voice_leading_range = OCTAVE());
+    /**
+     * Records functional harmony at \c scale_degree of \c scale with mode
+     * \c Hd or \c Hds.
+     */
+    virtual void insertFunctionalHarmony(double tyme,
+                                         const Scale &scale,
+                                         int scale_degree,
+                                         int voices,
+                                         HarmonyConformMode mode,
+                                         double voice_leading_range = OCTAVE());
+    /**
+     * Returns pitches of notes sounding at \c time, considering score events
+     * with onset in [\c prior_harmony_time, \c time) whose off time is after
+     * \c time.
+     */
+    static Chord gatherSoundingChord(const Score &score,
+                                   double prior_harmony_time,
+                                   double time);
     virtual void setDuration(double targetDuration);
     void setScale(std::vector<Event> &score,
                    int dimension,

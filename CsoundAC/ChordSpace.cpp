@@ -57,6 +57,7 @@
 #include <functional>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <mutex>
 #include <random>
@@ -220,8 +221,196 @@ SILENCE_PUBLIC void conformToChord(Event &event, const Chord &chord) {
     conformToChord_equivalence(event, chord, true);
 }
 
+HarmonyEntry::HarmonyEntry()
+    : mode(HarmonyConformMode::Default),
+      scale_degree(1),
+      voices(-1),
+      voice_leading_range(OCTAVE()) {
+}
+
+namespace {
+
+Chord chord_from_pitches(const std::vector<double> &pitches) {
+    Chord chord;
+    chord.resize(pitches.size());
+    for (size_t voice = 0; voice < pitches.size(); ++voice) {
+        chord.setPitch(static_cast<int>(voice), pitches[voice]);
+    }
+    return chord;
+}
+
+Chord truncate_voices(const Chord &chord, int voices) {
+    if (voices <= 0 || voices >= static_cast<int>(chord.voices())) {
+        return chord;
+    }
+    Chord result = chord;
+    result.resize(static_cast<size_t>(voices));
+    return result;
+}
+
+size_t index_at_or_after(const Score &score, double time) {
+    for (size_t i = 0; i < score.size(); ++i) {
+        if (score[i].getTime() >= time) {
+            return i;
+        }
+    }
+    return score.size();
+}
+
+/**
+ * Returns pitches of notes that are sounding at \c at_time, considering only
+ * score events with onset in [\c prior_harmony_time, \c at_time), and dropping
+ * notes whose off time is not after \c at_time.
+ */
+Chord gather_sounding_at(const Score &score,
+                         double prior_harmony_time,
+                         double at_time) {
+    const size_t begin_index = index_at_or_after(score, prior_harmony_time);
+    const size_t end_index = index_at_or_after(score, at_time);
+    std::set<double> pitches;
+    for (size_t i = begin_index; i < end_index && i < score.size(); ++i) {
+        const Event &event = score[i];
+        if (!event.isNoteOn()) {
+            continue;
+        }
+        const double on_time = event.getTime();
+        const double off_time = event.getOffTime();
+        if (on_time < at_time && off_time > at_time) {
+            pitches.insert(event.getKey());
+        }
+    }
+    std::vector<double> sorted_pitches(pitches.begin(), pitches.end());
+    return chord_from_pitches(sorted_pitches);
+}
+
+Chord functional_target(const HarmonyEntry &entry) {
+    const int voices = entry.voices > 0
+        ? entry.voices
+        : static_cast<int>(entry.scale.voices());
+    return entry.scale.chord(entry.scale_degree, voices);
+}
+
+Chord resolve_reference_chord(const HarmonyEntry &entry) {
+    if (entry.mode == HarmonyConformMode::Hd || entry.mode == HarmonyConformMode::Hds) {
+        return functional_target(entry);
+    }
+    return truncate_voices(entry.chord, entry.voices);
+}
+
+HarmonyConformMode effective_mode(const HarmonyEntry &entry, bool octave_equivalence) {
+    if (entry.mode == HarmonyConformMode::Default) {
+        return octave_equivalence ? HarmonyConformMode::Hc : HarmonyConformMode::Hcv;
+    }
+    return entry.mode;
+}
+
+void conform_segment(ChordScore &score,
+                     double segment_begin,
+                     double segment_end,
+                     const HarmonyEntry &entry,
+                     double prior_harmony_time,
+                     bool octave_equivalence) {
+    const HarmonyConformMode mode = effective_mode(entry, octave_equivalence);
+    Chord reference = resolve_reference_chord(entry);
+    Chord conform_chord = reference;
+    if (mode == HarmonyConformMode::Hcs || mode == HarmonyConformMode::Hds) {
+        const Chord source = gather_sounding_at(score, prior_harmony_time, segment_begin);
+        const Chord target_pcs = reference.epcs();
+        if (source.voices() > 0) {
+            conform_chord = voiceleadingClosestRange(
+                source, target_pcs, entry.voice_leading_range, true);
+        } else {
+            conform_chord = target_pcs;
+        }
+    } else if (mode == HarmonyConformMode::Hc || mode == HarmonyConformMode::Hd) {
+        conform_chord = reference.epcs();
+    }
+    for (size_t i = 0; i < score.size(); ++i) {
+        Event &event = score[i];
+        if (!event.isNoteOn()) {
+            continue;
+        }
+        const double time = event.getTime();
+        if (time < segment_begin || time >= segment_end) {
+            continue;
+        }
+        switch (mode) {
+        case HarmonyConformMode::Hc:
+        case HarmonyConformMode::Hd:
+            conformToChord_equivalence(event, conform_chord, true);
+            break;
+        case HarmonyConformMode::Hcv:
+            conformToChord_equivalence(event, conform_chord, false);
+            break;
+        case HarmonyConformMode::Hcs:
+        case HarmonyConformMode::Hds:
+            conformToChord_equivalence(event, conform_chord, false);
+            break;
+        default:
+            conformToChord_equivalence(event, conform_chord, octave_equivalence);
+            break;
+        }
+    }
+}
+
+} // namespace
+
 SILENCE_PUBLIC void ChordScore::insertChord(double tyme, const Chord chord) {
-    chords_for_times[tyme] = chord;
+    HarmonyEntry entry;
+    entry.chord = chord;
+    entry.mode = HarmonyConformMode::Default;
+    harmonies_for_times[tyme] = entry;
+}
+
+SILENCE_PUBLIC void ChordScore::insertChord(double tyme,
+                                            const Chord &chord,
+                                            HarmonyConformMode mode,
+                                            int voices,
+                                            double voice_leading_range) {
+    HarmonyEntry entry;
+    entry.chord = chord;
+    entry.mode = mode;
+    entry.voices = voices;
+    entry.voice_leading_range = voice_leading_range;
+    harmonies_for_times[tyme] = entry;
+}
+
+SILENCE_PUBLIC void ChordScore::insertFunctionalHarmony(double tyme,
+                                                        const Scale &scale,
+                                                        int scale_degree,
+                                                        int voices,
+                                                        HarmonyConformMode mode,
+                                                        double voice_leading_range) {
+    HarmonyEntry entry;
+    entry.scale = scale;
+    entry.scale_degree = scale_degree;
+    entry.voices = voices;
+    entry.mode = mode;
+    entry.voice_leading_range = voice_leading_range;
+    entry.chord = functional_target(entry);
+    harmonies_for_times[tyme] = entry;
+}
+
+SILENCE_PUBLIC Chord ChordScore::gatherSoundingChord(const Score &score,
+                                                    double prior_harmony_time,
+                                                    double at_time) {
+    return gather_sounding_at(score, prior_harmony_time, at_time);
+}
+
+SILENCE_PUBLIC HarmonyEntry *ChordScore::getHarmony(double time_) {
+    if (harmonies_for_times.empty()) {
+        return nullptr;
+    }
+    auto after = harmonies_for_times.upper_bound(time_);
+    if (after != harmonies_for_times.begin()) {
+        --after;
+        return &after->second;
+    }
+    auto soonest = harmonies_for_times.lower_bound(time_);
+    if (soonest != harmonies_for_times.end()) {
+        return &soonest->second;
+    }
+    return nullptr;
 }
 /**
  * Returns the chord that governs harmony at the given time: the timeline
@@ -229,33 +418,40 @@ SILENCE_PUBLIC void ChordScore::insertChord(double tyme, const Chord chord) {
  * \c time_. Returns null if the timeline is empty.
  */
 SILENCE_PUBLIC Chord *ChordScore::getChord(double time_) {
-    if (chords_for_times.empty()) {
+    HarmonyEntry *entry = getHarmony(time_);
+    if (entry == nullptr) {
         return nullptr;
     }
-    auto after = chords_for_times.upper_bound(time_);
-    if (after != chords_for_times.begin()) {
-        --after;
-        return &after->second;
-    }
-    auto soonest = chords_for_times.lower_bound(time_);
-    if (soonest != chords_for_times.end()) {
-        return &soonest->second;
-    }
-    return nullptr;
+    return &entry->chord;
 }
 
 /**
- * Conforms each note to the chord from getChord at that note's time.
+ * Conforms each note using the harmony entry from getHarmony at that note's
+ * onset time.
  */
 SILENCE_PUBLIC void ChordScore::conformToChords(bool tie_overlaps, bool octave_equivalence) {
     sort();
-    if (chords_for_times.begin() != chords_for_times.end()) {
-        for (auto event_iterator = begin(); event_iterator != end(); ++event_iterator) {
-            Chord *chord = getChord(event_iterator->getTime());
-            if (chord != nullptr) {
-                conformToChord_equivalence(*event_iterator, *chord, octave_equivalence);
-            }
+    if (harmonies_for_times.empty()) {
+        if (tie_overlaps == true) {
+            tieOverlappingNotes(true);
         }
+        return;
+    }
+    double prior_harmony_time = 0.0;
+    for (auto it = harmonies_for_times.begin(); it != harmonies_for_times.end(); ++it) {
+        const double segment_begin = it->first;
+        auto next = it;
+        ++next;
+        const double segment_end = (next == harmonies_for_times.end())
+            ? std::numeric_limits<double>::infinity()
+            : next->first;
+        conform_segment(*this,
+                        segment_begin,
+                        segment_end,
+                        it->second,
+                        prior_harmony_time,
+                        octave_equivalence);
+        prior_harmony_time = segment_begin;
     }
     if (tie_overlaps == true) {
         tieOverlappingNotes(true);
@@ -288,12 +484,12 @@ SILENCE_PUBLIC void ChordScore::getScale(std::vector<Event> &score, int dimensio
                 minimum = beginning;
             }
         }
-        // Also take into account chord times.
-        auto chord_begin = chords_for_times.begin();
-        auto chord_rbegin = chords_for_times.rbegin();
-        if (chord_begin != chords_for_times.end() && chord_rbegin != chords_for_times.rend()) {
-            minimum = std::min(minimum, chord_begin->first);
-            maximum = std::max(maximum, chord_rbegin->first);
+        // Also take into account harmony times.
+        auto harmony_begin = harmonies_for_times.begin();
+        auto harmony_rbegin = harmonies_for_times.rbegin();
+        if (harmony_begin != harmonies_for_times.end() && harmony_rbegin != harmonies_for_times.rend()) {
+            minimum = std::min(minimum, harmony_begin->first);
+            maximum = std::max(maximum, harmony_rbegin->first);
         }
     } else {
         for( ; beginAt != endAt; ++beginAt) {
@@ -346,12 +542,12 @@ SILENCE_PUBLIC void ChordScore::setScale(std::vector<Event> &score,
             event[dimension] = event[dimension] + actualMinimum;
         }
     }
-    // Also rescale chord times.
+    // Also rescale harmony times.
     if (dimension == Event::TIME) {
-        std::map<double, Chord> temp;
-        for (auto it = chords_for_times.begin(); it != chords_for_times.end(); ++it) {
+        std::map<double, HarmonyEntry> temp;
+        for (auto it = harmonies_for_times.begin(); it != harmonies_for_times.end(); ++it) {
             double tyme = it->first;
-            const Chord &chord = it->second;
+            HarmonyEntry entry = it->second;
             tyme = tyme - actualMinimum;
             if (rescaleRange) {
                 tyme = tyme * scale;
@@ -361,9 +557,9 @@ SILENCE_PUBLIC void ChordScore::setScale(std::vector<Event> &score,
             } else {
                 tyme = tyme + actualMinimum;
             }
-            temp[tyme] = chord;
+            temp[tyme] = entry;
         }
-        chords_for_times = temp;
+        harmonies_for_times = temp;
     }
 }
 
@@ -386,11 +582,11 @@ SILENCE_PUBLIC double ChordScore::getDuration()
             }
         }
     }
-    auto chord_begin = chords_for_times.begin();
-    auto chord_rbegin = chords_for_times.rbegin();
-    if (chord_begin != chords_for_times.end() && chord_rbegin != chords_for_times.rend()) {
-        start = std::min(start, chord_begin->first);
-        end = std::max(end, chord_rbegin->first);
+    auto harmony_begin = harmonies_for_times.begin();
+    auto harmony_rbegin = harmonies_for_times.rbegin();
+    if (harmony_begin != harmonies_for_times.end() && harmony_rbegin != harmonies_for_times.rend()) {
+        start = std::min(start, harmony_begin->first);
+        end = std::max(end, harmony_rbegin->first);
     }
     return end - start;
 }
@@ -410,14 +606,14 @@ SILENCE_PUBLIC void ChordScore::setDuration(double targetDuration)
         event.setTime(time_ * factor);
         event.setDuration(duration * factor);
     }
-    std::map<double, Chord> temp;
-    for (auto it = chords_for_times.begin(); it != chords_for_times.end(); ++it) {
+    std::map<double, HarmonyEntry> temp;
+    for (auto it = harmonies_for_times.begin(); it != harmonies_for_times.end(); ++it) {
         double tyme = it->first;
-        const Chord &chord = it->second;
+        HarmonyEntry entry = it->second;
         tyme = tyme * factor;
-        temp[tyme] = chord;
+        temp[tyme] = entry;
     }
-    chords_for_times = temp;
+    harmonies_for_times = temp;
 }
 
 SILENCE_PUBLIC void insert(Score &score,

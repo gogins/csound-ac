@@ -323,6 +323,77 @@ static void test_eq_tolerance() {
     std::cerr << "csound::ge_tolerance(14.0, 12.0): " << csound::ge_tolerance(14.0, 12.0) << std::endl;
 }
 
+static void test_chord_score_conform_modes() {
+    csound::ChordScore score;
+    score.append(0.0, 1.0, 144.0, 1.0, 62.0, 80.0, 0.0);
+    csound::Chord c_major = csound::chordForName("CM");
+    score.insertChord(0.0, c_major, csound::HarmonyConformMode::Hc);
+    score.conformToChords(false, true);
+    const double hc_pitch = score[0].getKey();
+    if (!csound::eq_tolerance(hc_pitch, 60.0) && !csound::eq_tolerance(hc_pitch, 64.0) && !csound::eq_tolerance(hc_pitch, 67.0)) {
+        fail("ChordScore Hc conform");
+    } else {
+        pass("ChordScore Hc conform");
+    }
+
+    csound::ChordScore score_hcv;
+    score_hcv.append(0.0, 1.0, 144.0, 1.0, 50.0, 80.0, 0.0);
+    csound::Chord voiced = csound::chordForName("CM");
+    voiced.setPitch(0, 72.0);
+    voiced.setPitch(1, 76.0);
+    voiced.setPitch(2, 79.0);
+    score_hcv.insertChord(0.0, voiced, csound::HarmonyConformMode::Hcv);
+    score_hcv.conformToChords(false, true);
+    const double hcv_pitch = score_hcv[0].getKey();
+    if (!csound::eq_tolerance(hcv_pitch, 72.0)) {
+        fail("ChordScore Hcv conform");
+    } else {
+        pass("ChordScore Hcv conform");
+    }
+
+    csound::ChordScore score_hcs;
+    score_hcs.append(0.0, 2.0, 144.0, 1.0, 60.0, 80.0, 0.0);
+    score_hcs.append(0.0, 2.0, 144.0, 2.0, 64.0, 80.0, 0.0);
+    score_hcs.append(1.0, 1.0, 144.0, 1.0, 74.0, 80.0, 0.0);
+    csound::Chord target = csound::chordForName("Em");
+    score_hcs.insertChord(1.0, target, csound::HarmonyConformMode::Hcs);
+    score_hcs.conformToChords(false, true);
+    const double hcs_pitch = score_hcs[2].getKey();
+    const csound::Chord em_pcs = target.epcs();
+    bool in_em = false;
+    for (int voice = 0; voice < static_cast<int>(em_pcs.voices()); ++voice) {
+        if (csound::eq_tolerance(hcs_pitch, em_pcs.getPitch(voice))) {
+            in_em = true;
+            break;
+        }
+    }
+    if (!in_em) {
+        fail("ChordScore Hcs conform");
+    } else {
+        pass("ChordScore Hcs conform");
+    }
+
+    csound::ChordScore score_hd;
+    score_hd.append(0.0, 1.0, 144.0, 1.0, 62.0, 80.0, 0.0);
+    const csound::Scale &c_major_scale = csound::scaleForName("C major");
+    score_hd.insertFunctionalHarmony(0.0, c_major_scale, 1, 3, csound::HarmonyConformMode::Hd);
+    score_hd.conformToChords(false, true);
+    const double hd_pitch = score_hd[0].getKey();
+    const csound::Chord tonic = c_major_scale.chord(1, 3);
+    bool in_tonic = false;
+    for (int voice = 0; voice < static_cast<int>(tonic.voices()); ++voice) {
+        if (csound::eq_tolerance(hd_pitch, tonic.getPitch(voice))) {
+            in_tonic = true;
+            break;
+        }
+    }
+    if (!in_tonic) {
+        fail("ChordScore Hd conform");
+    } else {
+        pass("ChordScore Hd conform");
+    }
+}
+
 int main(int argc, char **argv) {
     csound::System::message("C H O R D S P A C E   U N I T   T E S T S\n\n");
     setvbuf(stderr, nullptr, _IONBF, 0);
@@ -418,6 +489,8 @@ int main(int argc, char **argv) {
     
     test_pitv(pitv_4, "D#7b5");
     test_pitv(3, 4);
+
+    test_chord_score_conform_modes();
 
     summary();
     return 0;
