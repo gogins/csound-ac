@@ -249,38 +249,102 @@ Chord truncate_voices(const Chord &chord, int voices) {
 }
 
 size_t index_at_or_after(const Score &score, double time) {
-    for (size_t i = 0; i < score.size(); ++i) {
-        if (score[i].getTime() >= time) {
-            return i;
+    size_t lo = 0;
+    size_t hi = score.size();
+    while (lo < hi) {
+        const size_t mid = lo + (hi - lo) / 2;
+        if (score[mid].getTime() < time) {
+            lo = mid + 1;
+        } else {
+            hi = mid;
         }
     }
-    return score.size();
+    return lo;
+}
+
+bool pitch_in_list(const std::vector<double> &pitches, double pitch) {
+    for (double p : pitches) {
+        if (eq_tolerance(p, pitch)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool overlaps_harmony_segment(double on_time,
+                              double off_time,
+                              double prior_harmony_time,
+                              double at_time) {
+    return on_time < at_time && off_time > prior_harmony_time;
 }
 
 /**
- * Returns pitches of notes that are sounding at \c at_time, considering only
- * score events with onset in [\c prior_harmony_time, \c at_time), and dropping
- * notes whose off time is not after \c at_time.
+ * Returns up to \c voices pitches for voice-leading from the score segment
+ * [\c prior_harmony_time, \c at_time). Notes sounding at \c at_time are taken
+ * first; if there are fewer than \c voices, the remainder are the most
+ * recently ended notes from that segment (latest off time first), found by
+ * scanning backward from the segment end.
  */
 Chord gather_sounding_at(const Score &score,
                          double prior_harmony_time,
-                         double at_time) {
+                         double at_time,
+                         int voices) {
     const size_t begin_index = index_at_or_after(score, prior_harmony_time);
     const size_t end_index = index_at_or_after(score, at_time);
-    std::set<double> pitches;
-    for (size_t i = begin_index; i < end_index && i < score.size(); ++i) {
-        const Event &event = score[i];
-        if (!event.isNoteOn()) {
-            continue;
-        }
-        const double on_time = event.getTime();
-        const double off_time = event.getOffTime();
-        if (on_time < at_time && off_time > at_time) {
-            pitches.insert(event.getKey());
+    std::vector<double> pitches;
+    std::vector<std::pair<double, double>> ended_candidates;
+
+    if (end_index > begin_index) {
+        for (size_t i = end_index; i > begin_index; ) {
+            --i;
+            const Event &event = score[i];
+            if (!event.isNoteOn()) {
+                continue;
+            }
+            const double on_time = event.getTime();
+            const double off_time = event.getOffTime();
+            if (!overlaps_harmony_segment(on_time, off_time, prior_harmony_time, at_time)) {
+                continue;
+            }
+            const double pitch = event.getKey();
+            if (on_time < at_time && off_time > at_time) {
+                if (!pitch_in_list(pitches, pitch)) {
+                    pitches.push_back(pitch);
+                }
+            } else if (off_time <= at_time) {
+                bool found = false;
+                for (auto &candidate : ended_candidates) {
+                    if (eq_tolerance(candidate.first, pitch)) {
+                        if (off_time > candidate.second) {
+                            candidate.second = off_time;
+                        }
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    ended_candidates.emplace_back(pitch, off_time);
+                }
+            }
         }
     }
-    std::vector<double> sorted_pitches(pitches.begin(), pitches.end());
-    return chord_from_pitches(sorted_pitches);
+
+    if (voices > 0 && static_cast<int>(pitches.size()) < voices && !ended_candidates.empty()) {
+        std::sort(ended_candidates.begin(), ended_candidates.end(),
+                  [](const std::pair<double, double> &a, const std::pair<double, double> &b) {
+                      return a.second > b.second;
+                  });
+        for (const auto &candidate : ended_candidates) {
+            if (static_cast<int>(pitches.size()) >= voices) {
+                break;
+            }
+            if (!pitch_in_list(pitches, candidate.first)) {
+                pitches.push_back(candidate.first);
+            }
+        }
+    }
+
+    return chord_from_pitches(pitches);
 }
 
 Chord functional_target(const HarmonyEntry &entry) {
@@ -314,7 +378,11 @@ void conform_segment(ChordScore &score,
     Chord reference = resolve_reference_chord(entry);
     Chord conform_chord = reference;
     if (mode == HarmonyConformMode::Hcs || mode == HarmonyConformMode::Hds) {
-        const Chord source = gather_sounding_at(score, prior_harmony_time, segment_begin);
+        const int target_voices = entry.voices > 0
+            ? entry.voices
+            : static_cast<int>(reference.voices());
+        Chord source = gather_sounding_at(
+            score, prior_harmony_time, segment_begin, target_voices);
         const Chord target_pcs = reference.epcs();
         if (source.voices() > 0) {
             conform_chord = voiceleadingClosestRange(
@@ -325,13 +393,11 @@ void conform_segment(ChordScore &score,
     } else if (mode == HarmonyConformMode::Hc || mode == HarmonyConformMode::Hd) {
         conform_chord = reference.epcs();
     }
-    for (size_t i = 0; i < score.size(); ++i) {
+    const size_t note_begin = index_at_or_after(score, segment_begin);
+    const size_t note_end = index_at_or_after(score, segment_end);
+    for (size_t i = note_begin; i < note_end && i < score.size(); ++i) {
         Event &event = score[i];
         if (!event.isNoteOn()) {
-            continue;
-        }
-        const double time = event.getTime();
-        if (time < segment_begin || time >= segment_end) {
             continue;
         }
         switch (mode) {
@@ -394,7 +460,14 @@ SILENCE_PUBLIC void ChordScore::insertFunctionalHarmony(double tyme,
 SILENCE_PUBLIC Chord ChordScore::gatherSoundingChord(const Score &score,
                                                     double prior_harmony_time,
                                                     double at_time) {
-    return gather_sounding_at(score, prior_harmony_time, at_time);
+    return gather_sounding_at(score, prior_harmony_time, at_time, -1);
+}
+
+SILENCE_PUBLIC Chord ChordScore::gatherSoundingChord(const Score &score,
+                                                    double prior_harmony_time,
+                                                    double at_time,
+                                                    int voices) {
+    return gather_sounding_at(score, prior_harmony_time, at_time, voices);
 }
 
 SILENCE_PUBLIC HarmonyEntry *ChordScore::getHarmony(double time_) {

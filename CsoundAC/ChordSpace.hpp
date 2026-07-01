@@ -3849,13 +3849,18 @@ public:
                                          HarmonyConformMode mode,
                                          double voice_leading_range = OCTAVE());
     /**
-     * Returns pitches of notes sounding at \c time, considering score events
-     * with onset in [\c prior_harmony_time, \c time) whose off time is after
-     * \c time.
+     * Returns pitches for voice-leading from the score segment between
+     * \c prior_harmony_time and \c time. Notes still sounding at \c time are
+     * returned first; if \c voices is positive and there are fewer such notes,
+     * the remainder are the most recently ended notes from that segment.
      */
     static Chord gatherSoundingChord(const Score &score,
                                    double prior_harmony_time,
                                    double time);
+    static Chord gatherSoundingChord(const Score &score,
+                                   double prior_harmony_time,
+                                   double time,
+                                   int voices);
     virtual void setDuration(double targetDuration);
     void setScale(std::vector<Event> &score,
                    int dimension,

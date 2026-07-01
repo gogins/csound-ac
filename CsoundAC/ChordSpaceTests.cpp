@@ -323,6 +323,43 @@ static void test_eq_tolerance() {
     std::cerr << "csound::ge_tolerance(14.0, 12.0): " << csound::ge_tolerance(14.0, 12.0) << std::endl;
 }
 
+static void test_gather_sounding_chord() {
+    csound::ChordScore score;
+    score.append(0.0, 1.0, 144.0, 1.0, 60.0, 80.0, 0.0);
+    score.append(0.0, 3.0, 144.0, 1.0, 64.0, 80.0, 0.0);
+    score.append(1.5, 1.0, 144.0, 1.0, 67.0, 80.0, 0.0);
+    csound::Chord sounding_only = csound::ChordScore::gatherSoundingChord(score, 0.0, 2.0, 2);
+    if (sounding_only.voices() != 2
+        || !csound::eq_tolerance(sounding_only.getPitch(0), 67.0)
+        || !csound::eq_tolerance(sounding_only.getPitch(1), 64.0)) {
+        fail("gatherSoundingChord sounding at segment end");
+    } else {
+        pass("gatherSoundingChord sounding at segment end");
+    }
+
+    csound::Chord with_recent = csound::ChordScore::gatherSoundingChord(score, 0.0, 2.0, 3);
+    if (with_recent.voices() != 3
+        || !csound::eq_tolerance(with_recent.getPitch(2), 60.0)) {
+        fail("gatherSoundingChord recent ended fill");
+    } else {
+        pass("gatherSoundingChord recent ended fill");
+    }
+
+    csound::ChordScore recent_score;
+    recent_score.append(0.0, 0.5, 144.0, 1.0, 50.0, 80.0, 0.0);
+    recent_score.append(0.5, 1.0, 144.0, 1.0, 55.0, 80.0, 0.0);
+    recent_score.append(1.0, 2.0, 144.0, 1.0, 58.0, 80.0, 0.0);
+    csound::Chord recent_order = csound::ChordScore::gatherSoundingChord(recent_score, 0.0, 2.0, 3);
+    if (recent_order.voices() != 3
+        || !csound::eq_tolerance(recent_order.getPitch(0), 58.0)
+        || !csound::eq_tolerance(recent_order.getPitch(1), 55.0)
+        || !csound::eq_tolerance(recent_order.getPitch(2), 50.0)) {
+        fail("gatherSoundingChord recent ended ordering");
+    } else {
+        pass("gatherSoundingChord recent ended ordering");
+    }
+}
+
 static void test_chord_score_conform_modes() {
     csound::ChordScore score;
     score.append(0.0, 1.0, 144.0, 1.0, 62.0, 80.0, 0.0);
@@ -490,6 +527,7 @@ int main(int argc, char **argv) {
     test_pitv(pitv_4, "D#7b5");
     test_pitv(3, 4);
 
+    test_gather_sounding_chord();
     test_chord_score_conform_modes();
 
     summary();
