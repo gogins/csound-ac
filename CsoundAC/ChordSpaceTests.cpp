@@ -358,6 +358,17 @@ static void test_gather_sounding_chord() {
     } else {
         pass("gatherSoundingChord recent ended ordering");
     }
+
+    csound::ChordScore dense_score;
+    for (int i = 0; i < 20; ++i) {
+        dense_score.append(0.0, 3.0, 144.0, 1.0, 60.0 + static_cast<double>(i), 80.0, 0.0);
+    }
+    csound::Chord capped = csound::ChordScore::gatherSoundingChord(dense_score, 0.0, 1.0, 3);
+    if (capped.voices() != 3) {
+        fail("gatherSoundingChord caps sounding voices");
+    } else {
+        pass("gatherSoundingChord caps sounding voices");
+    }
 }
 
 static void test_chord_score_conform_modes() {
@@ -399,12 +410,12 @@ static void test_chord_score_conform_modes() {
     const csound::Chord em_pcs = target.epcs();
     bool in_em = false;
     for (int voice = 0; voice < static_cast<int>(em_pcs.voices()); ++voice) {
-        if (csound::eq_tolerance(hcs_pitch, em_pcs.getPitch(voice))) {
+        if (csound::eq_tolerance(csound::epc(hcs_pitch), em_pcs.getPitch(voice))) {
             in_em = true;
             break;
         }
     }
-    if (!in_em) {
+    if (!in_em || hcs_pitch < 48.0) {
         fail("ChordScore Hcs conform");
     } else {
         pass("ChordScore Hcs conform");

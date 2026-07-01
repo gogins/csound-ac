@@ -310,6 +310,9 @@ Chord gather_sounding_at(const Score &score,
             if (on_time < at_time && off_time > at_time) {
                 if (!pitch_in_list(pitches, pitch)) {
                     pitches.push_back(pitch);
+                    if (voices > 0 && static_cast<int>(pitches.size()) >= voices) {
+                        break;
+                    }
                 }
             } else if (off_time <= at_time) {
                 bool found = false;
@@ -344,6 +347,10 @@ Chord gather_sounding_at(const Score &score,
         }
     }
 
+    if (voices > 0 && static_cast<int>(pitches.size()) > voices) {
+        pitches.resize(static_cast<size_t>(voices));
+    }
+
     return chord_from_pitches(pitches);
 }
 
@@ -368,6 +375,22 @@ HarmonyConformMode effective_mode(const HarmonyEntry &entry, bool octave_equival
     return entry.mode;
 }
 
+Chord align_voicing_register(const Chord &voiced, const Chord &source) {
+    if (voiced.voices() == 0 || source.voices() == 0) {
+        return voiced;
+    }
+    const std::vector<double> source_min = source.min();
+    const std::vector<double> voiced_min = voiced.min();
+    if (source_min.empty() || voiced_min.empty()) {
+        return voiced;
+    }
+    const double offset = std::round((source_min.front() - voiced_min.front()) / OCTAVE()) * OCTAVE();
+    if (eq_tolerance(offset, 0.0)) {
+        return voiced;
+    }
+    return voiced.T(offset);
+}
+
 void conform_segment(ChordScore &score,
                      double segment_begin,
                      double segment_end,
@@ -383,12 +406,14 @@ void conform_segment(ChordScore &score,
             : static_cast<int>(reference.voices());
         Chord source = gather_sounding_at(
             score, prior_harmony_time, segment_begin, target_voices);
+        source = truncate_voices(source, target_voices);
         const Chord target_pcs = reference.epcs();
         if (source.voices() > 0) {
             conform_chord = voiceleadingClosestRange(
                 source, target_pcs, entry.voice_leading_range, true);
+            conform_chord = align_voicing_register(conform_chord, source);
         } else {
-            conform_chord = target_pcs;
+            conform_chord = resolve_reference_chord(entry);
         }
     } else if (mode == HarmonyConformMode::Hc || mode == HarmonyConformMode::Hd) {
         conform_chord = reference.epcs();
@@ -410,7 +435,7 @@ void conform_segment(ChordScore &score,
             break;
         case HarmonyConformMode::Hcs:
         case HarmonyConformMode::Hds:
-            conformToChord_equivalence(event, conform_chord, false);
+            conformToChord_equivalence(event, conform_chord, true);
             break;
         default:
             conformToChord_equivalence(event, conform_chord, octave_equivalence);
@@ -4760,16 +4785,30 @@ SILENCE_PUBLIC Chord voiceleadingCloser(const Chord &source, const Chord &d1, co
 }
 
 SILENCE_PUBLIC Chord voiceleadingClosestRange(const Chord &source, const Chord &destination, double range, bool avoidParallels) {
+    static const int kMaxVoicesForExhaustiveSearch = 12;
+    Chord bounded_source = source;
+    if (bounded_source.voices() > kMaxVoicesForExhaustiveSearch) {
+        bounded_source = truncate_voices(bounded_source, kMaxVoicesForExhaustiveSearch);
+    }
     Chord destinationOP = destination.eOP();
     Chord d = destinationOP;
-    Chord origin = source.eOP();
+    Chord origin = bounded_source.eOP();
+    if (origin.voices() == 0) {
+        return d;
+    }
+    const int max_steps = std::max(1, octavewiseRevoicings(origin, range));
     Chord odometer = origin;
+    int steps = 0;
     while (next(odometer, origin, range, OCTAVE())) {
+        if (++steps > max_steps) {
+            break;
+        }
         Chord revoicing = odometer;
-        for (int voice = 0; voice < revoicing.voices(); ++voice) {
+        const int voice_count = std::min(revoicing.voices(), destinationOP.voices());
+        for (int voice = 0; voice < voice_count; ++voice) {
             revoicing.setPitch(voice, revoicing.getPitch(voice) + destinationOP.getPitch(voice));
         }
-        d = voiceleadingCloser(source, d, revoicing, avoidParallels);
+        d = voiceleadingCloser(bounded_source, d, revoicing, avoidParallels);
     }
     return d;
 }

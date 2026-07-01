@@ -29,6 +29,7 @@
 #include <cstdarg>
 #include <iostream>
 #include <fstream>
+#include <map>
 #include <set>
 #include <sstream>
 
@@ -1579,42 +1580,51 @@ namespace csound
     void Score::tieOverlappingNotes(bool considerInstrumentNumber)
     {
         sort();
-        for (int laterI = size() - 1; laterI > 1; --laterI)
-        {
-            Event &laterEvent = (*this)[laterI];
-            if (!laterEvent.isNote())
-            {
+        if (size() <= 1) {
+            return;
+        }
+        struct TieKey {
+            int key;
+            int channel;
+            bool operator<(const TieKey &other) const {
+                if (key != other.key) {
+                    return key < other.key;
+                }
+                return channel < other.channel;
+            }
+        };
+        std::vector<size_t> keep;
+        keep.reserve(size());
+        std::map<TieKey, size_t> last_by_key;
+        for (size_t i = 0; i < size(); ++i) {
+            Event &event = (*this)[i];
+            if (!event.isNote() || event.getVelocity() <= 0.0) {
+                keep.push_back(i);
                 continue;
             }
-            for (int earlierI = laterI - 1; earlierI > 0; --earlierI)
-            {
-                Event &earlierEvent = (*this)[earlierI];
-                if (!earlierEvent.isNote())
-                {
+            const TieKey tie_key{
+                static_cast<int>(event.getKeyNumber()),
+                considerInstrumentNumber ? static_cast<int>(event.getChannel()) : 0};
+            auto found = last_by_key.find(tie_key);
+            if (found != last_by_key.end()) {
+                Event &earlier = (*this)[keep[found->second]];
+                if (earlier.getOffTime() >= event.getTime()) {
+                    earlier.setOffTime(event.getOffTime());
                     continue;
                 }
-                if (earlierEvent.getKeyNumber() != laterEvent.getKeyNumber())
-                {
-                    continue;
-                }
-                if (earlierEvent.getVelocity() <= 0.0 || laterEvent.getVelocity() <= 0.0)
-                {
-                    continue;
-                }
-                if (earlierEvent.getOffTime() < laterEvent.getTime())
-                {
-                    continue;
-                }
-                if (considerInstrumentNumber && (earlierEvent.getChannel() != laterEvent.getChannel()))
-                {
-                    continue;
-                }
-                // Ok, must be tied.
-                earlierEvent.setOffTime(laterEvent.getOffTime());
-                erase(begin() + laterI);
-                break;
             }
+            last_by_key[tie_key] = keep.size();
+            keep.push_back(i);
         }
+        if (keep.size() == size()) {
+            return;
+        }
+        std::vector<Event> tied;
+        tied.reserve(keep.size());
+        for (size_t index : keep) {
+            tied.push_back((*this)[index]);
+        }
+        static_cast<std::vector<Event> &>(*this) = std::move(tied);
     }
 
     void Score::temper(double tonesPerOctave)
