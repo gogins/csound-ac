@@ -3862,6 +3862,7 @@ public:
                                    double time,
                                    int voices);
     virtual void setDuration(double targetDuration);
+    virtual void setDurationFromZero(double targetDuration) override;
     void setScale(std::vector<Event> &score,
                    int dimension,
                    bool rescaleMinimum,

@@ -714,6 +714,40 @@ SILENCE_PUBLIC void ChordScore::setDuration(double targetDuration)
     harmonies_for_times = temp;
 }
 
+SILENCE_PUBLIC void ChordScore::setDurationFromZero(double targetDuration)
+{
+    sort();
+    double start = 0.0;
+    bool have_start = false;
+    for (size_t i = 0, n = size(); i < n; ++i) {
+        const double time_ = at(i).getTime();
+        if (!have_start || time_ < start) {
+            start = time_;
+            have_start = true;
+        }
+    }
+    if (!harmonies_for_times.empty()) {
+        const double harmony_start = harmonies_for_times.begin()->first;
+        if (!have_start || harmony_start < start) {
+            start = harmony_start;
+            have_start = true;
+        }
+    }
+    if (!have_start) {
+        return;
+    }
+    for (size_t i = 0, n = size(); i < n; ++i) {
+        Event &event = (*this)[i];
+        event.setTime(event.getTime() - start);
+    }
+    std::map<double, HarmonyEntry> shifted;
+    for (auto it = harmonies_for_times.begin(); it != harmonies_for_times.end(); ++it) {
+        shifted[it->first - start] = it->second;
+    }
+    harmonies_for_times = std::move(shifted);
+    setDuration(targetDuration);
+}
+
 SILENCE_PUBLIC void insert(Score &score,
                                   const Chord &chord,
                                   double time_) {

@@ -371,6 +371,28 @@ static void test_gather_sounding_chord() {
     }
 }
 
+static void test_chord_score_set_duration_from_zero() {
+    csound::ChordScore score;
+    score.append(-1.0, 1.0, 144.0, 1.0, 60.0, 80.0, 0.0);
+    score.insertChord(-0.5, csound::chordForName("CM"));
+    score.setDurationFromZero(10.0);
+    if (!csound::eq_tolerance(score[0].getTime(), 0.0)) {
+        fail("ChordScore setDurationFromZero note onset");
+    } else {
+        pass("ChordScore setDurationFromZero note onset");
+    }
+    if (score.getHarmony(0.0) == nullptr) {
+        fail("ChordScore setDurationFromZero harmony at zero");
+    } else {
+        pass("ChordScore setDurationFromZero harmony at zero");
+    }
+    if (!csound::eq_tolerance(score.getDuration(), 10.0)) {
+        fail("ChordScore setDurationFromZero total duration");
+    } else {
+        pass("ChordScore setDurationFromZero total duration");
+    }
+}
+
 static void test_chord_score_conform_modes() {
     csound::ChordScore score;
     score.append(0.0, 1.0, 144.0, 1.0, 62.0, 80.0, 0.0);
@@ -539,6 +561,7 @@ int main(int argc, char **argv) {
     test_pitv(3, 4);
 
     test_gather_sounding_chord();
+    test_chord_score_set_duration_from_zero();
     test_chord_score_conform_modes();
 
     summary();
