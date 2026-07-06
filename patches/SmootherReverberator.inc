@@ -1,41 +1,24 @@
-; SmootherReverberator.inc
-; Self-contained stereo reverb module for Csound modular patches.
-; It uses the same inlet/outlet convention as SmoothReverberator.inc:
+; SmootherReverberator-v0.4.0.inc
+; Stability-first, self-contained stereo reverb module for Csound modular patches.
+; Version 0.4.0 uses a strictly passive late-field core:
+;   - fixed, non-interpolated main FDN delay taps;
+;   - an energy-normalized 8 x 8 Hadamard scattering matrix;
+;   - feedback gains strictly below unity, calibrated from RT60;
+;   - first-order complementary low/high decay shaping;
+;   - four input allpass diffusers per channel;
+;   - predelay, decorrelated early reflections, and multitap stereo output.
+; No reverbsc, freeverb, convolution, or external plugin is used.
 ;
+; Modular connections:
 ;   connect "Source", "outleft",  "SmootherReverberator", "inleft"
 ;   connect "Source", "outright", "SmootherReverberator", "inright"
 ;   connect "SmootherReverberator", "outleft",  "MasterOutput", "inleft"
 ;   connect "SmootherReverberator", "outright", "MasterOutput", "inright"
 ;   alwayson "SmootherReverberator"
 ;
-; The late field is an eight-line feedback-delay network with:
-;   - sample-accurate feedback inside a local-ksmps UDO;
-;   - four serial input allpasses per channel;
-;   - an internal allpass diffuser in every feedback path;
-;   - a normalized Hadamard feedback matrix;
-;   - RT60-calibrated low/mid feedback and independently shorter high decay;
-;   - subtle non-periodic modulation of selected internal diffusers;
-;   - predelay, decorrelated early reflections, and multitap stereo outputs;
-;   - parameter smoothing, DC blocking, and denormal protection.
-;
-; This is an independent implementation. It does not use reverbsc, freeverb,
-; convolution, MVerb source code, or external plugins.
-;
-; Exported controls:
-;   gk_SmootherReverberator_decay_time       low/mid RT60 in seconds
-;   gk_SmootherReverberator_wet              wet fraction, 0 to 1
-;   gk_SmootherReverberator_delay_modulation internal diffuser modulation, seconds
-;   gk_SmootherReverberator_modulation_rate  modulation breakpoint rate, Hz
-;   gk_SmootherReverberator_frequency_cutoff high-decay crossover, Hz
-;   gk_SmootherReverberator_high_decay_ratio high RT60 / low-mid RT60
-;   gk_SmootherReverberator_bandwidth        input low-pass cutoff, Hz
-;   gk_SmootherReverberator_predelay         predelay in seconds
-;   gk_SmootherReverberator_early_level      early-reflection level, 0 to 1
-;   gk_SmootherReverberator_density          diffusion density, 0 to 1
-;   gk_SmootherReverberator_size             delay-length scale, 0.5 to 1.5
-;   gk_SmootherReverberator_stereo_width     wet M/S width, 0 to 2
-;   gk_SmootherReverberator_input_highpass   input/output high-pass cutoff, Hz
-;   gk_SmootherReverberator_reverb_gain      final wet-field gain
+; The modulation controls are retained for interface compatibility but are
+; intentionally bypassed in version 0.4.0. Modulation should be reintroduced
+; only after this passive reference implementation is confirmed stable.
 
 gk_SmootherReverberator_decay_time chnexport "gk_SmootherReverberator_decay_time", 3
 gk_SmootherReverberator_wet chnexport "gk_SmootherReverberator_wet", 3
@@ -54,7 +37,7 @@ gk_SmootherReverberator_reverb_gain chnexport "gk_SmootherReverberator_reverb_ga
 
 gk_SmootherReverberator_decay_time init 22
 gk_SmootherReverberator_wet init 0.5
-gk_SmootherReverberator_delay_modulation init 0.00012
+gk_SmootherReverberator_delay_modulation init 0
 gk_SmootherReverberator_modulation_rate init 0.13
 gk_SmootherReverberator_frequency_cutoff init 6000
 gk_SmootherReverberator_high_decay_ratio init 0.45
@@ -69,64 +52,67 @@ gk_SmootherReverberator_reverb_gain init 0.72
 
 opcode SmootherReverberatorAllpass, a, akik
     aInput, kDelayTime, iMaximumDelay, kFeedback xin
+    setksmps 1
+    kSafeDelay limit kDelayTime, 1 / sr, iMaximumDelay - (1 / sr)
+    kSafeFeedback limit kFeedback, -0.75, 0.75
     aDelayBuffer delayr iMaximumDelay
-    aDelayed deltap3 kDelayTime
-    aOutput = aDelayed - (kFeedback * aInput)
-    delayw aInput + (kFeedback * aOutput)
+    aDelayed deltap kSafeDelay
+    aOutput = aDelayed - (kSafeFeedback * aInput)
+    delayw aInput + (kSafeFeedback * aOutput)
     xout aOutput
 endop
 
-opcode SmootherReverberator, aa, aakkkkkkkkkkkkk
+opcode SmootherReverberatorCore, aa, aakkkkkkkkkkkkk
     aInputLeft, aInputRight, kDecayTime, kModulationDepth, kModulationRate, kBandwidth, kHighCrossover, kHighDecayRatio, kPredelay, kEarlyLevel, kDensity, kSize, kStereoWidth, kInputHighpass, kReverbGain xin
     setksmps 1
+    kDecaySafe limit kDecayTime, 0.25, 90
     kNyquistLimit = sr * 0.45
-    kPredelayRead limit kPredelay, 1 / sr, 0.150
-    kBandwidthLimited limit kBandwidth, 500, kNyquistLimit
-    kHighCrossoverLimited limit kHighCrossover, 500, kNyquistLimit
-    kSizeLimited limit kSize, 0.5, 1.5
-    kDensityLimited limit kDensity, 0, 1
-    kHighDecayRatioLimited limit kHighDecayRatio, 0.05, 1
-    kDiffusion1 = 0.40 + (0.30 * kDensityLimited)
-    kDiffusion2 = 0.38 + (0.29 * kDensityLimited)
-    kDiffusion3 = 0.36 + (0.28 * kDensityLimited)
-    kDiffusion4 = 0.34 + (0.27 * kDensityLimited)
-    kTankDiffusion = 0.30 + (0.25 * kDensityLimited)
-    aHighpassedLeft butterhp aInputLeft, kInputHighpass
-    aHighpassedRight butterhp aInputRight, kInputHighpass
-    aBandwidthLeft tone aHighpassedLeft, kBandwidthLimited
-    aBandwidthRight tone aHighpassedRight, kBandwidthLimited
+    kBandwidthSafe limit kBandwidth, 500, kNyquistLimit
+    kHighCrossoverSafe limit kHighCrossover, 500, kNyquistLimit
+    kHighDecayRatioSafe limit kHighDecayRatio, 0.05, 1
+    kPredelaySafe limit kPredelay, 1 / sr, 0.150
+    kDensitySafe limit kDensity, 0, 1
+    kSizeSafe limit kSize, 0.5, 1.5
+    kStereoWidthSafe limit kStereoWidth, 0, 2
+    kInputHighpassSafe limit kInputHighpass, 5, 1000
+    kReverbGainSafe limit kReverbGain, 0, 4
+    kEarlyLevelSafe limit kEarlyLevel, 0, 1
+    kDiffusion1 = 0.38 + (0.28 * kDensitySafe)
+    kDiffusion2 = 0.36 + (0.27 * kDensitySafe)
+    kDiffusion3 = 0.34 + (0.26 * kDensitySafe)
+    kDiffusion4 = 0.32 + (0.25 * kDensitySafe)
+    aInputHPLeft butterhp aInputLeft, kInputHighpassSafe
+    aInputHPRight butterhp aInputRight, kInputHighpassSafe
+    aInputBWLeft tone aInputHPLeft, kBandwidthSafe
+    aInputBWRight tone aInputHPRight, kBandwidthSafe
     aPredelayBufferLeft delayr 0.300
-    aPredelayedLeft deltap3 kPredelayRead
-    aEarlyLeft1 deltap3 kPredelayRead + (0.0073 * kSizeLimited)
-    aEarlyLeft2 deltap3 kPredelayRead + (0.0137 * kSizeLimited)
-    aEarlyLeft3 deltap3 kPredelayRead + (0.0229 * kSizeLimited)
-    aEarlyLeft4 deltap3 kPredelayRead + (0.0361 * kSizeLimited)
-    aEarlyLeft5 deltap3 kPredelayRead + (0.0527 * kSizeLimited)
-    aEarlyLeft6 deltap3 kPredelayRead + (0.0743 * kSizeLimited)
-    delayw aBandwidthLeft
+    aPredelayedLeft deltap kPredelaySafe
+    aEarlyLeft1 deltap kPredelaySafe + (0.0073 * kSizeSafe)
+    aEarlyLeft2 deltap kPredelaySafe + (0.0137 * kSizeSafe)
+    aEarlyLeft3 deltap kPredelaySafe + (0.0229 * kSizeSafe)
+    aEarlyLeft4 deltap kPredelaySafe + (0.0361 * kSizeSafe)
+    aEarlyLeft5 deltap kPredelaySafe + (0.0527 * kSizeSafe)
+    aEarlyLeft6 deltap kPredelaySafe + (0.0743 * kSizeSafe)
+    delayw aInputBWLeft
     aPredelayBufferRight delayr 0.300
-    aPredelayedRight deltap3 kPredelayRead
-    aEarlyRight1 deltap3 kPredelayRead + (0.0089 * kSizeLimited)
-    aEarlyRight2 deltap3 kPredelayRead + (0.0163 * kSizeLimited)
-    aEarlyRight3 deltap3 kPredelayRead + (0.0269 * kSizeLimited)
-    aEarlyRight4 deltap3 kPredelayRead + (0.0419 * kSizeLimited)
-    aEarlyRight5 deltap3 kPredelayRead + (0.0593 * kSizeLimited)
-    aEarlyRight6 deltap3 kPredelayRead + (0.0817 * kSizeLimited)
-    delayw aBandwidthRight
-    aDiffusedLeft1 SmootherReverberatorAllpass aPredelayedLeft, 0.00317 * kSizeLimited, 0.008, kDiffusion1
-    aDiffusedLeft2 SmootherReverberatorAllpass aDiffusedLeft1, 0.00493 * kSizeLimited, 0.010, kDiffusion2
-    aDiffusedLeft3 SmootherReverberatorAllpass aDiffusedLeft2, 0.00761 * kSizeLimited, 0.014, kDiffusion3
-    aDiffusedLeft4 SmootherReverberatorAllpass aDiffusedLeft3, 0.01129 * kSizeLimited, 0.020, kDiffusion4
-    aDiffusedRight1 SmootherReverberatorAllpass aPredelayedRight, 0.00371 * kSizeLimited, 0.008, kDiffusion1
-    aDiffusedRight2 SmootherReverberatorAllpass aDiffusedRight1, 0.00547 * kSizeLimited, 0.011, kDiffusion2
-    aDiffusedRight3 SmootherReverberatorAllpass aDiffusedRight2, 0.00823 * kSizeLimited, 0.015, kDiffusion3
-    aDiffusedRight4 SmootherReverberatorAllpass aDiffusedRight3, 0.01231 * kSizeLimited, 0.022, kDiffusion4
+    aPredelayedRight deltap kPredelaySafe
+    aEarlyRight1 deltap kPredelaySafe + (0.0089 * kSizeSafe)
+    aEarlyRight2 deltap kPredelaySafe + (0.0163 * kSizeSafe)
+    aEarlyRight3 deltap kPredelaySafe + (0.0269 * kSizeSafe)
+    aEarlyRight4 deltap kPredelaySafe + (0.0419 * kSizeSafe)
+    aEarlyRight5 deltap kPredelaySafe + (0.0593 * kSizeSafe)
+    aEarlyRight6 deltap kPredelaySafe + (0.0817 * kSizeSafe)
+    delayw aInputBWRight
+    aDiffusedLeft1 SmootherReverberatorAllpass aPredelayedLeft, 0.00317 * kSizeSafe, 0.008, kDiffusion1
+    aDiffusedLeft2 SmootherReverberatorAllpass aDiffusedLeft1, 0.00493 * kSizeSafe, 0.010, kDiffusion2
+    aDiffusedLeft3 SmootherReverberatorAllpass aDiffusedLeft2, 0.00761 * kSizeSafe, 0.014, kDiffusion3
+    aDiffusedLeft4 SmootherReverberatorAllpass aDiffusedLeft3, 0.01129 * kSizeSafe, 0.020, kDiffusion4
+    aDiffusedRight1 SmootherReverberatorAllpass aPredelayedRight, 0.00371 * kSizeSafe, 0.008, kDiffusion1
+    aDiffusedRight2 SmootherReverberatorAllpass aDiffusedRight1, 0.00547 * kSizeSafe, 0.011, kDiffusion2
+    aDiffusedRight3 SmootherReverberatorAllpass aDiffusedRight2, 0.00823 * kSizeSafe, 0.015, kDiffusion3
+    aDiffusedRight4 SmootherReverberatorAllpass aDiffusedRight3, 0.01231 * kSizeSafe, 0.022, kDiffusion4
     aMidInput = (aDiffusedLeft4 + aDiffusedRight4) * 0.5
     aSideInput = (aDiffusedLeft4 - aDiffusedRight4) * 0.5
-    kModulation1 randi kModulationDepth, kModulationRate * 0.79, 0.11, 1
-    kModulation2 randi kModulationDepth, kModulationRate * 0.93, 0.29, 1
-    kModulation3 randi kModulationDepth, kModulationRate * 1.17, 0.47, 1
-    kModulation4 randi kModulationDepth, kModulationRate * 1.31, 0.73, 1
     iDelay1 = 0.04721
     iDelay2 = 0.05591
     iDelay3 = 0.06443
@@ -135,96 +121,80 @@ opcode SmootherReverberator, aa, aakkkkkkkkkkkkk
     iDelay6 = 0.09757
     iDelay7 = 0.11213
     iDelay8 = 0.12889
-    kDelay1 = (iDelay1 * kSizeLimited) + kModulation1
-    kDelay2 = iDelay2 * kSizeLimited
-    kDelay3 = (iDelay3 * kSizeLimited) + kModulation2
-    kDelay4 = iDelay4 * kSizeLimited
-    kDelay5 = (iDelay5 * kSizeLimited) + kModulation3
-    kDelay6 = iDelay6 * kSizeLimited
-    kDelay7 = (iDelay7 * kSizeLimited) + kModulation4
-    kDelay8 = iDelay8 * kSizeLimited
+    kDelay1 = iDelay1 * kSizeSafe
+    kDelay2 = iDelay2 * kSizeSafe
+    kDelay3 = iDelay3 * kSizeSafe
+    kDelay4 = iDelay4 * kSizeSafe
+    kDelay5 = iDelay5 * kSizeSafe
+    kDelay6 = iDelay6 * kSizeSafe
+    kDelay7 = iDelay7 * kSizeSafe
+    kDelay8 = iDelay8 * kSizeSafe
     aDelayBuffer1 delayr 0.090
-    aLine1 deltap3 kDelay1
-    aTap1A deltap3 iDelay1 * 0.317 * kSizeLimited
-    aTap1B deltap3 iDelay1 * 0.683 * kSizeLimited
+    aLine1 deltap kDelay1
+    aTap1A deltap iDelay1 * 0.317 * kSizeSafe
+    aTap1B deltap iDelay1 * 0.683 * kSizeSafe
     aDelayBuffer2 delayr 0.100
-    aLine2 deltap3 kDelay2
-    aTap2A deltap3 iDelay2 * 0.271 * kSizeLimited
-    aTap2B deltap3 iDelay2 * 0.719 * kSizeLimited
+    aLine2 deltap kDelay2
+    aTap2A deltap iDelay2 * 0.271 * kSizeSafe
+    aTap2B deltap iDelay2 * 0.719 * kSizeSafe
     aDelayBuffer3 delayr 0.115
-    aLine3 deltap3 kDelay3
-    aTap3A deltap3 iDelay3 * 0.349 * kSizeLimited
-    aTap3B deltap3 iDelay3 * 0.641 * kSizeLimited
+    aLine3 deltap kDelay3
+    aTap3A deltap iDelay3 * 0.349 * kSizeSafe
+    aTap3B deltap iDelay3 * 0.641 * kSizeSafe
     aDelayBuffer4 delayr 0.130
-    aLine4 deltap3 kDelay4
-    aTap4A deltap3 iDelay4 * 0.293 * kSizeLimited
-    aTap4B deltap3 iDelay4 * 0.757 * kSizeLimited
+    aLine4 deltap kDelay4
+    aTap4A deltap iDelay4 * 0.293 * kSizeSafe
+    aTap4B deltap iDelay4 * 0.757 * kSizeSafe
     aDelayBuffer5 delayr 0.145
-    aLine5 deltap3 kDelay5
-    aTap5A deltap3 iDelay5 * 0.331 * kSizeLimited
-    aTap5B deltap3 iDelay5 * 0.697 * kSizeLimited
+    aLine5 deltap kDelay5
+    aTap5A deltap iDelay5 * 0.331 * kSizeSafe
+    aTap5B deltap iDelay5 * 0.697 * kSizeSafe
     aDelayBuffer6 delayr 0.165
-    aLine6 deltap3 kDelay6
-    aTap6A deltap3 iDelay6 * 0.257 * kSizeLimited
-    aTap6B deltap3 iDelay6 * 0.733 * kSizeLimited
+    aLine6 deltap kDelay6
+    aTap6A deltap iDelay6 * 0.257 * kSizeSafe
+    aTap6B deltap iDelay6 * 0.733 * kSizeSafe
     aDelayBuffer7 delayr 0.185
-    aLine7 deltap3 kDelay7
-    aTap7A deltap3 iDelay7 * 0.373 * kSizeLimited
-    aTap7B deltap3 iDelay7 * 0.617 * kSizeLimited
+    aLine7 deltap kDelay7
+    aTap7A deltap iDelay7 * 0.373 * kSizeSafe
+    aTap7B deltap iDelay7 * 0.617 * kSizeSafe
     aDelayBuffer8 delayr 0.210
-    aLine8 deltap3 kDelay8
-    aTap8A deltap3 iDelay8 * 0.307 * kSizeLimited
-    aTap8B deltap3 iDelay8 * 0.769 * kSizeLimited
-    aTankDiffuse1 SmootherReverberatorAllpass aLine1, (0.00371 * kSizeLimited) + (kModulation2 * 0.35), 0.010, kTankDiffusion
-    aTankDiffuse2 SmootherReverberatorAllpass aLine2, 0.00419 * kSizeLimited, 0.011, -kTankDiffusion
-    aTankDiffuse3 SmootherReverberatorAllpass aLine3, (0.00473 * kSizeLimited) + (kModulation3 * 0.35), 0.012, kTankDiffusion
-    aTankDiffuse4 SmootherReverberatorAllpass aLine4, 0.00529 * kSizeLimited, 0.013, -kTankDiffusion
-    aTankDiffuse5 SmootherReverberatorAllpass aLine5, (0.00593 * kSizeLimited) + (kModulation4 * 0.35), 0.014, kTankDiffusion
-    aTankDiffuse6 SmootherReverberatorAllpass aLine6, 0.00661 * kSizeLimited, 0.015, -kTankDiffusion
-    aTankDiffuse7 SmootherReverberatorAllpass aLine7, (0.00743 * kSizeLimited) + (kModulation1 * 0.35), 0.017, kTankDiffusion
-    aTankDiffuse8 SmootherReverberatorAllpass aLine8, 0.00817 * kSizeLimited, 0.018, -kTankDiffusion
-    aLow1 tone aTankDiffuse1, kHighCrossoverLimited
-    aLow2 tone aTankDiffuse2, kHighCrossoverLimited * 0.97
-    aLow3 tone aTankDiffuse3, kHighCrossoverLimited * 1.03
-    aLow4 tone aTankDiffuse4, kHighCrossoverLimited * 0.94
-    aLow5 tone aTankDiffuse5, kHighCrossoverLimited * 1.06
-    aLow6 tone aTankDiffuse6, kHighCrossoverLimited * 0.91
-    aLow7 tone aTankDiffuse7, kHighCrossoverLimited * 1.09
-    aLow8 tone aTankDiffuse8, kHighCrossoverLimited * 0.88
-    aHigh1 = aTankDiffuse1 - aLow1
-    aHigh2 = aTankDiffuse2 - aLow2
-    aHigh3 = aTankDiffuse3 - aLow3
-    aHigh4 = aTankDiffuse4 - aLow4
-    aHigh5 = aTankDiffuse5 - aLow5
-    aHigh6 = aTankDiffuse6 - aLow6
-    aHigh7 = aTankDiffuse7 - aLow7
-    aHigh8 = aTankDiffuse8 - aLow8
+    aLine8 deltap kDelay8
+    aTap8A deltap iDelay8 * 0.307 * kSizeSafe
+    aTap8B deltap iDelay8 * 0.769 * kSizeSafe
+    aLow1 tone aLine1, kHighCrossoverSafe
+    aLow2 tone aLine2, kHighCrossoverSafe * 0.97
+    aLow3 tone aLine3, kHighCrossoverSafe * 1.03
+    aLow4 tone aLine4, kHighCrossoverSafe * 0.94
+    aLow5 tone aLine5, kHighCrossoverSafe * 1.06
+    aLow6 tone aLine6, kHighCrossoverSafe * 0.91
+    aLow7 tone aLine7, kHighCrossoverSafe * 1.09
+    aLow8 tone aLine8, kHighCrossoverSafe * 0.88
+    aHigh1 = aLine1 - aLow1
+    aHigh2 = aLine2 - aLow2
+    aHigh3 = aLine3 - aLow3
+    aHigh4 = aLine4 - aLow4
+    aHigh5 = aLine5 - aLow5
+    aHigh6 = aLine6 - aLow6
+    aHigh7 = aLine7 - aLow7
+    aHigh8 = aLine8 - aLow8
     kLog001 = -6.907755278982137
-    kEffectiveDelay1 = kDelay1 + (0.00371 * kSizeLimited)
-    kEffectiveDelay2 = kDelay2 + (0.00419 * kSizeLimited)
-    kEffectiveDelay3 = kDelay3 + (0.00473 * kSizeLimited)
-    kEffectiveDelay4 = kDelay4 + (0.00529 * kSizeLimited)
-    kEffectiveDelay5 = kDelay5 + (0.00593 * kSizeLimited)
-    kEffectiveDelay6 = kDelay6 + (0.00661 * kSizeLimited)
-    kEffectiveDelay7 = kDelay7 + (0.00743 * kSizeLimited)
-    kEffectiveDelay8 = kDelay8 + (0.00817 * kSizeLimited)
-    kLowGain1 = exp(kLog001 * kEffectiveDelay1 / kDecayTime)
-    kLowGain2 = exp(kLog001 * kEffectiveDelay2 / kDecayTime)
-    kLowGain3 = exp(kLog001 * kEffectiveDelay3 / kDecayTime)
-    kLowGain4 = exp(kLog001 * kEffectiveDelay4 / kDecayTime)
-    kLowGain5 = exp(kLog001 * kEffectiveDelay5 / kDecayTime)
-    kLowGain6 = exp(kLog001 * kEffectiveDelay6 / kDecayTime)
-    kLowGain7 = exp(kLog001 * kEffectiveDelay7 / kDecayTime)
-    kLowGain8 = exp(kLog001 * kEffectiveDelay8 / kDecayTime)
-    kHighDecayTime = kDecayTime * kHighDecayRatioLimited
-    kHighGain1 = exp(kLog001 * kEffectiveDelay1 / kHighDecayTime)
-    kHighGain2 = exp(kLog001 * kEffectiveDelay2 / kHighDecayTime)
-    kHighGain3 = exp(kLog001 * kEffectiveDelay3 / kHighDecayTime)
-    kHighGain4 = exp(kLog001 * kEffectiveDelay4 / kHighDecayTime)
-    kHighGain5 = exp(kLog001 * kEffectiveDelay5 / kHighDecayTime)
-    kHighGain6 = exp(kLog001 * kEffectiveDelay6 / kHighDecayTime)
-    kHighGain7 = exp(kLog001 * kEffectiveDelay7 / kHighDecayTime)
-    kHighGain8 = exp(kLog001 * kEffectiveDelay8 / kHighDecayTime)
+    kHighDecayTime = kDecaySafe * kHighDecayRatioSafe
+    kLowGain1 limit exp(kLog001 * kDelay1 / kDecaySafe), 0, 0.999
+    kLowGain2 limit exp(kLog001 * kDelay2 / kDecaySafe), 0, 0.999
+    kLowGain3 limit exp(kLog001 * kDelay3 / kDecaySafe), 0, 0.999
+    kLowGain4 limit exp(kLog001 * kDelay4 / kDecaySafe), 0, 0.999
+    kLowGain5 limit exp(kLog001 * kDelay5 / kDecaySafe), 0, 0.999
+    kLowGain6 limit exp(kLog001 * kDelay6 / kDecaySafe), 0, 0.999
+    kLowGain7 limit exp(kLog001 * kDelay7 / kDecaySafe), 0, 0.999
+    kLowGain8 limit exp(kLog001 * kDelay8 / kDecaySafe), 0, 0.999
+    kHighGain1 limit exp(kLog001 * kDelay1 / kHighDecayTime), 0, 0.999
+    kHighGain2 limit exp(kLog001 * kDelay2 / kHighDecayTime), 0, 0.999
+    kHighGain3 limit exp(kLog001 * kDelay3 / kHighDecayTime), 0, 0.999
+    kHighGain4 limit exp(kLog001 * kDelay4 / kHighDecayTime), 0, 0.999
+    kHighGain5 limit exp(kLog001 * kDelay5 / kHighDecayTime), 0, 0.999
+    kHighGain6 limit exp(kLog001 * kDelay6 / kHighDecayTime), 0, 0.999
+    kHighGain7 limit exp(kLog001 * kDelay7 / kHighDecayTime), 0, 0.999
+    kHighGain8 limit exp(kLog001 * kDelay8 / kHighDecayTime), 0, 0.999
     aState1 = (aLow1 * kLowGain1) + (aHigh1 * kHighGain1)
     aState2 = (aLow2 * kLowGain2) + (aHigh2 * kHighGain2)
     aState3 = (aLow3 * kLowGain3) + (aHigh3 * kHighGain3)
@@ -243,7 +213,7 @@ opcode SmootherReverberator, aa, aakkkkkkkkkkkkk
     aMatrix6 = (aState1 - aState2 + aState3 - aState4 - aState5 + aState6 - aState7 + aState8) * iHadamardNormalization
     aMatrix7 = (aState1 + aState2 - aState3 - aState4 - aState5 - aState6 + aState7 + aState8) * iHadamardNormalization
     aMatrix8 = (aState1 - aState2 - aState3 + aState4 - aState5 + aState6 + aState7 - aState8) * iHadamardNormalization
-    iInjectionGain = 0.16
+    iInjectionGain = 0.12
     aInjection1 = (aMidInput + aSideInput) * iInjectionGain
     aInjection2 = (aMidInput - aSideInput) * iInjectionGain
     aInjection3 = (-aMidInput + aSideInput) * iInjectionGain
@@ -262,55 +232,45 @@ opcode SmootherReverberator, aa, aakkkkkkkkkkkkk
     delayw aMatrix8 + aInjection8
     aEarlyLeft = (0.53 * aEarlyLeft1) + (0.37 * aEarlyRight2) - (0.31 * aEarlyLeft3) + (0.29 * aEarlyRight4) + (0.23 * aEarlyLeft5) - (0.19 * aEarlyRight6)
     aEarlyRight = (0.51 * aEarlyRight1) - (0.39 * aEarlyLeft2) + (0.33 * aEarlyRight3) + (0.27 * aEarlyLeft4) - (0.21 * aEarlyRight5) + (0.17 * aEarlyLeft6)
-    iLateNormalization = 0.20
-    aLateLeft = (aTap1A - aTap2B + aTap3A + aTap4B - aTap5A + aTap6B + aTap7A - aTap8B + (0.45 * aTankDiffuse2) - (0.35 * aTankDiffuse5) + (0.30 * aTankDiffuse8)) * iLateNormalization
-    aLateRight = (aTap1B + aTap2A - aTap3B + aTap4A + aTap5B - aTap6A + aTap7B - aTap8A - (0.45 * aTankDiffuse1) + (0.35 * aTankDiffuse4) + (0.30 * aTankDiffuse7)) * iLateNormalization
-    aWetRawLeft = aLateLeft + (aEarlyLeft * kEarlyLevel)
-    aWetRawRight = aLateRight + (aEarlyRight * kEarlyLevel)
+    iLateNormalization = 0.22
+    aLateLeft = (aTap1A - aTap2B + aTap3A + aTap4B - aTap5A + aTap6B + aTap7A - aTap8B) * iLateNormalization
+    aLateRight = (aTap1B + aTap2A - aTap3B + aTap4A + aTap5B - aTap6A + aTap7B - aTap8A) * iLateNormalization
+    aWetRawLeft = aLateLeft + (aEarlyLeft * kEarlyLevelSafe)
+    aWetRawRight = aLateRight + (aEarlyRight * kEarlyLevelSafe)
     aWetDCLeft dcblock2 aWetRawLeft, 8
     aWetDCRight dcblock2 aWetRawRight, 8
-    aWetHighpassedLeft butterhp aWetDCLeft, kInputHighpass
-    aWetHighpassedRight butterhp aWetDCRight, kInputHighpass
-    aWetMid = (aWetHighpassedLeft + aWetHighpassedRight) * 0.5
-    aWetSide = (aWetHighpassedLeft - aWetHighpassedRight) * 0.5 * kStereoWidth
-    aWetLeft = (aWetMid + aWetSide) * kReverbGain
-    aWetRight = (aWetMid - aWetSide) * kReverbGain
+    aWetHPLeft butterhp aWetDCLeft, kInputHighpassSafe
+    aWetHPRight butterhp aWetDCRight, kInputHighpassSafe
+    aWetMid = (aWetHPLeft + aWetHPRight) * 0.5
+    aWetSide = (aWetHPLeft - aWetHPRight) * 0.5 * kStereoWidthSafe
+    aWetLeft = (aWetMid + aWetSide) * kReverbGainSafe
+    aWetRight = (aWetMid - aWetSide) * kReverbGainSafe
     xout aWetLeft, aWetRight
 endop
 
 instr SmootherReverberator
-    kDecayTimeRaw limit gk_SmootherReverberator_decay_time, 0.25, 90
-    kWetRaw limit gk_SmootherReverberator_wet, 0, 1
-    kModulationDepthRaw limit gk_SmootherReverberator_delay_modulation, 0, 0.00075
-    kModulationRateRaw limit gk_SmootherReverberator_modulation_rate, 0.01, 1
+    prints "SmootherReverberator 0.4.0: passive fixed-delay FDN core\n"
+    kDecayTime limit gk_SmootherReverberator_decay_time, 0.25, 90
+    kWetTarget limit gk_SmootherReverberator_wet, 0, 1
+    kModulationDepth limit gk_SmootherReverberator_delay_modulation, 0, 0.00075
+    kModulationRate limit gk_SmootherReverberator_modulation_rate, 0.01, 1
     kMaximumCutoff = sr * 0.45
-    kBandwidthRaw limit gk_SmootherReverberator_bandwidth, 500, kMaximumCutoff
-    kHighCrossoverRaw limit gk_SmootherReverberator_frequency_cutoff, 500, kMaximumCutoff
-    kHighDecayRatioRaw limit gk_SmootherReverberator_high_decay_ratio, 0.05, 1
-    kPredelayRaw limit gk_SmootherReverberator_predelay, 1 / sr, 0.150
-    kEarlyLevelRaw limit gk_SmootherReverberator_early_level, 0, 1
-    kDensityRaw limit gk_SmootherReverberator_density, 0, 1
-    kSizeRaw limit gk_SmootherReverberator_size, 0.5, 1.5
-    kStereoWidthRaw limit gk_SmootherReverberator_stereo_width, 0, 2
-    kInputHighpassRaw limit gk_SmootherReverberator_input_highpass, 5, 1000
-    kReverbGainRaw limit gk_SmootherReverberator_reverb_gain, 0, 4
-    kDecayTime lag kDecayTimeRaw, 0.10
-    kWet lag kWetRaw, 0.03
-    kModulationDepth lag kModulationDepthRaw, 0.20
-    kModulationRate lag kModulationRateRaw, 0.20
-    kBandwidth lag kBandwidthRaw, 0.08
-    kHighCrossover lag kHighCrossoverRaw, 0.08
-    kHighDecayRatio lag kHighDecayRatioRaw, 0.10
-    kPredelay lag kPredelayRaw, 0.08
-    kEarlyLevel lag kEarlyLevelRaw, 0.05
-    kDensity lag kDensityRaw, 0.10
-    kSize lag kSizeRaw, 0.25
-    kStereoWidth lag kStereoWidthRaw, 0.08
-    kInputHighpass lag kInputHighpassRaw, 0.08
-    kReverbGain lag kReverbGainRaw, 0.05
+    kBandwidth limit gk_SmootherReverberator_bandwidth, 500, kMaximumCutoff
+    kHighCrossover limit gk_SmootherReverberator_frequency_cutoff, 500, kMaximumCutoff
+    kHighDecayRatio limit gk_SmootherReverberator_high_decay_ratio, 0.05, 1
+    kPredelay limit gk_SmootherReverberator_predelay, 1 / sr, 0.150
+    kEarlyLevel limit gk_SmootherReverberator_early_level, 0, 1
+    kDensity limit gk_SmootherReverberator_density, 0, 1
+    kSize limit gk_SmootherReverberator_size, 0.5, 1.5
+    kStereoWidthTarget limit gk_SmootherReverberator_stereo_width, 0, 2
+    kInputHighpass limit gk_SmootherReverberator_input_highpass, 5, 1000
+    kReverbGainTarget limit gk_SmootherReverberator_reverb_gain, 0, 4
+    kWet portk kWetTarget, 0.03
+    kStereoWidth portk kStereoWidthTarget, 0.08
+    kReverbGain portk kReverbGainTarget, 0.05
     aInputLeft inleta "inleft"
     aInputRight inleta "inright"
-    aWetLeft, aWetRight SmootherReverberator aInputLeft, aInputRight, kDecayTime, kModulationDepth, kModulationRate, kBandwidth, kHighCrossover, kHighDecayRatio, kPredelay, kEarlyLevel, kDensity, kSize, kStereoWidth, kInputHighpass, kReverbGain
+    aWetLeft, aWetRight SmootherReverberatorCore aInputLeft, aInputRight, kDecayTime, kModulationDepth, kModulationRate, kBandwidth, kHighCrossover, kHighDecayRatio, kPredelay, kEarlyLevel, kDensity, kSize, kStereoWidth, kInputHighpass, kReverbGain
     kDryGain = sqrt(1 - kWet)
     kWetGain = sqrt(kWet)
     aOutputLeft = (aInputLeft * kDryGain) + (aWetLeft * kWetGain)
