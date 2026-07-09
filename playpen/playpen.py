@@ -444,7 +444,7 @@ package_json_template = '''{
     "position": "mouse",
     "fullscreen": true
   },
-   "chromium-args": "--enable-logging=stderr --v=1 --device-scale-factor=2 --allow-running-insecure-content"
+   "chromium-args": "--auto-open-devtools-for-tabs --disable-logging --device-scale-factor=2 --allow-running-insecure-content"
 }'''
         
 def html_nw():
