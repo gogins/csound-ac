@@ -553,7 +553,9 @@ def html_nw():
     else:
       command = f"{nwjs_command} {quoted_web_root}"
     print(f"NW.js command: {command}")
-    subprocess.run(command, shell=True)
+    nwjs_env = os.environ.copy()
+    nwjs_env["CSOUND_VST3_STAY_ALIVE"] = "1"
+    subprocess.run(command, shell=True, env=nwjs_env)
   except:
     traceback.print_exc()
   finally:
