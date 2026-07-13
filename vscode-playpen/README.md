@@ -164,13 +164,15 @@ Additional useful things:
 If you modify this extension, make sure that functions defined in `extension.js` are 
 registered in `package.json`.
 
-To rebuild the extension: 
+To rebuild the extension:
 
 ```
 cd vscode-playpen
-pnpm install -g @vscode/vsce
-vsce package
+npx @vscode/vsce package
 ```
+
+This uses `npx` so you do not need a global `vsce` install or `pnpm` on your PATH.
+The output is `playpen-0.0.2.vsix` in this directory.
 
 To install the rebuilt extension:
 

@@ -2,12 +2,12 @@
   "name": "playpen",
   "displayName": "Playpen",
   "description": "Enables Visual Studio Code as a development and performance environment for computer music in a variety of languages and runtimes.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "license": "LGPL-2.1-or-later",
   "repository": {
-    "type" : "git",
-    "url" : "https://github.com/gogins/csound-ac"
-  },  
+    "type": "git",
+    "url": "https://github.com/gogins/csound-ac"
+  },
   "engines": {
     "vscode": "^1.84.0"
   },
@@ -30,11 +30,11 @@
       {
         "command": "playpen.csd_soundfile",
         "title": "Render .csd to soundfile, post-process, edit"
-      },      
+      },
       {
         "command": "playpen.csd_patch",
         "title": "Render .inc to soundfile, post-process, edit"
-      },      
+      },
       {
         "command": "playpen.html_localhost",
         "title": "Open .html in local Web site"
@@ -82,6 +82,10 @@
       {
         "command": "playpen.pythonReference",
         "title": "Python reference"
+      },
+      {
+        "command": "playpen.version",
+        "title": "New version"
       },
       {
         "command": "playpen.remove",
@@ -148,40 +152,81 @@
           "group": "Python",
           "when": "editorLangId == python && editorTextFocus"
         },
-        { "command": "playpen.remove", "group": "navigation", "when": "editorTextFocus" },
-        { "command": "playpen.attic", "group": "navigation", "when": "editorTextFocus" },
-        { "command": "playpen.protect", "group": "navigation", "when": "editorTextFocus" }
-      ],
-      "explorer/context": [
-        { "command": "playpen.python_piece", "when": "resourceExtname =~ /\\.py$/i", "group": "Python" },
-        { "command": "playpen.remove", "group": "navigation" },
-        { "command": "playpen.attic", "group": "navigation" },
-        { "command": "playpen.protect", "group": "navigation" }
-      ]
-    },
-    "keybindings": [
+        {
+          "command": "playpen.version",
+          "group": "Playpen@1",
+          "when": "editorTextFocus"
+        },
         {
           "command": "playpen.remove",
-          "key": "cmd+alt+r",
-          "mac": "cmd+alt+r",
-          "linux": "ctrl+alt+r",
-          "win": "ctrl+alt+r"
+          "group": "Playpen@2",
+          "when": "editorTextFocus"
         },
         {
           "command": "playpen.attic",
-          "key": "cmd+alt+a",
-          "mac": "cmd+alt+a",
-          "linux": "ctrl+alt+a",
-          "win": "ctrl+alt+a"
+          "group": "Playpen@3",
+          "when": "editorTextFocus"
         },
         {
           "command": "playpen.protect",
-          "key": "cmd+alt+p",
-          "mac": "cmd+alt+p",
-          "linux": "ctrl+alt+p",
-          "win": "ctrl+alt+p"
+          "group": "Playpen@4",
+          "when": "editorTextFocus"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "playpen.version",
+          "group": "Playpen@1",
+          "when": "resourceScheme == file"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "playpen.python_piece",
+          "when": "resourceExtname =~ /\\.py$/i",
+          "group": "Python"
+        },
+        {
+          "command": "playpen.version",
+          "group": "Playpen@1"
+        },
+        {
+          "command": "playpen.remove",
+          "group": "Playpen@2"
+        },
+        {
+          "command": "playpen.attic",
+          "group": "Playpen@3"
+        },
+        {
+          "command": "playpen.protect",
+          "group": "Playpen@4"
         }
       ]
+    },
+    "keybindings": [
+      {
+        "command": "playpen.remove",
+        "key": "cmd+alt+r",
+        "mac": "cmd+alt+r",
+        "linux": "ctrl+alt+r",
+        "win": "ctrl+alt+r"
+      },
+      {
+        "command": "playpen.attic",
+        "key": "cmd+alt+a",
+        "mac": "cmd+alt+a",
+        "linux": "ctrl+alt+a",
+        "win": "ctrl+alt+a"
+      },
+      {
+        "command": "playpen.protect",
+        "key": "cmd+alt+p",
+        "mac": "cmd+alt+p",
+        "linux": "ctrl+alt+p",
+        "win": "ctrl+alt+p"
+      }
+    ]
   },
   "scripts": {
     "lint": "eslint .",

@@ -4,6 +4,7 @@
  * have a symbolic link in the user's home directory to the real file.
  */
 
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -77,6 +78,43 @@ function playpenCommand(subcommand, filepath) {
 	const python_interpreter = get_python_interpreter();
 	const playpen_script = path.join(os.homedir(), 'playpen.py');
 	return `${quoteForShell(python_interpreter)} ${quoteForShell(playpen_script)} ${subcommand} ${quoteForShell(filepath)}`;
+}
+
+function activeFilepath(uri) {
+	if (uri && uri.fsPath) {
+		return uri.fsPath;
+	}
+	if (vscode.window.activeTextEditor) {
+		return vscode.window.activeTextEditor.document.uri.fsPath;
+	}
+	return null;
+}
+
+async function activateVersion(uri) {
+	const filepath = activeFilepath(uri);
+	if (!filepath) {
+		vscode.window.showErrorMessage('No file selected.');
+		return;
+	}
+	const python_interpreter = get_python_interpreter();
+	const playpen_script = path.join(os.homedir(), 'playpen.py');
+	try {
+		const stdout = execFileSync(
+			python_interpreter,
+			[playpen_script, 'version', filepath],
+			{ encoding: 'utf8' }
+		);
+		const newPath = stdout.trim().split(/\r?\n/).pop();
+		if (!newPath || !fs.existsSync(newPath)) {
+			throw new Error('playpen.py version did not return a new file path.');
+		}
+		const document = await vscode.workspace.openTextDocument(newPath);
+		await vscode.window.showTextDocument(document, { preview: false });
+		vscode.window.showInformationMessage(`Created ${path.basename(newPath)}`);
+	} catch (error) {
+		const message = error && error.message ? error.message : String(error);
+		vscode.window.showErrorMessage(`Version failed: ${message}`);
+	}
 }
 
 function activatePythonPiece(uri) {
@@ -158,6 +196,10 @@ function activate(context) {
 	context.subscriptions.push(disposable);
 	disposable = vscode.commands.registerCommand('playpen.python_piece', function (uri) {
 		activatePythonPiece(uri || null);
+	});
+	context.subscriptions.push(disposable);
+	disposable = vscode.commands.registerCommand('playpen.version', function (uri) {
+		activateVersion(uri || null);
 	});
 	context.subscriptions.push(disposable);
 	disposable = vscode.commands.registerCommand('playpen.html5Reference', function () {

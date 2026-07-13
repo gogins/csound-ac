@@ -63,6 +63,15 @@ python3 playpen.py cpp-astyle {source}
     Uses the astyle program to reform the source file, using 
     options configured in playpen.ini.
 
+python3 playpen.py version {filepath}
+    Creates the next sequentially numbered copy of filepath in the same 
+    directory. Increments an existing version number when present:
+    file.html → file.1.html; file.1.html → file.2.html;
+    piece-10.html → piece-11.html; piece-10.1.html → piece-10.2.html.
+    If the target name already exists, the number is increased until a free 
+    name is found. For .html files, a companion .state.json file is copied 
+    when present. Prints the new filepath.
+
 For post-processing, the ffmpeg and sox programs need to be installed.
 
 For HTML related commands, NW.js needs to be installed.
@@ -77,6 +86,7 @@ various formats.
 
 '''
 import configparser
+import re
 from pathlib import Path
 try:
     import ctcsound
@@ -106,12 +116,76 @@ running_subprocess = None
 
 random.seed(119480)
 
+
+def next_version_path(filepath):
+    """Return the next free sequentially numbered path for filepath."""
+    path = Path(filepath).expanduser().resolve()
+    stem = path.stem
+    suffix = path.suffix
+
+    # Explicit .N version (file.1, piece-10.2).
+    dot_match = re.match(r'^(.*)\.(\d+)$', stem)
+    if dot_match:
+        base = dot_match.group(1)
+        start_n = int(dot_match.group(2)) + 1
+
+        def make_name(n):
+            return f'{base}.{n}{suffix}'
+    else:
+        # Trailing -N version (piece-10).
+        hyphen_match = re.match(r'^(.*-)(\d+)$', stem)
+        if hyphen_match:
+            base = hyphen_match.group(1)
+            start_n = int(hyphen_match.group(2)) + 1
+
+            def make_name(n):
+                return f'{base}{n}{suffix}'
+        else:
+            base = stem
+            start_n = 1
+
+            def make_name(n):
+                return f'{base}.{n}{suffix}'
+
+    n = start_n
+    while True:
+        candidate = path.with_name(make_name(n))
+        if not candidate.exists():
+            return candidate
+        n += 1
+
+
+def create_versioned_copy(filepath):
+    """Copy filepath to the next versioned name; return the new path as a string."""
+    source = Path(filepath).expanduser().resolve()
+    if not source.is_file():
+        raise FileNotFoundError(f'Not a file: {source}')
+    destination = next_version_path(source)
+    shutil.copy2(source, destination)
+    if source.suffix.lower() == '.html':
+        state_source = source.with_name(f'{source.stem}.state.json')
+        if state_source.is_file():
+            state_destination = destination.with_name(f'{destination.stem}.state.json')
+            shutil.copy2(state_source, state_destination)
+    return str(destination)
+
+
 if len(sys.argv) < 2:
     print(__doc__)
     exit(0)
 command = sys.argv[1]
 if command == 'help':
     print(__doc__)
+    exit(0)
+if command == 'version':
+    if len(sys.argv) < 3:
+        sys.stderr.write('Usage: playpen.py version {filepath}\n')
+        exit(1)
+    try:
+        print(create_versioned_copy(' '.join(sys.argv[2:])))
+    except Exception:
+        traceback.print_exc()
+        exit(1)
     exit(0)
 print()
 print(f"Playpen command:                {command}")
