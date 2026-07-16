@@ -282,16 +282,36 @@ bool parseVector(std::vector<double> &elements, std::string text) {
 }
 
 static void addVoice(Chord &chord) {
+    // Eigen Matrix::resize reallocated rows wipe existing pitches — save first.
     chord = chord.eOP();
-    chord.resize(chord.voices() + 1);
-    chord.setPitch(chord.voices() - 1, chord.getPitch(0));
+    const int n = chord.voices();
+    std::vector<double> pitches(static_cast<size_t>(n));
+    for (int i = 0; i < n; ++i) {
+        pitches[static_cast<size_t>(i)] = chord.getPitch(i);
+    }
+    chord.resize(n + 1);
+    for (int i = 0; i < n; ++i) {
+        chord.setPitch(i, pitches[static_cast<size_t>(i)]);
+    }
+    // Double the bass pitch class (same MIDI as voice 0 before eOP re-sort).
+    chord.setPitch(n, pitches[0]);
     chord = chord.eOP();
-    
 }
 
 static void removeVoice(Chord &chord) {
     chord = chord.eOP();
-    chord.resize(chord.voices() - 1);
+    const int n = chord.voices();
+    if (n <= 0) {
+        return;
+    }
+    std::vector<double> pitches(static_cast<size_t>(n - 1));
+    for (int i = 0; i < n - 1; ++i) {
+        pitches[static_cast<size_t>(i)] = chord.getPitch(i);
+    }
+    chord.resize(n - 1);
+    for (int i = 0; i < n - 1; ++i) {
+        chord.setPitch(i, pitches[static_cast<size_t>(i)]);
+    }
     chord = chord.eOP();
 }
 

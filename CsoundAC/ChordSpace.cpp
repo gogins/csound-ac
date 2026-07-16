@@ -2214,24 +2214,24 @@ std::string Chord::information_sector(int opt_sector_) const
 }
 
 SILENCE_PUBLIC int indexForOctavewiseRevoicing(const Chord &origin, const Chord &chord, double range) {
-    int revoicingN = octavewiseRevoicings(chord, range);
+    // Walk from origin until we match `chord`. Do NOT call octavewiseRevoicings()
+    // first — that fully enumerates the space (catastrophic for N>=4 and large range)
+    // before even testing whether origin == chord (the common OP / V=0 case).
     Chord revoicing = origin;
     int revoicingI = 0;
     while (true) {
-        CHORD_SPACE_DEBUG("indexForOctavewiseRevoicing of %s in range %7.3f: %5d of %5d: %s\n",
+        CHORD_SPACE_DEBUG("indexForOctavewiseRevoicing of %s in range %7.3f: %5d: %s\n",
               chord.toString().c_str(),
               range,
               revoicingI,
-              revoicingN,
               revoicing.toString().c_str());
         if (revoicing == chord) {
             return revoicingI;
         }
-        (void) next(revoicing, origin, range, OCTAVE());
-        revoicingI++;
-        if (revoicingI > revoicingN) {
+        if (!next(revoicing, origin, range, OCTAVE())) {
             return -1;
         }
+        revoicingI++;
     }
 }
 
@@ -3778,7 +3778,9 @@ SILENCE_PUBLIC Chord octavewiseRevoicing(const Chord &chord, int revoicingNumber
          if (revoicingI == revoicingNumber) {
             return revoicing;
         }
-        (void) next(revoicing, origin, range, OCTAVE());
+        if (!next(revoicing, origin, range, OCTAVE())) {
+            return origin;
+        }
         revoicingI++;
     }
     return origin;
@@ -3786,16 +3788,44 @@ SILENCE_PUBLIC Chord octavewiseRevoicing(const Chord &chord, int revoicingNumber
 
 SILENCE_PUBLIC int octavewiseRevoicings(const Chord &chord,
         double range) {
+    // Closed form matching next(): each voice has
+    // floor((min+range - pitch_i)/OCTAVE)+1 positions; total states is the
+    // product; octavewiseRevoicings counts successful next() calls from the
+    // origin (= states - 1). Do NOT walk the odometer — that is O(countV) and
+    // freezes callers (PITV::toChord) when N>=4 and range is large.
     Chord origin = chord.eOP();
-    Chord odometer = origin;
-    // Enumerate the permutations.
-    int voicings = 0;
-    while (next(odometer, origin, range, OCTAVE())) {
-        voicings = voicings + 1;
+    const int voice_n = origin.voices();
+    if (voice_n <= 0) {
+        return 0;
     }
+    const double minimum_pitch = origin.min().front();
+    const double maximum_pitch = minimum_pitch + range;
+    const double increment = OCTAVE();
+    long long states = 1;
+    for (int voice = 0; voice < voice_n; ++voice) {
+        const double pitch0 = origin.getPitch(voice);
+        int steps = 0;
+        for (double p = pitch0; le_tolerance(p, maximum_pitch); p += increment) {
+            ++steps;
+            // Guard pathological ranges.
+            if (steps > 1000000) {
+                break;
+            }
+        }
+        if (steps <= 0) {
+            steps = 1;
+        }
+        states *= steps;
+        if (states > 2147483647LL) {
+            // Match prior int return; clamp rather than overflow.
+            CHORD_SPACE_DEBUG("octavewiseRevoicings: overflow clamp for %s range %7.3f\n",
+                  chord.toString().c_str(), range);
+            return 2147483647;
+        }
+    }
+    const int voicings = (states > 0) ? static_cast<int>(states - 1) : 0;
     CHORD_SPACE_DEBUG("octavewiseRevoicings: chord:    %s\n", chord.toString().c_str());
-    CHORD_SPACE_DEBUG("octavewiseRevoicings: eop:      %s\n", chord.eOP().toString().c_str());
-    CHORD_SPACE_DEBUG("octavewiseRevoicings: odometer: %s\n", odometer.toString().c_str());
+    CHORD_SPACE_DEBUG("octavewiseRevoicings: eop:      %s\n", origin.toString().c_str());
     CHORD_SPACE_DEBUG("octavewiseRevoicings: voicings: %5d\n", voicings);
     return voicings;
 }
@@ -5521,9 +5551,14 @@ SILENCE_PUBLIC void PITV::list(bool listheader, bool listps, bool listvoicings) 
      }
 }
 
-Eigen::VectorXi PITV::fromChord(const Chord &chord, bool printme) const {
+Eigen::VectorXi PITV::fromChord(const Chord &chord_, bool printme) const {
+    // PITV indexes only equally tempered lattice chords (generator g).
+    const Chord chord = chord_.eET(g);
     if (printme) {
         System::message("PITV::fromChord:          chord:         %s\n", print_chord(chord).c_str());
+        if (!(chord_ == chord)) {
+            System::message("PITV::fromChord:          (eET from):    %s\n", print_chord(chord_).c_str());
+        }
     }
     Eigen::VectorXi pitv(4);
     const auto ppcs = chord.eppcs();
