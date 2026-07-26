@@ -411,9 +411,10 @@ public:
     virtual void setDuration(double targetDuration);
     virtual void setDurationFromZero(double targetDuration);
     /**
-     * If the score contains two notes of the same pitch
-     * and loudness greater than 0 that overlap in time,
-     * extend the earlier note and discard the later note.
+     * If the score contains notes of the same pitch (and optionally
+     * instrument) with velocity > 0 that overlap in time, merge each
+     * contiguous group into one note: onset of the first, offset of the
+     * last (latest end time). Later notes in the group are discarded.
      */
     virtual void tieOverlappingNotes(bool considerInstrumentNumber = false);
     /**

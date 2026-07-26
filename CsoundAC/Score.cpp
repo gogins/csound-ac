@@ -1609,7 +1609,11 @@ namespace csound
             if (found != last_by_key.end()) {
                 Event &earlier = (*this)[keep[found->second]];
                 if (earlier.getOffTime() >= event.getTime()) {
-                    earlier.setOffTime(event.getOffTime());
+                    // Tied note spans first onset through latest offset in the group.
+                    const double start = earlier.getTime();
+                    const double end = std::max(earlier.getOffTime(), event.getOffTime());
+                    earlier.setTime(start);
+                    earlier.setDuration(end - start);
                     continue;
                 }
             }
