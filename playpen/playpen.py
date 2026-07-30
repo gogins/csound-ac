@@ -29,11 +29,14 @@ python3 playpen.py csound-patch {source.inc}
     opens the soundfile using the editor specified in playpen.ini.
     
 python3 playpen.py html-localhost {source.html}
-    Uses Python to open source.html from a local webserver.
+    Symlinks source.html into the cloud-5 web root (playpen.ini
+    cloud5-web-root, normally strudel/website/dist) and opens it from the
+    local webserver. The canonical file stays wherever you keep the piece
+    (e.g. michael.gogins.studio); the web root only holds a link.
 
-python3 playpen html-nw {source.html}
-    Creates a package.json file for the specified HTML file, and runs that 
-    file as a NW.js application.
+python3 playpen.py html-nw {source.html}
+    Same symlink into the cloud-5 web root, writes package.json there, and
+    runs the piece as an NW.js application.
     
 python3 playpen.py cpp-app {source.cpp}
     Compiles and links source.cpp file as a program source or source.app, 
@@ -520,26 +523,48 @@ package_json_template = '''{
   },
    "chromium-args": "--auto-open-devtools-for-tabs --disable-logging --device-scale-factor=2 --allow-running-insecure-content"
 }'''
+
+
+def publish_to_cloud5_web_root(srcpath, destpath):
+    """Expose a composition in cloud5-web-root without forking it.
+
+    Pieces are authored in michael.gogins.studio (or elsewhere). The cloud-5
+    server/NW.js app runs from strudel/website/dist. Prefer a symlink so edits
+    stay on the canonical file. If src is already the real file at dest, leave
+    it alone (cloud-5 example pieces living under the web root).
+    """
+    src = os.path.realpath(os.path.abspath(os.path.expanduser(srcpath)))
+    dest = os.path.abspath(destpath)
+    os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
+    if os.path.exists(dest) and not os.path.islink(dest) and os.path.realpath(dest) == src:
+        print(f"Composition already in web root: {dest}")
+        return dest
+    if os.path.lexists(dest):
+        os.remove(dest)
+    os.symlink(src, dest)
+    print(f"Linked into web root: {dest} -> {src}")
+    return dest
+
+
+def publish_html_and_state_to_web_root():
+    composition_destpath = os.path.join(cloud5_web_root, composition_filename)
+    publish_to_cloud5_web_root(composition_filepath, composition_destpath)
+    if composition_filename.lower().endswith(".html"):
+        piece_basename, _ = os.path.splitext(composition_filename)
+        state_filename = f"{piece_basename}.state.json"
+        state_srcpath = os.path.join(os.path.dirname(composition_filepath), state_filename)
+        state_destpath = os.path.join(cloud5_web_root, state_filename)
+        if os.path.exists(state_srcpath):
+            publish_to_cloud5_web_root(state_srcpath, state_destpath)
+        else:
+            print(f"No state file found (skipping): {state_srcpath}")
+    return composition_destpath
+
         
 def html_nw():
   print(f"html_nw on {platform_system}: {composition_filepath}...")
   try:
-    # Copy the composition file into the NW.js web root before launching.
-    composition_destpath = os.path.join(cloud5_web_root, composition_filename)
-    print(f"Copying composition to web root: {composition_filepath} -> {composition_destpath}")
-    shutil.copy2(composition_filepath, composition_destpath)
-
-    # If this is an HTML composition, also copy the optional JSON state file.
-    if composition_filename.lower().endswith(".html"):
-      piece_basename, _ = os.path.splitext(composition_filename)
-      state_filename = f"{piece_basename}.state.json"
-      state_srcpath = os.path.join(os.path.dirname(composition_filepath), state_filename)
-      state_destpath = os.path.join(cloud5_web_root, state_filename)
-      if os.path.exists(state_srcpath):
-        print(f"Copying state file to web root: {state_srcpath} -> {state_destpath}")
-        shutil.copy2(state_srcpath, state_destpath)
-      else:
-        print(f"No state file found (skipping): {state_srcpath}")
+    publish_html_and_state_to_web_root()
 
     package_json = package_json_template % (composition_filename, metadata_title, metadata_title)
     print(f"NW.js package.json:\n{package_json}\n")
@@ -565,25 +590,7 @@ def html_nw():
 def html_localhost():
   try:
     print(f"html_localhost: {composition_filename}...")
-
-    # Copy the composition file into the Web root before opening the browser.
-    composition_destpath = os.path.join(cloud5_web_root, composition_filename)
-    print(f"Copying composition to web root: {composition_filepath} -> {composition_destpath}")
-    shutil.copy2(composition_filepath, composition_destpath)
-
-    # If this is an HTML composition, also copy the optional JSON state file.
-    if composition_filename.lower().endswith(".html"):
-      basename_ = os.path.split(composition_filename)[-1]
-      filename_ = os.path.splitext(basename_)[0]
-      state_filename = f"{filename_}.state.json"
-      state_srcpath = os.path.join(os.path.dirname(composition_filepath), state_filename)
-      state_destpath = os.path.join(cloud5_web_root, state_filename)
-      if os.path.exists(state_srcpath):
-        print(f"Copying state file to web root: {state_srcpath} -> {state_destpath}")
-        shutil.copy2(state_srcpath, state_destpath)
-      else:
-        print(f"No state file found (skipping): {state_srcpath}")
-
+    publish_html_and_state_to_web_root()
     command = f"{open_command} http://localhost:{port}/{composition_filename}"
   except:
     traceback.print_exc()
