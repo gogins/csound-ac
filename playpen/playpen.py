@@ -342,6 +342,66 @@ metadata = [
         "-metadata", f"title={metadata_title}", 
 ]
 
+def add_cover_label(png_path, label):
+    """Burn centered white title text at y=1340 (matches former drawtext layout)."""
+    def _draw_with_pil():
+        from PIL import Image, ImageDraw, ImageFont
+        img = Image.open(png_path).convert("RGBA")
+        draw = ImageDraw.Draw(img)
+        font = None
+        for font_path in (
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/Library/Fonts/Arial Unicode.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        ):
+            if os.path.exists(font_path):
+                font = ImageFont.truetype(font_path, 28)
+                break
+        if font is None:
+            font = ImageFont.load_default()
+        bbox = draw.textbbox((0, 0), label, font=font)
+        text_w = bbox[2] - bbox[0]
+        x = (img.width - text_w) / 2
+        draw.text((x, 1340), label, font=font, fill="white")
+        img.convert("RGB").save(png_path, "PNG")
+
+    try:
+        _draw_with_pil()
+        return
+    except ImportError:
+        pass
+
+    # Homebrew CPython is PEP 668-managed; fall back to the studio venv.
+    venv_python = os.path.expanduser("~/venv/csound/bin/python3")
+    if not os.path.exists(venv_python):
+        raise RuntimeError(
+            "Cover label needs Pillow (or ffmpeg built with libfreetype/drawtext). "
+            "Install with: ~/venv/csound/bin/python3 -m pip install pillow"
+        )
+    helper = r"""
+import sys
+from PIL import Image, ImageDraw, ImageFont
+png_path, label = sys.argv[1], sys.argv[2]
+img = Image.open(png_path).convert("RGBA")
+draw = ImageDraw.Draw(img)
+font = None
+for font_path in (
+    "/System/Library/Fonts/Supplemental/Arial.ttf",
+    "/Library/Fonts/Arial Unicode.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+):
+    if __import__("os").path.exists(font_path):
+        font = ImageFont.truetype(font_path, 28)
+        break
+if font is None:
+    font = ImageFont.load_default()
+bbox = draw.textbbox((0, 0), label, font=font)
+x = (img.width - (bbox[2] - bbox[0])) / 2
+draw.text((x, 1340), label, font=font, fill="white")
+img.convert("RGB").save(png_path, "PNG")
+"""
+    subprocess.run([venv_python, "-c", helper, png_path, label], check=True)
+
 def post_process():
     try:
         print(f"\nPost-processing: {metadata_title}...\n")
@@ -372,10 +432,23 @@ def post_process():
         subprocess.run(ffmpeg_metadata_command, check=True)
         os.replace(temp_int24, int24_filename)
 
+        # Bandcamp (and archive) FLAC must keep the master sample rate.
+        # loudnorm true-peak processing oversamples internally; without an
+        # explicit -ar, a following aresample can leave that rate (e.g. 96k→192k).
+        master_sample_rate = subprocess.run(
+            [
+                "ffprobe", "-v", "error", "-select_streams", "a:0",
+                "-show_entries", "stream=sample_rate",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                float32_filename,
+            ],
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
         flac_command = [
             "ffmpeg", "-y", "-hide_banner",
             "-i", float32_filename,
             "-af", "loudnorm=I=-14:TP=-1.5:LRA=20:dual_mono=false,aresample=dither_method=shibata",
+            "-ar", master_sample_rate,
             "-c:a", "flac",
             "-f", "flac",
             flac_filename
@@ -412,22 +485,40 @@ def post_process():
         mp3_command[-1:-1] = metadata
         subprocess.run(mp3_command, check=True)
  
-        spectrogram_command = [
-            "ffmpeg", "-y", "-hide_banner",
-            "-i", int24_filename,
-            "-filter_complex",
-            (
+        # Bandcamp/YouTube still: square 1400×1400 spectrogram cover with
+        # artist/title text (needed for YouTube). Original showspectrumpic
+        # layout; text via ffmpeg drawtext when available, else Pillow.
+        spectrogram_label = f"{metadata_artist}, {metadata_title}"
+        ffmpeg_filters = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-filters"],
+            check=True, capture_output=True, text=True,
+        ).stdout
+        if re.search(r"\bdrawtext\b", ffmpeg_filters):
+            filter_complex = (
                 "[0:a]showspectrumpic=s=1100x1200:legend=1:mode=separate[s]; "
                 "color=c=black@1:s=1400x1400:d=1[bg]; "
                 "[bg][s]overlay=0:0[tmp]; "
-                f"[tmp]drawtext=text='{metadata_artist}, {metadata_title}':"
+                f"[tmp]drawtext=text='{spectrogram_label}':"
                 "x=(w-text_w)/2:y=1340:fontsize=28:fontcolor=white"
-            ),
-            "-vframes", "1",
-            png_filename
+            )
+        else:
+            filter_complex = (
+                "[0:a]showspectrumpic=s=1100x1200:legend=1:mode=separate[s]; "
+                "color=c=black@1:s=1400x1400:d=1[bg]; "
+                "[bg][s]overlay=0:0"
+            )
+        spectrogram_command = [
+            "ffmpeg", "-y", "-hide_banner",
+            "-i", int24_filename,
+            "-filter_complex", filter_complex,
+            "-frames:v", "1",
+            png_filename,
         ]
         print(f'\nspectrogram_command:\n{spectrogram_command}\n')
         subprocess.run(spectrogram_command, check=True)
+        if not re.search(r"\bdrawtext\b", ffmpeg_filters):
+            print("ffmpeg has no drawtext; burning cover label with Pillow.")
+            add_cover_label(png_filename, spectrogram_label)
 
         # Create a high-resolution static video with audio.
 
@@ -453,6 +544,7 @@ def post_process():
         subprocess.run(['sndfile-info', f"{rendered_audio_filename}"], check=True)
         subprocess.run(['sndfile-info', f"{float32_filename}"], check=True)
         subprocess.run(['sndfile-info', f"{int24_filename}"], check=True)
+        subprocess.run(['sndfile-info', f"{flac_filename}"], check=True)
         subprocess.run(['sndfile-info', f"{cd_filename}"], check=True)
         subprocess.run(['sndfile-info', f"{mp3_filename}"], check=True)
         subprocess.run(['sndfile-info', f"{mp4_filename}"], check=True)
