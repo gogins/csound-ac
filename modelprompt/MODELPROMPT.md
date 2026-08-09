@@ -2,9 +2,9 @@
 
 ## Overview
 
-The model interaction opcodes allow Csound orchestras to submit natural-language prompts to external generative models to and receive the results as Csound data.
+The model interaction opcodes allow Csound orchestras to submit natural-language prompts to external generative models and to receive the results as Csound data.
 
-The opcodes are implemented as a C++ plugin. The model itself is not part of Csound. The plugin communicates with an external model provider, such as OpenAI or Anthropic, using the provider's network API.
+The opcodes are implemented as a C++ plugin. The models themselves are not part of Csound. The plugin communicates with an external model provider, such as OpenAI or Anthropic, using the provider's network API.
 
 The principal opcode, `modelprompt`, performs a synchronous request during initialization and may return text or structured Csound data. The asynchronous pair `modelprompt_async` and `modelprompt_result` permits a request to execute in a worker thread while Csound continues to perform.
 
@@ -224,7 +224,7 @@ schedule(Bell, 0, 8, 0.2, 220)
 
 The returned source text is compiled into an `InstrDef`. If the generated source cannot be compiled, the opcode reports an initialization error.
 
-Model-generated instrument definitions contain executable Csound code and should be treated differently from model-generated numerical or symbolic data.
+Model-generated instrument definitions contain executable Csound code and should be treated differently from model-generated numeric or symbolic data.
 
 ## Configuring an API Key
 
@@ -490,7 +490,7 @@ Sresult = modelprompt(...)
 
 returns the model's textual response.
 
-No interpretation of the contents is performed. This form can be used for prose, symbolic notation, Csound source code, Csound score text, or another textual representation.
+No interpretation of the contents is performed. This form can be used for prose, symbolic notation, Csound source code, Csound score text, or other textual representations.
 
 ### Number
 
