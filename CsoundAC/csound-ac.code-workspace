@@ -35,6 +35,12 @@
 		{
 			"name": "michael.gogins.studio",
 			"path": "../../michael.gogins.studio"
+		},
+		{
+			"path": "../../csound"
+		},
+		{
+			"path": "../../mkg-csound"
 		}
 	],
 	"settings": {}
