@@ -321,6 +321,15 @@ result:S = modelprompt(
     prompt:S
     [, options:S]
 )
+
+result:S = modelprompt(
+    provider:S,
+    model:S,
+    prompt:S,
+    cache_name:S,
+    freeze:i
+    [, options:S]
+)
 ```
 
 ### Numeric result
@@ -330,6 +339,15 @@ result:i = modelprompt(
     provider:S,
     model:S,
     prompt:S
+    [, options:S]
+)
+
+result:i = modelprompt(
+    provider:S,
+    model:S,
+    prompt:S,
+    cache_name:S,
+    freeze:i
     [, options:S]
 )
 ```
@@ -343,6 +361,15 @@ result:i[] = modelprompt(
     prompt:S
     [, options:S]
 )
+
+result:i[] = modelprompt(
+    provider:S,
+    model:S,
+    prompt:S,
+    cache_name:S,
+    freeze:i
+    [, options:S]
+)
 ```
 
 ### String array
@@ -354,6 +381,15 @@ result:S[] = modelprompt(
     prompt:S
     [, options:S]
 )
+
+result:S[] = modelprompt(
+    provider:S,
+    model:S,
+    prompt:S,
+    cache_name:S,
+    freeze:i
+    [, options:S]
+)
 ```
 
 ### Structure
@@ -363,6 +399,15 @@ result:TYPE = modelprompt(
     provider:S,
     model:S,
     prompt:S
+    [, options:S]
+)
+
+result:TYPE = modelprompt(
+    provider:S,
+    model:S,
+    prompt:S,
+    cache_name:S,
+    freeze:i
     [, options:S]
 )
 ```
@@ -378,6 +423,15 @@ result:TYPE[] = modelprompt(
     prompt:S
     [, options:S]
 )
+
+result:TYPE[] = modelprompt(
+    provider:S,
+    model:S,
+    prompt:S,
+    cache_name:S,
+    freeze:i
+    [, options:S]
+)
 ```
 
 ### Instrument definition
@@ -389,6 +443,15 @@ result:InstrDef = modelprompt(
     prompt:S
     [, options:S]
 )
+
+result:InstrDef = modelprompt(
+    provider:S,
+    model:S,
+    prompt:S,
+    cache_name:S,
+    freeze:i
+    [, options:S]
+)
 ```
 
 ## Description
@@ -396,6 +459,8 @@ result:InstrDef = modelprompt(
 `modelprompt` sends `prompt` to an external generative model selected by `provider` and `model`.
 
 The request is synchronous. Initialization of the calling instrument does not continue until the model request completes or fails.
+
+Each result type has two signatures. The shorter form takes an optional JSON `options` string. The longer form inserts local response-cache controls, `cache_name` and `freeze`, immediately before that optional `options` argument.
 
 The opcode uses its output type to determine the form of response requested from the model. For structured Csound output types, `modelprompt` constructs a corresponding structured-output schema and validates the returned data before converting it to Csound values.
 
@@ -463,6 +528,34 @@ values:i[] = modelprompt(
 ```
 
 requests an array of numbers because `values` has type `i[]`.
+
+### cache_name
+
+Name of the cached response for this prompt.
+
+When the cache-control overload is used, the plugin stores and retrieves responses under a local directory derived from the current `.csd` file:
+
+```text
+{csd_basename}/modelprompt_cache/{cache_name}.{version}
+```
+
+where:
+
+- `{csd_basename}` is the base name of the current Csound `.csd` file;
+- `modelprompt_cache` is a fixed subdirectory name;
+- `{cache_name}` is this parameter, identifying the prompt/response pair; and
+- `{version}` is an automatically incremented serial version number.
+
+The version number is not an opcode argument. On regeneration, the plugin creates the next unused serial version for that `cache_name`. Earlier versions remain available on disk.
+
+`cache_name` and `freeze` are ordinary opcode arguments and therefore precede the optional JSON `options` string.
+
+### freeze
+
+Controls whether the named cache entry is reused or regenerated.
+
+- A non-zero value freezes the response for reuse: the opcode returns the latest stored result for `cache_name` and does not call the model.
+- A zero value regenerates the response: the opcode submits the prompt to the model and writes the result as a new automatically incremented version under `cache_name`.
 
 ### options
 
@@ -753,6 +846,15 @@ ihandle = modelprompt_async(
     prompt:S
     [, options:S]
 )
+
+ihandle = modelprompt_async(
+    provider:S,
+    model:S,
+    prompt:S,
+    cache_name:S,
+    freeze:i
+    [, options:S]
+)
 ```
 
 ## Description
@@ -809,6 +911,14 @@ Return only the score text.
 }}
 ```
 
+### cache_name
+
+Name of the cached response for this prompt. Cache files are stored as `{csd_basename}/modelprompt_cache/{cache_name}.{version}`, with `{version}` assigned automatically.
+
+### freeze
+
+Non-zero to reuse the latest frozen cached response for `cache_name`; zero to regenerate from the model and write a new automatically incremented version.
+
 ### options
 
 Optional provider request options represented as a JSON object.
@@ -824,6 +934,8 @@ Soptions = {{
 ```
 
 The supported options depend on the provider.
+
+When the cache-control overload is used, `cache_name` and `freeze` are opcode arguments and are not placed inside this JSON object.
 
 ## Output
 
