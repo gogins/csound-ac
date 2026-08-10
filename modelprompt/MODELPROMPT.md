@@ -546,6 +546,8 @@ where:
 - `{cache_name}` is this parameter, identifying the prompt/response pair; and
 - `{version}` is an automatically incremented serial version number.
 
+Because an external opcode plugin cannot read Csound's private `csdname` field, set the environment variable `MODELPROMPT_CSD` to the full path of the `.csd` before running Csound so that `{csd_basename}` resolves correctly. If `MODELPROMPT_CSD` is unset, the plugin uses `modelprompt_string/modelprompt_cache` under the current working directory.
+
 The version number is not an opcode argument. On regeneration, the plugin creates the next unused serial version for that `cache_name`. Earlier versions remain available on disk.
 
 `cache_name` and `freeze` are ordinary opcode arguments and therefore precede the optional JSON `options` string.
