@@ -36,6 +36,11 @@ This repository contains:
     [csound-wasm](https://github.com/gogins/csound-wasm) is now recommended in 
     place of silencio.
 
+7.  `modelprompt`, a Csound 7 opcode plugin that lets orchestras call external
+    generative models (OpenAI, Anthropic) to produce text, numbers, scores, or
+    compiled instruments. See `modelprompt/README.md` and
+    `modelprompt/MODELPROMPT.md`.
+
 Currently, CsoundAC is developed and tested on macOS, and built and released 
 on macOS, Linux, and Windows.
 
@@ -61,6 +66,7 @@ they exercise much of the functionality of CsoundAC.
  - [Blue Leaves](https://github.com/gogins-dev/csound-ac/blob/master/examples/blue_leaves/Blue_Leaves_von_Ruesner-2.cpp) tests the C++ interface to CsoundAC.
  - [Cellular-5.2.0](https://github.com/gogins/michael.gogins.studio/tree/master/music/finished/Cellular-5.0.0) tests the Python interface to CsoundAC.
  - [Pianissimo](https://github.com/gogins/michael.gogins.studio/tree/master/music/finished/Pianissimo-1.0.0) tests the Reaper ReaScript addon.
+ - [anthropic_sonnet_instr_score.csd](modelprompt/examples/anthropic_sonnet_instr_score.csd) exercises the `modelprompt` opcodes (requires an API key and network access).
 
 ## Installation
 
@@ -124,6 +130,18 @@ these files to your home directory or other places.
 - `patches`: Include the full path of this directory in your Csound 
   environment variable `INCDIR`.
 
+- `modelprompt`: After installing csound-ac, make Csound load the plugin from
+  `<prefix>/lib/csound/plugins64-7.0/`. On macOS a typical approach is:
+
+  ```bash
+  mkdir -p ~/Library/csound/7.0/plugins64
+  ln -sf /opt/homebrew/lib/csound/plugins64-7.0/modelprompt.dylib \
+    ~/Library/csound/7.0/plugins64/modelprompt.dylib
+  ```
+
+  Examples install under `<prefix>/share/doc/csound-ac/modelprompt/examples/`.
+  Set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` before running them.
+
 ## Building On Your Local Computer
 
 The following instructions are for macOS. The other platforms are simiilar. 
@@ -141,6 +159,16 @@ For more information, look at `./github/cmake.yaml`.
  
 5.  Execute `clean-build-<your platform>.sh` to build CsoundAC. This will also 
     install CsoundAC.
+
+By default the build also produces the optional `modelprompt` Csound opcode 
+plugin (requires libcurl; disable with `-DBUILD_MODELPROMPT=OFF`). Install and 
+package layout:
+
+- Plugin: `<prefix>/lib/csound/plugins64-7.0/modelprompt.*`
+- Docs: `<prefix>/share/doc/csound-ac/modelprompt/`
+- Example: `<prefix>/share/doc/csound-ac/modelprompt/examples/anthropic_sonnet_instr_score.csd`
+
+See `modelprompt/README.md` for loading the plugin and running the example.
 
 On macOS, local builds are by default not signed or notarized. If you need to 
 build signed or notarized releases, export environment variables for the 

@@ -271,6 +271,27 @@ endfunction(check_deps)
 
 add_subdirectory(CsoundAC)
 
+# Optional Csound opcode plugin: generative-model interaction (libcurl).
+option(BUILD_MODELPROMPT "Build modelprompt Csound opcode plugin" ON)
+if(BUILD_MODELPROMPT)
+    if(NOT USE_CURL)
+        message(STATUS "BUILD_MODELPROMPT disabled because USE_CURL is OFF")
+        set(BUILD_MODELPROMPT OFF)
+    else()
+        find_package(CURL)
+        if(NOT CURL_FOUND)
+            message(STATUS "BUILD_MODELPROMPT disabled because CURL was not found")
+            set(BUILD_MODELPROMPT OFF)
+        endif()
+    endif()
+endif()
+if(BUILD_MODELPROMPT)
+    message(STATUS "BUILD_MODELPROMPT is enabled.")
+    add_subdirectory(modelprompt)
+else()
+    message(STATUS "BUILD_MODELPROMPT is disabled.")
+endif()
+
 if(GENERATE_DOCUMENTATION)
     message("Generating documentation.")
     add_custom_target(doxygen_reference
