@@ -38,8 +38,7 @@ This repository contains:
 
 7.  `modelprompt`, a Csound 7 opcode plugin that lets orchestras call external
     generative models (OpenAI, Anthropic) to produce text, numbers, scores, or
-    compiled instruments. See `modelprompt/README.md` and
-    `modelprompt/MODELPROMPT.md`.
+    compiled instruments. See `modelprompt/README.md`.
 
 Currently, CsoundAC is developed and tested on macOS, and built and released 
 on macOS, Linux, and Windows.
@@ -165,10 +164,10 @@ plugin (requires libcurl; disable with `-DBUILD_MODELPROMPT=OFF`). Install and
 package layout:
 
 - Plugin: `<prefix>/lib/csound/plugins64-7.0/modelprompt.*`
-- Docs: `<prefix>/share/doc/csound-ac/modelprompt/`
+- Docs: `<prefix>/share/doc/csound-ac/modelprompt/README.md`
 - Example: `<prefix>/share/doc/csound-ac/modelprompt/examples/anthropic_sonnet_instr_score.csd`
 
-See `modelprompt/README.md` for loading the plugin and running the example.
+See `modelprompt/README.md` for installation, configuration, and the opcode reference.
 
 On macOS, local builds are by default not signed or notarized. If you need to 
 build signed or notarized releases, export environment variables for the 

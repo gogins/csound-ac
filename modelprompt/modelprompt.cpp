@@ -8,7 +8,7 @@
 
   This file is part of csound-ac / modelprompt.
 
-  Design: see MODELPROMPT.md in this directory.
+  Design: see README.md in this directory.
 
   Thread safety
   -------------
