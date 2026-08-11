@@ -85,7 +85,7 @@ The model interaction opcodes allow Csound orchestras to submit natural-language
 
 The opcodes are implemented as a C++ plugin. The models themselves are not part of Csound. The plugin communicates with an external model provider, such as OpenAI or Anthropic, using the provider's network API.
 
-The principal opcode, `modelprompt`, performs a synchronous request during initialization and may return text or structured Csound data. The asynchronous pair `modelprompt_async` and `modelprompt_result` permits a request to execute in a worker thread while Csound continues to perform.
+The principal opcode, `modelprompt`, performs a synchronous request during initialization and may return text, numbers, arrays, or compiled instrument definitions. The asynchronous pair `modelprompt_async` and `modelprompt_result` permits a request to execute in a worker thread while Csound continues to perform.
 
 A model can be used to generate or transform, for example:
 
@@ -93,7 +93,6 @@ A model can be used to generate or transform, for example:
 - vectors of pitches, frequencies, amplitudes, or durations;
 - symbolic or textual data;
 - Csound score text;
-- arrays of structured score events;
 - synthesis descriptions; or
 - Csound instrument definitions.
 
@@ -160,53 +159,25 @@ kstatus, Sresult modelprompt_result ihandle
 
 The asynchronous opcodes do not wait for network communication on Csound's audio-performance thread.
 
-In the initial interface described here, asynchronous requests return text. Structured Csound values are obtained with the synchronous `modelprompt` opcode. This keeps the asynchronous API small and avoids requiring a Csound result type to be specified before the request is launched.
+In the initial interface described here, asynchronous requests return text. Typed Csound values such as numbers and arrays are obtained with the synchronous `modelprompt` opcode. This keeps the asynchronous API small and avoids requiring a Csound result type to be specified before the request is launched.
 
 ### Typed results
 
 `modelprompt` is overloaded according to its output type.
 
-The proposed interface supports the following kinds of results:
+The interface supports the following kinds of results:
 
 ```text
 i
 S
 i[]
 S[]
-user-defined struct
-array of user-defined structs
 InstrDef
 ```
 
 The output type specifies the form of data that the model is required to produce.
 
-For example:
-
-```csound
-struct Partial
-    frequency:i,
-    amplitude:i,
-    decay:i
-
-partials:Partial[] = modelprompt(
-    "openai",
-    "MODEL_NAME",
-    {{
-    Construct 16 partials for a metallic sound.
-
-    Frequencies are in Hz.
-    Amplitudes are linear amplitudes from 0 to 1.
-    Decays are in seconds.
-
-    The lowest partial should be 220 Hz and the upper
-    partials should become progressively more inharmonic.
-    }}
-)
-```
-
-For numerical arrays, string arrays, structures, and arrays of structures, the plugin requests structured output from the model provider and converts the response to the corresponding Csound value.
-
-The Csound declaration of a structure determines the required fields and their types. The user therefore does not normally need to write or parse JSON explicitly.
+For numerical and string arrays, the plugin requests a JSON array from the model provider and converts the response to the corresponding Csound value.
 
 Conceptually:
 
@@ -214,13 +185,10 @@ Conceptually:
 Csound output type
         |
         v
-structured-output schema
-        |
-        v
 external model
         |
         v
-structured response
+parsed response
         |
         v
 Csound value
@@ -228,9 +196,7 @@ Csound value
 
 ### Model-generated score data
 
-There are two principal ways to generate score events.
-
-The first is to request Csound score text:
+Score events may be requested as Csound score text:
 
 ```csound
 Sscore = modelprompt(
@@ -247,32 +213,6 @@ scorelinei(Sscore)
 ```
 
 This representation is general and can contain ordinary Csound score syntax.
-
-The second method is to define a structure representing a musical event and request an array of those structures:
-
-```csound
-struct NoteEvent
-    instrument:i,
-    time:i,
-    duration:i,
-    pitch:i,
-    velocity:i
-
-events:NoteEvent[] = modelprompt(
-    "anthropic",
-    "MODEL_NAME",
-    {{
-    Generate a sequence of 40 notes.
-    Begin with closely spaced attacks and gradually
-    increase the temporal separation.
-    Keep pitches between MIDI notes 48 and 84.
-    }}
-)
-```
-
-The returned events can then be transformed, filtered, reordered, or scheduled by ordinary Csound code.
-
-Structured score events are generally preferable when model output is intended to participate in further algorithmic processing. Score text is convenient when the generated result is intended to be submitted directly to Csound's score parser.
 
 ### Model-generated instrument definitions
 
@@ -471,48 +411,6 @@ result:S[] = modelprompt(
 )
 ```
 
-### Structure
-
-```csound
-result:TYPE = modelprompt(
-    provider:S,
-    model:S,
-    prompt:S
-    [, options:S]
-)
-
-result:TYPE = modelprompt(
-    provider:S,
-    model:S,
-    prompt:S,
-    cache_name:S,
-    freeze:i
-    [, options:S]
-)
-```
-
-where `TYPE` is a Csound structure type.
-
-### Array of structures
-
-```csound
-result:TYPE[] = modelprompt(
-    provider:S,
-    model:S,
-    prompt:S
-    [, options:S]
-)
-
-result:TYPE[] = modelprompt(
-    provider:S,
-    model:S,
-    prompt:S,
-    cache_name:S,
-    freeze:i
-    [, options:S]
-)
-```
-
 ### Instrument definition
 
 ```csound
@@ -541,7 +439,7 @@ The request is synchronous. Initialization of the calling instrument does not co
 
 Each result type has two signatures. The shorter form takes an optional JSON `options` string. The longer form inserts local response-cache controls, `cache_name` and `freeze`, immediately before that optional `options` argument.
 
-The opcode uses its output type to determine the form of response requested from the model. For structured Csound output types, `modelprompt` constructs a corresponding structured-output schema and validates the returned data before converting it to Csound values.
+The opcode uses its output type to determine the form of response requested from the model and how that response is converted to a Csound value.
 
 ## Initialization
 
@@ -592,9 +490,7 @@ Keep all MIDI pitches between 48 and 84.
 }}
 ```
 
-When the requested output is structured, information derived from the Csound output type is supplied to the model in addition to the user prompt.
-
-It is therefore unnecessary for the prompt to specify the serialization syntax of the result.
+For array and numeric results, the plugin asks the model for JSON and parses it according to the Csound output type. It is therefore usually unnecessary for the prompt to specify serialization syntax beyond the musical content of the request.
 
 For example:
 
@@ -716,75 +612,6 @@ names:S[] = modelprompt(
 )
 ```
 
-### Structures
-
-When a structure is used as the output type, its field names and types determine the required fields in the model response.
-
-For example:
-
-```csound
-struct Partial
-    frequency:i,
-    amplitude:i,
-    decay:i
-
-partial:Partial = modelprompt(
-    "openai",
-    "MODEL_NAME",
-    {{
-    Define one modal partial near 1000 Hz.
-    Give its frequency, linear amplitude, and
-    decay time in seconds.
-    }}
-)
-```
-
-The structure declaration, rather than additional serialization instructions in the prompt, defines the machine-readable result format.
-
-### Arrays of structures
-
-Arrays of structures are particularly useful for score generation and synthesis descriptions.
-
-For example:
-
-```csound
-struct Partial
-    frequency:i,
-    amplitude:i,
-    decay:i
-
-partials:Partial[] = modelprompt(
-    "openai",
-    "MODEL_NAME",
-    {{
-    Generate 20 modal resonances for a large imaginary bell.
-    Begin at 110 Hz and become increasingly inharmonic.
-    Higher-frequency modes should generally decay faster.
-    }}
-)
-```
-
-Similarly:
-
-```csound
-struct NoteEvent
-    instrument:i,
-    time:i,
-    duration:i,
-    pitch:i,
-    velocity:i
-
-events:NoteEvent[] = modelprompt(
-    "openai",
-    "MODEL_NAME",
-    {{
-    Generate a four-voice canon containing 48 events.
-    Instrument numbers are 1 through 4.
-    Pitches are MIDI key numbers.
-    }}
-)
-```
-
 ### InstrDef
 
 When the output is an `InstrDef`:
@@ -838,8 +665,7 @@ For a model request that must execute without suspending Csound performance, use
 - the specified model cannot be used;
 - communication with the provider fails;
 - the provider does not return a result;
-- structured output cannot be converted to the requested Csound type;
-- required fields of a returned structure are missing or have incompatible types; or
+- array or numeric output cannot be converted to the requested Csound type; or
 - generated `InstrDef` source does not compile.
 
 A provider error message should be included in Csound's diagnostic output when available.
@@ -910,7 +736,7 @@ endin
 
 ## See Also
 
-`modelprompt_async`, `modelprompt_result`, `create`, `schedule`, `scorelinei`, `struct`
+`modelprompt_async`, `modelprompt_result`, `create`, `schedule`, `scorelinei`
 
 ---
 
@@ -952,7 +778,7 @@ kstatus, Sresult modelprompt_result ihandle
 
 This allows a model request to proceed while Csound continues audio and control-rate performance.
 
-`modelprompt_async` returns model output as text. It does not infer a structured result type from a Csound output variable because its only output is the request handle. When a Csound array, structure, or `InstrDef` is required directly, use the synchronous `modelprompt` opcode.
+`modelprompt_async` returns model output as text. It does not infer a typed result from a Csound output variable because its only output is the request handle. When a Csound array, number, or `InstrDef` is required directly, use the synchronous `modelprompt` opcode.
 
 ## Initialization
 
