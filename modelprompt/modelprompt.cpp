@@ -10,25 +10,6 @@
 
   Design: see MODELPROMPT.md in this directory.
 
-  OpcodeBase.hpp decision
-  -----------------------
-  This plugin does NOT use csound/Opcodes/OpcodeBase.hpp (nor
-  CsoundAC/OpcodeBaseAC.hpp).
-
-  Reasons:
-  1. External plugin layout: OpcodeBase.hpp is written for in-tree opcode
-     builds (BUILD_PLUGINS / csoundCore include paths). A standalone module
-     under modelprompt/ should depend only on the public plugin header
-     csdl.h.
-  2. Little benefit: these opcodes are initialization-time and control-rate
-     pollers. They do not need OpcodeBase's ksmps audio-frame helpers.
-  3. Thread safety: shared async request state and cache-file versioning are
-     clearer with C++20 std::mutex / std::shared_ptr than with Csound mutex
-     wrappers intended for OpcodeBase instances.
-  4. Heterogeneous dataspace: many OENTRY overloads (S, i, i[], S[],
-     InstrDef, with/without cache) fit ordinary OPDS structs and shared
-     free functions better than a single OpcodeBase hierarchy.
-
   Thread safety
   -------------
   - Network I/O for modelprompt_async runs on std::thread workers.
