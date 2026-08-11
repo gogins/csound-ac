@@ -742,7 +742,7 @@ endin
 
 # modelprompt_async
 
-Starts an asynchronous request to an external generative model and returns a request handle.
+Starts an asynchronous request to an external generative model and returns a request handle. Note that such prompts can be issued at any time during the Csound performance, by scheduling a new instrument instance that issues the prompt and then polls the model for the response.
 
 ## Syntax
 
