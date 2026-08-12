@@ -57,9 +57,16 @@ $env:ANTHROPIC_API_KEY="your-api-key"
 $env:OPENAI_API_KEY="your-api-key"
 ```
 
-Optional: set `MODELPROMPT_CSD` to the full path of the `.csd` so response
-caching resolves `{csd_basename}` correctly. If unset, the plugin uses
-`modelprompt_string/modelprompt_cache` under the current working directory.
+Every `modelprompt` / `modelprompt_async` call is numbered sequentially in the
+Csound instance (prompt 1, 2, …). Responses are cached as
+`{prompt_index}.{version}` under a directory derived from the `.csd`. Set
+`MODELPROMPT_CSD` to the full path of the `.csd` so that directory resolves
+correctly; if unset, the plugin uses `modelprompt_string/modelprompt_cache`
+under the current working directory.
+
+By default each call regenerates from the model and writes the next version.
+Pass `iregenerate=0` to freeze and reuse the latest cached version for that
+prompt number.
 
 ### Example
 
@@ -345,8 +352,7 @@ result:S = modelprompt(
     provider:S,
     model:S,
     prompt:S,
-    cache_name:S,
-    freeze:i
+    iregenerate:i
     [, options:S]
 )
 ```
@@ -365,8 +371,7 @@ result:i = modelprompt(
     provider:S,
     model:S,
     prompt:S,
-    cache_name:S,
-    freeze:i
+    iregenerate:i
     [, options:S]
 )
 ```
@@ -385,8 +390,7 @@ result:i[] = modelprompt(
     provider:S,
     model:S,
     prompt:S,
-    cache_name:S,
-    freeze:i
+    iregenerate:i
     [, options:S]
 )
 ```
@@ -405,8 +409,7 @@ result:S[] = modelprompt(
     provider:S,
     model:S,
     prompt:S,
-    cache_name:S,
-    freeze:i
+    iregenerate:i
     [, options:S]
 )
 ```
@@ -425,8 +428,7 @@ result:InstrDef = modelprompt(
     provider:S,
     model:S,
     prompt:S,
-    cache_name:S,
-    freeze:i
+    iregenerate:i
     [, options:S]
 )
 ```
@@ -437,7 +439,9 @@ result:InstrDef = modelprompt(
 
 The request is synchronous. Initialization of the calling instrument does not continue until the model request completes or fails.
 
-Each result type has two signatures. The shorter form takes an optional JSON `options` string. The longer form inserts local response-cache controls, `cache_name` and `freeze`, immediately before that optional `options` argument.
+Each result type has two signatures. The shorter form takes an optional JSON `options` string. The longer form inserts an optional `iregenerate` flag immediately before that optional `options` argument.
+
+Every call is assigned the next sequential prompt number for the Csound instance and always participates in local response caching, so a later run can freeze any result by setting `iregenerate` to 0.
 
 The opcode uses its output type to determine the form of response requested from the model and how that response is converted to a Csound value.
 
@@ -504,35 +508,31 @@ values:i[] = modelprompt(
 
 requests an array of numbers because `values` has type `i[]`.
 
-### cache_name
+### iregenerate
 
-Name of the cached response for this prompt.
+Optional flag controlling whether this prompt calls the model or reuses a cached response. When omitted, regeneration is on.
 
-When the cache-control overload is used, the plugin stores and retrieves responses under a local directory derived from the current `.csd` file:
+- Non-zero (default): submit the prompt to the model and write the result as the next version for this prompt number.
+- Zero: return the latest cached version for this prompt number and do not call the model.
+
+Prompt numbers are assigned automatically in call order within the Csound instance (1, 2, 3, …), including both `modelprompt` and `modelprompt_async`. Cached files are stored under a directory derived from the current `.csd` file:
 
 ```text
-{csd_basename}/modelprompt_cache/{cache_name}.{version}
+{csd_basename}/modelprompt_cache/{prompt_index}.{version}
 ```
 
 where:
 
 - `{csd_basename}` is the base name of the current Csound `.csd` file;
 - `modelprompt_cache` is a fixed subdirectory name;
-- `{cache_name}` is this parameter, identifying the prompt/response pair; and
-- `{version}` is an automatically incremented serial version number.
+- `{prompt_index}` is the sequential prompt number; and
+- `{version}` is an automatically incremented serial version number for that prompt.
 
 Because an external opcode plugin cannot read Csound's private `csdname` field, set the environment variable `MODELPROMPT_CSD` to the full path of the `.csd` before running Csound so that `{csd_basename}` resolves correctly. If `MODELPROMPT_CSD` is unset, the plugin uses `modelprompt_string/modelprompt_cache` under the current working directory.
 
-The version number is not an opcode argument. On regeneration, the plugin creates the next unused serial version for that `cache_name`. Earlier versions remain available on disk.
+Earlier versions remain on disk. To freeze a result after a successful regeneration, set `iregenerate` to 0 on the next run.
 
-`cache_name` and `freeze` are ordinary opcode arguments and therefore precede the optional JSON `options` string.
-
-### freeze
-
-Controls whether the named cache entry is reused or regenerated.
-
-- A non-zero value freezes the response for reuse: the opcode returns the latest stored result for `cache_name` and does not call the model.
-- A zero value regenerates the response: the opcode submits the prompt to the model and writes the result as a new automatically incremented version under `cache_name`.
+`iregenerate` precedes the optional JSON `options` string.
 
 ### options
 
@@ -758,8 +758,7 @@ ihandle = modelprompt_async(
     provider:S,
     model:S,
     prompt:S,
-    cache_name:S,
-    freeze:i
+    iregenerate:i
     [, options:S]
 )
 ```
@@ -818,13 +817,15 @@ Return only the score text.
 }}
 ```
 
-### cache_name
+### iregenerate
 
-Name of the cached response for this prompt. Cache files are stored as `{csd_basename}/modelprompt_cache/{cache_name}.{version}`, with `{version}` assigned automatically.
+Optional flag; when omitted, regeneration is on.
 
-### freeze
+- Non-zero (default): call the model and store the next version for this prompt number.
+- Zero: reuse the latest cached version for this prompt number.
 
-Non-zero to reuse the latest frozen cached response for `cache_name`; zero to regenerate from the model and write a new automatically incremented version.
+Prompt numbering and cache paths are the same as for `modelprompt`:
+`{csd_basename}/modelprompt_cache/{prompt_index}.{version}`.
 
 ### options
 
@@ -842,7 +843,7 @@ Soptions = {{
 
 The supported options depend on the provider.
 
-When the cache-control overload is used, `cache_name` and `freeze` are opcode arguments and are not placed inside this JSON object.
+When the regenerate overload is used, `iregenerate` is an opcode argument and is not placed inside this JSON object.
 
 ## Output
 
