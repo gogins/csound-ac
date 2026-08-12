@@ -44,6 +44,16 @@
 
 #include <curl/curl.h>
 
+#if defined(__APPLE__)
+#include <crt_externs.h>
+#endif
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 #include "csdl.h"
 #include "arrays.h"
 #include "version.h"
@@ -580,22 +590,122 @@ void clear_prompt_counter(CSOUND *csound)
     g_prompt_counters.erase(csound);
 }
 
+bool looks_like_csd_path(std::string_view path)
+{
+    if (path.size() < 5) {
+        return false;
+    }
+    const auto ext = path.substr(path.size() - 4);
+    return ext[0] == '.' &&
+           (ext[1] == 'c' || ext[1] == 'C') &&
+           (ext[2] == 's' || ext[2] == 'S') &&
+           (ext[3] == 'd' || ext[3] == 'D');
+}
+
+/* Plugin API cannot read CSOUND::csdname (private). Discover the .csd from
+   MODELPROMPT_CSD or the host process command line instead. */
+std::string find_csd_from_process_argv()
+{
+#if defined(__APPLE__)
+    const int argc = *_NSGetArgc();
+    char **argv = *_NSGetArgv();
+    if (argv == nullptr) {
+        return {};
+    }
+    for (int i = 1; i < argc; ++i) {
+        if (argv[i] == nullptr) {
+            continue;
+        }
+        const std::string_view arg(argv[i]);
+        if (arg.empty() || arg[0] == '-') {
+            continue;
+        }
+        if (looks_like_csd_path(arg)) {
+            return std::string(arg);
+        }
+    }
+#elif defined(__linux__)
+    std::ifstream cmdline("/proc/self/cmdline", std::ios::binary);
+    if (!cmdline) {
+        return {};
+    }
+    std::string blob((std::istreambuf_iterator<char>(cmdline)),
+                     std::istreambuf_iterator<char>());
+    size_t start = 0;
+    bool first = true;
+    while (start < blob.size()) {
+        const size_t end = blob.find('\0', start);
+        const size_t n = (end == std::string::npos) ? (blob.size() - start)
+                                                    : (end - start);
+        const std::string_view arg(blob.data() + start, n);
+        if (!first && !arg.empty() && arg[0] != '-' && looks_like_csd_path(arg)) {
+            return std::string(arg);
+        }
+        first = false;
+        if (end == std::string::npos) {
+            break;
+        }
+        start = end + 1;
+    }
+#elif defined(_WIN32)
+    int argc = 0;
+    LPWSTR *argvw = CommandLineToArgvW(GetCommandLineW(), &argc);
+    if (argvw == nullptr) {
+        return {};
+    }
+    std::string found;
+    for (int i = 1; i < argc; ++i) {
+        const int needed =
+            WideCharToMultiByte(CP_UTF8, 0, argvw[i], -1, nullptr, 0, nullptr,
+                                nullptr);
+        if (needed <= 1) {
+            continue;
+        }
+        std::string arg(static_cast<size_t>(needed - 1), '\0');
+        WideCharToMultiByte(CP_UTF8, 0, argvw[i], -1, arg.data(), needed,
+                            nullptr, nullptr);
+        if (!arg.empty() && arg[0] != '-' && looks_like_csd_path(arg)) {
+            found = std::move(arg);
+            break;
+        }
+    }
+    LocalFree(argvw);
+    return found;
+#endif
+    return {};
+}
+
+std::string resolve_csd_path(CSOUND *csound)
+{
+    const char *env = nullptr;
+    if (csound != nullptr) {
+        env = csound->GetEnv(csound, "MODELPROMPT_CSD");
+    }
+    if (env == nullptr || env[0] == '\0') {
+        env = std::getenv("MODELPROMPT_CSD");
+    }
+    if (env != nullptr && env[0] != '\0' &&
+        std::string_view(env) != "*string*") {
+        return std::string(env);
+    }
+    return find_csd_from_process_argv();
+}
+
 fs::path cache_directory(CSOUND *csound)
 {
-    // External plugins only see the public CSOUND_ vtable; csdname/orchname are
-    // private host fields. Prefer MODELPROMPT_CSD (full path to the .csd).
-    const char *csd = csound->GetEnv(csound, "MODELPROMPT_CSD");
-    if (csd == nullptr || csd[0] == '\0') {
-        csd = std::getenv("MODELPROMPT_CSD");
-    }
+    // One cache tree per .csd: <dir>/<basename>/modelprompt_cache/
+    const std::string csd = resolve_csd_path(csound);
     fs::path base;
-    if (csd == nullptr || csd[0] == '\0' || std::string_view(csd) == "*string*") {
+    if (csd.empty() || csd == "*string*") {
         base = fs::current_path() / "modelprompt_string";
     } else {
         const fs::path csd_path(csd);
-        base = csd_path.parent_path() / csd_path.stem();
-        if (base.empty()) {
-            base = fs::current_path() / csd_path.stem();
+        const fs::path parent = csd_path.parent_path();
+        const fs::path stem = csd_path.stem();
+        if (!parent.empty()) {
+            base = parent / stem;
+        } else {
+            base = fs::current_path() / stem;
         }
     }
     return base / "modelprompt_cache";

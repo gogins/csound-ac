@@ -69,6 +69,8 @@ elseif(WIN32)
     if(CSOUND_LIBRARIES)
         target_link_libraries(modelprompt PRIVATE ${CSOUND_LIBRARIES})
     endif()
+    # CommandLineToArgvW for per-.csd cache path discovery.
+    target_link_libraries(modelprompt PRIVATE shell32)
     set_target_properties(modelprompt PROPERTIES
         PREFIX ""
     )

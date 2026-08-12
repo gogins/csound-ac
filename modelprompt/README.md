@@ -58,11 +58,22 @@ $env:OPENAI_API_KEY="your-api-key"
 ```
 
 Every `modelprompt` / `modelprompt_orc` / `modelprompt_async` call is numbered
-sequentially in the Csound instance (prompt 1, 2, …). Responses are cached as
-`{prompt_index}.{version}` under a directory derived from the `.csd`. Set
-`MODELPROMPT_CSD` to the full path of the `.csd` so that directory resolves
-correctly; if unset, the plugin uses `modelprompt_string/modelprompt_cache`
-under the current working directory.
+sequentially in the Csound instance (prompt 1, 2, …). Responses are cached under
+a directory named from the `.csd` basename:
+
+```text
+{csd_directory}/{csd_basename}/modelprompt_cache/{prompt_index}.{version}
+```
+
+For example, running `examples/anthropic_sonnet_orc_score.csd` stores cache
+files in `examples/anthropic_sonnet_orc_score/modelprompt_cache/`.
+
+The `.csd` path is taken from `MODELPROMPT_CSD` if set, otherwise from a
+`.csd` argument on the host process command line (for example `csound
+piece.csd`). Set `MODELPROMPT_CSD` when compiling from a string or when the
+host does not put the `.csd` on argv. If no `.csd` name is available, the
+plugin uses `modelprompt_string/modelprompt_cache` under the current working
+directory.
 
 By default each call regenerates from the model and writes the next version.
 Pass `iregenerate=0` to freeze and reuse the latest cached version for that
@@ -593,20 +604,21 @@ Optional flag controlling whether this prompt calls the model or reuses a cached
 - Non-zero (default): submit the prompt to the model and write the result as the next version for this prompt number.
 - Zero: do not call the model; reuse a cached version for this prompt number (see `iversion`).
 
-Prompt numbers are assigned automatically in call order within the Csound instance (1, 2, 3, …), including both `modelprompt` and `modelprompt_async`. Cached files are stored under a directory derived from the current `.csd` file:
+Prompt numbers are assigned automatically in call order within the Csound instance (1, 2, 3, …), including `modelprompt`, `modelprompt_orc`, and `modelprompt_async`. Cached files are stored beside the `.csd` under a directory named from its basename:
 
 ```text
-{csd_basename}/modelprompt_cache/{prompt_index}.{version}
+{csd_directory}/{csd_basename}/modelprompt_cache/{prompt_index}.{version}
 ```
 
 where:
 
-- `{csd_basename}` is the base name of the current Csound `.csd` file;
+- `{csd_directory}` is the directory containing the `.csd`;
+- `{csd_basename}` is the `.csd` file name without extension;
 - `modelprompt_cache` is a fixed subdirectory name;
 - `{prompt_index}` is the sequential prompt number; and
 - `{version}` is an automatically incremented serial version number for that prompt.
 
-Because an external opcode plugin cannot read Csound's private `csdname` field, set the environment variable `MODELPROMPT_CSD` to the full path of the `.csd` before running Csound so that `{csd_basename}` resolves correctly. If `MODELPROMPT_CSD` is unset, the plugin uses `modelprompt_string/modelprompt_cache` under the current working directory.
+The `.csd` path is taken from `MODELPROMPT_CSD` if set, otherwise from a `.csd` argument on the host process command line. If none is available, the plugin uses `modelprompt_string/modelprompt_cache` under the current working directory.
 
 Earlier versions remain on disk. To freeze after a successful regeneration, set `iregenerate` to 0 on the next run.
 
@@ -968,7 +980,7 @@ Optional flag; when omitted, regeneration is on.
 - Zero: reuse a cached version for this prompt number (see `iversion`).
 
 Prompt numbering and cache paths are the same as for `modelprompt`:
-`{csd_basename}/modelprompt_cache/{prompt_index}.{version}`.
+`{csd_directory}/{csd_basename}/modelprompt_cache/{prompt_index}.{version}`.
 
 ### iversion
 
