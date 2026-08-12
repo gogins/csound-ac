@@ -620,6 +620,32 @@ fs::path cache_file_path(const fs::path &dir, int prompt_index, int version)
     return dir / (std::to_string(prompt_index) + "." + std::to_string(version));
 }
 
+std::optional<std::string> read_cache_version_at(const fs::path &dir, int prompt_index,
+                                                int version, int &version_out,
+                                                std::string &err)
+{
+    std::lock_guard<std::mutex> lock(g_cache_mutex);
+    if (version <= 0) {
+        err = "iversion must be positive for prompt " + std::to_string(prompt_index);
+        return std::nullopt;
+    }
+    const fs::path path = cache_file_path(dir, prompt_index, version);
+    if (!fs::exists(path)) {
+        err = "no cached response for prompt " + std::to_string(prompt_index) +
+              " version " + std::to_string(version);
+        return std::nullopt;
+    }
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        err = "failed to read cache file: " + path.string();
+        return std::nullopt;
+    }
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    version_out = version;
+    return ss.str();
+}
+
 std::optional<std::string> read_latest_cache_at(const fs::path &dir, int prompt_index,
                                                int &version_out, std::string &err)
 {
@@ -671,6 +697,13 @@ std::optional<std::string> read_latest_cache(CSOUND *csound, int prompt_index,
     return read_latest_cache_at(cache_directory(csound), prompt_index, version_out, err);
 }
 
+std::optional<std::string> read_cache_version(CSOUND *csound, int prompt_index, int version,
+                                             int &version_out, std::string &err)
+{
+    return read_cache_version_at(cache_directory(csound), prompt_index, version,
+                                 version_out, err);
+}
+
 bool write_new_cache_version(CSOUND *csound, int prompt_index,
                             const std::string &payload, int &version_out,
                             std::string &err)
@@ -686,13 +719,20 @@ bool obtain_model_text(CSOUND *csound,
                        const std::string &options,
                        bool regenerate,
                        int prompt_index,
+                       int requested_version,
                        ResultKind kind,
                        std::string &text,
                        std::string &err)
 {
     int version = 0;
     if (!regenerate) {
-        auto cached = read_latest_cache(csound, prompt_index, version, err);
+        std::optional<std::string> cached;
+        if (requested_version > 0) {
+            cached = read_cache_version(csound, prompt_index, requested_version, version,
+                                       err);
+        } else {
+            cached = read_latest_cache(csound, prompt_index, version, err);
+        }
         if (!cached) {
             return false;
         }
@@ -1018,6 +1058,29 @@ struct ModelPromptRegenOpts {
     STRINGDAT *options;
 };
 
+template <typename OutT>
+struct ModelPromptRegenVer {
+    OPDS h;
+    OutT *out;
+    STRINGDAT *provider;
+    STRINGDAT *model;
+    STRINGDAT *prompt;
+    MYFLT *regenerate;
+    MYFLT *version;
+};
+
+template <typename OutT>
+struct ModelPromptRegenVerOpts {
+    OPDS h;
+    OutT *out;
+    STRINGDAT *provider;
+    STRINGDAT *model;
+    STRINGDAT *prompt;
+    MYFLT *regenerate;
+    MYFLT *version;
+    STRINGDAT *options;
+};
+
 struct ModelPromptAsyncBase {
     OPDS h;
     MYFLT *ihandle;
@@ -1054,6 +1117,27 @@ struct ModelPromptAsyncRegenOpts {
     STRINGDAT *options;
 };
 
+struct ModelPromptAsyncRegenVer {
+    OPDS h;
+    MYFLT *ihandle;
+    STRINGDAT *provider;
+    STRINGDAT *model;
+    STRINGDAT *prompt;
+    MYFLT *regenerate;
+    MYFLT *version;
+};
+
+struct ModelPromptAsyncRegenVerOpts {
+    OPDS h;
+    MYFLT *ihandle;
+    STRINGDAT *provider;
+    STRINGDAT *model;
+    STRINGDAT *prompt;
+    MYFLT *regenerate;
+    MYFLT *version;
+    STRINGDAT *options;
+};
+
 struct ModelPromptResult {
     OPDS h;
     MYFLT *kstatus;
@@ -1067,9 +1151,18 @@ bool regenerate_flag(MYFLT *regenerate)
     return regenerate == nullptr || *regenerate != FL(0.0);
 }
 
+int requested_version_number(MYFLT *version)
+{
+    if (version == nullptr) {
+        return 0;
+    }
+    const int v = static_cast<int>(*version);
+    return v > 0 ? v : 0;
+}
+
 int32_t run_sync(CSOUND *csound, OPDS *h, void *out, ResultKind kind,
                  STRINGDAT *provider, STRINGDAT *model, STRINGDAT *prompt,
-                 STRINGDAT *options, MYFLT *regenerate)
+                 STRINGDAT *options, MYFLT *regenerate, MYFLT *version)
 {
     if (!nonempty(provider) || !nonempty(model) || !nonempty(prompt)) {
         return csound->InitError(csound, "modelprompt: provider, model, and prompt "
@@ -1080,7 +1173,8 @@ int32_t run_sync(CSOUND *csound, OPDS *h, void *out, ResultKind kind,
     const int prompt_index = next_prompt_index(csound);
     if (!obtain_model_text(csound, cstr(provider), cstr(model), cstr(prompt),
                            options ? cstr(options) : "", regenerate_flag(regenerate),
-                           prompt_index, kind, text, err)) {
+                           prompt_index, requested_version_number(version), kind, text,
+                           err)) {
         return csound->InitError(csound, "modelprompt: %s", err.c_str());
     }
     return assign_result(csound, kind, out, h->insdshead, text);
@@ -1090,33 +1184,47 @@ template <typename P>
 int32_t init_sync_base(CSOUND *csound, P *p, ResultKind kind)
 {
     return run_sync(csound, &p->h, p->out, kind, p->provider, p->model, p->prompt,
-                    nullptr, nullptr);
+                    nullptr, nullptr, nullptr);
 }
 
 template <typename P>
 int32_t init_sync_opts(CSOUND *csound, P *p, ResultKind kind)
 {
     return run_sync(csound, &p->h, p->out, kind, p->provider, p->model, p->prompt,
-                    p->options, nullptr);
+                    p->options, nullptr, nullptr);
 }
 
 template <typename P>
 int32_t init_sync_regen(CSOUND *csound, P *p, ResultKind kind)
 {
     return run_sync(csound, &p->h, p->out, kind, p->provider, p->model, p->prompt,
-                    nullptr, p->regenerate);
+                    nullptr, p->regenerate, nullptr);
 }
 
 template <typename P>
 int32_t init_sync_regen_opts(CSOUND *csound, P *p, ResultKind kind)
 {
     return run_sync(csound, &p->h, p->out, kind, p->provider, p->model, p->prompt,
-                    p->options, p->regenerate);
+                    p->options, p->regenerate, nullptr);
+}
+
+template <typename P>
+int32_t init_sync_regen_ver(CSOUND *csound, P *p, ResultKind kind)
+{
+    return run_sync(csound, &p->h, p->out, kind, p->provider, p->model, p->prompt,
+                    nullptr, p->regenerate, p->version);
+}
+
+template <typename P>
+int32_t init_sync_regen_ver_opts(CSOUND *csound, P *p, ResultKind kind)
+{
+    return run_sync(csound, &p->h, p->out, kind, p->provider, p->model, p->prompt,
+                    p->options, p->regenerate, p->version);
 }
 
 int32_t start_async(CSOUND *csound, MYFLT *ihandle_out,
                     STRINGDAT *provider, STRINGDAT *model, STRINGDAT *prompt,
-                    STRINGDAT *options, MYFLT *regenerate)
+                    STRINGDAT *options, MYFLT *regenerate, MYFLT *version)
 {
     if (!nonempty(provider) || !nonempty(model) || !nonempty(prompt)) {
         return csound->InitError(csound, "modelprompt_async: provider, model, and "
@@ -1133,20 +1241,27 @@ int32_t start_async(CSOUND *csound, MYFLT *ihandle_out,
 
     const bool do_regen = regenerate_flag(regenerate);
     const int prompt_index = next_prompt_index(csound);
+    const int want_version = requested_version_number(version);
     const fs::path cache_dir = cache_directory(csound);
 
     const int handle = registry().create();
     auto req = registry().get(handle);
     *ihandle_out = static_cast<MYFLT>(handle);
 
-    registry().add_worker(std::thread([snap, do_regen, prompt_index, cache_dir,
-                                       req]() mutable {
+    registry().add_worker(std::thread([snap, do_regen, prompt_index, want_version,
+                                       cache_dir, req]() mutable {
         std::string text;
         std::string err;
         bool ok = false;
-        int version = 0;
+        int got_version = 0;
         if (!do_regen) {
-            auto cached = read_latest_cache_at(cache_dir, prompt_index, version, err);
+            std::optional<std::string> cached;
+            if (want_version > 0) {
+                cached = read_cache_version_at(cache_dir, prompt_index, want_version,
+                                               got_version, err);
+            } else {
+                cached = read_latest_cache_at(cache_dir, prompt_index, got_version, err);
+            }
             if (cached) {
                 text = std::move(*cached);
                 ok = true;
@@ -1155,7 +1270,7 @@ int32_t start_async(CSOUND *csound, MYFLT *ihandle_out,
             ok = call_provider_snapshot(snap, ResultKind::Text, text, err);
             if (ok) {
                 std::string cache_err;
-                if (!write_new_cache_version_at(cache_dir, prompt_index, text, version,
+                if (!write_new_cache_version_at(cache_dir, prompt_index, text, got_version,
                                                 cache_err)) {
                     ok = false;
                     err = cache_err;
@@ -1212,12 +1327,20 @@ MP_WRAP(mp_S_opts, ResultKind::Text, ModelPromptOpts<STRINGDAT>, init_sync_opts)
 MP_WRAP(mp_S_regen, ResultKind::Text, ModelPromptRegen<STRINGDAT>, init_sync_regen)
 MP_WRAP(mp_S_regen_opts, ResultKind::Text, ModelPromptRegenOpts<STRINGDAT>,
         init_sync_regen_opts)
+MP_WRAP(mp_S_regen_ver, ResultKind::Text, ModelPromptRegenVer<STRINGDAT>,
+        init_sync_regen_ver)
+MP_WRAP(mp_S_regen_ver_opts, ResultKind::Text, ModelPromptRegenVerOpts<STRINGDAT>,
+        init_sync_regen_ver_opts)
 
 MP_WRAP(mp_i_base, ResultKind::Number, ModelPromptBase<MYFLT>, init_sync_base)
 MP_WRAP(mp_i_opts, ResultKind::Number, ModelPromptOpts<MYFLT>, init_sync_opts)
 MP_WRAP(mp_i_regen, ResultKind::Number, ModelPromptRegen<MYFLT>, init_sync_regen)
 MP_WRAP(mp_i_regen_opts, ResultKind::Number, ModelPromptRegenOpts<MYFLT>,
         init_sync_regen_opts)
+MP_WRAP(mp_i_regen_ver, ResultKind::Number, ModelPromptRegenVer<MYFLT>,
+        init_sync_regen_ver)
+MP_WRAP(mp_i_regen_ver_opts, ResultKind::Number, ModelPromptRegenVerOpts<MYFLT>,
+        init_sync_regen_ver_opts)
 
 MP_WRAP(mp_ia_base, ResultKind::NumberArray, ModelPromptBase<ARRAYDAT>, init_sync_base)
 MP_WRAP(mp_ia_opts, ResultKind::NumberArray, ModelPromptOpts<ARRAYDAT>, init_sync_opts)
@@ -1225,6 +1348,10 @@ MP_WRAP(mp_ia_regen, ResultKind::NumberArray, ModelPromptRegen<ARRAYDAT>,
         init_sync_regen)
 MP_WRAP(mp_ia_regen_opts, ResultKind::NumberArray, ModelPromptRegenOpts<ARRAYDAT>,
         init_sync_regen_opts)
+MP_WRAP(mp_ia_regen_ver, ResultKind::NumberArray, ModelPromptRegenVer<ARRAYDAT>,
+        init_sync_regen_ver)
+MP_WRAP(mp_ia_regen_ver_opts, ResultKind::NumberArray, ModelPromptRegenVerOpts<ARRAYDAT>,
+        init_sync_regen_ver_opts)
 
 MP_WRAP(mp_Sa_base, ResultKind::StringArray, ModelPromptBase<ARRAYDAT>, init_sync_base)
 MP_WRAP(mp_Sa_opts, ResultKind::StringArray, ModelPromptOpts<ARRAYDAT>, init_sync_opts)
@@ -1232,36 +1359,56 @@ MP_WRAP(mp_Sa_regen, ResultKind::StringArray, ModelPromptRegen<ARRAYDAT>,
         init_sync_regen)
 MP_WRAP(mp_Sa_regen_opts, ResultKind::StringArray, ModelPromptRegenOpts<ARRAYDAT>,
         init_sync_regen_opts)
+MP_WRAP(mp_Sa_regen_ver, ResultKind::StringArray, ModelPromptRegenVer<ARRAYDAT>,
+        init_sync_regen_ver)
+MP_WRAP(mp_Sa_regen_ver_opts, ResultKind::StringArray, ModelPromptRegenVerOpts<ARRAYDAT>,
+        init_sync_regen_ver_opts)
 
 MP_WRAP(mp_def_base, ResultKind::InstrDef, ModelPromptBase<INSTREF>, init_sync_base)
 MP_WRAP(mp_def_opts, ResultKind::InstrDef, ModelPromptOpts<INSTREF>, init_sync_opts)
 MP_WRAP(mp_def_regen, ResultKind::InstrDef, ModelPromptRegen<INSTREF>, init_sync_regen)
 MP_WRAP(mp_def_regen_opts, ResultKind::InstrDef, ModelPromptRegenOpts<INSTREF>,
         init_sync_regen_opts)
+MP_WRAP(mp_def_regen_ver, ResultKind::InstrDef, ModelPromptRegenVer<INSTREF>,
+        init_sync_regen_ver)
+MP_WRAP(mp_def_regen_ver_opts, ResultKind::InstrDef, ModelPromptRegenVerOpts<INSTREF>,
+        init_sync_regen_ver_opts)
 
 static int32_t mpa_base(CSOUND *csound, void *pp)
 {
     auto *p = static_cast<ModelPromptAsyncBase *>(pp);
     return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, nullptr,
-                       nullptr);
+                       nullptr, nullptr);
 }
 static int32_t mpa_opts(CSOUND *csound, void *pp)
 {
     auto *p = static_cast<ModelPromptAsyncOpts *>(pp);
     return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, p->options,
-                       nullptr);
+                       nullptr, nullptr);
 }
 static int32_t mpa_regen(CSOUND *csound, void *pp)
 {
     auto *p = static_cast<ModelPromptAsyncRegen *>(pp);
     return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, nullptr,
-                       p->regenerate);
+                       p->regenerate, nullptr);
 }
 static int32_t mpa_regen_opts(CSOUND *csound, void *pp)
 {
     auto *p = static_cast<ModelPromptAsyncRegenOpts *>(pp);
     return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, p->options,
-                       p->regenerate);
+                       p->regenerate, nullptr);
+}
+static int32_t mpa_regen_ver(CSOUND *csound, void *pp)
+{
+    auto *p = static_cast<ModelPromptAsyncRegenVer *>(pp);
+    return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, nullptr,
+                       p->regenerate, p->version);
+}
+static int32_t mpa_regen_ver_opts(CSOUND *csound, void *pp)
+{
+    auto *p = static_cast<ModelPromptAsyncRegenVerOpts *>(pp);
+    return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, p->options,
+                       p->regenerate, p->version);
 }
 
 static int32_t mpr_perf(CSOUND *csound, void *pp)
@@ -1278,6 +1425,10 @@ OENTRY localops[] = {
      (SUBR)mp_S_regen, nullptr, nullptr},
     {ochar("modelprompt"), sizeof(ModelPromptRegenOpts<STRINGDAT>), 0, ochar("S"), ochar("SSSiS"),
      (SUBR)mp_S_regen_opts, nullptr, nullptr},
+    {ochar("modelprompt"), sizeof(ModelPromptRegenVer<STRINGDAT>), 0, ochar("S"), ochar("SSSii"),
+     (SUBR)mp_S_regen_ver, nullptr, nullptr},
+    {ochar("modelprompt"), sizeof(ModelPromptRegenVerOpts<STRINGDAT>), 0, ochar("S"),
+     ochar("SSSiiS"), (SUBR)mp_S_regen_ver_opts, nullptr, nullptr},
 
     {ochar("modelprompt"), sizeof(ModelPromptBase<MYFLT>), 0, ochar("i"), ochar("SSS"), (SUBR)mp_i_base,
      nullptr, nullptr},
@@ -1287,6 +1438,10 @@ OENTRY localops[] = {
      (SUBR)mp_i_regen, nullptr, nullptr},
     {ochar("modelprompt"), sizeof(ModelPromptRegenOpts<MYFLT>), 0, ochar("i"), ochar("SSSiS"),
      (SUBR)mp_i_regen_opts, nullptr, nullptr},
+    {ochar("modelprompt"), sizeof(ModelPromptRegenVer<MYFLT>), 0, ochar("i"), ochar("SSSii"),
+     (SUBR)mp_i_regen_ver, nullptr, nullptr},
+    {ochar("modelprompt"), sizeof(ModelPromptRegenVerOpts<MYFLT>), 0, ochar("i"), ochar("SSSiiS"),
+     (SUBR)mp_i_regen_ver_opts, nullptr, nullptr},
 
     {ochar("modelprompt"), sizeof(ModelPromptBase<ARRAYDAT>), 0, ochar("i[]"), ochar("SSS"),
      (SUBR)mp_ia_base, nullptr, nullptr},
@@ -1296,6 +1451,10 @@ OENTRY localops[] = {
      (SUBR)mp_ia_regen, nullptr, nullptr},
     {ochar("modelprompt"), sizeof(ModelPromptRegenOpts<ARRAYDAT>), 0, ochar("i[]"), ochar("SSSiS"),
      (SUBR)mp_ia_regen_opts, nullptr, nullptr},
+    {ochar("modelprompt"), sizeof(ModelPromptRegenVer<ARRAYDAT>), 0, ochar("i[]"), ochar("SSSii"),
+     (SUBR)mp_ia_regen_ver, nullptr, nullptr},
+    {ochar("modelprompt"), sizeof(ModelPromptRegenVerOpts<ARRAYDAT>), 0, ochar("i[]"),
+     ochar("SSSiiS"), (SUBR)mp_ia_regen_ver_opts, nullptr, nullptr},
 
     {ochar("modelprompt"), sizeof(ModelPromptBase<ARRAYDAT>), 0, ochar("S[]"), ochar("SSS"),
      (SUBR)mp_Sa_base, nullptr, nullptr},
@@ -1305,6 +1464,10 @@ OENTRY localops[] = {
      (SUBR)mp_Sa_regen, nullptr, nullptr},
     {ochar("modelprompt"), sizeof(ModelPromptRegenOpts<ARRAYDAT>), 0, ochar("S[]"), ochar("SSSiS"),
      (SUBR)mp_Sa_regen_opts, nullptr, nullptr},
+    {ochar("modelprompt"), sizeof(ModelPromptRegenVer<ARRAYDAT>), 0, ochar("S[]"), ochar("SSSii"),
+     (SUBR)mp_Sa_regen_ver, nullptr, nullptr},
+    {ochar("modelprompt"), sizeof(ModelPromptRegenVerOpts<ARRAYDAT>), 0, ochar("S[]"),
+     ochar("SSSiiS"), (SUBR)mp_Sa_regen_ver_opts, nullptr, nullptr},
 
     {ochar("modelprompt"), sizeof(ModelPromptBase<INSTREF>), 0, ochar(":InstrDef;"), ochar("SSS"),
      (SUBR)mp_def_base, nullptr, nullptr},
@@ -1314,6 +1477,10 @@ OENTRY localops[] = {
      (SUBR)mp_def_regen, nullptr, nullptr},
     {ochar("modelprompt"), sizeof(ModelPromptRegenOpts<INSTREF>), 0, ochar(":InstrDef;"), ochar("SSSiS"),
      (SUBR)mp_def_regen_opts, nullptr, nullptr},
+    {ochar("modelprompt"), sizeof(ModelPromptRegenVer<INSTREF>), 0, ochar(":InstrDef;"),
+     ochar("SSSii"), (SUBR)mp_def_regen_ver, nullptr, nullptr},
+    {ochar("modelprompt"), sizeof(ModelPromptRegenVerOpts<INSTREF>), 0, ochar(":InstrDef;"),
+     ochar("SSSiiS"), (SUBR)mp_def_regen_ver_opts, nullptr, nullptr},
 
     {ochar("modelprompt_async"), sizeof(ModelPromptAsyncBase), 0, ochar("i"), ochar("SSS"), (SUBR)mpa_base,
      nullptr, nullptr},
@@ -1323,6 +1490,10 @@ OENTRY localops[] = {
      (SUBR)mpa_regen, nullptr, nullptr},
     {ochar("modelprompt_async"), sizeof(ModelPromptAsyncRegenOpts), 0, ochar("i"), ochar("SSSiS"),
      (SUBR)mpa_regen_opts, nullptr, nullptr},
+    {ochar("modelprompt_async"), sizeof(ModelPromptAsyncRegenVer), 0, ochar("i"), ochar("SSSii"),
+     (SUBR)mpa_regen_ver, nullptr, nullptr},
+    {ochar("modelprompt_async"), sizeof(ModelPromptAsyncRegenVerOpts), 0, ochar("i"), ochar("SSSiiS"),
+     (SUBR)mpa_regen_ver_opts, nullptr, nullptr},
 
     {ochar("modelprompt_result"), sizeof(ModelPromptResult), 0, ochar("kS"), ochar("i"), nullptr,
      (SUBR)mpr_perf, nullptr},

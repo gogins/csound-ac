@@ -66,7 +66,8 @@ under the current working directory.
 
 By default each call regenerates from the model and writes the next version.
 Pass `iregenerate=0` to freeze and reuse the latest cached version for that
-prompt number.
+prompt number, or `iregenerate=0, iversion=N` to freeze a specific earlier
+version.
 
 ### Example
 
@@ -355,6 +356,15 @@ result:S = modelprompt(
     iregenerate:i
     [, options:S]
 )
+
+result:S = modelprompt(
+    provider:S,
+    model:S,
+    prompt:S,
+    iregenerate:i,
+    iversion:i
+    [, options:S]
+)
 ```
 
 ### Numeric result
@@ -372,6 +382,15 @@ result:i = modelprompt(
     model:S,
     prompt:S,
     iregenerate:i
+    [, options:S]
+)
+
+result:i = modelprompt(
+    provider:S,
+    model:S,
+    prompt:S,
+    iregenerate:i,
+    iversion:i
     [, options:S]
 )
 ```
@@ -393,6 +412,15 @@ result:i[] = modelprompt(
     iregenerate:i
     [, options:S]
 )
+
+result:i[] = modelprompt(
+    provider:S,
+    model:S,
+    prompt:S,
+    iregenerate:i,
+    iversion:i
+    [, options:S]
+)
 ```
 
 ### String array
@@ -410,6 +438,15 @@ result:S[] = modelprompt(
     model:S,
     prompt:S,
     iregenerate:i
+    [, options:S]
+)
+
+result:S[] = modelprompt(
+    provider:S,
+    model:S,
+    prompt:S,
+    iregenerate:i,
+    iversion:i
     [, options:S]
 )
 ```
@@ -431,6 +468,15 @@ result:InstrDef = modelprompt(
     iregenerate:i
     [, options:S]
 )
+
+result:InstrDef = modelprompt(
+    provider:S,
+    model:S,
+    prompt:S,
+    iregenerate:i,
+    iversion:i
+    [, options:S]
+)
 ```
 
 ## Description
@@ -439,9 +485,9 @@ result:InstrDef = modelprompt(
 
 The request is synchronous. Initialization of the calling instrument does not continue until the model request completes or fails.
 
-Each result type has two signatures. The shorter form takes an optional JSON `options` string. The longer form inserts an optional `iregenerate` flag immediately before that optional `options` argument.
+Each result type has signatures with an optional JSON `options` string, an optional `iregenerate` flag, and an optional `iversion` pin used when freezing.
 
-Every call is assigned the next sequential prompt number for the Csound instance and always participates in local response caching, so a later run can freeze any result by setting `iregenerate` to 0.
+Every call is assigned the next sequential prompt number for the Csound instance and always participates in local response caching. A later run can freeze the latest result with `iregenerate=0`, or an earlier result with `iregenerate=0` and `iversion=N`.
 
 The opcode uses its output type to determine the form of response requested from the model and how that response is converted to a Csound value.
 
@@ -513,7 +559,7 @@ requests an array of numbers because `values` has type `i[]`.
 Optional flag controlling whether this prompt calls the model or reuses a cached response. When omitted, regeneration is on.
 
 - Non-zero (default): submit the prompt to the model and write the result as the next version for this prompt number.
-- Zero: return the latest cached version for this prompt number and do not call the model.
+- Zero: do not call the model; reuse a cached version for this prompt number (see `iversion`).
 
 Prompt numbers are assigned automatically in call order within the Csound instance (1, 2, 3, …), including both `modelprompt` and `modelprompt_async`. Cached files are stored under a directory derived from the current `.csd` file:
 
@@ -530,9 +576,18 @@ where:
 
 Because an external opcode plugin cannot read Csound's private `csdname` field, set the environment variable `MODELPROMPT_CSD` to the full path of the `.csd` before running Csound so that `{csd_basename}` resolves correctly. If `MODELPROMPT_CSD` is unset, the plugin uses `modelprompt_string/modelprompt_cache` under the current working directory.
 
-Earlier versions remain on disk. To freeze a result after a successful regeneration, set `iregenerate` to 0 on the next run.
+Earlier versions remain on disk. To freeze after a successful regeneration, set `iregenerate` to 0 on the next run.
 
-`iregenerate` precedes the optional JSON `options` string.
+### iversion
+
+Optional version pin consulted only when `iregenerate` is 0.
+
+- Omitted or 0: reuse the latest cached version for this prompt number.
+- `N > 0`: reuse exactly `{prompt_index}.{N}`.
+
+If the requested version does not exist, initialization fails. When regenerating, `iversion` is ignored.
+
+`iregenerate` and `iversion` precede the optional JSON `options` string.
 
 ### options
 
@@ -761,6 +816,15 @@ ihandle = modelprompt_async(
     iregenerate:i
     [, options:S]
 )
+
+ihandle = modelprompt_async(
+    provider:S,
+    model:S,
+    prompt:S,
+    iregenerate:i,
+    iversion:i
+    [, options:S]
+)
 ```
 
 ## Description
@@ -822,10 +886,19 @@ Return only the score text.
 Optional flag; when omitted, regeneration is on.
 
 - Non-zero (default): call the model and store the next version for this prompt number.
-- Zero: reuse the latest cached version for this prompt number.
+- Zero: reuse a cached version for this prompt number (see `iversion`).
 
 Prompt numbering and cache paths are the same as for `modelprompt`:
 `{csd_basename}/modelprompt_cache/{prompt_index}.{version}`.
+
+### iversion
+
+Optional version pin consulted only when `iregenerate` is 0.
+
+- Omitted or 0: latest cached version for this prompt number.
+- `N > 0`: exactly `{prompt_index}.{N}`.
+
+Ignored when regenerating. Missing versions fail the request.
 
 ### options
 
@@ -843,7 +916,7 @@ Soptions = {{
 
 The supported options depend on the provider.
 
-When the regenerate overload is used, `iregenerate` is an opcode argument and is not placed inside this JSON object.
+When regenerate/version overloads are used, `iregenerate` and `iversion` are opcode arguments and are not placed inside this JSON object.
 
 ## Output
 
