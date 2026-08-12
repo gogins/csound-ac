@@ -396,7 +396,8 @@ enum class ResultKind {
     Number,
     NumberArray,
     StringArray,
-    InstrDef
+    InstrDef,
+    Orchestra
 };
 
 std::string structured_instruction(ResultKind kind)
@@ -406,6 +407,11 @@ std::string structured_instruction(ResultKind kind)
     case ResultKind::InstrDef:
         return "Return only the requested text. Do not include markdown fences "
                "unless the user asks for them.";
+    case ResultKind::Orchestra:
+        return "Return only valid Csound orchestra code such as instrument "
+               "definitions, connect statements, and alwayson statements. "
+               "Do not include CsInstruments tags, score events, markdown "
+               "fences, or commentary.";
     case ResultKind::Number:
         return "Return only a single JSON number and nothing else.";
     case ResultKind::NumberArray:
@@ -996,6 +1002,16 @@ int32_t assign_instrdef(CSOUND *csound, INSTREF *out, const std::string &text)
     return OK;
 }
 
+int32_t assign_orchestra(CSOUND *csound, STRINGDAT *out, const std::string &text)
+{
+    if (csoundCompileOrc(csound, text.c_str(), 0) != CSOUND_SUCCESS) {
+        return csound->InitError(csound,
+                                 "failed to compile model-generated orchestra");
+    }
+    /* CompileOrc activates alwayson / graph wiring; score remains separate. */
+    return assign_text(csound, out, text);
+}
+
 int32_t assign_result(CSOUND *csound, ResultKind kind, void *out, INSDS *ctx,
                       const std::string &text)
 {
@@ -1010,6 +1026,8 @@ int32_t assign_result(CSOUND *csound, ResultKind kind, void *out, INSDS *ctx,
         return assign_string_array(csound, static_cast<ARRAYDAT *>(out), ctx, text);
     case ResultKind::InstrDef:
         return assign_instrdef(csound, static_cast<INSTREF *>(out), text);
+    case ResultKind::Orchestra:
+        return assign_orchestra(csound, static_cast<STRINGDAT *>(out), text);
     }
     return NOTOK;
 }
@@ -1374,6 +1392,16 @@ MP_WRAP(mp_def_regen_ver, ResultKind::InstrDef, ModelPromptRegenVer<INSTREF>,
 MP_WRAP(mp_def_regen_ver_opts, ResultKind::InstrDef, ModelPromptRegenVerOpts<INSTREF>,
         init_sync_regen_ver_opts)
 
+MP_WRAP(mp_orc_base, ResultKind::Orchestra, ModelPromptBase<STRINGDAT>, init_sync_base)
+MP_WRAP(mp_orc_opts, ResultKind::Orchestra, ModelPromptOpts<STRINGDAT>, init_sync_opts)
+MP_WRAP(mp_orc_regen, ResultKind::Orchestra, ModelPromptRegen<STRINGDAT>, init_sync_regen)
+MP_WRAP(mp_orc_regen_opts, ResultKind::Orchestra, ModelPromptRegenOpts<STRINGDAT>,
+        init_sync_regen_opts)
+MP_WRAP(mp_orc_regen_ver, ResultKind::Orchestra, ModelPromptRegenVer<STRINGDAT>,
+        init_sync_regen_ver)
+MP_WRAP(mp_orc_regen_ver_opts, ResultKind::Orchestra, ModelPromptRegenVerOpts<STRINGDAT>,
+        init_sync_regen_ver_opts)
+
 static int32_t mpa_base(CSOUND *csound, void *pp)
 {
     auto *p = static_cast<ModelPromptAsyncBase *>(pp);
@@ -1481,6 +1509,19 @@ OENTRY localops[] = {
      ochar("SSSii"), (SUBR)mp_def_regen_ver, nullptr, nullptr},
     {ochar("modelprompt"), sizeof(ModelPromptRegenVerOpts<INSTREF>), 0, ochar(":InstrDef;"),
      ochar("SSSiiS"), (SUBR)mp_def_regen_ver_opts, nullptr, nullptr},
+
+    {ochar("modelprompt_orc"), sizeof(ModelPromptBase<STRINGDAT>), 0, ochar("S"), ochar("SSS"),
+     (SUBR)mp_orc_base, nullptr, nullptr},
+    {ochar("modelprompt_orc"), sizeof(ModelPromptOpts<STRINGDAT>), 0, ochar("S"), ochar("SSSS"),
+     (SUBR)mp_orc_opts, nullptr, nullptr},
+    {ochar("modelprompt_orc"), sizeof(ModelPromptRegen<STRINGDAT>), 0, ochar("S"), ochar("SSSi"),
+     (SUBR)mp_orc_regen, nullptr, nullptr},
+    {ochar("modelprompt_orc"), sizeof(ModelPromptRegenOpts<STRINGDAT>), 0, ochar("S"),
+     ochar("SSSiS"), (SUBR)mp_orc_regen_opts, nullptr, nullptr},
+    {ochar("modelprompt_orc"), sizeof(ModelPromptRegenVer<STRINGDAT>), 0, ochar("S"),
+     ochar("SSSii"), (SUBR)mp_orc_regen_ver, nullptr, nullptr},
+    {ochar("modelprompt_orc"), sizeof(ModelPromptRegenVerOpts<STRINGDAT>), 0, ochar("S"),
+     ochar("SSSiiS"), (SUBR)mp_orc_regen_ver_opts, nullptr, nullptr},
 
     {ochar("modelprompt_async"), sizeof(ModelPromptAsyncBase), 0, ochar("i"), ochar("SSS"), (SUBR)mpa_base,
      nullptr, nullptr},

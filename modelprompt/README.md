@@ -1,8 +1,8 @@
 # modelprompt
 
 Csound 7 opcode plugin that submits prompts to external generative models
-(OpenAI, Anthropic) and returns text, numbers, arrays, or compiled
-`InstrDef` values.
+(OpenAI, Anthropic) and returns text, numbers, arrays, compiled
+`InstrDef` values, or full orchestra fragments via `modelprompt_orc`.
 
 ## Getting Started
 
@@ -57,8 +57,8 @@ $env:ANTHROPIC_API_KEY="your-api-key"
 $env:OPENAI_API_KEY="your-api-key"
 ```
 
-Every `modelprompt` / `modelprompt_async` call is numbered sequentially in the
-Csound instance (prompt 1, 2, …). Responses are cached as
+Every `modelprompt` / `modelprompt_orc` / `modelprompt_async` call is numbered
+sequentially in the Csound instance (prompt 1, 2, …). Responses are cached as
 `{prompt_index}.{version}` under a directory derived from the `.csd`. Set
 `MODELPROMPT_CSD` to the full path of the `.csd` so that directory resolves
 correctly; if unset, the plugin uses `modelprompt_string/modelprompt_cache`
@@ -74,6 +74,7 @@ version.
 ```bash
 export ANTHROPIC_API_KEY=...
 csound modelprompt/examples/anthropic_sonnet_instr_score.csd
+csound modelprompt/examples/anthropic_sonnet_orc_score.csd
 ```
 
 Or after install:
@@ -82,8 +83,9 @@ Or after install:
 csound <prefix>/share/doc/csound-ac/modelprompt/examples/anthropic_sonnet_instr_score.csd
 ```
 
-The example asks Anthropic Claude Sonnet to compile an instrument and generate
-a short score. Network access and a valid API key are required.
+The first example asks Sonnet for an instrument body and a score. The second
+uses `modelprompt_orc` for a connected orchestra plus a separate score prompt.
+Network access and a valid API key are required.
 
 ---
 
@@ -93,7 +95,7 @@ The model interaction opcodes allow Csound orchestras to submit natural-language
 
 The opcodes are implemented as a C++ plugin. The models themselves are not part of Csound. The plugin communicates with an external model provider, such as OpenAI or Anthropic, using the provider's network API.
 
-The principal opcode, `modelprompt`, performs a synchronous request during initialization and may return text, numbers, arrays, or compiled instrument definitions. The asynchronous pair `modelprompt_async` and `modelprompt_result` permits a request to execute in a worker thread while Csound continues to perform.
+The principal opcode, `modelprompt`, performs a synchronous request during initialization and may return text, numbers, arrays, or compiled instrument definitions. `modelprompt_orc` returns orchestra source after compiling and activating it. The asynchronous pair `modelprompt_async` and `modelprompt_result` permits a request to execute in a worker thread while Csound continues to perform.
 
 A model can be used to generate or transform, for example:
 
@@ -101,8 +103,10 @@ A model can be used to generate or transform, for example:
 - vectors of pitches, frequencies, amplitudes, or durations;
 - symbolic or textual data;
 - Csound score text;
-- synthesis descriptions; or
-- Csound instrument definitions.
+- synthesis descriptions;
+- Csound instrument definitions; or
+- complete orchestra fragments with `connect` / `alwayson` graphs
+  (`modelprompt_orc`).
 
 The model is selected by a provider name and a provider-specific model name. For example:
 
@@ -252,6 +256,34 @@ schedule(Bell, 0, 8, 0.2, 220)
 The returned source text is compiled into an `InstrDef`. If the generated source cannot be compiled, the opcode reports an initialization error.
 
 Model-generated instrument definitions contain executable Csound code and should be treated differently from model-generated numeric or symbolic data.
+
+### Model-generated orchestras
+
+`modelprompt_orc` requests a full orchestra fragment, compiles it with Csound's runtime orchestra compiler, and returns the source text. Instruments started with `alwayson` become active as part of compilation. Note events are supplied separately, typically with a second `modelprompt` call and `scorelinei`.
+
+```csound
+Sorc = modelprompt_orc(
+    "anthropic",
+    "MODEL_NAME",
+    {{
+    Write instruments Tone and Reverb, connect Tone to Reverb,
+    connect Reverb to a Master that writes to the dac, and
+    alwayson Reverb and Master.
+    }}
+)
+
+Sscore = modelprompt(
+    "anthropic",
+    "MODEL_NAME",
+    {{
+    Write 8 i-statements for instrument Tone.
+    Return only score text.
+    }}
+)
+scorelinei(Sscore)
+```
+
+If the orchestra cannot be compiled, the opcode reports an initialization error.
 
 ## Configuring an API Key
 
@@ -721,7 +753,8 @@ For a model request that must execute without suspending Csound performance, use
 - communication with the provider fails;
 - the provider does not return a result;
 - array or numeric output cannot be converted to the requested Csound type; or
-- generated `InstrDef` source does not compile.
+- generated `InstrDef` source does not compile; or
+- generated orchestra source for `modelprompt_orc` does not compile.
 
 A provider error message should be included in Csound's diagnostic output when available.
 
@@ -791,7 +824,53 @@ endin
 
 ## See Also
 
-`modelprompt_async`, `modelprompt_result`, `create`, `schedule`, `scorelinei`
+`modelprompt_orc`, `modelprompt_async`, `modelprompt_result`, `create`, `schedule`, `scorelinei`
+
+---
+
+# modelprompt_orc
+
+Submits a prompt synchronously, compiles the returned Csound orchestra fragment into the live orchestra, and returns the orchestra source text.
+
+`alwayson` instruments in the fragment are started as part of compilation. Score events are not generated by this opcode; use a separate `modelprompt` (or hand-written score) with `scorelinei` / `schedule`.
+
+## Syntax
+
+```csound
+Sorc = modelprompt_orc(
+    provider:S,
+    model:S,
+    prompt:S
+    [, options:S]
+)
+
+Sorc = modelprompt_orc(
+    provider:S,
+    model:S,
+    prompt:S,
+    iregenerate:i
+    [, options:S]
+)
+
+Sorc = modelprompt_orc(
+    provider:S,
+    model:S,
+    prompt:S,
+    iregenerate:i,
+    iversion:i
+    [, options:S]
+)
+```
+
+Provider, model, prompt, cache, and options arguments behave as for `modelprompt`. Prompt numbering is shared with `modelprompt` and `modelprompt_async`.
+
+## Example
+
+See `examples/anthropic_sonnet_orc_score.csd`.
+
+## See Also
+
+`modelprompt`, `modelprompt_async`, `scorelinei`, `connect`, `alwayson`
 
 ---
 
