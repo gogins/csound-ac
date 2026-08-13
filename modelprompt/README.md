@@ -4,6 +4,14 @@ Csound 7 opcode plugin that submits prompts to external generative models
 (OpenAI, Anthropic) and returns text, numbers, arrays, compiled
 `InstrDef` values, or full orchestra fragments via `modelprompt_orc`.
 
+The `modelprompt` opcodes are designed for use in cases when simply prompting models for .csd files does not suffice. For example:
+
+- Keeping some parts of a piece is hand-coded form, and other parts in model-generated form.
+
+- Easily "freezing" good responses.
+
+- Issuing prompts that include data that arrives after the beginning of a performance, e.g. at random, from external inputs, or through live coding.
+
 ## Getting Started
 
 ### Installation
@@ -57,9 +65,10 @@ $env:ANTHROPIC_API_KEY="your-api-key"
 $env:OPENAI_API_KEY="your-api-key"
 ```
 
-Every `modelprompt` / `modelprompt_orc` / `modelprompt_async` call is numbered
-sequentially in the Csound instance (prompt 1, 2, …). Responses are cached under
-a directory named from the `.csd` basename:
+Every `modelprompt` / `modelprompt_orc` / `modelprompt_async` /
+`modelprompt_orc_async` call is numbered sequentially in the Csound instance
+(prompt 1, 2, …). Responses are cached under a directory named from the `.csd`
+basename:
 
 ```text
 {csd_directory}/{csd_basename}/modelprompt_cache/{prompt_index}.{version}
@@ -75,10 +84,10 @@ host does not put the `.csd` on argv. If no `.csd` name is available, the
 plugin uses `modelprompt_string/modelprompt_cache` under the current working
 directory.
 
-By default each call regenerates from the model and writes the next version.
-Pass `iregenerate=0` to freeze and reuse the latest cached version for that
-prompt number, or `iregenerate=0, iversion=N` to freeze a specific earlier
-version.
+By default (`iregenerate` omitted) each call **reuses the latest cache** when
+present, and only calls the model on a cache miss. Pass `iregenerate=1` to force
+a new model response (next version), or `iregenerate=0` to require a cache hit
+(`iregenerate=0, iversion=N` pins an earlier version).
 
 ### Example
 
@@ -86,6 +95,8 @@ version.
 export ANTHROPIC_API_KEY=...
 csound modelprompt/examples/anthropic_sonnet_instr_score.csd
 csound modelprompt/examples/anthropic_sonnet_orc_score.csd
+csound modelprompt/examples/anthropic_sonnet_orc_async.csd
+csound modelprompt/examples/anthropic_sonnet_glass_garden.csd
 ```
 
 Or after install:
@@ -96,7 +107,11 @@ csound <prefix>/share/doc/csound-ac/modelprompt/examples/anthropic_sonnet_instr_
 
 The first example asks Sonnet for an instrument body and a score. The second
 uses `modelprompt_orc` for a connected orchestra plus a separate score prompt.
-Network access and a valid API key are required.
+The third uses `modelprompt_orc_async` / `modelprompt_orc_result` so orchestra
+generation does not block performance. The fourth, **Glass Garden**, is a longer
+showcase: title, pitch set, three scored sections (Glass/Pad → Spark → Pulse at
+rising tempos), two async score fetches, and a compiled FX graph. Network access
+and a valid API key are required.
 
 ---
 
@@ -106,7 +121,7 @@ The model interaction opcodes allow Csound orchestras to submit natural-language
 
 The opcodes are implemented as a C++ plugin. The models themselves are not part of Csound. The plugin communicates with an external model provider, such as OpenAI or Anthropic, using the provider's network API.
 
-The principal opcode, `modelprompt`, performs a synchronous request during initialization and may return text, numbers, arrays, or compiled instrument definitions. `modelprompt_orc` returns orchestra source after compiling and activating it. The asynchronous pair `modelprompt_async` and `modelprompt_result` permits a request to execute in a worker thread while Csound continues to perform.
+The principal opcode, `modelprompt`, performs a synchronous request during initialization and may return text, numbers, arrays, or compiled instrument definitions. `modelprompt_orc` returns orchestra source after compiling and activating it. The asynchronous pairs `modelprompt_async` / `modelprompt_result` and `modelprompt_orc_async` / `modelprompt_orc_result` permit a request to execute in a worker thread while Csound continues to perform; orchestra compilation for the latter pair still occurs on the Csound thread when the result is polled.
 
 A model can be used to generate or transform, for example:
 
@@ -366,6 +381,8 @@ For a composition whose result must remain fixed, model-generated data should be
 
 This permits models to be used as part of the compositional process without requiring access to the model when the finished composition is subsequently rendered.
 
+In `.csd`s with multiple prompts, caching responses, and then re-running with the cached responses, is normally advisable in order to remove unpredictable and sometimes long delays of responses.
+
 ### Security
 
 Authentication credentials are obtained from the execution environment and are not supplied as ordinary opcode arguments.
@@ -530,7 +547,7 @@ The request is synchronous. Initialization of the calling instrument does not co
 
 Each result type has signatures with an optional JSON `options` string, an optional `iregenerate` flag, and an optional `iversion` pin used when freezing.
 
-Every call is assigned the next sequential prompt number for the Csound instance and always participates in local response caching. A later run can freeze the latest result with `iregenerate=0`, or an earlier result with `iregenerate=0` and `iversion=N`.
+Every call is assigned the next sequential prompt number for the Csound instance and always participates in local response caching. Omitting `iregenerate` reuses the latest cache when present; pass `1` to force a new version, or `0` / `0, N` to freeze.
 
 The opcode uses its output type to determine the form of response requested from the model and how that response is converted to a Csound value.
 
@@ -599,12 +616,13 @@ requests an array of numbers because `values` has type `i[]`.
 
 ### iregenerate
 
-Optional flag controlling whether this prompt calls the model or reuses a cached response. When omitted, regeneration is on.
+Optional flag controlling whether this prompt calls the model or reuses a cached response.
 
-- Non-zero (default): submit the prompt to the model and write the result as the next version for this prompt number.
-- Zero: do not call the model; reuse a cached version for this prompt number (see `iversion`).
+- Omitted (default): **auto** — reuse the latest cached version for this prompt number if one exists; otherwise call the model and store a new version.
+- Non-zero: **force** — always call the model and write the next version.
+- Zero: **freeze** — never call the model; reuse a cached version (see `iversion`). Missing cache fails initialization.
 
-Prompt numbers are assigned automatically in call order within the Csound instance (1, 2, 3, …), including `modelprompt`, `modelprompt_orc`, and `modelprompt_async`. Cached files are stored beside the `.csd` under a directory named from its basename:
+Prompt numbers are assigned automatically in call order within the Csound instance (1, 2, 3, …), including `modelprompt`, `modelprompt_orc`, `modelprompt_async`, and `modelprompt_orc_async`. Cached files are stored beside the `.csd` under a directory named from its basename:
 
 ```text
 {csd_directory}/{csd_basename}/modelprompt_cache/{prompt_index}.{version}
@@ -620,7 +638,7 @@ where:
 
 The `.csd` path is taken from `MODELPROMPT_CSD` if set, otherwise from a `.csd` argument on the host process command line. If none is available, the plugin uses `modelprompt_string/modelprompt_cache` under the current working directory.
 
-Earlier versions remain on disk. To freeze after a successful regeneration, set `iregenerate` to 0 on the next run.
+Earlier versions remain on disk. After a successful run, simply omit `iregenerate` (or leave it unset) to reuse the cache. Use `iregenerate=1` only when you want a fresh model response.
 
 ### iversion
 
@@ -874,7 +892,7 @@ Sorc = modelprompt_orc(
 )
 ```
 
-Provider, model, prompt, cache, and options arguments behave as for `modelprompt`. Prompt numbering is shared with `modelprompt` and `modelprompt_async`.
+Provider, model, prompt, cache, and options arguments behave as for `modelprompt`. Prompt numbering is shared with `modelprompt`, `modelprompt_async`, and `modelprompt_orc_async`.
 
 ## Example
 
@@ -882,7 +900,116 @@ See `examples/anthropic_sonnet_orc_score.csd`.
 
 ## See Also
 
-`modelprompt`, `modelprompt_async`, `scorelinei`, `connect`, `alwayson`
+`modelprompt_orc_async`, `modelprompt_orc_result`, `modelprompt`, `modelprompt_async`, `scorelinei`, `connect`, `alwayson`
+
+---
+
+# modelprompt_orc_async
+
+Starts an asynchronous orchestra-generation request and returns a request handle. Network I/O runs on a worker thread. When the text is ready, poll with `modelprompt_orc_result`, which compiles and activates the fragment on the Csound thread (once).
+
+Use this when orchestra generation must not block initialization or performance. Score events remain separate (`scoreline` / `scorelinei` / `schedule`).
+
+## Syntax
+
+```csound
+ihandle = modelprompt_orc_async(
+    provider:S,
+    model:S,
+    prompt:S
+    [, options:S]
+)
+
+ihandle = modelprompt_orc_async(
+    provider:S,
+    model:S,
+    prompt:S,
+    iregenerate:i
+    [, options:S]
+)
+
+ihandle = modelprompt_orc_async(
+    provider:S,
+    model:S,
+    prompt:S,
+    iregenerate:i,
+    iversion:i
+    [, options:S]
+)
+```
+
+Arguments and caching behave as for `modelprompt_async`. The request uses the orchestra system instruction (valid `instr` / `connect` / `alwayson` code only).
+
+## Output
+
+### ihandle
+
+A positive integer identifying the asynchronous orchestra request. Poll it with `modelprompt_orc_result` (not `modelprompt_result`, which returns text without compiling).
+
+## Example
+
+See `examples/anthropic_sonnet_orc_async.csd`.
+
+## See Also
+
+`modelprompt_orc_result`, `modelprompt_orc`, `modelprompt_async`, `modelprompt_result`
+
+---
+
+# modelprompt_orc_result
+
+Polls a `modelprompt_orc_async` request. On first successful completion it compiles the returned orchestra fragment into the live orchestra (`csoundCompileOrc`), activating any `alwayson` instruments, then returns status and source text.
+
+## Syntax
+
+```csound
+kstatus, Sorc modelprompt_orc_result ihandle
+```
+
+## Performance
+
+### kstatus
+
+```text
+ 0   request is pending
+ 1   orchestra text received and compiled successfully
+-1   request or compile failed
+-2   invalid or unknown request handle
+```
+
+Compilation is attempted only once per handle. A compile failure sets status to `-1` and leaves the diagnostic in `Sorc`.
+
+### Sorc
+
+While pending, an empty string. On success, the compiled orchestra source. On failure, an error description.
+
+## Example
+
+```csound
+gih init 0
+
+instr Start
+    gih = modelprompt_orc_async("anthropic", "MODEL_NAME", {{
+    Write Tone, Reverb, Master, connect, and alwayson Reverb/Master.
+    }})
+endin
+
+instr Poll
+    kstatus, Sorc modelprompt_orc_result gih
+    if kstatus == 1 then
+        printf("%s\n", 1, Sorc)
+        scoreline({{ i "Tone" 0 1 0.2 440 }}, 1)
+        turnoff
+    elseif kstatus < 0 then
+        printf("failed: %s\n", 1, Sorc)
+        turnoff
+    endif
+endin
+```
+
+## See Also
+
+`modelprompt_orc_async`, `modelprompt_orc`, `modelprompt_result`
 
 ---
 
@@ -974,10 +1101,7 @@ Return only the score text.
 
 ### iregenerate
 
-Optional flag; when omitted, regeneration is on.
-
-- Non-zero (default): call the model and store the next version for this prompt number.
-- Zero: reuse a cached version for this prompt number (see `iversion`).
+Optional flag; same meaning as for `modelprompt` (omitted = auto cache, `1` = force, `0` = freeze).
 
 Prompt numbering and cache paths are the same as for `modelprompt`:
 `{csd_directory}/{csd_basename}/modelprompt_cache/{prompt_index}.{version}`.

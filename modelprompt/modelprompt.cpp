@@ -12,9 +12,12 @@
 
   Thread safety
   -------------
-  - Network I/O for modelprompt_async runs on std::thread workers.
+  - Network I/O for modelprompt_async / modelprompt_orc_async runs on
+    std::thread workers.
   - Request status/result are guarded by per-request and registry mutexes;
-    modelprompt_result never blocks on I/O.
+    modelprompt_result / modelprompt_orc_result never block on I/O.
+  - Orchestra compilation for modelprompt_orc_result occurs only on the
+    Csound thread (first successful poll), never from worker threads.
   - Cache directory versioning uses a process-wide mutex.
   - Csound API calls that mutate orchestra state occur only on Csound
     threads (init / control), never from worker threads.
@@ -191,11 +194,99 @@ std::optional<std::string> extract_openai_content(std::string_view json)
 
 std::optional<std::string> extract_anthropic_text(std::string_view json)
 {
-    const auto content = json.find("\"content\"");
-    if (content == std::string_view::npos) {
-        return std::nullopt;
+    /* Messages API returns content as an array of blocks. Newer models may
+       prepend thinking (or other) blocks before type "text". Collect every
+       text block; do not grab the first bare "text" key (may be unrelated). */
+    std::string combined;
+    static const std::regex block_re(
+        R"("type"\s*:\s*"text"\s*,\s*"text"\s*:\s*")");
+    std::cregex_iterator it(json.begin(), json.end(), block_re);
+    const std::cregex_iterator end;
+    for (; it != end; ++it) {
+        const char *p = (*it)[0].second;
+        const char *limit = json.data() + json.size();
+        std::string out;
+        while (p < limit) {
+            if (*p == '\\' && p + 1 < limit) {
+                ++p;
+                switch (*p) {
+                case 'n': out += '\n'; break;
+                case 'r': out += '\r'; break;
+                case 't': out += '\t'; break;
+                case '"': out += '"'; break;
+                case '\\': out += '\\'; break;
+                case '/': out += '/'; break;
+                case 'u':
+                    if (p + 4 < limit) {
+                        out += '?';
+                        p += 4;
+                    }
+                    break;
+                default: out += *p; break;
+                }
+                ++p;
+                continue;
+            }
+            if (*p == '"') {
+                break;
+            }
+            out += *p++;
+        }
+        if (!out.empty()) {
+            if (!combined.empty()) {
+                combined.push_back('\n');
+            }
+            combined += out;
+        }
     }
-    return extract_json_string_value(json.substr(content), "text");
+    if (!combined.empty()) {
+        return combined;
+    }
+
+    /* Alternate key order: "text":"...","type":"text" */
+    static const std::regex alt_re(
+        R"("text"\s*:\s*"(?:\\.|[^"\\])*"\s*,\s*"type"\s*:\s*"text")");
+    std::cmatch alt;
+    if (std::regex_search(json.begin(), json.end(), alt, alt_re)) {
+        const auto pos = static_cast<size_t>(alt.position(0));
+        if (auto s = extract_json_string_value(json.substr(pos), "text")) {
+            if (!s->empty()) {
+                return s;
+            }
+        }
+    }
+
+    /* Legacy fallback. */
+    const auto content = json.find("\"content\"");
+    if (content != std::string_view::npos) {
+        if (auto s = extract_json_string_value(json.substr(content), "text")) {
+            if (!s->empty()) {
+                return s;
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+std::string anthropic_missing_text_diag(std::string_view json)
+{
+    std::string diag = "Anthropic response missing text content";
+    if (auto stop = extract_json_string_value(json, "stop_reason")) {
+        diag += " (stop_reason=" + *stop + ")";
+    }
+    if (json.find("\"type\":\"thinking\"") != std::string_view::npos ||
+        json.find("\"type\": \"thinking\"") != std::string_view::npos) {
+        diag += " [thinking block present, no text block]";
+    }
+    if (json.size() > 400) {
+        diag += ": ";
+        diag.append(json.data(), json.data() + 400);
+        diag += "...";
+    } else if (!json.empty()) {
+        diag += ": ";
+        diag.append(json.data(), json.data() + json.size());
+    }
+    return diag;
 }
 
 std::string strip_code_fences(std::string text)
@@ -520,7 +611,7 @@ bool call_anthropic(CSOUND *csound,
     std::ostringstream body;
     body << "{"
          << "\"model\":\"" << json_escape(model) << "\","
-         << "\"max_tokens\":4096,"
+         << "\"max_tokens\":8192,"
          << "\"system\":\"" << json_escape(system) << "\","
          << "\"messages\":[{\"role\":\"user\",\"content\":\""
          << json_escape(prompt) << "\"}]"
@@ -541,7 +632,7 @@ bool call_anthropic(CSOUND *csound,
     }
     auto content = extract_anthropic_text(http.body);
     if (!content) {
-        err = "Anthropic response missing text content: " + http.body;
+        err = anthropic_missing_text_diag(http.body);
         return false;
     }
     out = strip_code_fences(*content);
@@ -828,12 +919,26 @@ bool write_new_cache_version(CSOUND *csound, int prompt_index,
                                       version_out, err);
 }
 
+enum class RegenMode {
+    Auto,  /* omitted: reuse latest cache if present, else call the model */
+    Force, /* non-zero: always call the model */
+    Freeze /* zero: cache only; fail if missing */
+};
+
+RegenMode regen_mode(MYFLT *regenerate)
+{
+    if (regenerate == nullptr) {
+        return RegenMode::Auto;
+    }
+    return (*regenerate == FL(0.0)) ? RegenMode::Freeze : RegenMode::Force;
+}
+
 bool obtain_model_text(CSOUND *csound,
                        const std::string &provider,
                        const std::string &model,
                        const std::string &prompt,
                        const std::string &options,
-                       bool regenerate,
+                       RegenMode mode,
                        int prompt_index,
                        int requested_version,
                        ResultKind kind,
@@ -841,14 +946,16 @@ bool obtain_model_text(CSOUND *csound,
                        std::string &err)
 {
     int version = 0;
-    if (!regenerate) {
-        std::optional<std::string> cached;
+    auto read_cache = [&](std::string &cache_err) -> std::optional<std::string> {
         if (requested_version > 0) {
-            cached = read_cache_version(csound, prompt_index, requested_version, version,
-                                       err);
-        } else {
-            cached = read_latest_cache(csound, prompt_index, version, err);
+            return read_cache_version(csound, prompt_index, requested_version, version,
+                                      cache_err);
         }
+        return read_latest_cache(csound, prompt_index, version, cache_err);
+    };
+
+    if (mode == RegenMode::Freeze) {
+        auto cached = read_cache(err);
         if (!cached) {
             return false;
         }
@@ -856,6 +963,17 @@ bool obtain_model_text(CSOUND *csound,
         csound->Message(csound, "modelprompt: prompt %d version %d (frozen)\n",
                         prompt_index, version);
         return true;
+    }
+
+    if (mode == RegenMode::Auto) {
+        std::string cache_err;
+        auto cached = read_cache(cache_err);
+        if (cached) {
+            text = std::move(*cached);
+            csound->Message(csound, "modelprompt: prompt %d version %d (cached)\n",
+                            prompt_index, version);
+            return true;
+        }
     }
 
     if (!call_provider(csound, provider, model, prompt, options, kind, text, err)) {
@@ -886,6 +1004,8 @@ struct AsyncRequest {
     std::mutex mu;
     int status = kPending;
     std::string result;
+    ResultKind kind = ResultKind::Text;
+    bool applied = false; /* orchestra compile (or other apply) done once */
 };
 
 struct AsyncRegistry {
@@ -894,11 +1014,13 @@ struct AsyncRegistry {
     std::unordered_map<int, std::shared_ptr<AsyncRequest>> requests;
     std::vector<std::thread> workers;
 
-    int create()
+    int create(ResultKind kind)
     {
         std::lock_guard<std::mutex> lock(mu);
         const int handle = next_handle++;
-        requests.emplace(handle, std::make_shared<AsyncRequest>());
+        auto req = std::make_shared<AsyncRequest>();
+        req->kind = kind;
+        requests.emplace(handle, std::move(req));
         return handle;
     }
 
@@ -1005,7 +1127,7 @@ bool call_provider_snapshot(const ProviderSnapshot &snap,
         std::ostringstream body;
         body << "{"
              << "\"model\":\"" << json_escape(snap.model) << "\","
-             << "\"max_tokens\":4096,"
+             << "\"max_tokens\":8192,"
              << "\"system\":\"" << json_escape(system) << "\","
              << "\"messages\":[{\"role\":\"user\",\"content\":\""
              << json_escape(snap.prompt) << "\"}]"
@@ -1025,7 +1147,7 @@ bool call_provider_snapshot(const ProviderSnapshot &snap,
         }
         auto content = extract_anthropic_text(http.body);
         if (!content) {
-            err = "Anthropic response missing text content";
+            err = anthropic_missing_text_diag(http.body);
             return false;
         }
         out = strip_code_fences(*content);
@@ -1120,6 +1242,16 @@ int32_t assign_orchestra(CSOUND *csound, STRINGDAT *out, const std::string &text
     }
     /* CompileOrc activates alwayson / graph wiring; score remains separate. */
     return assign_text(csound, out, text);
+}
+
+/* Performance-time orchestra apply: no InitError (returns false + message). */
+bool apply_orchestra_text(CSOUND *csound, const std::string &text, std::string &err)
+{
+    if (csoundCompileOrc(csound, text.c_str(), 0) != CSOUND_SUCCESS) {
+        err = "failed to compile model-generated orchestra";
+        return false;
+    }
+    return true;
 }
 
 int32_t assign_result(CSOUND *csound, ResultKind kind, void *out, INSDS *ctx,
@@ -1273,12 +1405,6 @@ struct ModelPromptResult {
     MYFLT *ihandle;
 };
 
-bool regenerate_flag(MYFLT *regenerate)
-{
-    // Default ON when the argument is omitted (null) or non-zero.
-    return regenerate == nullptr || *regenerate != FL(0.0);
-}
-
 int requested_version_number(MYFLT *version)
 {
     if (version == nullptr) {
@@ -1300,7 +1426,7 @@ int32_t run_sync(CSOUND *csound, OPDS *h, void *out, ResultKind kind,
     std::string err;
     const int prompt_index = next_prompt_index(csound);
     if (!obtain_model_text(csound, cstr(provider), cstr(model), cstr(prompt),
-                           options ? cstr(options) : "", regenerate_flag(regenerate),
+                           options ? cstr(options) : "", regen_mode(regenerate),
                            prompt_index, requested_version_number(version), kind, text,
                            err)) {
         return csound->InitError(csound, "modelprompt: %s", err.c_str());
@@ -1352,7 +1478,8 @@ int32_t init_sync_regen_ver_opts(CSOUND *csound, P *p, ResultKind kind)
 
 int32_t start_async(CSOUND *csound, MYFLT *ihandle_out,
                     STRINGDAT *provider, STRINGDAT *model, STRINGDAT *prompt,
-                    STRINGDAT *options, MYFLT *regenerate, MYFLT *version)
+                    STRINGDAT *options, MYFLT *regenerate, MYFLT *version,
+                    ResultKind kind)
 {
     if (!nonempty(provider) || !nonempty(model) || !nonempty(prompt)) {
         return csound->InitError(csound, "modelprompt_async: provider, model, and "
@@ -1367,35 +1494,53 @@ int32_t start_async(CSOUND *csound, MYFLT *ihandle_out,
     snap.openai_key = env_key(csound, "OPENAI_API_KEY");
     snap.anthropic_key = env_key(csound, "ANTHROPIC_API_KEY");
 
-    const bool do_regen = regenerate_flag(regenerate);
+    const RegenMode mode = regen_mode(regenerate);
     const int prompt_index = next_prompt_index(csound);
     const int want_version = requested_version_number(version);
     const fs::path cache_dir = cache_directory(csound);
 
-    const int handle = registry().create();
+    const int handle = registry().create(kind);
     auto req = registry().get(handle);
     *ihandle_out = static_cast<MYFLT>(handle);
 
-    registry().add_worker(std::thread([snap, do_regen, prompt_index, want_version,
-                                       cache_dir, req]() mutable {
+    registry().add_worker(std::thread([snap, mode, prompt_index, want_version, cache_dir,
+                                       kind, req]() mutable {
         std::string text;
         std::string err;
         bool ok = false;
         int got_version = 0;
-        if (!do_regen) {
-            std::optional<std::string> cached;
+        auto read_cache = [&]() -> std::optional<std::string> {
             if (want_version > 0) {
-                cached = read_cache_version_at(cache_dir, prompt_index, want_version,
-                                               got_version, err);
-            } else {
-                cached = read_latest_cache_at(cache_dir, prompt_index, got_version, err);
+                return read_cache_version_at(cache_dir, prompt_index, want_version,
+                                             got_version, err);
             }
+            return read_latest_cache_at(cache_dir, prompt_index, got_version, err);
+        };
+
+        if (mode == RegenMode::Freeze) {
+            auto cached = read_cache();
             if (cached) {
                 text = std::move(*cached);
                 ok = true;
             }
-        } else {
-            ok = call_provider_snapshot(snap, ResultKind::Text, text, err);
+        } else if (mode == RegenMode::Auto) {
+            auto cached = read_cache();
+            if (cached) {
+                text = std::move(*cached);
+                ok = true;
+            } else {
+                ok = call_provider_snapshot(snap, kind, text, err);
+                if (ok) {
+                    std::string cache_err;
+                    if (!write_new_cache_version_at(cache_dir, prompt_index, text,
+                                                    got_version, cache_err)) {
+                        ok = false;
+                        err = cache_err;
+                    }
+                }
+            }
+        } else { /* Force */
+            ok = call_provider_snapshot(snap, kind, text, err);
             if (ok) {
                 std::string cache_err;
                 if (!write_new_cache_version_at(cache_dir, prompt_index, text, got_version,
@@ -1440,6 +1585,70 @@ int32_t modelprompt_result_perf(CSOUND *csound, ModelPromptResult *p)
     } else {
         set_string(csound, p->sresult, text);
     }
+    return OK;
+}
+
+/* Poll orchestra async request; compile once on the Csound thread when ready. */
+int32_t modelprompt_orc_result_perf(CSOUND *csound, ModelPromptResult *p)
+{
+    const int handle = static_cast<int>(*p->ihandle);
+    auto req = registry().get(handle);
+    if (!req) {
+        *p->kstatus = static_cast<MYFLT>(kInvalid);
+        set_string(csound, p->sresult, "invalid or unknown request handle");
+        return OK;
+    }
+
+    int status = 0;
+    std::string text;
+    ResultKind kind = ResultKind::Text;
+    bool applied = false;
+    {
+        std::lock_guard<std::mutex> lock(req->mu);
+        status = req->status;
+        text = req->result;
+        kind = req->kind;
+        applied = req->applied;
+    }
+
+    if (status == kPending) {
+        *p->kstatus = static_cast<MYFLT>(kPending);
+        set_string(csound, p->sresult, "");
+        return OK;
+    }
+    if (status < 0) {
+        *p->kstatus = static_cast<MYFLT>(status);
+        set_string(csound, p->sresult, text);
+        return OK;
+    }
+    if (kind != ResultKind::Orchestra) {
+        *p->kstatus = static_cast<MYFLT>(kFailed);
+        set_string(csound, p->sresult,
+                   "handle is not a modelprompt_orc_async request; "
+                   "use modelprompt_result");
+        return OK;
+    }
+
+    if (!applied) {
+        std::string err;
+        if (!apply_orchestra_text(csound, text, err)) {
+            std::lock_guard<std::mutex> lock(req->mu);
+            req->status = kFailed;
+            req->result = err;
+            req->applied = true;
+            *p->kstatus = static_cast<MYFLT>(kFailed);
+            set_string(csound, p->sresult, err);
+            return OK;
+        }
+        std::lock_guard<std::mutex> lock(req->mu);
+        req->applied = true;
+        csound->Message(csound,
+                        "modelprompt_orc_result: compiled orchestra for handle %d\n",
+                        handle);
+    }
+
+    *p->kstatus = static_cast<MYFLT>(kOk);
+    set_string(csound, p->sresult, text);
     return OK;
 }
 
@@ -1516,42 +1725,84 @@ static int32_t mpa_base(CSOUND *csound, void *pp)
 {
     auto *p = static_cast<ModelPromptAsyncBase *>(pp);
     return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, nullptr,
-                       nullptr, nullptr);
+                       nullptr, nullptr, ResultKind::Text);
 }
 static int32_t mpa_opts(CSOUND *csound, void *pp)
 {
     auto *p = static_cast<ModelPromptAsyncOpts *>(pp);
     return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, p->options,
-                       nullptr, nullptr);
+                       nullptr, nullptr, ResultKind::Text);
 }
 static int32_t mpa_regen(CSOUND *csound, void *pp)
 {
     auto *p = static_cast<ModelPromptAsyncRegen *>(pp);
     return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, nullptr,
-                       p->regenerate, nullptr);
+                       p->regenerate, nullptr, ResultKind::Text);
 }
 static int32_t mpa_regen_opts(CSOUND *csound, void *pp)
 {
     auto *p = static_cast<ModelPromptAsyncRegenOpts *>(pp);
     return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, p->options,
-                       p->regenerate, nullptr);
+                       p->regenerate, nullptr, ResultKind::Text);
 }
 static int32_t mpa_regen_ver(CSOUND *csound, void *pp)
 {
     auto *p = static_cast<ModelPromptAsyncRegenVer *>(pp);
     return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, nullptr,
-                       p->regenerate, p->version);
+                       p->regenerate, p->version, ResultKind::Text);
 }
 static int32_t mpa_regen_ver_opts(CSOUND *csound, void *pp)
 {
     auto *p = static_cast<ModelPromptAsyncRegenVerOpts *>(pp);
     return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, p->options,
-                       p->regenerate, p->version);
+                       p->regenerate, p->version, ResultKind::Text);
+}
+
+static int32_t mpa_orc_base(CSOUND *csound, void *pp)
+{
+    auto *p = static_cast<ModelPromptAsyncBase *>(pp);
+    return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, nullptr,
+                       nullptr, nullptr, ResultKind::Orchestra);
+}
+static int32_t mpa_orc_opts(CSOUND *csound, void *pp)
+{
+    auto *p = static_cast<ModelPromptAsyncOpts *>(pp);
+    return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, p->options,
+                       nullptr, nullptr, ResultKind::Orchestra);
+}
+static int32_t mpa_orc_regen(CSOUND *csound, void *pp)
+{
+    auto *p = static_cast<ModelPromptAsyncRegen *>(pp);
+    return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, nullptr,
+                       p->regenerate, nullptr, ResultKind::Orchestra);
+}
+static int32_t mpa_orc_regen_opts(CSOUND *csound, void *pp)
+{
+    auto *p = static_cast<ModelPromptAsyncRegenOpts *>(pp);
+    return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, p->options,
+                       p->regenerate, nullptr, ResultKind::Orchestra);
+}
+static int32_t mpa_orc_regen_ver(CSOUND *csound, void *pp)
+{
+    auto *p = static_cast<ModelPromptAsyncRegenVer *>(pp);
+    return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, nullptr,
+                       p->regenerate, p->version, ResultKind::Orchestra);
+}
+static int32_t mpa_orc_regen_ver_opts(CSOUND *csound, void *pp)
+{
+    auto *p = static_cast<ModelPromptAsyncRegenVerOpts *>(pp);
+    return start_async(csound, p->ihandle, p->provider, p->model, p->prompt, p->options,
+                       p->regenerate, p->version, ResultKind::Orchestra);
 }
 
 static int32_t mpr_perf(CSOUND *csound, void *pp)
 {
     return modelprompt_result_perf(csound, static_cast<ModelPromptResult *>(pp));
+}
+
+static int32_t mpr_orc_perf(CSOUND *csound, void *pp)
+{
+    return modelprompt_orc_result_perf(csound, static_cast<ModelPromptResult *>(pp));
 }
 
 OENTRY localops[] = {
@@ -1646,8 +1897,23 @@ OENTRY localops[] = {
     {ochar("modelprompt_async"), sizeof(ModelPromptAsyncRegenVerOpts), 0, ochar("i"), ochar("SSSiiS"),
      (SUBR)mpa_regen_ver_opts, nullptr, nullptr},
 
+    {ochar("modelprompt_orc_async"), sizeof(ModelPromptAsyncBase), 0, ochar("i"), ochar("SSS"),
+     (SUBR)mpa_orc_base, nullptr, nullptr},
+    {ochar("modelprompt_orc_async"), sizeof(ModelPromptAsyncOpts), 0, ochar("i"), ochar("SSSS"),
+     (SUBR)mpa_orc_opts, nullptr, nullptr},
+    {ochar("modelprompt_orc_async"), sizeof(ModelPromptAsyncRegen), 0, ochar("i"), ochar("SSSi"),
+     (SUBR)mpa_orc_regen, nullptr, nullptr},
+    {ochar("modelprompt_orc_async"), sizeof(ModelPromptAsyncRegenOpts), 0, ochar("i"),
+     ochar("SSSiS"), (SUBR)mpa_orc_regen_opts, nullptr, nullptr},
+    {ochar("modelprompt_orc_async"), sizeof(ModelPromptAsyncRegenVer), 0, ochar("i"),
+     ochar("SSSii"), (SUBR)mpa_orc_regen_ver, nullptr, nullptr},
+    {ochar("modelprompt_orc_async"), sizeof(ModelPromptAsyncRegenVerOpts), 0, ochar("i"),
+     ochar("SSSiiS"), (SUBR)mpa_orc_regen_ver_opts, nullptr, nullptr},
+
     {ochar("modelprompt_result"), sizeof(ModelPromptResult), 0, ochar("kS"), ochar("i"), nullptr,
      (SUBR)mpr_perf, nullptr},
+    {ochar("modelprompt_orc_result"), sizeof(ModelPromptResult), 0, ochar("kS"), ochar("i"),
+     nullptr, (SUBR)mpr_orc_perf, nullptr},
 
     {nullptr, 0, 0, nullptr, nullptr, nullptr, nullptr, nullptr}};
 
