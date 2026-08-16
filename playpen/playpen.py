@@ -320,11 +320,13 @@ def apply_gain(input_file, output_file, gain_db):
     command[-1:-1] = metadata
     subprocess.run(command, check=True)
 
-def normalize_to_minus1dbtp(input_file, output_file):
+def normalize_to_minus6dbtp(input_file, output_file):
+    target_tp = -6.0
     input_tp = measure_true_peak(input_file)
-    gain = -1.0 - input_tp
+    gain = target_tp - input_tp
     print(f"Input true peak: {input_tp:.2f} dBTP")
-    print(f"Applying gain: {gain:.2f} dB to reach -1 dBTP")
+    print(f"Target true peak: {target_tp:.2f} dBTP")
+    print(f"Applying constant gain: {gain:+.2f} dB")
     apply_gain(input_file, output_file, gain)
     print(f"Output written to: {output_file}")
 
@@ -405,77 +407,123 @@ img.convert("RGB").save(png_path, "PNG")
 def post_process():
     try:
         print(f"\nPost-processing: {metadata_title}...\n")
-        normalize_to_minus1dbtp(rendered_audio_filename, float32_filename)
 
-        # Use sox instead of ffmpeg for this, because sox has better dithering.
+        # Create the canonical floating-point master.
+        #
+        # This normalization must be a single constant-gain operation:
+        # find the peak sample value and scale the entire stereo signal so
+        # that the peak is -6 dBFS.  It must not use loudnorm, compression,
+        # limiting, or any other time-varying gain processing.
+        normalize_to_minus6dbtp(rendered_audio_filename, float32_filename)
+
+        # ------------------------------------------------------------------
+        # 24-bit PCM master
+        # ------------------------------------------------------------------
+        #
+        # Use SoX rather than ffmpeg for float -> integer conversion because
+        # SoX provides high-quality noise-shaped dithering.
 
         int24_command = [
             "sox",
             "-t", "wav", float32_filename,
-            "-t", "wav", "-e", "signed-integer", "-b", "24",
+            "-t", "wav",
+            "-e", "signed-integer",
+            "-b", "24",
             int24_filename,
             "dither", "-s"
         ]
-        print(f'\nint24_command:\n{int24_command}\n')
+        print(f"\nint24_command:\n{int24_command}\n")
         subprocess.run(int24_command, check=True)
-        # Embed metadata into existing file without re-encoding
+
+        # Add metadata to the 24-bit WAV.
         temp_int24 = int24_filename + ".temp.wav"
         ffmpeg_metadata_command = [
             "ffmpeg", "-y", "-hide_banner",
             "-i", int24_filename,
-            "-c:a", "pcm_s24le",  # preserve format
+            "-c:a", "pcm_s24le",
             "-f", "wav",
             *metadata,
             temp_int24
         ]
-        print(f'\nffmpeg_metadata_command:\n{ffmpeg_metadata_command}\n')
+        print(
+            f"\nffmpeg_metadata_command:\n"
+            f"{ffmpeg_metadata_command}\n"
+        )
         subprocess.run(ffmpeg_metadata_command, check=True)
         os.replace(temp_int24, int24_filename)
 
-        # Bandcamp (and archive) FLAC must keep the master sample rate.
-        # loudnorm true-peak processing oversamples internally; without an
-        # explicit -ar, a following aresample can leave that rate (e.g. 96k→192k).
-        master_sample_rate = subprocess.run(
-            [
-                "ffprobe", "-v", "error", "-select_streams", "a:0",
-                "-show_entries", "stream=sample_rate",
-                "-of", "default=noprint_wrappers=1:nokey=1",
-                float32_filename,
-            ],
-            check=True, capture_output=True, text=True,
-        ).stdout.strip()
+        # ------------------------------------------------------------------
+        # FLAC
+        # ------------------------------------------------------------------
+        #
+        # Encode the already-dithered 24-bit PCM master losslessly.
+        # No normalization, resampling, or further dithering is performed.
+        # Thus the FLAC represents the same PCM samples as int24_filename.
+
         flac_command = [
             "ffmpeg", "-y", "-hide_banner",
-            "-i", float32_filename,
-            "-af", "loudnorm=I=-14:TP=-1.5:LRA=20:dual_mono=false,aresample=dither_method=shibata",
-            "-ar", master_sample_rate,
+            "-i", int24_filename,
             "-c:a", "flac",
             "-f", "flac",
             flac_filename
         ]
         flac_command[-1:-1] = metadata
-        print(f'\nflac_command:\n{flac_command}\n')
+
+        print(f"\nflac_command:\n{flac_command}\n")
         subprocess.run(flac_command, check=True)
 
+        # ------------------------------------------------------------------
+        # CD-quality 16-bit / 44.1 kHz WAV
+        # ------------------------------------------------------------------
+        #
+        # Start from the normalized float master so sample-rate conversion is
+        # performed before quantization.  SoX performs high-quality SRC,
+        # followed by noise-shaped dither to 16 bits.
+        #
+        # There is deliberately no loudness normalization here.
+
         cd_command = [
+            "sox",
+            "-t", "wav", float32_filename,
+            "-t", "wav",
+            "-e", "signed-integer",
+            "-b", "16",
+            "-r", "44100",
+            cd_filename,
+            "rate", "-v", "44100",
+            "dither", "-s"
+        ]
+        print(f"\ncd_command:\n{cd_command}\n")
+        subprocess.run(cd_command, check=True)
+
+        # Add metadata to the CD WAV.
+        temp_cd = cd_filename + ".temp.wav"
+        ffmpeg_cd_metadata_command = [
             "ffmpeg", "-y", "-hide_banner",
-            "-i", float32_filename,
-            "-af", "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false",
-            "-ar", "44100",
-            "-ac", "2",
-            "-sample_fmt", "s16",
+            "-i", cd_filename,
             "-c:a", "pcm_s16le",
             "-f", "wav",
-            cd_filename
+            *metadata,
+            temp_cd
         ]
-        cd_command[-1:-1] = metadata
-        print(f'\ncd_command:\n{cd_command}\n')
-        subprocess.run(cd_command, check=True)
+        print(
+            f"\nffmpeg_cd_metadata_command:\n"
+            f"{ffmpeg_cd_metadata_command}\n"
+        )
+        subprocess.run(ffmpeg_cd_metadata_command, check=True)
+        os.replace(temp_cd, cd_filename)
+
+        # ------------------------------------------------------------------
+        # MP3
+        # ------------------------------------------------------------------
+        #
+        # Encode directly from the normalized floating-point master.
+        # Do not perform loudness normalization or integer dithering before
+        # perceptual encoding.
 
         mp3_command = [
             "ffmpeg", "-y", "-hide_banner",
             "-i", float32_filename,
-            "-af", "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false",
             "-ar", "44100",
             "-ac", "2",
             "-c:a", "libmp3lame",
@@ -483,30 +531,55 @@ def post_process():
             mp3_filename
         ]
         mp3_command[-1:-1] = metadata
+
+        print(f"\nmp3_command:\n{mp3_command}\n")
         subprocess.run(mp3_command, check=True)
- 
-        # Bandcamp/YouTube still: square 1400×1400 spectrogram cover with
-        # artist/title text (needed for YouTube). Original showspectrumpic
-        # layout; text via ffmpeg drawtext when available, else Pillow.
+
+        # ------------------------------------------------------------------
+        # Spectrogram cover
+        # ------------------------------------------------------------------
+        #
+        # Bandcamp/YouTube still: square 1400x1400 spectrogram cover with
+        # artist/title text.  Use the 24-bit master as before.
+
         spectrogram_label = f"{metadata_artist}, {metadata_title}"
+
         ffmpeg_filters = subprocess.run(
             ["ffmpeg", "-hide_banner", "-filters"],
-            check=True, capture_output=True, text=True,
+            check=True,
+            capture_output=True,
+            text=True,
         ).stdout
+
         if re.search(r"\bdrawtext\b", ffmpeg_filters):
             filter_complex = (
-                "[0:a]showspectrumpic=s=1100x1200:legend=1:mode=separate[s]; "
+                "[0:a]"
+                "showspectrumpic="
+                "s=1100x1200:"
+                "legend=1:"
+                "mode=separate"
+                "[s]; "
                 "color=c=black@1:s=1400x1400:d=1[bg]; "
                 "[bg][s]overlay=0:0[tmp]; "
-                f"[tmp]drawtext=text='{spectrogram_label}':"
-                "x=(w-text_w)/2:y=1340:fontsize=28:fontcolor=white"
+                f"[tmp]drawtext="
+                f"text='{spectrogram_label}':"
+                "x=(w-text_w)/2:"
+                "y=1340:"
+                "fontsize=28:"
+                "fontcolor=white"
             )
         else:
             filter_complex = (
-                "[0:a]showspectrumpic=s=1100x1200:legend=1:mode=separate[s]; "
+                "[0:a]"
+                "showspectrumpic="
+                "s=1100x1200:"
+                "legend=1:"
+                "mode=separate"
+                "[s]; "
                 "color=c=black@1:s=1400x1400:d=1[bg]; "
                 "[bg][s]overlay=0:0"
             )
+
         spectrogram_command = [
             "ffmpeg", "-y", "-hide_banner",
             "-i", int24_filename,
@@ -514,20 +587,34 @@ def post_process():
             "-frames:v", "1",
             png_filename,
         ]
-        print(f'\nspectrogram_command:\n{spectrogram_command}\n')
+        print(
+            f"\nspectrogram_command:\n"
+            f"{spectrogram_command}\n"
+        )
         subprocess.run(spectrogram_command, check=True)
-        if not re.search(r"\bdrawtext\b", ffmpeg_filters):
-            print("ffmpeg has no drawtext; burning cover label with Pillow.")
-            add_cover_label(png_filename, spectrogram_label)
 
-        # Create a high-resolution static video with audio.
+        if not re.search(r"\bdrawtext\b", ffmpeg_filters):
+            print(
+                "ffmpeg has no drawtext; "
+                "burning cover label with Pillow."
+            )
+            add_cover_label(
+                png_filename,
+                spectrogram_label
+            )
+
+        # ------------------------------------------------------------------
+        # MP4 / YouTube
+        # ------------------------------------------------------------------
+        #
+        # Encode AAC directly from the normalized floating-point master.
+        # Again, no loudness normalization is performed.
 
         mp4_command = [
             "ffmpeg", "-y", "-hide_banner",
             "-loop", "1",
             "-i", png_filename,
             "-i", float32_filename,
-            "-af", "loudnorm=I=-14:TP=-1:LRA=20:linear=true:dual_mono=false",
             "-c:v", "libx264",
             "-tune", "stillimage",
             "-pix_fmt", "yuv420p",
@@ -538,18 +625,42 @@ def post_process():
             mp4_filename
         ]
         mp4_command[-1:-1] = metadata
-        print(f'\nmp4_command:\n{mp4_command}\n')
+
+        print(f"\nmp4_command:\n{mp4_command}\n")
         subprocess.run(mp4_command, check=True)
- 
-        subprocess.run(['sndfile-info', f"{rendered_audio_filename}"], check=True)
-        subprocess.run(['sndfile-info', f"{float32_filename}"], check=True)
-        subprocess.run(['sndfile-info', f"{int24_filename}"], check=True)
-        subprocess.run(['sndfile-info', f"{flac_filename}"], check=True)
-        subprocess.run(['sndfile-info', f"{cd_filename}"], check=True)
-        subprocess.run(['sndfile-info', f"{mp3_filename}"], check=True)
-        subprocess.run(['sndfile-info', f"{mp4_filename}"], check=True)
-    except:
+
+        # ------------------------------------------------------------------
+        # Diagnostics
+        # ------------------------------------------------------------------
+
+        subprocess.run(
+            ["sndfile-info", rendered_audio_filename],
+            check=True
+        )
+        subprocess.run(
+            ["sndfile-info", float32_filename],
+            check=True
+        )
+        subprocess.run(
+            ["sndfile-info", int24_filename],
+            check=True
+        )
+        subprocess.run(
+            ["sndfile-info", flac_filename],
+            check=True
+        )
+        subprocess.run(
+            ["sndfile-info", cd_filename],
+            check=True
+        )
+        subprocess.run(
+            ["sndfile-info", mp3_filename],
+            check=True
+        )
+
+    except Exception:
         traceback.print_exc()
+
     finally:
         print(f"\nPost-processing: {metadata_title}.\n")
         return
