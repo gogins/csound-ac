@@ -663,7 +663,6 @@ def post_process():
 
     finally:
         print(f"\nPost-processing: {metadata_title}.\n")
-        return
 
 def csd_audio():
     try:
@@ -676,7 +675,6 @@ def csd_audio():
         traceback.print_exc()
     finally:
         print(f"\ncsd_audio: {composition_filepath} to {csound_audio_output}.\n")
-        return
         
 def csd_soundfile():
     try:
@@ -690,7 +688,6 @@ def csd_soundfile():
         traceback.print_exc()
     finally:
         print(f"csd_soundfile: {composition_filepath} to {rendered_audio_filename}.\n")
-        return
          
 def play():
     try:
@@ -707,7 +704,6 @@ def play():
         traceback.print_exc()
     finally:
         print(f"play: {composition_filepath} to {int24_filename}.")
-        return
     
 package_json_template = '''{
   "main": "%s",
@@ -788,7 +784,6 @@ def html_nw():
     traceback.print_exc()
   finally:
     print(f"html_nw: {composition_filepath}.")
-    return
         
 def html_localhost():
   try:
@@ -800,7 +795,6 @@ def html_localhost():
   finally:
     print(f"html_localhost: {composition_filename}.")
     subprocess.run(command, shell=True)
-    return
         
 def cpp_app():
     try:
@@ -812,7 +806,6 @@ def cpp_app():
         traceback.print_exc()
     finally:
         print(f"cpp_app: {composition_filepath}.\n")
-        return
 
 def cpp_audio():
     try:
@@ -824,7 +817,6 @@ def cpp_audio():
         traceback.print_exc()
     finally:
         print(f"cpp_audio: {composition_filepath}.\n")
-        return
 
 def cpp_soundfile():
     print(f"platform_system:", platform_system)
@@ -837,7 +829,6 @@ def cpp_soundfile():
         traceback.print_exc()
     finally:
         print(f"cpp_soundfile: {composition_filepath}.\n")
-        return
 
 def man_csound():
     try:
@@ -847,7 +838,6 @@ def man_csound():
         traceback.print_exc()
     finally:
         print(f"man_csound: {composition_filepath}.\n")
-        return
 
 def man_python():
     try:
@@ -857,7 +847,6 @@ def man_python():
         traceback.print_exc()
     finally:
         print(f"man_csound: {composition_filepath}.\n")
-        return
 
 def man_csoundac():
     try:
@@ -868,7 +857,6 @@ def man_csoundac():
         traceback.print_exc()
     finally:
         print(f"man_csoundac: {composition_filepath}.\n")
-        return
 
 def cpp_astyle():
     try:
@@ -878,7 +866,6 @@ def cpp_astyle():
         traceback.print_exc()
     finally:
         print(f"cpp_astyle: {composition_filepath}.\n")
-        return
         
 def generate_csd(patch_filepath, instrument_name, output):
     csd = '''<CsoundSynthesizer>
@@ -1042,7 +1029,6 @@ def csd_patch():
         traceback.print_exc()
     finally:
         print(f"csd_patch: {composition_filepath}.\n")
-        return
 
 if command == 'csd-audio':
     csd_audio()
