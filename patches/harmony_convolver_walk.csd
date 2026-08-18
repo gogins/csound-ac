@@ -86,7 +86,7 @@ instr source_sound
 endin
 
 /*
-  a_output harmony_convolver k_kernel_duration, i_impulse_gain, 
+  a_output harmony_convolver i_kernel_duration, i_impulse_gain, 
     i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, 
     i_pitch_class_4, i_pitch_class_5
 */
@@ -97,7 +97,7 @@ instr evoke
   i_gain init .3
   i_fadein init p4
   i_fadeout init p5
-  k_kernel_duration init p6
+  i_kernel_duration init p6
   i_impulse_gain init p7
   i_dirac_level init p8
   i_pitch_class_1 init p9
@@ -106,15 +106,15 @@ instr evoke
   i_pitch_class_4 init p12    
   i_pitch_class_5 init p13
   a_envelope linsegr 0, i_fadein, 1, p3, 1, i_fadeout, 0
-  a_convolved_left harmony_convolver a_input_left, k_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5
-  a_convolved_right harmony_convolver a_input_right, k_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5
+  a_convolved_left harmony_convolver a_input_left, i_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5
+  a_convolved_right harmony_convolver a_input_right, i_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5
   a_convolved_left *= i_gain
   a_convolved_right *= i_gain
   a_convolved_left *= a_envelope
   a_convolved_right *= a_envelope
   outleta "leftout", a_convolved_left
   outleta "rightout", a_convolved_right
-  prints "Evoke:  seconds: %12.3f duration: %9.3f fadein: %5.2f fadeout: %5.2f impulse duration: %5.3f impulse gain: %5.3ff dirac level: %5.3f pitch-classes: %3d %3d %3d %3d %3d\n", p2, p3, i_fadein, i_fadeout, k_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5
+  prints "Evoke:  seconds: %12.3f duration: %9.3f fadein: %5.2f fadeout: %5.2f impulse duration: %5.3f impulse gain: %5.3ff dirac level: %5.3f pitch-classes: %3d %3d %3d %3d %3d\n", p2, p3, i_fadein, i_fadeout, i_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5
 endin
 
 instr master_output

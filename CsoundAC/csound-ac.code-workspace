@@ -41,6 +41,12 @@
 		},
 		{
 			"path": "../../mkg-csound"
+		},
+		{
+			"path": "../../csound-android"
+		},
+		{
+			"path": "../../csound-examples"
 		}
 	],
 	"settings": {}
