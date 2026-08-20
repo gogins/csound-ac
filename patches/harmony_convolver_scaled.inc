@@ -7,6 +7,9 @@ Like the original `harmony_convolver`, with two per-partial changes:
 ```
 T(f) = min(T, n_max / f),   n_max = T * 440
 ```
+Each partial uses a **causal** half-cosine fade-out on \([0,T(f)]\)
+(starts at 1, ends at 0). A full Hann would peak mid-window and delay the
+audible/visible onset of the grain.
 
 2. Inverse IEC A-weighting on each partial independently (gain 1 at 1 kHz),
    with a rumble shelf and boost cap so wind does not dominate field recordings:
@@ -106,7 +109,6 @@ opcode harmony_convolver_scaled, a, aiiijjjjj
     i_sample_count = 2
   endif
 
-  ; Unique table per instance (ftgenonce collides across evoke events).
   i_impulse_response_table ftgen 0, 0, -i_sample_count, 7, 0, i_sample_count, 0
 
   if (i_frequency_count > 0) then
@@ -124,7 +126,9 @@ opcode harmony_convolver_scaled, a, aiiijjjjj
         endif
         if (i_time_seconds < i_T_f) then
           if (i_T_f > 0) then
-            i_hann = 0.5 - 0.5 * cos(i_two_pi * i_time_seconds / i_T_f)
+            ; Causal fade-out (half-cosine): 1 at t=0, 0 at t=T_f.
+            ; A full Hann peaks at mid-window and makes the effect look late.
+            i_hann = 0.5 + 0.5 * cos(i_two_pi * 0.5 * i_time_seconds / i_T_f)
           else
             i_hann = 0
           endif

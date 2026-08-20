@@ -111,8 +111,9 @@ opcode harmony_convolver, a, akiijjjjj
     i_sample_index = 0
     while (i_sample_index < i_sample_count) do
       i_time_seconds = i_sample_index / sr
-      ; Hanning window over [0, i_sample_count-1]
-      i_hanning_window = 0.5 - 0.5 * cos( (i_two_pi * i_sample_index) / (i_sample_count - 1) )
+      ; Causal fade-out over the grain (1 at start, 0 at end).
+      ; Full Hann peaks mid-window and delays the audible onset.
+      i_hanning_window = 0.5 + 0.5 * cos( (i_two_pi * 0.5 * i_sample_index) / (i_sample_count - 1) )
       i_sum_of_sines = 0.0
 
       i_frequency_index = 0

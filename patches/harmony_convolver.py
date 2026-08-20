@@ -7,7 +7,16 @@ during which  ii-V-I chord progression is eoked from the source.
 '''
 
 import sys
+from pathlib import Path
+
+# Prefer the Csound 7 ctcsound shipped with the csound tree if not installed.
+_csound7_python = Path.home() / "csound" / "Python"
+if _csound7_python.is_dir() and str(_csound7_python) not in sys.path:
+    sys.path.insert(0, str(_csound7_python))
+
 import ctcsound
+
+# Csound 7 API (snake_case): compile_csd / start / perform_ksmps
 csound = ctcsound.Csound()
 csd = '''<CsoundSynthesizer>
 <CsOptions>
@@ -19,7 +28,7 @@ ksmps = 128
 nchnls = 2
 0dbfs = 1000
                       
-#include "harmony_convolver.inc"
+#include "harmony_convolver_scaled.inc"
                       
 alwayson "MasterOutput"  
                       
@@ -63,8 +72,8 @@ instr Evoker
   i_pitch_class_5 init p13
   a_source_left  = ga_input_left
   a_source_right = ga_input_right
-  a_processed_left harmony_convolver a_source_left, i(k_kernel_duration), i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5   
-  a_processed_right harmony_convolver a_source_right, i(k_kernel_duration), i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5   
+  a_processed_left harmony_convolver_scaled a_source_left, i(k_kernel_duration), i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5   
+  a_processed_right harmony_convolver_scaled a_source_right, i(k_kernel_duration), i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5   
   k_envelope linsegr 0, gi_fade, p3, gi_fade, 0
   ga_mix_left  += a_processed_left  * k_envelope
   ga_mix_right += a_processed_right * k_envelope
@@ -136,8 +145,10 @@ csd = csd.replace('''</CsInstruments>''', '''</CsInstruments>\n<CsScore>\n''' + 
 print(csd)
 with open("from_python.csd", "w") as f:
     f.write(csd)
-csound.compileCsdText(csd)
-csound.compileCsdText(csd)
+# mode 1: csd is a full CSD text string (not a filename)
+csound.compile_csd(csd, 1)
 csound.start()
-csound.perform()
+while csound.perform_ksmps() == 0:
+    pass
+csound.reset()
 
