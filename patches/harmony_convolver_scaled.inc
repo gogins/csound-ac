@@ -33,7 +33,7 @@ a_output harmony_convolver_scaled a_input, i_impulse_duration, i_impulse_gain,
 opcode harmony_convolver_scaled, a, aiiijjjjj
   a_source, i_impulse_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5 xin
 
-  i_T = max(0.01, min(abs(i_impulse_duration), 1.0))
+  i_T = max(0.01, min(abs(i_impulse_duration), 1.5))
   i_f_pivot = 440.0
   i_n_max = i_T * i_f_pivot
 
