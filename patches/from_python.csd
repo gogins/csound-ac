@@ -8,7 +8,7 @@ ksmps = 128
 nchnls = 2
 0dbfs = 1000
                       
-#include "harmony_convolver_scaled.inc"
+#include "chord_convolver.inc"
                       
 alwayson "MasterOutput"  
                       
@@ -52,8 +52,8 @@ instr Evoker
   i_pitch_class_5 init p13
   a_source_left  = ga_input_left
   a_source_right = ga_input_right
-  a_processed_left harmony_convolver_scaled a_source_left, i(k_kernel_duration), i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5   
-  a_processed_right harmony_convolver_scaled a_source_right, i(k_kernel_duration), i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5   
+  a_processed_left chord_convolver a_source_left, i(k_kernel_duration), i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5   
+  a_processed_right chord_convolver a_source_right, i(k_kernel_duration), i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5   
   k_envelope linsegr 0, gi_fade, p3, gi_fade, 0
   ga_mix_left  += a_processed_left  * k_envelope
   ga_mix_right += a_processed_right * k_envelope

@@ -4,7 +4,7 @@
     1) classic comb filter  — teeth periodic in *linear* Hz
     2) generic constant-Q bank — every 3 semitones (noise: high-Q; click: RT60=comb)
 
-    3) harmony_convolver_scaled — sparse PC×octave lattice
+    3) chord_convolver — sparse PC×octave lattice
 
   Timeline (1 s silence before each segment; log-frequency spectrogram):
 
@@ -12,11 +12,11 @@
     1–3    click    dry
     4–6    click    comb
     7–9    click    generic CQT
-    10–12  click    harmony convolver
+    10–12  click    chord convolver
     13–17  noise    dry
     18–22  noise    comb
     23–27  noise    generic CQT
-    28–32  noise    harmony convolver
+    28–32  noise    chord convolver
 
   Chord for the convolver: pitch-classes 0, 4, 7, 11 (C E G B).
   Comb f0 = 200 Hz (linear teeth). CQT is every 3 semitones (~50 Hz at C4).
@@ -35,7 +35,7 @@ ksmps  = 32
 nchnls = 1
 0dbfs  = 1
 
-#include "harmony_convolver_scaled.inc"
+#include "chord_convolver.inc"
 
 ; Generic constant-Q / constant-RT60 filterbank: geometrically spaced centers.
 ; i_q > 0: bw = f/Q (constant-Q). i_q < 0: bw from RT60=|i_q| (comb-like decay).
@@ -114,9 +114,9 @@ instr compare
   else
     ; Sparse chord lattice (C E G B). Long IR on click to match comb tail; short on noise.
     if (i_src == 0) then
-      a_out harmony_convolver_scaled a_src, i_click_tail, 0.22, 0.65, 0, 4, 7, 11, -1
+      a_out chord_convolver a_src, i_click_tail, 0.22, 0.65, 1, 0, 4, 7, 11
     else
-      a_out harmony_convolver_scaled a_src, 0.05, 0.22, 0.65, 0, 4, 7, 11, -1
+      a_out chord_convolver a_src, 0.05, 0.22, 0.65, 1, 0, 4, 7, 11
     endif
     S_fx = "harmony-convolver"
   endif

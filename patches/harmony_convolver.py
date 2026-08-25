@@ -1,9 +1,9 @@
 '''
-Tests and demonstrates `harmony_convolver.inc`.
+Tests and demonstrates `chord_convolver.inc`.
 
-The piece loops over changes of parameters to the `harmony_convolver` opcode, 
+The piece loops over changes of parameters to the `chord_convolver` opcode,
 and at each setting, plays first noise then an ascending sawtooth through the opcode,
-during which  ii-V-I chord progression is eoked from the source.
+during which a ii-V-I chord progression is evoked from the source.
 '''
 
 import sys
@@ -28,7 +28,7 @@ ksmps = 128
 nchnls = 2
 0dbfs = 1000
                       
-#include "harmony_convolver_scaled.inc"
+#include "chord_convolver.inc"
                       
 alwayson "MasterOutput"  
                       
@@ -62,23 +62,19 @@ instr Saw
 endin
                                    
 instr Evoker
-  k_kernel_duration init p4
+  i_impulse_duration init p4
   i_impulse_gain init p5
-  i_dirac_level  init p6
-  i_pitch_class_1 init p7
-  i_pitch_class_2 init p8
-  i_pitch_class_3 init p9
-  i_pitch_class_4 init p12
-  i_pitch_class_5 init p13
+  i_dirac_gain init p6
+  i_compensation_type init p7
+  i_partials[] passign 8
   a_source_left  = ga_input_left
   a_source_right = ga_input_right
-  a_processed_left harmony_convolver_scaled a_source_left, i(k_kernel_duration), i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5   
-  a_processed_right harmony_convolver_scaled a_source_right, i(k_kernel_duration), i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5   
+  a_processed_left chord_convolver a_source_left, i_impulse_duration, i_impulse_gain, i_dirac_gain, i_compensation_type, i_partials
+  a_processed_right chord_convolver a_source_right, i_impulse_duration, i_impulse_gain, i_dirac_gain, i_compensation_type, i_partials
   k_envelope linsegr 0, gi_fade, p3, gi_fade, 0
   ga_mix_left  += a_processed_left  * k_envelope
   ga_mix_right += a_processed_right * k_envelope
-  ; prints "Evoker: p1 %f p2 %f p3 %f direct p4  %f impulse gain %f dirac level %f\\n", p1, p2, p3, p4, i_impulse_gain, i_dirac_level
-  prints "Evoker: p1 %f p2 %f p3 %f kernel dur %f impulse gain %f dirac level %f\\n", p1, p2, p3, k_kernel_duration, i_impulse_gain, i_dirac_level
+  prints "Evoker: p1 %f p2 %f p3 %f kernel dur %f impulse gain %f dirac gain %f compensation %d n_pcs %d\\n", p1, p2, p3, i_impulse_duration, i_impulse_gain, i_dirac_gain, i_compensation_type, lenarray(i_partials)
 
 endin
 
@@ -95,13 +91,13 @@ endin
 '''   
 
 '''
-a_output harmony_convolver k_kernel_duration, i_impulse_gain, 
-  i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, 
-  i_pitch_class_4, i_pitch_class_5
+a_output chord_convolver a_input, i_impulse_duration,
+  i_impulse_gain, i_dirac_gain, i_compensation_type, i_partials...
 '''
 k_kernel_durations = [.01, .1, 1, 4]
 i_impulse_gains = [.125, .25, .75]
-i_dirac_levels = [.75, .5, .25, 1]
+i_dirac_gains = [.75, .5, .25, 1]
+i_compensation_type = 1
 source_instruments = [2, 1]
 chords = []
 chords.append([2, 5, 9, 12])   
@@ -116,12 +112,12 @@ def generate_score():
     setting_number = 1
     for k_kernel_duration in k_kernel_durations:
         for i_impulse_gain in i_impulse_gains:
-            for i_dirac_level in i_dirac_levels:
+            for i_dirac_gain in i_dirac_gains:
                 print(
                     f"Setting {setting_number:3d}: "
                     f"kernel duration {k_kernel_duration:9.4f} "
                     f"impulse gain {i_impulse_gain:9.4f} "
-                    f"dirac level {i_dirac_level:9.4f}"
+                    f"dirac gain {i_dirac_gain:9.4f}"
                 )
                 setting_number += 1
                 for source_instrument in source_instruments:
@@ -132,10 +128,7 @@ def generate_score():
                     # Schedule the chords.
                     for i in range(len(chords)):
                         chord = chords[i]
-                        # print("chord: ", chord)
-                        # Schedule the chords.
-                        chord_event = [3, time, chord_duration, k_kernel_duration, i_impulse_gain, i_dirac_level, chord[0], chord[1], chord[2], chord[3]]
-                        # print("chord_event:", chord_event) 
+                        chord_event = [3, time, chord_duration, k_kernel_duration, i_impulse_gain, i_dirac_gain, i_compensation_type] + list(chord) + [-1]
                         score_line = "i " + " ".join(str(x) for x in chord_event)
                         time = time + chord_duration
                         score_lines.append(score_line)

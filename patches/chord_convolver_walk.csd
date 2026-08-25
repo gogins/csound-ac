@@ -11,14 +11,14 @@ autumn, with sounds of voices, cars, jackdaws, and the church bell. The source
 recording is convolved with various grains of sound built up from sinusoids on 
 each octave of a set of pitch-classes, thus evoking or imparting different 
 harmonic content on different segments of the recording. This convolution is 
-done using the `harmony_convolver_scaled` opcode defined by me.
+done using the `chord_convolver` opcode defined by me.
 
 "Lagarda" is the Occitan name for this ancient village of Lagarde.
 
 <CsLicense>
 </CsLicense>
 <CsOptions>
--m32 -RWdo "harmony_convolver_scaled_walk.wav"  
+-m32 -RWdo "chord_convolver_walk.wav"  
 </CsOptions>
 <CsInstruments>
 
@@ -27,7 +27,7 @@ ksmps   = 32
 nchnls  = 2
 0dbfs   = 20
 
-#include "harmony_convolver_scaled.inc"
+#include "chord_convolver.inc"
 
 opcode splice_crossfade_stereo, aa, Siii
   S_filename, i_start_skip, i_end_skip, i_fade_dur xin
@@ -86,9 +86,8 @@ instr source_sound
 endin
 
 /*
-  a_output harmony_convolver_scaled i_kernel_duration, i_impulse_gain, 
-    i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, 
-    i_pitch_class_4, i_pitch_class_5
+  a_output chord_convolver a_input, i_impulse_duration,
+    i_impulse_gain, i_dirac_gain, i_compensation_type, i_partials...
 */
 
 instr evoke
@@ -99,22 +98,19 @@ instr evoke
   i_fadeout init p5
   i_kernel_duration init p6
   i_impulse_gain init p7
-  i_dirac_level init p8
-  i_pitch_class_1 init p9
-  i_pitch_class_2 init p10    
-  i_pitch_class_3 init p11    
-  i_pitch_class_4 init p12    
-  i_pitch_class_5 init p13
+  i_dirac_gain init p8
+  i_compensation_type init p9
+  i_partials[] passign 10
   a_envelope linsegr 0, i_fadein, 1, p3, 1, i_fadeout, 0
-  a_convolved_left harmony_convolver_scaled a_input_left, i_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5
-  a_convolved_right harmony_convolver_scaled a_input_right, i_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5
+  a_convolved_left chord_convolver a_input_left, i_kernel_duration, i_impulse_gain, i_dirac_gain, i_compensation_type, i_partials
+  a_convolved_right chord_convolver a_input_right, i_kernel_duration, i_impulse_gain, i_dirac_gain, i_compensation_type, i_partials
   a_convolved_left *= i_gain
   a_convolved_right *= i_gain
   a_convolved_left *= a_envelope
   a_convolved_right *= a_envelope
   outleta "leftout", a_convolved_left
   outleta "rightout", a_convolved_right
-  prints "Evoke:  seconds: %12.3f duration: %9.3f fadein: %5.2f fadeout: %5.2f impulse duration: %5.3f impulse gain: %5.3ff dirac level: %5.3f pitch-classes: %3d %3d %3d %3d %3d\n", p2, p3, i_fadein, i_fadeout, i_kernel_duration, i_impulse_gain, i_dirac_level, i_pitch_class_1, i_pitch_class_2, i_pitch_class_3, i_pitch_class_4, i_pitch_class_5
+  prints "Evoke:  seconds: %12.3f duration: %9.3f fadein: %5.2f fadeout: %5.2f impulse duration: %5.3f impulse gain: %5.3f dirac gain: %5.3f compensation: %d n_pcs: %d\n", p2, p3, i_fadein, i_fadeout, i_kernel_duration, i_impulse_gain, i_dirac_gain, i_compensation_type, lenarray(i_partials)
 endin
 
 instr master_output
@@ -145,36 +141,36 @@ alwayson "master_output"
 
 </CsInstruments>
 <CsScore>
-;            onset                     duration              fadein  fadeout kernel_dur kernel_gain dirac pitch_classes
-; Voices and cars
-i "evoke"    0.000          [ 29.266 -   0.000]                8.00     1.00       0.03         0.3   0.6   0 4 7 11 14 
-i "evoke"   29.266          [ 44.929 -  29.266]                1.00     1.00       0.04         0.1   0.6   2 5 9 12 14
-i "evoke"   44.929          [ 97.100 -  44.929]                1.00     1.00       0.06         0.15  0.7   5 7 9 14
-i "evoke"   97.100          [123.308 -  97.100]                1.00     1.00       0.05         0.1   0.5   2 5 9 12 4
-; Three bell strikes.
-i "evoke"  123.308          [125.140 - 123.308]                0.05     0.05       0.05         0.1   0.9   7 10 13 15
-i "evoke"  125.140          [126.922 - 125.140]                0.05     0.05       0.05         0.2   0.9   3 6 10 13 15
-i "evoke"  126.922          [149.000 - 126.922]                0.05    10.00       0.02         0.1   0.8   0 4 7 11 14
+;            onset                     duration              fadein  fadeout kernel_dur kernel_gain dirac comp pitch_classes
+; Voices and cars. Compensation 1 = equal energy. Trailing -1 clears carried p-fields.
+i "evoke"    0.000          [ 29.266 -   0.000]                8.00     1.00       0.03         0.3   0.6  1  0 4 7 11 14 -1
+i "evoke"   29.266          [ 44.929 -  29.266]                1.00     1.00       0.04         0.1   0.6  1  2 5 9 12 14 -1
+i "evoke"   44.929          [ 97.100 -  44.929]                1.00     1.00       0.06         0.15  0.7  1  5 7 9 14 -1
+i "evoke"   97.100          [123.308 -  97.100]                1.00     1.00       0.05         0.1   0.5  1  2 5 9 12 4 -1
+; Three bell strikes. Stronger chord vs dry (was impulse 0.1–0.2, Dirac 0.8–0.9).
+i "evoke"  123.308          [125.140 - 123.308]                0.05     0.05       0.08         0.45  0.35  1  7 10 13 15 -1
+i "evoke"  125.140          [126.922 - 125.140]                0.05     0.05       0.08         0.50  0.30  1  3 6 10 13 15 -1
+i "evoke"  126.922          [149.000 - 126.922]                0.05    10.00       0.06         0.40  0.35  1  0 4 7 11 14 -1
 ; Voices and cars return.
-i "evoke"  149.000          [243.000 - 149.000]               10.00     1.00       0.02         0.1   0.6   10 12 14 17
-; Three more bell strikes.
-i "evoke"  243.000          [245.000 - 243.000]                1.00     1.00       0.12         0.1   0.5    7 11 14 17 21
-i "evoke"  245.000          [247.000 - 245.000]                1.00     1.00       0.16         0.11  0.5   4 11 7  10 14
-i "evoke"  247.000          [260.000 - 247.000]                1.00     1.00       0.20         0.12  0.5   5  9 0 4 6
+i "evoke"  149.000          [243.000 - 149.000]               10.00     1.00       0.02         0.1   0.6  1  10 12 14 17 -1
+; Three more bell strikes. Stronger chord vs dry (was impulse ~0.1, Dirac 0.5).
+i "evoke"  243.000          [245.000 - 243.000]                1.00     1.00       0.14         0.40  0.28  1  7 11 14 17 21 -1
+i "evoke"  245.000          [247.000 - 245.000]                1.00     1.00       0.18         0.42  0.26  1  4 11 7 10 14 -1
+i "evoke"  247.000          [260.000 - 247.000]                1.00     1.00       0.22         0.45  0.25  1  5 9 0 4 6 -1
 ; Other sounds again.
-i "evoke"  260.000          [306.750 - 260.000]                1.00     0.25       0.03         0.1   0.7   0 4 7 11 14
+i "evoke"  260.000          [306.750 - 260.000]                1.00     0.25       0.03         0.1   0.7  1  0 4 7 11 14 -1
 ; A woman.
-i "evoke"  306.750          [320.781 - 306.750]                0.25    10.00       0.12         0.5   0.4   7 10 11 14
+i "evoke"  306.750          [320.781 - 306.750]                0.25    10.00       0.12         0.5   0.4  1  7 10 11 14 -1
 ; Other sounds.
-i "evoke"  320.781          [431.000 - 320.781]               10.00     1.00       0.01         0.4   0.7   0 4 7 11
+i "evoke"  320.781          [431.000 - 320.781]               10.00     1.00       0.01         0.4   0.7  1  0 4 7 11 -1
 
 ; 60 seconds cut from source recording starting at 420 seconds.
 
-i "evoke" [431.000 - 60]   [(536.740 - 60) - (431.000 - 60)]   1.00     1.00       0.06         0.6   0.7   2 6 9 1
+i "evoke" [431.000 - 60]   [(536.740 - 60) - (431.000 - 60)]   1.00     1.00       0.06         0.6   0.7  1  2 6 9 1 -1
 ; Walking through fallen leaves.
-i "evoke" [536.740 - 60]   [(544.000 - 60) - (536.740 - 60)]   1.00     0.50       0.01         0.2   0.9   4 7 11 2
-i "evoke" [544.500 - 60]   [(558.000 - 60) - (544.500 - 60)]   0.50     1.00       0.06         0.2   0.7   7 11 2 5
-i "evoke" [558.000 - 60]   [(576.000 - 60) - (558.000 - 60)]   0.50     1.00       0.02         0.2   0.9   0 4 7 11 
+i "evoke" [536.740 - 60]   [(544.000 - 60) - (536.740 - 60)]   1.00     0.50       0.01         0.2   0.9  1  4 7 11 2 -1
+i "evoke" [544.500 - 60]   [(558.000 - 60) - (544.500 - 60)]   0.50     1.00       0.06         0.2   0.7  1  7 11 2 5 -1
+i "evoke" [558.000 - 60]   [(576.000 - 60) - (558.000 - 60)]   0.50     1.00       0.02         0.2   0.9  1  0 4 7 11 -1 
 
  </CsScore>
 </CsoundSynthesizer>

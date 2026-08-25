@@ -15,7 +15,7 @@
     a  constant Q + full cosine
     b  constant Q + half cosine
     c  knee       + full cosine
-    d  knee       + half cosine     <- what harmony_convolver_scaled does
+    d  knee       + half cosine     <- what chord_convolver does
 
   So that only grain shape and length vary, the grain block is normalized to
   unit energy *before* the Dirac is added. Every treatment therefore has the
