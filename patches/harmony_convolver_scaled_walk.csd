@@ -18,7 +18,7 @@ done using the `harmony_convolver_scaled` opcode defined by me.
 <CsLicense>
 </CsLicense>
 <CsOptions>
--m32 -RWdo "harmony_convolver_walk_scaled.wav"  
+-m32 -RWdo "harmony_convolver_scaled_walk.wav"  
 </CsOptions>
 <CsInstruments>
 

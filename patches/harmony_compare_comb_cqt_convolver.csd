@@ -133,7 +133,7 @@ instr compare
       elseif (i_fx == 2) then
         i_loud = 4.677
       else
-        i_loud = 9.91
+        i_loud = 7.437
       endif
     else
       if (i_fx == 1) then
@@ -141,7 +141,7 @@ instr compare
       elseif (i_fx == 2) then
         i_loud = 0.196
       else
-        i_loud = 0.218
+        i_loud = 0.1595
       endif
     endif
   endif
