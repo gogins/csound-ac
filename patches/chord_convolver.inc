@@ -5,6 +5,12 @@ All variants build a sparse pitch-class x octave lattice of enveloped sinusoids,
 add a Dirac at sample 0, L2-normalize the whole impulse response, and convolve
 once with `ftconv`.
 
+Terminology: a *grain* is one causal half-cosine windowed sinusoid
+(pitch-class c, octave n). Its frequency response is a *kernel* `H_{c,n}`.
+The *impulse response* is the sum of the loudness-balanced grains plus a
+Dirac, then jointly L2-normalized. For a chord C those kernels form an
+octave-related scaled family.
+
 Per-partial window length (highs not over-long):
 ```
 T(f) = min(T, n_max / f),   n_max = T * 440
@@ -83,9 +89,9 @@ p      = 4 f / ERB(f)
 g_jk   = |f_j - f_k| / f_k
 D_k    = sum_j (1 + p g_jk) exp(-p g_jk)
 ```
-and scales that partial by D_k^(-1/2). A roex kernel is used rather than a count
-of partials inside the ERB because a hard count alternates abruptly between 0
-and -3 dB as semitone neighbours cross the band edge.
+and scales that partial by D_k^(-1/2). A roex(p) auditory-filter shape is used
+rather than a count of partials inside the ERB because a hard count alternates
+abruptly between 0 and -3 dB as semitone neighbours cross the band edge.
 
 Total grain energy is held constant across every combination of exponent and
 correction, so `i_impulse_gain` and `i_dirac_gain` keep their meaning
@@ -97,6 +103,10 @@ throughout.
 a_output chord_convolver a_input, i_impulse_duration, i_impulse_gain,
   i_dirac_gain, i_compensation_type [, i_pc1] [, i_pc2] ...
 ```
+
+`i_impulse_duration` is T, the grain-duration cap (and the length of the
+impulse-response table). `i_impulse_gain` scales the summed grains (the
+lattice); `i_dirac_gain` is the dry path at sample 0.
 
 Pitch-classes are the only optional arguments; any number may be given, or an
 i-rate array. They are reduced modulo 12, so scale degrees written above the
@@ -220,7 +230,7 @@ opcode chord_convolver_impl, a, aiiiii[]
   endif
 
   ; Rescale the per-partial gains so that sum(A^2 * T_f) matches the plain
-  ; equal-amplitude case. Total grain energy, hence the grain/Dirac balance
+  ; equal-amplitude case. Total grain energy, hence the lattice/Dirac balance
   ; after the joint L2 below, is then the same for every exponent and every
   ; correction, and only the spectral tilt changes.
   i_reference_energy = 0.0

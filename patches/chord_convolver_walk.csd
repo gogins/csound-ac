@@ -8,8 +8,8 @@ Copyright:  2025 Michael Gogins
 
 This is a short walk through the small village of Lagarde, Ariege, France, in 
 autumn, with sounds of voices, cars, jackdaws, and the church bell. The source 
-recording is convolved with various grains of sound built up from sinusoids on 
-each octave of a set of pitch-classes, thus evoking or imparting different 
+recording is convolved with an impulse response built from grains of sinusoids on
+each octave of a set of pitch-classes, thus evoking or imparting different
 harmonic content on different segments of the recording. This convolution is 
 done using the `chord_convolver` opcode defined by me.
 
@@ -96,21 +96,21 @@ instr evoke
   i_gain init .3
   i_fadein init p4
   i_fadeout init p5
-  i_kernel_duration init p6
+  i_grain_duration init p6
   i_impulse_gain init p7
   i_dirac_gain init p8
   i_compensation_type init p9
   i_partials[] passign 10
   a_envelope linsegr 0, i_fadein, 1, p3, 1, i_fadeout, 0
-  a_convolved_left chord_convolver a_input_left, i_kernel_duration, i_impulse_gain, i_dirac_gain, i_compensation_type, i_partials
-  a_convolved_right chord_convolver a_input_right, i_kernel_duration, i_impulse_gain, i_dirac_gain, i_compensation_type, i_partials
+  a_convolved_left chord_convolver a_input_left, i_grain_duration, i_impulse_gain, i_dirac_gain, i_compensation_type, i_partials
+  a_convolved_right chord_convolver a_input_right, i_grain_duration, i_impulse_gain, i_dirac_gain, i_compensation_type, i_partials
   a_convolved_left *= i_gain
   a_convolved_right *= i_gain
   a_convolved_left *= a_envelope
   a_convolved_right *= a_envelope
   outleta "leftout", a_convolved_left
   outleta "rightout", a_convolved_right
-  prints "Evoke:  seconds: %12.3f duration: %9.3f fadein: %5.2f fadeout: %5.2f impulse duration: %5.3f impulse gain: %5.3f dirac gain: %5.3f compensation: %d n_pcs: %d\n", p2, p3, i_fadein, i_fadeout, i_kernel_duration, i_impulse_gain, i_dirac_gain, i_compensation_type, lenarray(i_partials)
+  prints "Evoke:  seconds: %12.3f duration: %9.3f fadein: %5.2f fadeout: %5.2f grain duration: %5.3f impulse gain: %5.3f dirac gain: %5.3f compensation: %d n_pcs: %d\n", p2, p3, i_fadein, i_fadeout, i_grain_duration, i_impulse_gain, i_dirac_gain, i_compensation_type, lenarray(i_partials)
 endin
 
 instr master_output
@@ -141,7 +141,7 @@ alwayson "master_output"
 
 </CsInstruments>
 <CsScore>
-;            onset                     duration              fadein  fadeout kernel_dur kernel_gain dirac comp pitch_classes
+;            onset                     duration              fadein  fadeout grain_dur      wet dirac comp pitch_classes
 ; Voices and cars. Compensation 1 = equal energy. Trailing -1 clears carried p-fields.
 i "evoke"    0.000          [ 29.266 -   0.000]                8.00     1.00       0.03         0.3   0.6  1  0 4 7 11 14 -1
 i "evoke"   29.266          [ 44.929 -  29.266]                1.00     1.00       0.04         0.1   0.6  1  2 5 9 12 14 -1
